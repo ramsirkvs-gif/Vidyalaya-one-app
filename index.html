@@ -48,7 +48,7 @@ a {
   margin: 0 auto;
 }
 
-/* TOP HEADER */
+/* HEADER */
 header {
   background: var(--white);
   border-bottom: 1px solid var(--line);
@@ -109,7 +109,7 @@ header {
   font-weight: 700;
 }
 
-/* MAIN BANNER: ONE BACKGROUND IMAGE */
+/* HERO BANNER: RESPONSIVE SCHOOL-TEAM PHOTO */
 .hero {
   margin-top: 24px;
   min-height: 328px;
@@ -122,16 +122,15 @@ header {
   flex-direction: column;
   justify-content: center;
   color: white;
-
+  background-color: #173b68;
   background-image:
     linear-gradient(
       90deg,
-      rgba(13, 39, 76, .68) 0%,
-      rgba(18, 49, 88, .38) 55%,
-      rgba(18, 49, 88, .12) 100%
+      rgba(13, 39, 76, .72) 0%,
+      rgba(18, 49, 88, .43) 58%,
+      rgba(18, 49, 88, .20) 100%
     ),
     url("School%20Leadership%20Team%20at%20PM%20SHRI%20Vidyalaya.png");
-
   background-size: cover;
   background-position: center 43%;
   background-repeat: no-repeat;
@@ -152,7 +151,7 @@ header {
   letter-spacing: 1.2px;
   font-weight: 800;
   line-height: 1.6;
-  text-shadow: 0 1px 4px rgba(0,0,0,.65);
+  text-shadow: 0 1px 5px rgba(0,0,0,.7);
 }
 
 h1 {
@@ -162,7 +161,7 @@ h1 {
   line-height: 1.08;
   color: #ffffff;
   overflow-wrap: anywhere;
-  text-shadow: 0 2px 7px rgba(0,0,0,.45);
+  text-shadow: 0 2px 8px rgba(0,0,0,.5);
 }
 
 .hero p {
@@ -171,7 +170,7 @@ h1 {
   font-size: clamp(15px, 1.8vw, 18px);
   line-height: 1.65;
   max-width: 590px;
-  text-shadow: 0 1px 5px rgba(0,0,0,.6);
+  text-shadow: 0 1px 5px rgba(0,0,0,.65);
 }
 
 .hero-note {
@@ -179,8 +178,8 @@ h1 {
   align-items: center;
   margin-top: 22px;
   padding: 10px 14px;
-  border: 1px solid rgba(255,255,255,.48);
-  background: rgba(17,45,80,.62);
+  border: 1px solid rgba(255,255,255,.55);
+  background: rgba(17,45,80,.72);
   border-radius: 999px;
   font-size: 12px;
   line-height: 1.4;
@@ -211,7 +210,7 @@ h2 {
   line-height: 1.6;
 }
 
-/* RESPONSIVE APPLICATION CARDS */
+/* APPLICATION CARDS */
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -305,6 +304,7 @@ h2 {
   color: #7a8798;
 }
 
+/* NOTICE AND FOOTER */
 .notice {
   margin: 22px 0 32px;
   border: 1px solid var(--line);
@@ -344,8 +344,8 @@ footer {
   }
 
   .hero {
-    min-height: 310px;
-    background-position: center 43%;
+    min-height: 300px;
+    background-position: center 42%;
   }
 
   .grid {
@@ -386,7 +386,7 @@ footer {
 
   .brand small {
     font-size: 9px;
-    letter-spacing: .35px;
+    letter-spacing: .25px;
   }
 
   .internal {
@@ -394,18 +394,24 @@ footer {
     padding: 7px 9px;
   }
 
-  /* Responsive banner: no second image declaration */
+  /* Taller mobile banner with a photo position
+     adjusted for a narrow screen */
   .hero {
-    margin-top: 14px;
+    margin-top: 15px;
     min-height: 0;
     height: auto;
-    min-height: clamp(370px, 112vw, 470px);
-    padding: 28px 20px;
+    padding: 28px 19px;
     border-radius: 17px;
-
+    justify-content: center;
     background-size: cover;
-    background-position: center 40%;
-    background-repeat: no-repeat;
+    background-position: center 38%;
+    background-image:
+      linear-gradient(
+        90deg,
+        rgba(13, 39, 76, .72) 0%,
+        rgba(18, 49, 88, .48) 100%
+      ),
+      url("School%20Leadership%20Team%20at%20PM%20SHRI%20Vidyalaya.png");
   }
 
   .hero-content {
@@ -415,29 +421,29 @@ footer {
 
   .eyebrow {
     font-size: 10px;
-    letter-spacing: .8px;
+    letter-spacing: .7px;
     line-height: 1.7;
   }
 
   h1 {
-    font-size: clamp(32px, 9vw, 43px);
+    font-size: clamp(30px, 8.5vw, 42px);
     letter-spacing: -1px;
     margin: 12px 0;
-    line-height: 1.1;
+    line-height: 1.12;
   }
 
   .hero p {
-    font-size: 15px;
-    line-height: 1.65;
+    font-size: 14px;
+    line-height: 1.6;
     max-width: 100%;
   }
 
   .hero-note {
-    margin-top: 18px;
+    margin-top: 17px;
     font-size: 11px;
     padding: 9px 11px;
+    border-radius: 12px;
     line-height: 1.5;
-    white-space: normal;
   }
 
   .section-head {
@@ -498,9 +504,24 @@ footer {
     width: calc(100% - 18px);
   }
 
+  .brand {
+    gap: 6px;
+  }
+
+  .brand-mark {
+    flex-basis: 33px;
+    width: 33px;
+    height: 33px;
+    font-size: 16px;
+  }
+
+  .brand-name {
+    font-size: 12px;
+  }
+
   .brand small {
-    font-size: 8px;
-    letter-spacing: .15px;
+    font-size: 7px;
+    letter-spacing: 0;
   }
 
   .internal {
@@ -510,12 +531,11 @@ footer {
 
   .hero {
     padding: 23px 15px;
-    min-height: 380px;
-    background-position: center 40%;
+    background-position: center 36%;
   }
 
   h1 {
-    font-size: 31px;
+    font-size: 30px;
   }
 
   .app-card {
@@ -523,6 +543,15 @@ footer {
   }
 }
 
+/* LANDSCAPE PHONES */
+@media (max-width: 900px) and (orientation: landscape) {
+  .hero {
+    min-height: 260px;
+    background-position: center 40%;
+  }
+}
+
+/* ACCESSIBILITY */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -554,14 +583,11 @@ footer {
       <div class="eyebrow">
         PM SHRI Kendriya Vidyalaya No. 1 Itanagar
       </div>
-
       <h1 id="main-title">Vidyalaya One</h1>
-
       <p>
         One connected starting point for school applications,
         academic work and daily operations.
       </p>
-
       <div class="hero-note">
         Integrated School Management Portal
       </div>
@@ -594,7 +620,7 @@ footer {
         </div>
       </a>
 
-      <!-- TIMETABLE AND DUTY HUB -->
+      <!-- TIMETABLE & SCHOOL DUTY HUB -->
       <a class="app-card"
          href="https://kvstimetable-rouge.vercel.app/"
          target="_blank"
@@ -686,6 +712,5 @@ document.querySelectorAll("[data-app]").forEach(function(link) {
   });
 });
 </script>
-
 </body>
 </html>
