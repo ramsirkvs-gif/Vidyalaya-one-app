@@ -219,8 +219,8 @@ h2 {
 
 .app-card {
   min-width: 0;
-  background: var(--white);
-  border: 1px solid var(--line);
+  background: var(--card-bg, #ffffff);
+  border: 1px solid var(--card-border, var(--line));
   border-radius: 17px;
   padding: 22px;
   min-height: 205px;
@@ -234,6 +234,23 @@ h2 {
   transform: translateY(-2px);
   box-shadow: 0 13px 30px rgba(25,55,90,.12);
 }
+
+/* DIFFERENT LIGHT SHADES FOR EACH APPLICATION CARD
+   Pastel backgrounds keep the portal colourful while preserving text contrast. */
+.app-card:nth-child(1)  { --card-bg: #eef5ff; --card-border: #d5e4fb; --icon-bg: #dceaff; --icon-ink: #244f8c; --action-ink: #244f8c; }
+.app-card:nth-child(2)  { --card-bg: #eaf8f3; --card-border: #cdeade; --icon-bg: #d5f0e5; --icon-ink: #17664e; --action-ink: #17664e; }
+.app-card:nth-child(3)  { --card-bg: #fff5e8; --card-border: #f3dfc3; --icon-bg: #ffe9cb; --icon-ink: #89520c; --action-ink: #89520c; }
+.app-card:nth-child(4)  { --card-bg: #f4efff; --card-border: #e0d5fa; --icon-bg: #e8ddff; --icon-ink: #5b3a96; --action-ink: #5b3a96; }
+.app-card:nth-child(5)  { --card-bg: #eaf7ff; --card-border: #cfe9f8; --icon-bg: #d6efff; --icon-ink: #175b80; --action-ink: #175b80; }
+.app-card:nth-child(6)  { --card-bg: #f0f8e9; --card-border: #dcebc9; --icon-bg: #e1f0d1; --icon-ink: #456c21; --action-ink: #456c21; }
+.app-card:nth-child(7)  { --card-bg: #fff0f3; --card-border: #f4d7df; --icon-bg: #ffdee6; --icon-ink: #92364f; --action-ink: #92364f; }
+.app-card:nth-child(8)  { --card-bg: #edf2ff; --card-border: #d8e0fb; --icon-bg: #dce5ff; --icon-ink: #334f9b; --action-ink: #334f9b; }
+.app-card:nth-child(9)  { --card-bg: #eaf9f8; --card-border: #ccebe8; --icon-bg: #d5f1ee; --icon-ink: #176b67; --action-ink: #176b67; }
+.app-card:nth-child(10) { --card-bg: #fff7e8; --card-border: #f1e4c6; --icon-bg: #ffedc9; --icon-ink: #805a10; --action-ink: #805a10; }
+.app-card:nth-child(11) { --card-bg: #f2efff; --card-border: #ded8fb; --icon-bg: #e5dfff; --icon-ink: #55439a; --action-ink: #55439a; }
+.app-card:nth-child(12) { --card-bg: #eef8ed; --card-border: #d8ead5; --icon-bg: #ddf0d9; --icon-ink: #386b35; --action-ink: #386b35; }
+.app-card:nth-child(13) { --card-bg: #fff0e9; --card-border: #f4dbcf; --icon-bg: #ffe0d2; --icon-ink: #8d4728; --action-ink: #8d4728; }
+.app-card:nth-child(14) { --card-bg: #edf7ff; --card-border: #d3e7f7; --icon-bg: #d9edff; --icon-ink: #245e88; --action-ink: #245e88; }
 
 .card-top {
   display: flex;
@@ -249,8 +266,8 @@ h2 {
   border-radius: 14px;
   display: grid;
   place-items: center;
-  background: #edf3fb;
-  color: var(--blue);
+  background: var(--icon-bg, #edf3fb);
+  color: var(--icon-ink, var(--blue));
   font-size: 23px;
 }
 
@@ -280,7 +297,7 @@ h2 {
 }
 
 .app-card p {
-  color: var(--muted);
+  color: #34445a;
   font-size: 13px;
   line-height: 1.65;
   margin: 0;
@@ -296,7 +313,7 @@ h2 {
   flex-wrap: wrap;
   font-size: 13px;
   line-height: 1.5;
-  color: var(--blue);
+  color: var(--action-ink, var(--blue));
   font-weight: 750;
 }
 
