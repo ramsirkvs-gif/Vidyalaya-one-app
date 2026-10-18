@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#173b68">
   <title>Vidyalaya One | Integrated School Management Portal</title>
+
   <style>
     :root {
       --navy: #173b68;
@@ -27,12 +28,17 @@
       font-family: Inter, "Segoe UI", Arial, sans-serif;
     }
 
-    a { color: inherit; text-decoration: none; }
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
 
     .wrap {
       width: min(1120px, calc(100% - 36px));
       margin: 0 auto;
     }
+
+    /* TOP NAVIGATION HEADER */
 
     header {
       background: var(--white);
@@ -58,6 +64,7 @@
     .brand-mark {
       width: 42px;
       height: 42px;
+      flex-shrink: 0;
       border-radius: 13px;
       display: grid;
       place-items: center;
@@ -84,37 +91,48 @@
       padding: 8px 12px;
       font-size: 12px;
       font-weight: 700;
+      white-space: nowrap;
     }
+
+    /* MAIN HERO BANNER WITH SCHOOL PHOTO */
 
     .hero {
       margin-top: 28px;
-      padding: clamp(26px, 5vw, 48px);
-      color: white;
+      padding: clamp(30px, 5vw, 58px);
+      color: var(--ink);
+      border: 1px solid rgba(255,255,255,.8);
       border-radius: 22px;
-      background: linear-gradient(120deg, #173b68, #28578c);
+
+      background-image:
+        linear-gradient(
+          90deg,
+          rgba(244,247,251,.88) 0%,
+          rgba(244,247,251,.78) 55%,
+          rgba(244,247,251,.64) 100%
+        ),
+        url("School%20Leadership%20Team%20at%20PM%20SHRI%20Vidyalaya.png");
+
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+
       position: relative;
       overflow: hidden;
+      box-shadow: var(--shadow);
     }
 
     .hero:after {
-      content: "";
-      position: absolute;
-      width: 270px;
-      height: 270px;
-      border: 1px solid rgba(255,255,255,.12);
-      border-radius: 50%;
-      right: -55px;
-      top: -105px;
-      box-shadow: 0 0 0 32px rgba(255,255,255,.035),
-                  0 0 0 66px rgba(255,255,255,.025);
+      content: none;
     }
 
     .eyebrow {
-      color: #c8dcf5;
+      color: var(--navy);
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 1.5px;
       font-weight: 750;
+      position: relative;
+      z-index: 1;
     }
 
     h1 {
@@ -122,26 +140,35 @@
       letter-spacing: -1.8px;
       margin: 12px 0 10px;
       line-height: 1.05;
+      color: var(--navy);
+      position: relative;
+      z-index: 1;
     }
 
     .hero p {
       margin: 0;
-      color: #e1ebf8;
+      color: #263c56;
       font-size: clamp(15px, 2vw, 18px);
       line-height: 1.6;
       max-width: 620px;
+      position: relative;
+      z-index: 1;
     }
 
     .hero-note {
       display: inline-flex;
       margin-top: 23px;
       padding: 9px 13px;
-      border: 1px solid rgba(255,255,255,.23);
-      background: rgba(255,255,255,.08);
+      border: 1px solid rgba(23,59,104,.25);
+      background: rgba(255,255,255,.72);
       border-radius: 999px;
       font-size: 12px;
-      color: #f1f6fc;
+      color: var(--navy);
+      position: relative;
+      z-index: 1;
     }
+
+    /* APPLICATION SECTION */
 
     .section-head {
       margin: 34px 0 16px;
@@ -178,7 +205,8 @@
       box-shadow: var(--shadow);
       display: flex;
       flex-direction: column;
-      transition: transform .18s ease, box-shadow .18s ease,
+      transition: transform .18s ease,
+                  box-shadow .18s ease,
                   border-color .18s ease;
     }
 
@@ -191,7 +219,7 @@
     .card-top {
       display: flex;
       justify-content: space-between;
-      align-items: start;
+      align-items: flex-start;
       gap: 12px;
     }
 
@@ -204,6 +232,7 @@
       background: #edf3fb;
       color: var(--blue);
       font-size: 23px;
+      flex-shrink: 0;
     }
 
     .status {
@@ -245,7 +274,9 @@
       font-weight: 750;
     }
 
-    .card-action.disabled { color: #7a8798; }
+    .card-action.disabled {
+      color: #7a8798;
+    }
 
     .notice {
       margin: 22px 0 34px;
@@ -257,6 +288,8 @@
       font-size: 12px;
       line-height: 1.6;
     }
+
+    /* FOOTER */
 
     footer {
       border-top: 1px solid var(--line);
@@ -273,37 +306,69 @@
       flex-wrap: wrap;
     }
 
+    /* MOBILE RESPONSIVENESS */
+
     @media (max-width: 640px) {
-      .wrap { width: min(100% - 24px, 1120px); }
-      .topbar { min-height: 64px; }
-      .internal { font-size: 10px; padding: 7px 9px; }
-      .grid { grid-template-columns: 1fr; }
-      .app-card { min-height: 175px; }
+      .wrap {
+        width: calc(100% - 24px);
+      }
+
+      .topbar {
+        min-height: 64px;
+      }
+
+      .brand {
+        gap: 9px;
+      }
+
+      .brand small {
+        font-size: 9px;
+        letter-spacing: .4px;
+      }
+
+      .brand-mark {
+        width: 38px;
+        height: 38px;
+        font-size: 19px;
+      }
+
+      .internal {
+        font-size: 9px;
+        padding: 7px 8px;
+      }
+
+      .grid {
+        grid-template-columns: 1fr;
+      }
+
+      .app-card {
+        min-height: 175px;
+      }
+
       .section-head {
-        align-items: start;
+        align-items: flex-start;
         flex-direction: column;
       }
-      .hero { border-radius: 17px; }
+
+      .hero {
+        margin-top: 18px;
+        border-radius: 17px;
+        padding: 28px 22px;
+        background-position: center;
+      }
+
+      .hero p {
+        max-width: 100%;
+      }
     }
   </style>
 </head>
 
 <body>
+
+  <!-- TOP NAVIGATION: NO SCHOOL PHOTO HERE -->
   <header>
-   <div class="wrap topbar">
-  <div class="brand">
-    <img
-      src="School%20Leadership%20Team%20at%20PM%20SHRI%20Vidyalaya.png"
-      alt="School Leadership Team at PM SHRI Kendriya Vidyalaya No. 1 Itanagar"
-      style="width: 100px; height: 60px; object-fit: cover; object-position: center; border-radius: 10px;"
-    >
-    <div>
-      Vidyalaya One
-      <small>School Management Portal</small>
-    </div>
-  </div>
-  <div class="internal">INTERNAL PORTAL</div>
-</div>
+    <div class="wrap topbar">
       <div class="brand">
         <div class="brand-mark" aria-hidden="true">V1</div>
         <div>
@@ -311,24 +376,34 @@
           <small>School Management Portal</small>
         </div>
       </div>
+
       <div class="internal">INTERNAL PORTAL</div>
     </div>
   </header>
 
   <main class="wrap">
+
+    <!-- MAIN BANNER: SCHOOL PHOTO AS LIGHT BACKGROUND -->
     <section class="hero" aria-labelledby="main-title">
       <div class="eyebrow">
         PM SHRI Kendriya Vidyalaya No. 1 Itanagar
       </div>
+
       <h1 id="main-title">Vidyalaya One</h1>
+
       <p>
         One connected starting point for school applications,
         academic work and daily operations.
       </p>
-      <div class="hero-note">Integrated School Management Portal</div>
+
+      <div class="hero-note">
+        Integrated School Management Portal
+      </div>
     </section>
 
+    <!-- SCHOOL APPLICATIONS -->
     <section aria-labelledby="apps-title">
+
       <div class="section-head">
         <div>
           <h2 id="apps-title">Your School Applications</h2>
@@ -343,31 +418,41 @@
            href="https://samagam.kvs.gov.in/"
            target="_blank"
            rel="noopener noreferrer">
+
           <div class="card-top">
             <div class="app-icon" aria-hidden="true">▤</div>
             <span class="status">READY-MADE</span>
           </div>
+
           <h3>KVS SAMAGAM</h3>
-          <p>Official KVS portal and departmental resources.</p>
+
+          <p>
+            Official KVS portal and departmental resources.
+          </p>
+
           <div class="card-action">
             Open official portal <span aria-hidden="true">↗</span>
           </div>
         </a>
 
-        <!-- TIMETABLE & SCHOOL DUTY HUB: LINK UPDATED -->
+        <!-- TIMETABLE & SCHOOL DUTY HUB -->
         <a class="app-card"
            href="https://kvstimetable-rouge.vercel.app/"
            target="_blank"
            rel="noopener noreferrer">
+
           <div class="card-top">
             <div class="app-icon" aria-hidden="true">▦</div>
             <span class="status">READY-MADE</span>
           </div>
+
           <h3>TIMETABLE &amp; SCHOOL DUTY HUB</h3>
+
           <p>
             Timetable · Morning SOP · Assembly Duty · Lunch Duty ·
             Dispersal Duty · Extra-Class Timetable.
           </p>
+
           <div class="card-action">
             Open Timetable &amp; Duty Hub
             <span aria-hidden="true">↗</span>
@@ -376,17 +461,21 @@
 
         <!-- ACADEMIC PROGRESS & STUDENT SUPPORT -->
         <a class="app-card" href="#" data-app="results">
+
           <div class="card-top">
             <div class="app-icon" aria-hidden="true">▥</div>
             <span class="status progress">IN PROGRESS</span>
           </div>
+
           <h3>ACADEMIC PROGRESS &amp; STUDENT SUPPORT</h3>
+
           <p>
             CBSE Classes X &amp; XII only: progressive result monitoring,
             learning-gap identification, remedial classes, absentee
             alerts, parent contact and follow-up, mock tests, writing
             practice and CBSE study-material development.
           </p>
+
           <div class="card-action disabled">
             Coming soon <span aria-hidden="true">→</span>
           </div>
@@ -394,17 +483,21 @@
 
         <!-- EXAMINATION MANAGEMENT CENTRE -->
         <a class="app-card" href="#" data-app="exams">
+
           <div class="card-top">
             <div class="app-icon" aria-hidden="true">☷</div>
             <span class="status">TO BE DEVELOPED</span>
           </div>
+
           <h3>EXAMINATION MANAGEMENT CENTRE</h3>
+
           <p>
             Examination planning, seating arrangements and duty,
             pre-board planning, mock admit cards, examination data-drive
             management, and answer-book bundle collection, issue,
             evaluation tracking and return.
           </p>
+
           <div class="card-action disabled">
             Planned application <span aria-hidden="true">→</span>
           </div>
@@ -419,6 +512,7 @@
         This version does not include login or access control. Secure
         authentication must be added before using confidential school data.
       </div>
+
     </section>
   </main>
 
@@ -446,5 +540,6 @@
       });
     });
   </script>
+
 </body>
 </html>
