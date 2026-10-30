@@ -107,3 +107,66 @@ Firebase emulator in this environment.
 
 The implementation covers basic student data only. Marks, attendance, reports
 and other examination monitoring features are future work.
+
+## Official Firebase agent plugin and CLI
+
+Installed in this managed environment from the official current marketplace:
+
+- Codex plugin: `firebase@firebase`, version **1.1.0**, enabled.
+- Upstream revision: `09fe6d688e0f9d0ff73f141b8d12f4013b86e19b`.
+- Firebase CLI verified: **15.34.2**.
+
+To install in another Codex environment:
+
+```sh
+codex plugin marketplace add firebase/skills
+codex plugin add firebase@firebase
+codex plugin list --marketplace firebase
+```
+
+Use `codex plugin marketplace upgrade --help` for the installed CLI's marketplace
+refresh options, refresh the Firebase marketplace, and reinstall/update the
+plugin when a newer release is available. The project `AGENTS.md` records that
+future Firebase work should consult the official skills.
+
+`firebase.json` now declares Email/Password authentication and the existing
+Realtime Database rules; `.firebaserc` selects `vidyalaya-one-app`. These are
+configuration files, not evidence that the backend has been changed. After
+signing in to the Firebase CLI securely in an interactive terminal:
+
+```sh
+npx -y firebase-tools@latest login --no-localhost
+npx -y firebase-tools@latest deploy --only auth --project vidyalaya-one-app
+```
+
+The auth-only deploy enables Email/Password and does not disable other providers.
+It does not create the Principal user, set its password, set `cbse/adminUid`, or
+deploy database rules. Complete the console steps above for those requirements.
+Do not paste CLI authorization codes, refresh tokens or service-account keys
+into chat or commit them to the repository. Browser-side `createUserWithEmailAndPassword`
+creates an Auth user only after the provider has been enabled; it does not enable
+Email/Password or authorize that user as the Principal. Keep signup out of the
+public Principal login page.
+
+For an actual Auth SDK test using synthetic credentials, start the local Auth
+emulator in a separate terminal:
+
+```sh
+npx -y firebase-tools@latest emulators:start --only auth --project demo-vidyalaya-one-app
+```
+
+Install the matching SDK in an external test cache, then run:
+
+```sh
+npm install --prefix /workspace/.cache/firebase-auth-sdk --no-audit --no-fund firebase@11.10.0
+node tests/firebase-auth-emulator.mjs
+```
+
+`FIREBASE_TEST_SDK_DIR` can point to another directory containing that SDK's
+`package.json` and `node_modules`. The test is fixed to the loopback Auth emulator
+and a demo project, so it never creates accounts in the live project. Account
+creation, login, wrong-password rejection, reauthentication and password changes
+passed against Firebase Auth emulator/CLI 15.34.2 with SDK 11.10.0. Production
+activation remains unverified: no Firebase CLI account was authorized, the MCP
+connection timed out, and the environment's live Firebase network additions had
+not been applied.
