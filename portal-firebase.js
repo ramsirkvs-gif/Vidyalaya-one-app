@@ -17,9 +17,15 @@ const fallback = grid.innerHTML;
 function renderApplications(value) {
   const entries = value && typeof value === "object" ? Object.values(value) : [];
   const fragment = document.createDocumentFragment();
-  for (const entry of entries) {
+  for (let entry of entries) {
     if (!entry || typeof entry.title !== "string" || !entry.title.trim() ||
         typeof entry.note !== "string" || typeof entry.url !== "string") continue;
+    // Keep the implemented CBSE workspace accessible if an older catalogue still
+    // contains its original Coming soon entry.
+    if (entry.title === "CBSE BOARD EXAMINATION — PROGRESS MONITORING") {
+      entry = {...entry, url: new URL("cbse-students.html", location.href).href,
+        status: "BASIC DATA & SEARCH", action: "Open CBSE Students Basic Data"};
+    }
     const placeholder = entry.url === "#";
     if (!placeholder) {
       try { if (new URL(entry.url).protocol !== "https:") continue; }

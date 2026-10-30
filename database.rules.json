@@ -6,6 +6,212 @@
       "applications": {
         ".read": true
       }
+    },
+    "cbse": {
+      "adminUid": {
+        ".read": "auth != null && auth.uid === data.val()",
+        ".write": false
+      },
+      "draft": {
+        ".read": "auth != null && auth.uid === root.child('cbse/adminUid').val()",
+        ".write": "auth != null && auth.uid === root.child('cbse/adminUid').val()",
+        ".validate": "newData.hasChildren(['schemaVersion','revision','classes']) && newData.child('schemaVersion').val() === 1 && newData.child('revision').isNumber() && ((!data.exists() && newData.child('revision').val() === 1) || (data.exists() && newData.child('revision').val() === data.child('revision').val() + 1))",
+        "schemaVersion": {
+          ".validate": "newData.val() === 1"
+        },
+        "revision": {
+          ".validate": "newData.isNumber() && newData.val() >= 1"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "streams": {
+          "$stream": {
+            ".validate": "newData.hasChild('name')",
+            "name": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60"
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "classes": {
+          ".validate": "newData.hasChildren(['X','XII'])",
+          "X": {
+            ".validate": "newData.hasChild('label')",
+            "label": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60"
+            },
+            "sections": {
+              "$section": {
+                ".validate": "newData.hasChildren(['name', 'stream'])",
+                "name": {
+                  ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+                },
+                "stream": {
+                  ".validate": "newData.isString() && (newData.val() === '' || newData.parent().parent().parent().parent().parent().child('streams').child(newData.val()).exists())"
+                },
+                "subjects": {
+                  "$subject": {
+                    ".validate": "newData.hasChildren(['name', 'code'])",
+                    "name": {
+                      ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80"
+                    },
+                    "code": {
+                      ".validate": "newData.isString() && newData.val().length <= 20"
+                    },
+                    "$other": {
+                      ".validate": false
+                    }
+                  }
+                },
+                "students": {
+                  "$student": {
+                    ".validate": "newData.hasChildren(['name', 'roll'])",
+                    "name": {
+                      ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
+                    },
+                    "roll": {
+                      ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+                    },
+                    "subjects": {
+                      "$id": {
+                        ".validate": "newData.val() === true && newData.parent().parent().parent().parent().child('subjects').child($id).exists()"
+                      }
+                    },
+                    "$other": {
+                      ".validate": false
+                    }
+                  }
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "XII": {
+            ".validate": "newData.hasChild('label')",
+            "label": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 60"
+            },
+            "sections": {
+              "$section": {
+                ".validate": "newData.hasChildren(['name', 'stream'])",
+                "name": {
+                  ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+                },
+                "stream": {
+                  ".validate": "newData.isString() && (newData.val() === '' || newData.parent().parent().parent().parent().parent().child('streams').child(newData.val()).exists())"
+                },
+                "subjects": {
+                  "$subject": {
+                    ".validate": "newData.hasChildren(['name', 'code'])",
+                    "name": {
+                      ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 80"
+                    },
+                    "code": {
+                      ".validate": "newData.isString() && newData.val().length <= 20"
+                    },
+                    "$other": {
+                      ".validate": false
+                    }
+                  }
+                },
+                "students": {
+                  "$student": {
+                    ".validate": "newData.hasChildren(['name', 'roll'])",
+                    "name": {
+                      ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
+                    },
+                    "roll": {
+                      ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+                    },
+                    "subjects": {
+                      "$id": {
+                        ".validate": "newData.val() === true && newData.parent().parent().parent().parent().child('subjects').child($id).exists()"
+                      }
+                    },
+                    "$other": {
+                      ".validate": false
+                    }
+                  }
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "$other": {
+            ".validate": false
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      },
+      "public": {
+        ".read": true,
+        ".write": "auth != null && auth.uid === root.child('cbse/adminUid').val()",
+        ".validate": "newData.hasChildren(['schemaVersion','draftRevision','includesStudents','publishedAt']) && newData.child('draftRevision').val() === root.child('cbse/draft/revision').val()",
+        "schemaVersion": {
+          ".validate": "newData.val() === 1"
+        },
+        "draftRevision": {
+          ".validate": "newData.isNumber()"
+        },
+        "includesStudents": {
+          ".validate": "newData.isBoolean()"
+        },
+        "publishedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "sections": {
+          "$section": {
+            ".validate": "newData.hasChildren(['classId','section','stream','count']) && (!newData.child('students').exists() || newData.parent().parent().child('includesStudents').val() === true)",
+            "classId": {
+              ".validate": "newData.val() === 'X' || newData.val() === 'XII'"
+            },
+            "section": {
+              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+            },
+            "stream": {
+              ".validate": "newData.isString() && newData.val().length <= 60"
+            },
+            "count": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "students": {
+              "$student": {
+                ".validate": "newData.hasChildren(['name','roll'])",
+                "name": {
+                  ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 120"
+                },
+                "roll": {
+                  ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 30"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            },
+            "$other": {
+              ".validate": false
+            }
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
     }
   }
 }

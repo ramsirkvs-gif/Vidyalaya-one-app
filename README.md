@@ -41,3 +41,17 @@ For Vercel, connect this GitHub repository with production branch `main`, framew
 preset Other, repository root directory, and no build command. A push to `main`
 should trigger the linked project's deployment. GitHub publishing alone does not
 prove a Vercel deployment succeeded; check its deployment status and live page.
+
+
+## CBSE Students Basic Data
+
+The CBSE card now opens `cbse-students.html`, with a separate Principal workspace
+at `cbse-admin.html`. See [CBSE_SETUP.md](CBSE_SETUP.md) for the one-time Firebase
+Authentication and database rules setup, private CSV/JSON import, and publishing.
+No student records or Principal password are included in this repository.
+
+Checks: `node --test tests/cbse-model.test.mjs`. For browser checks, serve the root
+with `python3 -m http.server 8000 --bind 127.0.0.1`, then run
+`python3 tests/cbse-browser.py` with Python Playwright and Chromium installed.
+Browser tests use synthetic students and mocked Firebase services. They do not
+validate a live Firebase deployment or replace database-rule enforcement tests.

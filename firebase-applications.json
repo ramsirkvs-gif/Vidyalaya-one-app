@@ -19,10 +19,10 @@
     {
       "title": "CBSE BOARD EXAMINATION — PROGRESS MONITORING",
       "note": "Monitoring of Classes X & XII board-examination preparation, subject-wise performance, learning gaps, attendance, remedial classes, mock tests, answer-writing practice, parent follow-up and CBSE study materials.",
-      "url": "#",
+      "url": "https://vidyalaya-one-app.vercel.app/cbse-students.html",
       "icon": "▥",
-      "status": "IN PROGRESS",
-      "action": "Coming soon"
+      "status": "BASIC DATA & SEARCH",
+      "action": "Open CBSE Students Basic Data"
     },
     {
       "title": "EXAMINATION MANAGEMENT CENTRE",
