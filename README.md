@@ -15,3 +15,29 @@ A responsive static landing page for PM SHRI Kendriya Vidyalaya No. 1 Itanagar.
 
 ## Important security note
 This starter is a public-facing static page unless access is restricted through a suitable deployment/authentication setup. It does not include authentication, staff roles, permissions, or confidential student data. Add secure server-side authentication and authorization before using it for internal or sensitive school operations.
+
+## Live application tiles with Firebase
+
+The bundled tiles, including MEDHA immediately after PRASHAST, work without Firebase.
+`portal-firebase.js` listens to `portal/applications` in Realtime Database and updates
+open pages automatically when that public catalogue changes. Empty data, denied
+access, or unavailable Firebase preserves the bundled cards. Use only public titles,
+notes and HTTPS links here; never put student or confidential data in this path.
+
+One-time Firebase Console setup (project `vidyalaya-one-app`):
+
+1. Realtime Database → Data: create/select the `portal` child, then use its menu
+   **Import JSON** with `firebase-applications.json`. Import into `/portal`, not the
+   database root, to preserve unrelated data. The file contains an `applications` key.
+2. Realtime Database → Rules: for the currently empty, locked database, use
+   `database.rules.json` and click Publish. It permits public reads only at
+   `/portal/applications` and denies all client writes. If you already have other
+   rules, merge this path rather than overwriting those rules.
+3. Edit application titles, notes and URLs under `/portal/applications` in the
+   Firebase Console. Connected devices update without a new Vercel deployment.
+   Firebase Console access is required to edit; no public write rule is needed.
+
+For Vercel, connect this GitHub repository with production branch `main`, framework
+preset Other, repository root directory, and no build command. A push to `main`
+should trigger the linked project's deployment. GitHub publishing alone does not
+prove a Vercel deployment succeeded; check its deployment status and live page.

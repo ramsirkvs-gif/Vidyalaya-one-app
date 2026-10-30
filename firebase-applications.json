@@ -1,0 +1,124 @@
+{
+  "applications": [
+    {
+      "title": "KVS SAMAGAM",
+      "note": "Official KVS portal and departmental resources.",
+      "url": "https://samagam.kvs.gov.in/",
+      "icon": "▤",
+      "status": "READY-MADE",
+      "action": "Open official portal"
+    },
+    {
+      "title": "TIMETABLE & SCHOOL DUTY HUB",
+      "note": "Timetable · Morning SOP · Lunch Duty · Dispersal Duty · Extra-Class Timetable.",
+      "url": "https://kvstimetable-rouge.vercel.app/",
+      "icon": "▦",
+      "status": "READY-MADE",
+      "action": "Open Timetable & Duty Hub"
+    },
+    {
+      "title": "CBSE BOARD EXAMINATION — PROGRESS MONITORING",
+      "note": "Monitoring of Classes X & XII board-examination preparation, subject-wise performance, learning gaps, attendance, remedial classes, mock tests, answer-writing practice, parent follow-up and CBSE study materials.",
+      "url": "#",
+      "icon": "▥",
+      "status": "IN PROGRESS",
+      "action": "Coming soon"
+    },
+    {
+      "title": "EXAMINATION MANAGEMENT CENTRE",
+      "note": "Examination planning, seating arrangements and duty, pre-board planning, mock admit cards, examination data-drive management, and answer-book bundle collection, issue, evaluation tracking and return.",
+      "url": "https://vems-new-portal-with-firebase.vercel.app/",
+      "icon": "☷",
+      "status": "APPLICATION AVAILABLE",
+      "action": "Open Examination Management Centre"
+    },
+    {
+      "title": "UBI KVS FEE PORTAL",
+      "note": "Union Bank of India’s Kendriya Vidyalaya Fee Collection System for authorized school login and student fee-related work.",
+      "url": "https://epay.unionbankofindia.bank.in/kvsfcs/kvlogin.aspx",
+      "icon": "₹",
+      "status": "OFFICIAL PORTAL",
+      "action": "Open UBI KVS Portal"
+    },
+    {
+      "title": "UDISE+ SCHOOL DATA PORTAL",
+      "note": "School data management, profile and infrastructure details, student and teacher information, and educational data reporting.",
+      "url": "https://udiseplus.gov.in/#/en/page/oldlink/192",
+      "icon": "▤",
+      "status": "OFFICIAL PORTAL",
+      "action": "Open UDISE+ Portal"
+    },
+    {
+      "title": "PRASHAST APP",
+      "note": "School-level screening support to help identify children who may need further assessment for disabilities and inclusive-education support.",
+      "url": "https://play.google.com/store/apps/details?id=com.dscs.app",
+      "icon": "✓",
+      "status": "OFFICIAL APP",
+      "action": "Get PRASHAST App"
+    },
+    {
+      "title": "MEDHA APP",
+      "note": "Access the MEDHA application and its online services.",
+      "url": "https://medha.cograd.in/",
+      "icon": "▤",
+      "status": "APPLICATION AVAILABLE",
+      "action": "Open MEDHA App"
+    },
+    {
+      "title": "KVS ONLINE TRANSFER PORTAL",
+      "note": "Official KVS portal for online transfer-related processes and school-level transfer information, as applicable.",
+      "url": "https://kvsonlinetransfer.kvs.gov.in/school/#/",
+      "icon": "⇄",
+      "status": "OFFICIAL PORTAL",
+      "action": "Open KVS Transfer Portal"
+    },
+    {
+      "title": "KVS PERSONNEL INFORMATION SYSTEM (PIS)",
+      "note": "KVS Personnel Information System for authorized personnel-related information and services.",
+      "url": "https://pis.kvs.gov.in/",
+      "icon": "▤",
+      "status": "OFFICIAL PORTAL",
+      "action": "Open KVS PIS Portal"
+    },
+    {
+      "title": "CBSE OFFICIAL WEBSITE",
+      "note": "Central Board of Secondary Education official website for circulars, examination updates, academic resources and board-related notices.",
+      "url": "https://www.cbse.gov.in/",
+      "icon": "▣",
+      "status": "OFFICIAL WEBSITE",
+      "action": "Visit CBSE Website"
+    },
+    {
+      "title": "iGOT KARMAYOGI",
+      "note": "Online learning platform for government employees, offering courses, competency development and professional learning resources.",
+      "url": "https://igotkarmayogi.gov.in/#/",
+      "icon": "✦",
+      "status": "OFFICIAL PORTAL",
+      "action": "Open iGOT Karmayogi"
+    },
+    {
+      "title": "NCERT OFFICIAL WEBSITE",
+      "note": "Access NCERT textbooks, curriculum resources, educational publications and academic support materials.",
+      "url": "https://ncert.nic.in/?ln=en",
+      "icon": "▤",
+      "status": "OFFICIAL WEBSITE",
+      "action": "Visit NCERT Website"
+    },
+    {
+      "title": "DIKSHA — DIGITAL LEARNING",
+      "note": "Digital learning resources for teachers and students, including learning content, QR-linked materials and professional development.",
+      "url": "https://diksha.gov.in/index.html",
+      "icon": "▣",
+      "status": "OFFICIAL PLATFORM",
+      "action": "Open DIKSHA"
+    },
+    {
+      "title": "NISHTHA — TEACHER TRAINING",
+      "note": "Teacher and school-leader professional development resources and training information through NCERT-CIET.",
+      "url": "https://ciet.ncert.gov.in/nishtha",
+      "icon": "✓",
+      "status": "OFFICIAL RESOURCE",
+      "action": "Visit NISHTHA Portal"
+    }
+  ]
+}

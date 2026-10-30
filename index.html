@@ -734,6 +734,23 @@ footer {
       </a>
 
       <a class="app-card"
+         href="https://medha.cograd.in/"
+         target="_blank"
+         rel="noopener noreferrer">
+        <div class="card-top">
+          <div class="app-icon" aria-hidden="true">▤</div>
+          <span class="status">APPLICATION AVAILABLE</span>
+        </div>
+        <h3>MEDHA APP</h3>
+        <p>
+          Access the MEDHA application and its online services.
+        </p>
+        <div class="card-action">
+          Open MEDHA App <span aria-hidden="true">↗</span>
+        </div>
+      </a>
+
+      <a class="app-card"
          href="https://kvsonlinetransfer.kvs.gov.in/school/#/"
          target="_blank"
          rel="noopener noreferrer">
@@ -864,7 +881,7 @@ footer {
     <div class="notice">
       <strong>Setup note:</strong>
       KVS SAMAGAM, Timetable &amp; School Duty Hub, UBI KVS Fee Portal,
-      UDISE+, PRASHAST App, KVS Online Transfer Portal, KVS PIS,
+      UDISE+, PRASHAST App, MEDHA App, KVS Online Transfer Portal, KVS PIS,
       CBSE Website, iGOT Karmayogi, NCERT, DIKSHA and NISHTHA links are active. CBSE Board Examination Progress Monitoring is shown as work in progress.
       The Examination Management Centre is linked to the VEMS application. This first version has no login or access-
       control system; secure authentication must be added before it is used
@@ -881,21 +898,13 @@ footer {
 </footer>
 
 <script>
-document.querySelectorAll("[data-app]").forEach(function(link) {
-  link.addEventListener("click", function(event) {
-    event.preventDefault();
-
-    var names = {
-      results: "Academic Progress & Student Support",
-      exams: "Examination Management Centre"
-    };
-
-    alert(
-      names[link.dataset.app] +
-      " is not connected yet. The application URL will be added when it is available."
-    );
-  });
+document.querySelector(".grid").addEventListener("click", function(event) {
+  const link = event.target.closest("[data-app]");
+  if (!link) return;
+  event.preventDefault();
+  alert(link.querySelector("h3").textContent + " is not connected yet. The application URL will be added when it is available.");
 });
 </script>
+<script type="module" src="portal-firebase.js"></script>
 </body>
 </html>
