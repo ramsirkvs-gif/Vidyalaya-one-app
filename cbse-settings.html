@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Password Settings | CBSE Principal</title><link rel="stylesheet" href="cbse.css"></head>
+<body>
+<header><div class="wrap"><div><a class="brand" href="index.html">Vidyalaya One</a><div class="crumb">CBSE Board Examination · Principal workspace</div></div><a class="button" href="cbse-admin.html">Back to portal</a></div></header>
+<main class="wrap">
+<section class="hero"><div class="eyebrow">Principal settings</div><h1>Password Settings</h1><p>Change the password you use to enter the CBSE feeding portal.</p></section>
+<div id="settings-message" class="notice" role="status" aria-live="polite">Checking your access…</div>
+<section id="settings-locked" class="panel narrow" hidden><h2>Sign in first</h2><p>Enter the portal with your Principal password before opening settings.</p><a class="button" href="cbse-admin.html">Principal sign in</a></section>
+<section id="settings-panel" class="panel narrow" hidden>
+<h2>Change password</h2><p class="muted">Enter your old password, then choose a new one with at least 6 characters.</p>
+<form id="password-form">
+<label>Old password<input id="old-password" type="password" autocomplete="current-password" required></label>
+<label>New password<input id="new-password" type="password" autocomplete="new-password" minlength="6" required></label>
+<label>Confirm new password<input id="confirm-password" type="password" autocomplete="new-password" minlength="6" required></label>
+<button id="change-password" class="primary">Save new password</button>
+</form>
+<p class="muted">After saving, sign in again with your new password.</p>
+</section>
+</main><footer><div class="wrap">PM SHRI Kendriya Vidyalaya No. 1 Itanagar · Principal settings</div></footer>
+<script type="module" src="cbse-settings.js"></script>
+</body></html>

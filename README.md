@@ -55,3 +55,6 @@ with `python3 -m http.server 8000 --bind 127.0.0.1`, then run
 `python3 tests/cbse-browser.py` with Python Playwright and Chromium installed.
 Browser tests use synthetic students and mocked Firebase services. They do not
 validate a live Firebase deployment or replace database-rule enforcement tests.
+
+Password settings checks: `python3 tests/cbse-password-browser.py` (same local
+server and browser requirements). Tests use synthetic credentials only.

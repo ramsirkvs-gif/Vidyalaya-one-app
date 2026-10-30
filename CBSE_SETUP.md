@@ -82,6 +82,19 @@ are editable and must be unique within a section.
   or private notes are included. School authorization and consent for publishing
   student names remain the school's responsibility.
 
+## Password Settings
+
+After signing in, choose **Password Settings** in the workspace toolbar. This
+opens a separate Principal-only page with Old password, New password and Confirm
+new password fields. It verifies the current password with Firebase, applies the
+new password through Firebase Authentication, then signs out. Sign in to the
+portal with the new password. There is no email field. The new password must meet
+Firebase's account policy (at least 6 characters by default). No passwords are
+stored in the database, source code or browser storage by the application.
+
+Firebase Email/Password activation and the configured Principal UID above are
+still required; the settings page cannot bypass an unconfigured backend.
+
 ## Validation and limits
 
 The import/model checks and browser workflows were exercised with local mocked
