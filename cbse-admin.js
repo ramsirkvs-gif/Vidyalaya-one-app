@@ -3,13 +3,13 @@ import {el,cell,head,options,stats,date} from './cbse-ui.js';
 const $=id=>document.getElementById(id);
 let draft=null,tab='students',busy=false,editorRevision=0,editorSave=null,reviewAction=null;
 let auth,db,api,authApi,unsubscribeDraft,unsubscribePublic,user=null,generation=0,publication=null;
-$('login-email').value='ramsirkvs@gmail.com';
+const PRINCIPAL_ACCOUNT='ramsirkvs@gmail.com';
 function message(text,type='') {$('message').textContent=text;$('message').className=`notice ${type}`;}
 function errorText(error) {
   const code=String(error.code||'').toLowerCase();
-  if(code.includes('invalid-credential')||code.includes('wrong-password')||code.includes('user-not-found'))return 'Email or password is incorrect.';
+  if(code.includes('invalid-credential')||code.includes('wrong-password')||code.includes('user-not-found'))return 'Password is incorrect.';
   if(code.includes('too-many-requests'))return 'Too many sign-in attempts. Please try again later.';
-  if(code.includes('operation-not-allowed')||code.includes('configuration-not-found'))return 'Enable Email/Password sign-in in Firebase Authentication and create the Principal account first.';
+  if(code.includes('operation-not-allowed')||code.includes('configuration-not-found'))return 'Principal access has not been activated yet. Complete the one-time Firebase setup to enable password entry.';
   if(code.includes('permission'))return 'Access denied. Check the Principal UID and the CBSE database rules in Firebase Console.';
   if(code.includes('network'))return 'Cannot reach Firebase. Check your connection and try again.';
   return error.message||'The operation could not be completed.';
@@ -131,7 +131,7 @@ function publicReview(){const output=buildPublic(draft,true),nodes=[el('p','Only
 $('preview-publish').onclick=()=>{const{nodes}=publicReview();review('Review public data',nodes);};
 $('publish').onclick=()=>{const {output,nodes}=publicReview();review('Publish student data?',nodes,async()=>{if(busy)return;busy=true;try{await api.set(api.ref(db,'cbse/public'),{...output,publishedAt:api.serverTimestamp()});message('Published. Connected public search pages will update automatically.','success');}finally{busy=false;}},'Publish approved fields');};
 $('unpublish').onclick=()=>review('Unpublish all student data?','Public search will stop displaying the published records. Your private draft will remain available to the Principal.',async()=>{await api.remove(api.ref(db,'cbse/public'));message('Public data removed. Private draft retained.','success');},'Unpublish all');
-$('login-form').onsubmit=async e=>{e.preventDefault();if(!auth)return;$('login-button').disabled=true;try{await authApi.signInWithEmailAndPassword(auth,$('login-email').value.trim(),$('login-password').value);$('login-password').value='';}catch(error){message(errorText(error),'error');}finally{$('login-button').disabled=false;}};
+$('login-form').onsubmit=async e=>{e.preventDefault();if(!auth)return;$('login-button').disabled=true;try{await authApi.signInWithEmailAndPassword(auth,PRINCIPAL_ACCOUNT,$('login-password').value);$('login-password').value='';}catch(error){message(errorText(error),'error');}finally{$('login-button').disabled=false;}};
 $('signout').onclick=async()=>{if(busy){message('Wait for the current save to finish before signing out.');return;}await authApi.signOut(auth);};
 async function connect(){
  try{
@@ -145,7 +145,7 @@ async function connect(){
    try{
     const role=await api.get(api.ref(db,'cbse/adminUid'));if(token!==generation)return;
     if(role.val()!==current.uid)throw Error('This account is not registered as the Principal. Ask the school administrator to configure its Firebase UID.');
-    $('login-panel').hidden=true;$('account').textContent=`Principal · ${current.email}`;
+    $('login-panel').hidden=true;$('account').textContent='Principal workspace';
     unsubscribeDraft=api.onValue(api.ref(db,'cbse/draft'),snapshot=>{if(token!==generation)return;const value=snapshot.val();try{draft=value?validateDraft(value):emptyDraft();$('workspace').hidden=false;message(value?'Private data loaded. Edits appear publicly only after Publish.':'No student data imported yet. Import the private JSON or the nine CSV files to begin.');render();}catch(error){lockUI();message(errorText(error),'error');}},error=>{if(token===generation){lockUI();message(errorText(error),'error');}});
     unsubscribePublic=api.onValue(api.ref(db,'cbse/public'),snapshot=>{if(token===generation){publication=snapshot.val();publicationStatus();}});
    }catch(error){if(token===generation)message(errorText(error),'error');}

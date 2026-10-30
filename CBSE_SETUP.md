@@ -2,7 +2,9 @@
 
 The implementation is at `cbse-admin.html` (private feeding) and
 `cbse-students.html` (public search). Only the CBSE card is changed on the portal.
-The Principal account is `ramsirkvs@gmail.com`. No password or student record is
+The portal shows only a password field. It automatically uses the Principal
+account `ramsirkvs@gmail.com` for Firebase authentication in the background.
+Firebase activation below is still required. No password or student record is
 stored in GitHub or the Vercel website files.
 
 ## One-time console steps
@@ -24,7 +26,7 @@ stored in GitHub or the Vercel website files.
 5. Authentication → **Settings → Authorized domains**. Add
    `vidyalaya-one-app.vercel.app` if it is absent. The app uses Email/Password,
    with sign-in kept in the current browser session and an explicit Sign out.
-6. Open the live **CBSE Board Examination** card → **Principal sign in**. Sign in,
+6. Open the live **CBSE Board Examination** card → **Principal sign in**. Enter only the Principal password,
    then **Import private JSON** and choose the private 240-student import file
    supplied separately. Confirm **Replace private draft**. Alternatively,
    **Import CSV files** accepts all nine original CSVs together. Uploaded files

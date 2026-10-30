@@ -10,7 +10,7 @@ for cl,counts in [('X',[24,27,24,24]),('XII',[24,29,26,35,27])]:
 fixture=tempfile.NamedTemporaryFile(mode='w',suffix='.json',delete=False)
 json.dump(seed,fixture);fixture.close()
 APP='export function initializeApp(c){return c;} export function getApps(){return [];}'
-AUTH='''let listener; export function getAuth(){return {}} export const browserSessionPersistence={}; export async function setPersistence(){} export function onAuthStateChanged(a,cb){listener=cb;cb(null);} export async function signInWithEmailAndPassword(a,e,p){if(p!=="test-only-password")throw {code:"auth/invalid-credential"};window.__authUser={uid:"principal-test",email:e};listener(window.__authUser);} export async function signOut(){window.__authUser=null;listener(null);}'''
+AUTH='''let listener; export function getAuth(){return {}} export const browserSessionPersistence={}; export async function setPersistence(){} export function onAuthStateChanged(a,cb){listener=cb;cb(null);} export async function signInWithEmailAndPassword(a,e,p){if(p!=="test-only-password")throw {code:"auth/invalid-credential"};if(e!=="ramsirkvs@gmail.com")throw Error("Principal account was not supplied automatically");window.__authUser={uid:"principal-test",email:e};listener(window.__authUser);} export async function signOut(){window.__authUser=null;listener(null);}'''
 DB='''window.__dbData={};window.__reads=[];const listeners={};
 export function getDatabase(){return {}} export function ref(d,path){return path;}
 const snapshot=value=>({val:()=>structuredClone(value??null)});
@@ -29,6 +29,9 @@ with sync_playwright() as p:
  page=browser.new_page();page.route('https://www.gstatic.com/firebasejs/**',intercept)
  page.goto('http://127.0.0.1:8000/cbse-admin.html');page.wait_for_function('!document.querySelector("#login-button").disabled')
  assert page.locator('#workspace').is_hidden()
+ assert page.locator('#login-form input').count()==1
+ assert page.locator('#login-form input[type=password]').count()==1
+ assert page.locator('#login-form input[type=email]').count()==0
  assert page.evaluate('window.__reads.length')==0
  page.locator('#login-password').fill('wrong-password');page.locator('#login-button').click();page.get_by_role('status').filter(has_text='incorrect').wait_for()
  assert page.locator('#workspace').is_hidden()
