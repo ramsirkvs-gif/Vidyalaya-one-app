@@ -11,11 +11,13 @@
 <li><strong>Publish in Firebase</strong><p>Open Firebase, select all the existing rules, paste, then click Publish.</p><a id="faculty-open-firebase" class="button" href="https://console.firebase.google.com/project/vidyalaya-one-app/database/vidyalaya-one-app-default-rtdb/rules" target="_blank" rel="noopener noreferrer">2. Open Firebase Rules ↗</a></li>
 <li><strong>Return here</strong><p>After publishing, reload this page to open the Faculty area.</p><button id="faculty-reload">3. Reload Faculty</button></li>
 </ol>
+<p class="muted">Need an editable CSV first? Convert your faculty PDF here. The file stays on your device.</p><button id="faculty-convert-pdf">Convert faculty PDF to CSV</button><input id="faculty-convert-file" type="file" accept=".pdf,application/pdf" hidden>
 <p id="faculty-copy-status" class="muted" role="status" aria-live="polite"></p>
 <label id="faculty-manual-copy" hidden>Rules to copy<textarea id="faculty-rules-text" readonly rows="8" spellcheck="false"></textarea></label>
 </section>
 <div id="faculty-workspace" hidden>
-<div class="toolbar"><span class="badge">PRINCIPAL ONLY · PRIVATE</span><div class="actions"><button id="faculty-import">Import faculty PDF</button><button id="faculty-export">Download faculty backup</button></div></div>
+<div class="toolbar"><span class="badge">PRINCIPAL ONLY · PRIVATE</span><div class="actions"><button id="faculty-import-csv" class="primary">Import faculty CSV</button><button id="faculty-export-csv">Download faculty CSV</button><button id="faculty-import">Import faculty PDF</button><button id="faculty-convert-pdf-ready">Convert PDF to CSV</button><button id="faculty-export">Download faculty backup</button></div></div>
+<input id="faculty-csv-file" type="file" accept=".csv,text/csv" hidden>
 <input id="faculty-file" type="file" accept=".pdf,application/pdf" hidden>
 <div class="tabs" role="tablist" aria-label="Faculty standard"><button id="faculty-tab-x" role="tab" aria-selected="true" aria-controls="faculty-area" data-class="X">Class X Faculty</button><button id="faculty-tab-xii" role="tab" aria-selected="false" aria-controls="faculty-area" data-class="XII">Class XII Faculty</button></div>
 <div id="faculty-area" role="tabpanel" aria-labelledby="faculty-tab-x">

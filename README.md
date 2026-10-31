@@ -75,3 +75,10 @@ Production build checks: `node tests/build-site.test.mjs`. Serve the generated
 `public` directory on port 8001 and run
 `python3 tests/cbse-session-updates-browser.py` to check persistent-session API
 selection and safe deployment reloads with simulated Firebase authentication.
+
+Faculty also supports **Download faculty CSV**, **Import faculty CSV**, and direct
+**Convert PDF to CSV**. These use the existing protected faculty schema and do
+not require another Console rule update. CSV preserves basic faculty data and
+class/co-class teacher assignments; custom responsibilities stay managed in the
+page and are included in the complete JSON backup. CSV checks:
+`node tests/cbse-faculty-csv.test.mjs`.

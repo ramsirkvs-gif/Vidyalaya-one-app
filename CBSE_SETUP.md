@@ -273,3 +273,43 @@ becomes visible. It reloads a new deployment while retaining the Firebase login.
 An open edit dialog, entered password or pending save delays the reload until
 it is safe. Saved records already update independently through Firebase listeners.
 A page opened before this watcher was introduced needs one initial refresh.
+
+## Faculty CSV feeding (no repeat Console visits)
+
+After the one-time Faculty rules activation, all routine uploads and edits happen
+inside the logged-in Faculty page. The CSV feature uses the existing protected
+faculty path and schema; it needs no additional Firebase rule changes.
+
+- **Import faculty PDF** captures the original PDF once. **Download faculty CSV**
+  then saves the current X/XII faculty data to the Principal's device.
+- **Convert PDF to CSV** creates a CSV directly from a selected roster PDF without
+  changing database data. This is also available on the activation screen. It
+  keeps the private records on the Principal's device until an import is confirmed.
+- **Import faculty CSV** previews new/updated counts for each standard before
+  saving to Firebase. Names and existing records match by stable FacultyID, with
+  name/designation matching used when appropriate. Leave FacultyID blank for new
+  faculty. Do not change an existing ID when renaming a faculty member.
+- The columns, in order, are: `FacultyID,Class,Name,Designation,Subjects,TeachingSections,Status,ClassTeacherOf,CoClassTeacherOf`.
+- Class is X or XII. Status is active, vacant or inactive. Separate multiple
+  section names in the two role columns with semicolons, e.g. `D;E`. Sections must
+  already exist in the student workspace. Blank primary-role cells clear the
+  imported faculty member's previous class/co-class teacher assignments.
+- Unlisted faculty are kept. To remove a faculty member, use Remove in the page;
+  omitting a CSV row does not delete a person. Custom responsibilities are edited
+  through Other roles and retained by CSV updates, unless the teacher is marked
+  inactive. The JSON backup remains the complete export including custom roles.
+- Malformed rows, duplicate records, unknown sections and conflicting role
+  assignments are rejected before any data is saved. CSV operations are private
+  and do not publish faculty to the student search page.
+
+The original supplied data was converted to a private 29-record CSV and verified
+to round-trip exactly, including all eight complete screenshot role pairs. It is
+kept outside the website repository. Because chat workspace download links were
+not usable for this user, the browser download/conversion buttons provide the
+file directly on the user's device without publishing staff records in the
+website bundle.
+
+`node tests/cbse-faculty-csv.test.mjs` checks round-trip fidelity, name updates,
+retention, role clearing, invalid input and spreadsheet-safe text. The faculty
+browser test also verifies an actual download, CSV edit/reupload, and PDF-to-CSV
+conversion without a database write.

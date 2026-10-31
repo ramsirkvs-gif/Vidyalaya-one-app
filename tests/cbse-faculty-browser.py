@@ -56,6 +56,21 @@ try:
     page.evaluate("sessionStorage.removeItem('denyFaculty')");page.reload();page.locator('#faculty-workspace').wait_for(state='visible');assert page.locator('#faculty-setup').is_hidden()
     print('PASS linear setup, clipboard copy/fallback and no repeated login on permission denial')
     page.locator('#faculty-file').set_input_files(fixture.name);page.get_by_role('button',name='Import faculty privately').wait_for();assert '2 new faculty' in page.locator('#faculty-review-content').inner_text();page.get_by_role('button',name='Import faculty privately').click();page.locator('#faculty-review').wait_for(state='hidden');assert page.locator('#faculty-body tr').count()==2
+    # Download an editable CSV and upload a changed name using its stable ID.
+    with page.expect_download() as download_event:page.locator('#faculty-export-csv').click()
+    download=download_event.value
+    csv_text=open(download.path(),encoding='utf-8-sig').read().replace('Synthetic Faculty One','CSV Edited Faculty')
+    csv_file=tempfile.NamedTemporaryFile(mode='w',suffix='.csv',delete=False,encoding='utf-8-sig');csv_file.write(csv_text);csv_file.close()
+    try:
+        page.locator('#faculty-csv-file').set_input_files(csv_file.name);page.get_by_role('button',name='Import CSV privately').wait_for();page.get_by_role('button',name='Import CSV privately').click();page.locator('#faculty-review').wait_for(state='hidden')
+    finally:os.unlink(csv_file.name)
+    assert page.locator('#faculty-body tr').count()==2
+    assert 'CSV Edited Faculty' in page.locator('#faculty-body').inner_text()
+    revision=page.evaluate('window.__savedFaculty.revision')
+    with page.expect_download() as converted_event:page.locator('#faculty-convert-file').set_input_files(fixture.name)
+    assert 'FacultyID,Class,Name' in open(converted_event.value.path(),encoding='utf-8-sig').read()
+    assert page.evaluate('window.__savedFaculty.revision')==revision
+    print('PASS downloadable CSV, stable-ID updates and PDF-to-CSV conversion without database changes')
     page.locator('#faculty-tab-xii').click();assert page.locator('#faculty-body tr').count()==2;assert page.locator('#faculty-roles tr').count()==5;assert page.locator('#faculty-stats strong').nth(1).inner_text()=='1'
     page.locator('#faculty-tab-x').click()
     print('PASS Principal access gate, actual PDF.js import, separate X/XII faculty and vacancies')

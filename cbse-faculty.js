@@ -1,6 +1,7 @@
 import {clone,entries,uniqueKey,emptyDraft} from './cbse-model.js';
 import {emptyFaculty,validateFaculty,clearTeacherRoles,removeFaculty,mergeFacultyRoster} from './cbse-faculty-model.js';
 import {el,cell,options,stats} from './cbse-ui.js';
+import {exportFacultyCSV,importFacultyCSV} from './cbse-faculty-csv.js';
 import {resetFacultySetup,showFacultySetup} from './cbse-faculty-setup.js';
 const $=id=>document.getElementById(id);
 let data=null,studentClasses=null,currentClass='X',user=null,busy=false,generation=0,principalVerified=false;
@@ -89,6 +90,28 @@ $('faculty-file').onchange=async e=>{
   nodes.push(el('p',merged.screenshotApplied?'Class teacher/co-class teacher defaults from your screenshot are included for empty section assignments. Class X-A is unset because its row was cropped.':'This is a different roster. Set teacher roles after import; screenshot defaults were not applied.'));
   review('Review faculty import',nodes,()=>save(merged.data,expected),'Import faculty privately');message('Review the faculty import before saving.');
  }catch(e){if(token===generation)message(errorText(e),'error');}finally{setBusy(false);}
+};
+function downloadCSV(text,name){const url=URL.createObjectURL(new Blob([text],{type:'text/csv;charset=utf-8'}));const a=el('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+$('faculty-export-csv').onclick=()=>{if(data)downloadCSV(exportFacultyCSV(data,studentClasses),'CBSE_Faculty_X_XII.csv');};
+$('faculty-import-csv').onclick=()=>$('faculty-csv-file').click();
+$('faculty-csv-file').onchange=async e=>{
+ const file=e.target.files[0];e.target.value='';if(!file||!data||!user||busy)return;
+ const token=generation,expected=data.revision;
+ try{if(file.size>5_000_000)throw Error('Choose a CSV smaller than 5 MB.');const text=await file.text();if(token!==generation||!data)return;if(data.revision!==expected)throw Error(conflict);const imported=importFacultyCSV(data,text,studentClasses);
+ const nodes=[el('p','The CSV updates matching faculty and adds new records. Unlisted faculty are retained. Imported teachers’ class teacher/co-class teacher assignments follow the CSV; blank role cells clear their previous primary assignments. Other named responsibilities are retained unless a faculty member is marked inactive.')];
+ for(const cl of ['X','XII'])nodes.push(el('p',`Class ${cl}: ${imported.summary[cl].added} new faculty; ${imported.summary[cl].updated} updated.`));
+ review('Review faculty CSV',nodes,()=>save(imported.data,expected),'Import CSV privately');
+ }catch(e){if(token===generation)message(errorText(e),'error');}
+};
+$('faculty-convert-pdf').onclick=()=>$('faculty-convert-file').click();
+$('faculty-convert-pdf-ready').onclick=()=>$('faculty-convert-file').click();
+$('faculty-convert-file').onchange=async e=>{
+ const file=e.target.files[0];e.target.value='';if(!file||!user||!principalVerified||busy)return;
+ const token=generation;setBusy(true);$('faculty-convert-pdf').disabled=true;
+ try{message('Creating your faculty CSV privately…');const {readFacultyPDF}=await import('./cbse-faculty-pdf.js');const parsed=await readFacultyPDF(file);if(token!==generation)return;
+ const captured=mergeFacultyRoster(emptyFaculty(),parsed.roster,studentClasses||emptyDraft().classes,parsed.digest);
+ downloadCSV(exportFacultyCSV(captured.data,studentClasses||emptyDraft().classes),'CBSE_Faculty_X_XII.csv');message('Faculty CSV downloaded. Use Import faculty CSV to load it into the portal.','success');
+ }catch(e){if(token===generation)message(errorText(e),'error');}finally{setBusy(false);$('faculty-convert-pdf').disabled=false;}
 };
 $('faculty-export').onclick=()=>{if(!data)return;const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=el('a');a.href=url;a.download=`cbse-faculty-private-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 $('faculty-signout').onclick=async()=>{if(!busy)await authApi.signOut(auth);};
