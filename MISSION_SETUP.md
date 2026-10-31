@@ -1,5 +1,37 @@
 # Mission Perfect 100 — activation and use
 
+## Attendance registers: cumulative totals and optional details
+
+Principal controls → **Import attendance PDFs / JSON** reads one or more monthly
+registers privately in the browser. Review matched students, duplicate rows,
+extra names and cutoff coverage, then Save. The existing Principal session and
+revision checks protect the write; no new Firebase setup is required. Files and
+student import packages must stay outside source/build output.
+
+Records match the final roster by class, section and normalised full name. PDF
+roll numbers do not replace the portal roll/identity. Duplicate register rows
+are ignored; conflicting duplicates are rejected. Extra names are excluded and
+flagged as possible TC cases for review, never automatically marked TC or added
+to the final roster. Later uploads of a missing section fill its gap without
+replacing other sections; coverage counts distinguish the current upload from
+all saved registers.
+
+The profile header uses the latest supplied register: **Attendance till 31 Oct
+2026: 112/120 · 93.33%**, for example. Individual denominators and arrears are
+preserved. Present includes P, ML and O/D as defined by the source register;
+H/S are non-working days, and leave/absent are not silently converted to present.
+Daily cells, monthly totals, previous totals, arrears and printed percentages
+must reconcile before import. A missing latest register is clearly labelled.
+
+**Attendance details · month-wise** expands the actual uploaded monthly totals,
+source arrears, cumulative figures and daily entries. A previous-month aggregate
+is labelled combined; it is not divided into invented individual months. New
+months retain earlier reports. Official registers are kept in
+`mission.attendanceRegisters`, separate from manually entered daily attendance
+and older Samagam percentages. Register totals drive the attendance percentage
+and attendance band; academic colours continue to use marks. Staff can read
+these details after the remembered curtain without entering a personal PIN.
+
 ## Latest progress, attendance and XII stream groups
 
 Monitoring now always uses the latest recorded result per selected subject. The

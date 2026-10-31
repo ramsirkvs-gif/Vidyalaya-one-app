@@ -1,0 +1,6 @@
+import {parseAttendanceText} from './cbse-attendance-model.js';
+export async function readAttendancePDF(file){
+ if(file.size>15_000_000)throw Error('Choose register PDFs smaller than 15 MB each.');const bytes=new Uint8Array(await file.arrayBuffer());if(new TextDecoder().decode(bytes.slice(0,5))!=='%PDF-')throw Error('Choose a valid PDF register.');
+ const pdfjs=await import('./vendor/pdfjs/pdf.min.mjs');pdfjs.GlobalWorkerOptions.workerSrc=new URL('./vendor/pdfjs/pdf.worker.min.mjs',import.meta.url).href;const task=pdfjs.getDocument({data:bytes,isEvalSupported:false,useSystemFonts:true});
+ try{const pdf=await task.promise;if(pdf.numPages>30)throw Error('A register may contain at most 30 pages.');const lines=[];for(let n=1;n<=pdf.numPages;n++){const page=await pdf.getPage(n),content=await page.getTextContent(),rows=[];for(const i of content.items.filter(i=>'str'in i&&i.str.trim())){const y=i.transform[5];let row=rows.find(r=>Math.abs(r.y-y)<2);if(!row){row={y,items:[]};rows.push(row);}row.items.push({x:i.transform[4],text:i.str});}for(const r of rows.sort((a,b)=>b.y-a.y))lines.push(r.items.sort((a,b)=>a.x-b.x).map(i=>i.text).join(' '));page.cleanup();}return parseAttendanceText(lines.join('\n'),file.name);}finally{await task.destroy();}
+}

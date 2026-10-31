@@ -1,3 +1,4 @@
+import {validateAttendanceRegister,latestAttendanceRegister} from './cbse-attendance-model.js';
 import {sectionStream} from './cbse-stream-model.js';
 import {normalizedGender} from './cbse-view-data.js';
 import {sectionTeam} from './cbse-section-team.js';
@@ -18,7 +19,7 @@ export function validateMission(m,draft,faculty){
  assert(m&&m.schemaVersion===1&&Number.isInteger(m.revision)&&m.revision>=0,'Invalid Mission data.');
  const students=studentIndex(draft),staff=staffIndex(faculty,m),s=m.settings;
  assert(s&&[s.redBelow,s.greenFrom,s.attendanceRedBelow,s.attendanceGreenFrom].every(v=>Number.isFinite(v)&&v>=0&&v<=100)&&s.redBelow<s.greenFrom&&s.attendanceRedBelow<s.attendanceGreenFrom,'Colour thresholds must be ordered percentages between 0 and 100.');
- for(const field of ['students','exams','marks','attendance','records','tasks','timetable','staff','allocations','gradingRules','academicAttendance','reportRequests'])assert(!m[field]||safeKeys(m[field]),`Invalid ${field} data.`);
+ for(const field of ['students','exams','marks','attendance','records','tasks','timetable','staff','allocations','gradingRules','academicAttendance','attendanceRegisters','reportRequests'])assert(!m[field]||safeKeys(m[field]),`Invalid ${field} data.`);
  for(const[,p]of entries(m.students)){assert(['girl','boy','unknown'].includes(p.gender),'Choose a gender or Not recorded.');assert(text(p.guardian,120)&&text(p.phones,1000)&&text(p.location,500),'Contact details are too long.');validateContact(p);}
  for(const[,r]of entries(m.reportRequests)){assert(text(r.studentKey,300,true)&&text(r.notes,2000,true)&&date(r.due)&&['open','cancelled'].includes(r.status)&&safeKeys(r.targets),'Invalid teacher reporting request.');for(const[,t]of entries(r.targets))assert(text(t.staffId,300)&&['class_teacher','subject_teacher','faculty_support'].includes(t.role)&&text(t.subjectId,100),'Invalid reporting recipient.');}
  for(const[,p]of entries(m.staff))assert(text(p.name,120,true)&&['counsellor','prt','support'].includes(p.kind)&&['active','inactive'].includes(p.status)&&text(p.subjects,300),'Invalid support-team record.');
@@ -29,6 +30,7 @@ export function validateMission(m,draft,faculty){
   if(v.importSource==='monthly_workbook_v1')assert([v.passFrom,v.secureFrom,v.criticalBelow].every(Number.isFinite)&&v.criticalBelow>=0&&v.criticalBelow<=v.passFrom&&v.passFrom<v.secureFrom&&v.secureFrom<=v.maximum&&(!v.absent||v.score===null||v.score===undefined)&&typeof v.inferredAbsent==='boolean'&&(!v.inferredAbsent||v.absent),'Invalid imported monitoring rules.');
   assert(typeof v.absent==='boolean'&&Number.isFinite(v.maximum)&&v.maximum>0&&v.maximum<=1000&&(v.absent||Number.isFinite(v.score)&&v.score>=0&&v.score<=v.maximum),'Marks must be between zero and the maximum, or marked Absent.');
  }
+ for(const[,r]of entries(m.attendanceRegisters)){validateAttendanceRegister(r);assert(text(r.studentKey,300,true),'Invalid attendance register student.');}
  for(const[,a]of entries(m.academicAttendance))assert(Number.isFinite(a.percentage)&&a.percentage>=0&&a.percentage<=100&&text(a.session,20,true),'Invalid cumulative source attendance.');
  for(const[,a]of entries(m.attendance))assert(text(a.studentKey,300,true)&&date(a.date)&&['school','remedial'].includes(a.session)&&['present','absent','leave'].includes(a.status),'Invalid attendance record.');
  for(const[,r]of entries(m.records)){
@@ -56,7 +58,8 @@ export function studentProgress(key,m,draft,examId="",subjectScope=[]){
  const subjects=entries(person?.subjects).filter(([id])=>!subjectScope.length||subjectScope.includes(id)).map(([id])=>{const v=latest[id],percentage=v&&!v.absent?v.score/v.maximum*100:null,thresholds=gradeThresholds(m,person.classId,id,v?.examId||examId);return {id,name:person.subjectCatalog[id]?.name||id,latest:v,percentage,band:academicMarkBand(v,thresholds.redBelow,thresholds.greenFrom),history:history[id]||[]};});
  const bands=subjects.map(s=>s.band);
  const school=entries(m.attendance).map(([,a])=>a).filter(a=>a.studentKey===key&&a.session==='school'),percentage=school.length?school.filter(a=>a.status==='present').length/school.length*100:null;
- return {subjects,academic:overallAcademicBand(bands),attendance:percentage,attendanceBand:band(percentage,m.settings.attendanceRedBelow,m.settings.attendanceGreenFrom),recordedDays:school.length,overdue:entries(m.tasks).filter(([,t])=>t.studentKey===key&&!['done','cancelled'].includes(t.status)&&t.due<today()).length};
+ const register=latestAttendanceRegister(key,m),attendance=register?register.total.present/register.total.working*100:percentage;
+ return {subjects,academic:overallAcademicBand(bands),attendance,dailyAttendance:percentage,attendanceBand:band(attendance,m.settings.attendanceRedBelow,m.settings.attendanceGreenFrom),recordedDays:school.length,overdue:entries(m.tasks).filter(([,t])=>t.studentKey===key&&!['done','cancelled'].includes(t.status)&&t.due<today()).length};
 }
 export function genderCounts(keys,m){const out={girl:0,boy:0,unknown:0};for(const key of keys)out[normalizedGender(m.students?.[key]?.gender)]++;return out;}
 export function staffCanView(staffId,studentKey,m,draft,faculty){
