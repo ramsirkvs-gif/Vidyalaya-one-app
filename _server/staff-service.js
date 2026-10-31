@@ -1,3 +1,4 @@
+import {validatePINRows} from '../cbse-pin-import.js';
 import {scrypt as scryptCallback,randomBytes,timingSafeEqual,createHash,randomUUID,randomInt} from 'node:crypto';
 import {promisify} from 'node:util';
 import {emptyMission,studentIndex,staffIndex,staffCanView,staffProfileView,staffVisibleRecord,today} from '../cbse-mission-model.js';
@@ -23,9 +24,16 @@ export function createStaffService({db,auth,now=Date.now}){
    if(!await verifyPIN(input.pin,access))throw new AccessError('Choose a staff member and enter the correct PIN.',401);
    const customToken=await auth.createCustomToken('mission_'+createHash('sha256').update(id).digest('hex').slice(0,40),{missionStaff:true,staffId:id,pinVersion:access.version});await db.ref(`cbse/staffAttempts/${attemptKey}`).remove();return {customToken,name:person.name};
   }
-  if(['list','set-pin','disable','generate-pins'].includes(action)){
+  if(['list','set-pin','disable','generate-pins','import-pins'].includes(action)){
    await principal(token);const staff=await directoryStaff();
    if(action==='list'){const access=await read('cbse/staffAccess');return {access:Object.fromEntries(entries(access).map(([id,a])=>[id,{enabled:!!a.enabled,pinSet:!!a.hash,updatedAt:a.updatedAt}]))};}
+   if(action==='import-pins'){
+    let rows;try{rows=validatePINRows(input.rows,staff);}catch(error){throw new AccessError(error.message,400);}
+    const prepared=[];for(const r of rows)prepared.push({id:r.staffId,record:{...await hashPIN(r.pin),enabled:r.enabled,version:randomUUID(),updatedAt:now()}});
+    const result=await db.ref('cbse/staffAccess').transaction(current=>{const next=current||{};for(const p of prepared)next[p.id]=p.record;return next;});
+    if(!result.committed)throw new AccessError('PIN update did not save. Try again.',409);
+    return {ok:true,updated:prepared.length,access:Object.fromEntries(prepared.map(p=>[p.id,{enabled:p.record.enabled,pinSet:true,updatedAt:p.record.updatedAt}]))};
+   }
    if(action==='generate-pins'){
     const access=await read('cbse/staffAccess')||{},missing=entries(staff).filter(([id,p])=>p.status==='active'&&!access[id]?.hash);
     if(missing.length>900)throw new AccessError('Generate PINs for fewer than 901 staff at a time.',400);

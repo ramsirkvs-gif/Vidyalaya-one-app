@@ -249,3 +249,24 @@ existing `/api/staff-access` server and its `FIREBASE_SERVICE_ACCOUNT_JSON`
 prerequisite; generation cannot save until that server credential is configured.
 The proposed shared staff curtain is a separate workflow and is not implemented
 by this PIN settings change.
+
+## Private CSV PIN updates
+
+Principal controls → Faculty PIN settings → **New update / Import PIN CSV**
+accepts `StaffID,StaffName,Class,PIN,Enabled`. Class is informational; staff ID
+and name must match the current active faculty/support directory. PIN must be
+exactly three digits and Enabled must be Yes or No. The template button exports
+current staff identities with blank PINs; it never exports stored hashes or old
+PIN values. Private generated PIN sheets must remain outside Git/build output.
+
+Import shows the staff names and enabled state for review, with PINs hidden.
+Only Save submits to the Principal-authorized server. The server independently
+checks every row, prepares salted hashes, then updates all listed accounts in
+one transaction. Invalid or duplicate rows reject the entire update; accounts
+not listed stay unchanged. Replaced PIN versions invalidate prior staff tokens.
+The secure Vercel credential prerequisite still applies; CSV does not bypass
+server verification. This update does not activate the proposed staff curtain.
+
+Checks: `node tests/cbse-pin-import.test.mjs`, `node tests/staff-service.test.mjs`,
+and `python3 tests/cbse-pin-settings-browser.py` use synthetic data. The browser
+check verifies that preview performs no database update until Save.

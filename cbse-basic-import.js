@@ -1,13 +1,13 @@
 import {clone,entries} from './cbse-model.js';
 import {studentIndex} from './cbse-mission-model.js';
 const norm=v=>String(v||'').trim().replace(/\s+/g,' ').toUpperCase();
-function csv(text){
+export function parseCSVRows(text){
  const rows=[];let row=[],value='',quoted=false,closed=false;
  for(let i=0;i<text.length;i++){const c=text[i];if(quoted){if(c==='"'&&text[i+1]==='"'){value+='"';i++;}else if(c==='"'){quoted=false;closed=true;}else value+=c;}else if(c==='"'){if(value||closed)throw Error('Invalid CSV quoting.');quoted=true;}else if(c===','||c==='\n'||c==='\r'){row.push(value.trim());value='';closed=false;if(c!==','){if(row.some(Boolean))rows.push(row);row=[];if(c==='\r'&&text[i+1]==='\n')i++;}}else {if(closed&&!/\s/.test(c))throw Error('Invalid CSV quoting.');if(!closed)value+=c;}}
  if(quoted)throw Error('Unclosed CSV field.');row.push(value.trim());if(row.some(Boolean))rows.push(row);return rows;
 }
 export function importBasicStudents(text,mission,draft){
- const rows=csv(text.replace(/^\uFEFF/,'')),header=rows.shift()||[],required=['Class','Section','StudentName','Gender'];
+ const rows=parseCSVRows(text.replace(/^\uFEFF/,'')),header=rows.shift()||[],required=['Class','Section','StudentName','Gender'];
  if(!required.every(h=>header.includes(h))||new Set(header).size!==header.length)throw Error('Use the cleaned basic-data CSV with Class, Section, StudentName and Gender columns.');
  if(!rows.length)throw Error('No student rows found.');
  const next=clone(mission);next.students||={};const people=entries(studentIndex(draft)),seen=new Set(),issues=[],counts={};let matched=0,changed=0;

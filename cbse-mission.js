@@ -1,3 +1,4 @@
+import {parsePINCSV,pinTemplateCSV,validatePINRows} from './cbse-pin-import.js';
 import {importBasicStudents} from './cbse-basic-import.js';
 import {entries,clone,emptyDraft} from './cbse-model.js';
 import {emptyFaculty} from './cbse-faculty-model.js';
@@ -197,4 +198,23 @@ $('mission-basic-file').onchange=async event=>{
    if(result.issues.length){const details=el('details');details.append(el('summary','Review skipped rows'));for(const issue of result.issues)details.append(el('p',issue));$('mission-fields').append(details);}
   },async()=>{const saved=await save(result.next,expected);if(saved)message(`Basic data saved privately for ${result.matched} students; ${result.issues.length} rows skipped.`,'success');return saved;});
  }catch(error){message(error.message,'error');}
+};
+
+$('mission-pin-template').onclick=()=>{if(!editable())return;const url=URL.createObjectURL(new Blob([pinTemplateCSV(staff())],{type:'text/csv;charset=utf-8'})),a=el('a');a.href=url;a.download='Faculty_PIN_Template_Private.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
+$('mission-import-pins').onclick=()=>{if(editable()&&!busy)$('mission-pin-file').click();};
+$('mission-pin-file').onchange=async event=>{
+ const file=event.target.files[0];event.target.value='';if(!file||!editable()||busy)return;
+ try{
+  if(file.size>64000)throw Error('PIN CSV must be smaller than 64 KB.');
+  const rows=parsePINCSV(await file.text(),staff());if(!editable())return;
+  editor('Review faculty PIN update',()=>{
+   $('mission-fields').append(el('p',`${rows.length} staff PINs will be replaced by the CSV values. Staff not listed stay unchanged. Existing sessions for updated staff will stop working.`));
+   const body=table($('mission-fields'),['Staff name','Class / role','Access']);for(const r of rows){const tr=el('tr');cell(tr,r.name);cell(tr,staff()[r.staffId].classId||staff()[r.staffId].kind);cell(tr,r.enabled?'Enabled':'Disabled');body.append(tr);}
+   $('mission-fields').append(el('p','PINs are hidden in this review. Check the private CSV before saving.'));
+  },async()=>{
+   if(busy)return false;validatePINRows(rows,staff());busy=true;document.documentElement.dataset.portalBusy='true';$('mission-save').disabled=true;
+   try{const result=await staffAPI('import-pins',{rows});if(!editable())return false;for(const r of rows)delete generatedPINs[r.staffId];Object.assign(pinAccess,result.access);renderPINSettings();$('mission-pin-message').textContent=`${result.updated} staff PINs updated in the database.`;message(`${result.updated} staff PINs updated privately.`,'success');return true;}
+   finally{busy=false;document.documentElement.dataset.portalBusy='false';$('mission-save').disabled=false;}
+  });
+ }catch(error){$('mission-pin-message').textContent=error.message;}
 };

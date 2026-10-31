@@ -32,3 +32,13 @@ test('Principal generates three-digit PINs once, preserving existing and disable
  assert.equal((await service('generate-pins',{},'principal')).created.length,0);
  await service('disable',{staffId:p.staffId},'principal');assert.equal((await service('generate-pins',{},'principal')).created.length,0);assert.equal(data.cbse.staffAccess[p.staffId].enabled,false);
 });
+
+test('CSV PIN updates require Principal, validate before writing and invalidate previous sessions',async()=>{
+ const {service,data}=fixture();await service('set-pin',{staffId:'X:one',pin:'654321'},'principal');const old=(await service('login',{staffId:'X:one',pin:'654321'},'','csv-ip')).customToken;
+ const rows=[{staffId:'X:one',name:'Synthetic Teacher',pin:'029',enabled:true}];
+ await assert.rejects(service('import-pins',{rows},'outsider'),/Principal/);
+ const before=structuredClone(data.cbse.staffAccess);await assert.rejects(service('import-pins',{rows:[...rows,{staffId:'X:unknown',name:'Unknown',pin:'123',enabled:true}]},'principal'),/unknown/);assert.deepEqual(data.cbse.staffAccess,before);
+ data.cbse.staffAccess.unlisted={enabled:false,hash:'retained'};
+ const result=await service('import-pins',{rows},'principal');assert.equal(result.updated,1);assert.equal(result.access['X:one'].enabled,true);assert.ok(!JSON.stringify(result).includes('029'));assert.equal(data.cbse.staffAccess.unlisted.hash,'retained');assert.ok(await verifyPIN('029',data.cbse.staffAccess['X:one']));await assert.rejects(service('students',{},old),/disabled or reset/);
+ const fresh=await service('login',{staffId:'X:one',pin:'029'},'','csv-ip');await service('import-pins',{rows:[{...rows[0],enabled:false}]},'principal');await assert.rejects(service('students',{},fresh.customToken),/disabled or reset/);
+});
