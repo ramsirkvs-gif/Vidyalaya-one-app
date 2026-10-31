@@ -1,3 +1,4 @@
+import {importBasicStudents} from './cbse-basic-import.js';
 import {entries,clone,emptyDraft} from './cbse-model.js';
 import {emptyFaculty} from './cbse-faculty-model.js';
 import {emptyMission,validateMission,studentIndex,staffIndex,studentProgress,genderCounts,RECORD_KINDS,today} from './cbse-mission-model.js';
@@ -166,3 +167,21 @@ function renderMonitoringArea(tab){const area=MONITOR_AREAS[tab],p=panel(area.ti
 }
 function renderTeacherDirectory(){const p=panel('Teacher profiles · X & XII'),filters=el('div',undefined,'filters'),search=el('input'),cl=el('select');search.type='search';search.placeholder='Find a teacher by name, subject or section';search.setAttribute('aria-label','Search teacher profiles');options(cl,[['','Both standards'],['X','Class X'],['XII','Class XII']],'');cl.setAttribute('aria-label','Teacher directory class');filters.append(search,cl);p.append(filters);const cards=el('div',undefined,'student-cards');p.append(cards);const draw=()=>{cards.replaceChildren();for(const[id,t]of entries(staff()).filter(([,t])=>t.kind==='faculty'&&(!cl.value||t.classId===cl.value)&&matches(`${t.name} ${t.designation} ${t.subjects} ${t.teachingSections}`,search.value))){const card=button('',()=>go({staff:id}));card.className='student-card';card.setAttribute('aria-label','Teacher profile: '+t.name);const text=el('span',undefined,'student-card-copy'),records=entries(mission.records).filter(([,r])=>r.staffId===id),tasks=entries(mission.tasks).filter(([,r])=>r.staffId===id&&!['done','cancelled'].includes(r.status));text.append(el('strong',t.name),el('small',`${t.classId} · ${t.designation} · ${t.subjects}`),el('small',`${records.length} monitoring records · ${tasks.length} open actions`));card.append(text,el('span','›','student-arrow'));cards.append(card);}};search.oninput=draw;cl.onchange=draw;draw();}
 function renderClassTeacherWatch(){const p=panel('Section CT / Co-CT watch'),body=table(p,['Section','Class teacher','Co-class teacher','Open CT actions','Last review','Review']);for(const[cl,c]of entries(faculty.classes))for(const[sid,s]of entries(draft.classes[cl]?.sections)){const roles=c.roles?.[sid]||{},row=el('tr');cell(row,`${cl}-${s.name}`);for(const field of ['classTeacher','coClassTeacher']){const id=roles[field]?`${cl}:${roles[field]}`:'';const td=cell(row,'');if(id&&staff()[id])td.append(button(staffName(id),()=>go({staff:id})));else td.textContent='Not assigned';}cell(row,entries(mission.tasks).filter(([,t])=>t.category==='class_teacher'&&t.sectionKey===`${cl}:${sid}`&&!['done','cancelled'].includes(t.status)).length);const reviews=entries(mission.records).map(([,r])=>r).filter(r=>r.kind==='class_teacher'&&r.sectionKey===`${cl}:${sid}`).sort((a,b)=>b.date.localeCompare(a.date));cell(row,reviews[0]?.date||'No review recorded');const actions=cell(row,'');for(const[field,label]of [['classTeacher','Review CT'],['coClassTeacher','Review Co-CT']])if(roles[field])actions.append(button(label,()=>editRecord(null,'',`${cl}:${roles[field]}`,'class_teacher',`${cl}:${sid}`)));body.append(row);}}
+
+$('mission-import-basic').onclick=()=>{if(editable()&&!busy)$('mission-basic-file').click();};
+$('mission-basic-file').onchange=async event=>{
+ const file=event.target.files[0];event.target.value='';if(!file||!editable()||busy)return;
+ try{
+  if(file.size>5_000_000)throw Error('CSV must be smaller than 5 MB.');
+  const expected=mission.revision,result=importBasicStudents(await file.text(),mission,draft);
+  if(!editable()||mission.revision!==expected)throw Error('Data changed while reading the file. Please select it again.');
+  if(!result.matched)throw Error('No students matched. Import the student roster first, then check class, section and names.');
+  validateMission(result.next,draft,faculty);
+  editor('Review student basic-data import',()=>{
+   $('mission-fields').append(el('p',`${result.matched} of ${result.total} rows matched; ${result.changed} profiles will change. ${result.issues.length} rows will be skipped.`));
+   for(const[label,count]of entries(result.counts))$('mission-fields').append(el('p',`${label}: ${count} students`));
+   $('mission-fields').append(el('p','Updates gender, parent names, contact numbers and home addresses privately. Empty cells retain existing values. Marks, attendance, subjects and public information stay unchanged.'));
+   if(result.issues.length){const details=el('details');details.append(el('summary','Review skipped rows'));for(const issue of result.issues)details.append(el('p',issue));$('mission-fields').append(details);}
+  },async()=>{const saved=await save(result.next,expected);if(saved)message(`Basic data saved privately for ${result.matched} students; ${result.issues.length} rows skipped.`,'success');return saved;});
+ }catch(error){message(error.message,'error');}
+};
