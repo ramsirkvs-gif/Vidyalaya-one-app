@@ -446,3 +446,21 @@ suites; staff service authorization/concurrency tests; actual browser workbook
 loading, incremental imports, Principal tagging, CT/subject navigation, contact
 updates, faculty remark roles and inline-deployment guards. All test data in Git
 is synthetic. Production-private student/teacher files remain outside Git/build.
+
+## CT and Co-CT display throughout monitoring
+
+Saved `facultyDraft.classes[class].roles[section]` assignments now feed a shared
+section-team display. Principal Mission home lists all X/XII section teams; class
+cards and class/section overviews show both names. Student profiles, filtered
+academic dashboards, teacher CT/subject reviews and a compact monitoring-area
+section-team disclosure use the same live assignments. Principal name buttons
+open the existing teacher meeting profile. Assigned staff student responses
+include only that student's section-team names/IDs/status and display them in
+Faculty PIN access. Missing/removed assignments say Not assigned; no names are
+inferred or hardcoded. Existing public publication and private access boundaries
+remain unchanged, with no database/rules changes.
+
+Checks: section-team resolver and browser tests verify class-specific IDs,
+updated/missing assignments, home/class/section/student display, profile links,
+mobile layout and no private team display to an unauthenticated visitor. Existing
+academics, staff and teacher-monitoring regressions passed.
