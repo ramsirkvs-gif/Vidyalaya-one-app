@@ -1,3 +1,4 @@
+import {pinDisplayKey} from '../_server/pin-vault.js';
 import {createStaffService,AccessError} from '../_server/staff-service.js';
 let service;
 async function getService(){
@@ -12,14 +13,14 @@ async function getService(){
  if(typeof credential.client_email!=='string'||typeof credential.private_key!=='string')throw new AccessError('The server Firebase credential is missing its service-account email or private key. Update FIREBASE_SERVICE_ACCOUNT_JSON in Vercel and redeploy.',503);
  let app;try{app=getApps().find(a=>a.name==='mission-server')||initializeApp({credential:cert(credential),databaseURL:'https://vidyalaya-one-app-default-rtdb.firebaseio.com'},'mission-server');}
  catch(error){console.error('PIN_SERVICE_CREDENTIAL_INVALID',String(error?.code||'invalid-certificate'));throw new AccessError('The server Firebase service-account credential is invalid. Update FIREBASE_SERVICE_ACCOUNT_JSON in Vercel and redeploy.',503);}
- service=createStaffService({db:getDatabase(app),auth:getAuth(app)});return service;
+ service=createStaffService({db:getDatabase(app),auth:getAuth(app),displayKey:pinDisplayKey(credential)});return service;
 }
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
  if(req.method!=='POST'){res.setHeader('Allow','POST');res.status(405).json({error:'Use POST.'});return;}
  try{
   let input;try{input=typeof req.body==='string'?JSON.parse(req.body):req.body||{};}catch{throw new AccessError('Invalid JSON request.',400);}if(!input||typeof input!=='object'||Array.isArray(input))throw new AccessError('Invalid request body.',400);if(Buffer.byteLength(JSON.stringify(input))>64000)throw new AccessError('Request is too large.',413);
-  const action=String(input.action||'');if(!['directory','login','generate-pins','import-pins','list','set-pin','disable','students','profile','comment','update-task'].includes(action))throw new AccessError('Unknown action.',400);const bearer=String(req.headers.authorization||'');const token=bearer.startsWith('Bearer ')?bearer.slice(7):'';
+  const action=String(input.action||'');if(!['directory','login','generate-pins','import-pins','add-faculty-pin','list','set-pin','disable','students','profile','comment','update-task'].includes(action))throw new AccessError('Unknown action.',400);const bearer=String(req.headers.authorization||'');const token=bearer.startsWith('Bearer ')?bearer.slice(7):'';
   if(!['directory','login'].includes(action)&&!token)throw new AccessError('Sign in first.',401);
   const ip=String(req.headers['x-vercel-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0];
   res.status(200).json(await (await getService())(action,input,token,ip));

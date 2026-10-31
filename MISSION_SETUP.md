@@ -90,11 +90,11 @@ API, `/api/staff-access`, and require this one-time Vercel setting:
 An authorised project administrator can obtain this credential through Firebase
 Project settings → Service accounts. No credential value is included in this
 repository. Once the protected environment setting is available, use **Faculty
-PIN settings** in Mission to set/reset a 6–12 digit PIN or disable access for
-active faculty, counsellors and PRTs. The directory shows access status, never
-original PIN values or hashes. Vacant/inactive staff cannot receive active access.
+PIN settings** in Mission to set/reset a three-digit PIN or disable access for
+active faculty, counsellors and PRTs. The public staff directory shows access status, never
+PIN values or hashes. Principal-only settings can decrypt saved display PINs. Vacant/inactive staff cannot receive active access.
 
-The source code stores salted scrypt hashes only under server-only
+The server stores salted scrypt verification hashes and encrypted display copies under server-only
 `/cbse/staffAccess`; attempts are limited by staff identity, IP and their pair.
 The browser signs in with a short-lived custom token and keeps a separate staff
 Firebase session, preserving a Principal session on the same device. Resetting a
@@ -241,7 +241,7 @@ Mission → Principal controls → Faculty PIN settings includes **Generate miss
 Generation creates random three-digit values for active staff without a stored
 PIN; existing PINs and disabled accounts are retained. Generated PINs are visible
 via Show during the current dialog visit and cleared when the dialog closes.
-The server stores salted hashes; forgotten PINs must be replaced. Individual
+The server stores salted hashes and encrypted display copies for the Principal list. Individual
 rows accept exactly three digits, including leading zeroes. Previous 6–12 digit
 PINs remain supported for continuity. Existing failed-attempt limits apply.
 This adds no Firebase rules or authentication-provider changes. It uses the
@@ -296,3 +296,29 @@ interop. Keep the lockfile committed. Node 22 remains the deployment runtime.
 synthetic staff token with `--no-experimental-require-module`; it uses an
 ephemeral local test key and makes no Firebase network calls. The protected
 Production service-account variable is still required separately.
+
+
+## Principal PIN list and adding faculty with a PIN
+
+**Show PIN list** in Principal-only Faculty PIN settings reveals saved display
+values. All set/import/generate/add paths retain a salted verification hash plus
+an AES-256-GCM encrypted display copy, bound to the staff ID using authenticated
+associated data. The display key is derived on the server from the existing
+service-account private key with HKDF and a separate purpose label. No new
+Vercel variable or Firebase rule is required. Only the verified Principal list
+endpoint decrypts these copies; staff/public projections never include them.
+The UI hides values initially and clears decrypted values on dialog close and
+sign-out. Rotating the service-account key makes old display copies unreadable;
+reimport the private CSV or reset those PINs to restore viewing. Verification
+hashes continue working independently.
+
+PINs stored before this feature have only hashes and cannot be recovered.
+Reimport the original private PIN CSV once after deployment to enable the list
+without changing those PIN values. Existing staff sessions are invalidated by
+this import as with any PIN update.
+
+**Add new faculty + PIN** in the same dialog asks for Class X/XII, name,
+designation, subject expertise, teaching sections and a generated, editable
+three-digit initial PIN. The Principal-authorized API validates the faculty
+roster and saves faculty + PIN in one transaction. Invalid or duplicate faculty
+create neither record. CT/Co-CT assignments remain in Faculty feeding.

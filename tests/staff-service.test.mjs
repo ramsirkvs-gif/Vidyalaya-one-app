@@ -16,7 +16,7 @@ function fixture(){
  const put=(path,value)=>{const keys=path.split('/');let parent=data;for(const key of keys.slice(0,-1))parent=parent[key]||={};if(value===null)delete parent[keys.at(-1)];else parent[keys.at(-1)]=copy(value);};
  const db={ref:path=>({get:async()=>({val:()=>copy(at(path))}),set:async v=>put(path,v),update:async v=>put(path,{...at(path),...v}),remove:async()=>put(path,null),transaction:async fn=>{const next=fn(copy(at(path)));if(next===undefined)return {committed:false};put(path,next);return {committed:true,snapshot:{val:()=>copy(next)}};}})};
  const auth={verifyIdToken:async token=>token==='principal'?{uid:'principal-uid'}:token==='outsider'?{uid:'not-principal'}:JSON.parse(token),createCustomToken:async(uid,claims)=>JSON.stringify({uid,...claims}),revokeRefreshTokens:async()=>{}};
- return {data,db,auth,service:createStaffService({db,auth,now:()=>1000000})};
+ return {data,db,auth,service:createStaffService({db,auth,now:()=>1000000,displayKey:Buffer.alloc(32,7)})};
 }
 test('PINs are salted and hashed and compared without storing the original value',async()=>{const first=await hashPIN('654321'),second=await hashPIN('654321');assert.notEqual(first.hash,second.hash);assert.ok(await verifyPIN('654321',first));assert.equal(await verifyPIN('123456',first),false);assert.ok(!JSON.stringify(first).includes('654321'));assert.ok(await verifyPIN('123',await hashPIN('123')));await assert.rejects(hashPIN('12'),/three-digit/);});
 test('only Principal can set PINs; list/directory never disclose PIN hashes',async()=>{const{service}=fixture();await assert.rejects(service('set-pin',{staffId:'X:one',pin:'654321'},'outsider'),/Principal/);await service('set-pin',{staffId:'X:one',pin:'654321'},'principal');const directory=await service('directory');assert.equal(directory.staff.length,1);const access=await service('list',{},'principal');assert.ok(access.access['X:one'].pinSet);assert.ok(!JSON.stringify(access).includes('salt'));assert.ok(!JSON.stringify(directory).includes('hash'));});
@@ -41,4 +41,21 @@ test('CSV PIN updates require Principal, validate before writing and invalidate 
  data.cbse.staffAccess.unlisted={enabled:false,hash:'retained'};
  const result=await service('import-pins',{rows},'principal');assert.equal(result.updated,1);assert.equal(result.access['X:one'].enabled,true);assert.ok(!JSON.stringify(result).includes('029'));assert.equal(data.cbse.staffAccess.unlisted.hash,'retained');assert.ok(await verifyPIN('029',data.cbse.staffAccess['X:one']));await assert.rejects(service('students',{},old),/disabled or reset/);
  const fresh=await service('login',{staffId:'X:one',pin:'029'},'','csv-ip');await service('import-pins',{rows:[{...rows[0],enabled:false}]},'principal');await assert.rejects(service('students',{},fresh.customToken),/disabled or reset/);
+});
+
+test('new faculty and initial PIN save atomically with Principal authorization and validation',async()=>{
+ const {service,data}=fixture(),input={classId:'XII',name:'Synthetic New Teacher',designation:'PGT',subjects:'Physics',teachingSections:'A',pin:'047'};
+ await assert.rejects(service('add-faculty-pin',input,'outsider'),/Principal/);
+ const before=structuredClone(data.cbse);await assert.rejects(service('add-faculty-pin',{...input,name:''},'principal'),/faculty name/);assert.deepEqual(data.cbse,before);
+ const result=await service('add-faculty-pin',input,'principal'),id=`XII:${result.teacherId}`;assert.equal(data.cbse.facultyDraft.classes.XII.teachers[result.teacherId].name,input.name);assert.ok(await verifyPIN('047',data.cbse.staffAccess[id]));assert.equal(data.cbse.staffAccess[id].enabled,true);
+ const token=await service('login',{staffId:id,pin:'047'},'','new-person');assert.ok(token.customToken);
+ const saved=structuredClone(data.cbse);await assert.rejects(service('add-faculty-pin',input,'principal'),/already exist/);assert.deepEqual(data.cbse,saved);assert.equal(data.cbse.adminUid,before.adminUid);assert.deepEqual(data.cbse.draft,before.draft);
+});
+
+test('only Principal can recover encrypted PIN list, stored database never contains clear PINs',async()=>{
+ const {service,data}=fixture();await service('set-pin',{staffId:'X:one',pin:'029'},'principal');
+ const record=data.cbse.staffAccess['X:one'];assert.ok(record.displayPIN);assert.equal(record.pin,undefined);assert.equal(record.displayPIN.ciphertext==='029',false);
+ const list=await service('list',{},'principal');assert.equal(list.access['X:one'].pin,'029');await assert.rejects(service('list',{},'outsider'),/Principal/);
+ const directory=await service('directory');assert.ok(!JSON.stringify(directory).includes('029'));assert.ok(!JSON.stringify(directory).includes('displayPIN'));
+ record.displayPIN.tag='invalid';assert.equal((await service('list',{},'principal')).access['X:one'].pin,'');
 });

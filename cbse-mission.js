@@ -119,16 +119,16 @@ $('mission-backup').onclick=()=>{if(!mission)return;const url=URL.createObjectUR
 async function staffAPI(action,values={}){const response=await fetch('/api/staff-access',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${await user.getIdToken()}`},body:JSON.stringify({action,...values})});return readStaffResponse(response);}
 let pinAccess={},generatedPINs={};
 function renderPINSettings(){
- $('mission-pin-body').replaceChildren();
+ $('mission-show-pin-list').textContent='Show PIN list';$('mission-pin-body').replaceChildren();
  for(const[id,t]of entries(staff()).filter(([,s])=>s.status==='active')){
   const row=el('tr');cell(row,t.name);cell(row,t.classId?`Class ${t.classId} faculty`:t.kind);const state=cell(row,pinAccess[id]?.enabled?'Enabled':pinAccess[id]?.pinSet?'Disabled':'Not set'),actions=cell(row,'');
-  const input=el('input');input.type='password';input.inputMode='numeric';input.maxLength=3;input.pattern='[0-9]{3}';input.placeholder='3 digits';input.autocomplete='new-password';input.setAttribute('aria-label',`New PIN for ${t.name}`);input.value=generatedPINs[id]||'';
+  const input=el('input');input.type='password';input.inputMode='numeric';input.maxLength=3;input.pattern='[0-9]{3}';input.placeholder=pinAccess[id]?.pinSet?'New PIN to replace saved PIN':'Set initial 3-digit PIN';input.autocomplete='new-password';input.setAttribute('aria-label',`New PIN for ${t.name}`);input.value=generatedPINs[id]||'';
   const show=button('Show',()=>{input.type=input.type==='password'?'text':'password';show.textContent=input.type==='password'?'Show':'Hide';});
   const savePIN=button('Save PIN',async()=>{if(!/^[0-9]{3}$/.test(input.value)){$('mission-pin-message').textContent='Enter exactly three digits.';return;}savePIN.disabled=true;try{await staffAPI('set-pin',{staffId:id,pin:input.value});generatedPINs[id]=input.value;pinAccess[id]={enabled:true,pinSet:true};state.textContent='Enabled';$('mission-pin-message').textContent=`PIN saved for ${t.name}. Share it privately.`;}catch(error){$('mission-pin-message').textContent=error.message;}finally{savePIN.disabled=false;}});
   actions.append(input,show,savePIN,button('Disable',async()=>{try{await staffAPI('disable',{staffId:id});pinAccess[id]={...pinAccess[id],enabled:false};delete generatedPINs[id];input.value='';state.textContent='Disabled';$('mission-pin-message').textContent=`PIN access disabled for ${t.name}.`;}catch(error){$('mission-pin-message').textContent=error.message;}}));$('mission-pin-body').append(row);
  }
 }
-$('mission-pin-settings').onclick=async()=>{if(!editable())return;$('mission-pins').showModal();generatedPINs={};$('mission-pin-body').replaceChildren();$('mission-generate-pins').disabled=true;$('mission-pin-message').textContent='Loading secure staff access…';try{const result=await staffAPI('list');if(!editable()||!$('mission-pins').open)return;pinAccess=result.access;renderPINSettings();$('mission-generate-pins').disabled=false;$('mission-pin-message').textContent='Generate missing PINs, or enter a new three-digit PIN and save. Existing PINs stay unchanged.';}catch(error){$('mission-pin-message').textContent=error.message;}};
+$('mission-pin-settings').onclick=async()=>{if(!editable())return;$('mission-pins').showModal();generatedPINs={};$('mission-pin-body').replaceChildren();$('mission-generate-pins').disabled=true;$('mission-pin-message').textContent='Loading secure staff access…';try{const result=await staffAPI('list');if(!editable()||!$('mission-pins').open)return;pinAccess=result.access;for(const[id,a]of entries(pinAccess))if(a.pin)generatedPINs[id]=a.pin;renderPINSettings();$('mission-generate-pins').disabled=false;$('mission-pin-message').textContent='Use Show PIN list to read saved values. If an enabled row is blank, reimport its original CSV once. Add new faculty and PIN together below.';}catch(error){$('mission-pin-message').textContent=error.message;}};
 $('mission-generate-pins').onclick=async()=>{$('mission-generate-pins').disabled=true;try{const result=await staffAPI('generate-pins');if(!editable()||!$('mission-pins').open)return;for(const p of result.created){generatedPINs[p.staffId]=p.pin;pinAccess[p.staffId]={enabled:true,pinSet:true};}renderPINSettings();$('mission-pin-message').textContent=`${result.created.length} PINs generated and saved. Use Show beside each name and share privately. Existing PINs were retained.`;}catch(error){$('mission-pin-message').textContent=error.message;}finally{$('mission-generate-pins').disabled=false;}};
 $('mission-pins').addEventListener('close',()=>{generatedPINs={};pinAccess={};$('mission-pin-body').replaceChildren();});
 $('mission-close-pins').onclick=()=>$('mission-pins').close();
@@ -214,8 +214,29 @@ $('mission-pin-file').onchange=async event=>{
    $('mission-fields').append(el('p','PINs are hidden in this review. Check the private CSV before saving.'));
   },async()=>{
    if(busy)return false;validatePINRows(rows,staff());busy=true;document.documentElement.dataset.portalBusy='true';$('mission-save').disabled=true;
-   try{const result=await staffAPI('import-pins',{rows});if(!editable())return false;for(const r of rows)delete generatedPINs[r.staffId];Object.assign(pinAccess,result.access);renderPINSettings();$('mission-pin-message').textContent=`${result.updated} staff PINs updated in the database.`;message(`${result.updated} staff PINs updated privately.`,'success');return true;}
+   try{const result=await staffAPI('import-pins',{rows});if(!editable())return false;for(const r of rows)generatedPINs[r.staffId]=r.pin;Object.assign(pinAccess,result.access);renderPINSettings();$('mission-pin-message').textContent=`${result.updated} staff PINs updated in the database.`;message(`${result.updated} staff PINs updated privately.`,'success');return true;}
    finally{busy=false;document.documentElement.dataset.portalBusy='false';$('mission-save').disabled=false;}
   });
  }catch(error){$('mission-pin-message').textContent=error.message;}
 };
+
+$('mission-add-faculty-pin').onclick=()=>{
+ if(!editable()||busy)return;
+ const initial=String(100+crypto.getRandomValues(new Uint32Array(1))[0]%900);
+ editor('Add new faculty + initial PIN',()=>{
+  select('classId','Standard',[['X','Class X'],['XII','Class XII']],'X',true);
+  field('name','Faculty name','',{required:true,max:120});field('designation','Designation','',{required:true,max:100});field('subjects','Subjects / expertise','',{max:300});field('teachingSections','Teaching sections (e.g. A, C)','',{max:150});
+  const pin=field('pin','Initial PIN (edit if needed)',initial,{required:true,max:3});pin.inputMode='numeric';pin.pattern='[0-9]{3}';pin.autocomplete='new-password';
+  $('mission-fields').append(el('p','Save adds the active faculty member and initial PIN together. CT/Co-CT assignments can be set in Faculty feeding. Share this PIN privately.'));
+ },async form=>{
+  if(busy)return false;const values=formObject(form,['classId','name','designation','subjects','teachingSections','pin']);if(!/^[0-9]{3}$/.test(values.pin))throw Error('Enter exactly three digits.');
+  busy=true;document.documentElement.dataset.portalBusy='true';$('mission-save').disabled=true;
+  try{const result=await staffAPI('add-faculty-pin',values);if(!editable())return false;
+   const id=`${result.classId}:${result.teacherId}`;
+   if(faculty.revision<=result.revision){faculty.classes[result.classId].teachers||={};faculty.classes[result.classId].teachers[result.teacherId]=result.teacher;faculty.revision=result.revision;}
+   pinAccess[id]=result.access;generatedPINs[id]=values.pin;renderPINSettings();render();$('mission-pin-message').textContent=`${result.teacher.name} added with an enabled initial PIN. Use Show and share it privately.`;message('New faculty and initial PIN saved together.','success');return true;
+  }finally{busy=false;document.documentElement.dataset.portalBusy='false';$('mission-save').disabled=false;}
+ });
+};
+
+$('mission-show-pin-list').onclick=()=>{if(!editable())return;const visible=$('mission-show-pin-list').textContent==='Show PIN list';for(const input of $('mission-pin-body').querySelectorAll('input')){input.type=visible?'text':'password';input.nextElementSibling.textContent=visible?'Hide':'Show';}$('mission-show-pin-list').textContent=visible?'Hide PIN list':'Show PIN list';};
