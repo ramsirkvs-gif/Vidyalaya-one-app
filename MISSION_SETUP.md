@@ -1,5 +1,38 @@
 # Mission Perfect 100 — activation and use
 
+## Master Overview and compact review layout
+
+A browser refresh opens the master **Overview** while keeping the remembered
+staff curtain and Principal authentication. The two main choices are
+**Teacher-wise overview** and **Student-wise overview**, each followed by X/XII.
+Header shortcuts and Back provide navigation within Mission. Direct student and
+teacher links still work when first opened.
+
+Criteria, compact parallel CT/Co-CT section teams and a short scrolling subject
+teacher list appear above the student filters. Student/Girls/Boys buttons filter
+the cohort; colour tiles then filter that selected cohort. Their denominator
+follows the cohort and stream/subject selection. Gender cards keep the original
+population total so staff can return to all students easily.
+
+Teacher reviews open the selected student inside the teacher page. **Back to
+teacher list** closes the review without losing its role, stream or colour
+filter. Header Back closes an open review first. PIN submissions and refreshed
+server data retain this teacher context. Academic-dashboard selections are also
+remembered during navigation in the same visit; refresh deliberately resets the
+navigation to Overview.
+
+Student tiles list every critical subject and separately list other failing
+subjects. If there are no failing subjects, the tile labels its lowest recorded
+subject explicitly. A single subject name is no longer used as an unlabeled
+example of the student's worst band.
+
+**Subject progress** shows one subject's percentage across months. **Monthly
+consolidated progress** is total marks divided by the total maximum of appeared
+papers for that month. Compare appeared/expected coverage and subject statuses
+alongside the consolidated trend; AB and missing papers are excluded from its
+percentage. A one-subject review shows a single graph because these two trends
+would be identical. Plain-language explanations appear next to the graphs.
+
 ## Students and Teachers zone
 
 Mission Perfect 100 (CBSE X & XII) now uses a Students path and a single Teachers
