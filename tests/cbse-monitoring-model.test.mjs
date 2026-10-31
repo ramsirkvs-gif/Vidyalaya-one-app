@@ -1,0 +1,9 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {validateMonitoringDetails,visibleMonitoringDetails,monitoringDetailLines} from '../cbse-monitoring-model.js';
+const session=()=>({kind:'remedial',date:'2026-10-31',staffId:'X:one',sectionKey:'X:a',details:{status:'conducted',start:'10:30',end:'11:00',planned:20,attended:18,nextReview:'2026-11-07'}});
+test('conducted remedial sessions retain actual counts and readable details',()=>{const r=session();validateMonitoringDetails(r);assert.ok(monitoringDetailLines(r).includes('Students attended: 18'));assert.equal(visibleMonitoringDetails(r).status,'conducted');});
+test('impossible attendance, times and past review dates are rejected',()=>{let r=session();r.details.attended=21;assert.throws(()=>validateMonitoringDetails(r),/cannot exceed/);r=session();r.details.end='10:00';assert.throws(()=>validateMonitoringDetails(r),/after start/);r=session();r.details.nextReview='2026-10-01';assert.throws(()=>validateMonitoringDetails(r),/before/);});
+test('conducted sessions require a teacher, section and actual attendance count',()=>{let r=session();r.staffId='';assert.throws(()=>validateMonitoringDetails(r),/teacher and class/);r=session();delete r.details.attended;assert.throws(()=>validateMonitoringDetails(r),/attendance count/);});
+test('worksheet checked/submitted/planned counts must agree',()=>{const r={kind:'worksheet',date:'2026-10-31',details:{planned:25,submitted:20,checked:18}};validateMonitoringDetails(r);r.details.checked=21;assert.throws(()=>validateMonitoringDetails(r),/cannot exceed/);});
+test('older generic notes stay valid and private unknown fields are not projected',()=>{validateMonitoringDetails({kind:'remedial',date:'2026-10-31'});const r=session();r.details.privateSecret='not for staff';assert.ok(!JSON.stringify(visibleMonitoringDetails(r)).includes('privateSecret'));});

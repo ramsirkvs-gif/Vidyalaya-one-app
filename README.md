@@ -108,3 +108,8 @@ portal** and remain protected. Public results use only the approved published
 snapshot; the signed-in Principal can also search private contacts, faculty,
 actions and notes. If the public dashboard has no roster, use Students feeding →
 Publish. This UI update requires no database-rule change.
+
+Teacher monitoring is a dedicated Mission area, with separate remedial,
+worksheet/practice, CT/Co-CT, counsellor, PRT and weekly-review registers.
+Structured monitoring fields and existing notes share the current protected
+Mission workspace; no new rules are required for this update.

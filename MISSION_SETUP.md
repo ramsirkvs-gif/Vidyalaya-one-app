@@ -182,3 +182,54 @@ sizes, public-only reads, counts-only publication and empty/error states. Existi
 Mission profile and student feeding/publishing browser checks were also run with
 synthetic data and mocked Firebase services. Live production deployment remains
 separate from these local checks.
+
+## Dedicated teacher and support monitoring areas
+
+The original plan is now surfaced directly through **Teacher monitoring**, with
+separate dashboard cards for Faculty team, Remedial classes, Worksheets & practice,
+CT/Co-CT monitoring, Counsellor monitoring, Primary support partners, Weekly review
+& other efforts, and the existing break/remedial timetable. Signed-in Principal
+users get the actual registers and feeding. Public visitors see descriptions
+and access links only; private teacher/student records are not published.
+
+The teacher directory has name/subject/section search and an X/XII filter. Its
+cards open the existing complete staff profile: monitoring, targeted students,
+assigned actions, timetable and printable meeting view. Faculty profiles now
+have direct observation, remedial and worksheet buttons. Counsellor and PRT
+profiles have role-appropriate follow-up buttons. The CT/Co-CT watch table shows
+section assignments, open CT actions, the last section review and prefilled
+review shortcuts for both roles.
+
+New structured fields remain part of each private monitoring record:
+
+- **Remedial:** explicit planned/conducted/cancelled status, start/end, planned
+  student count, attended count, learning gap, practice given and next review.
+  Planned/conducted sessions require a teacher and section; conducted sessions
+  require an actual attendance count. Blank counts are not converted to zero.
+- **Worksheets/practice:** status, assigned/submitted/checked counts, submission
+  deadline, skill focus, work description and next review. Counts cannot exceed
+  the preceding stage.
+- **Classroom observations:** optional planning, participation and understanding
+  judgements, agreed improvement action and next review.
+- **CT/Co-CT:** attendance-watch and parent-contact follow-up status, coordination
+  action and next class review.
+- **Counsellor/PRT/weekly/other efforts:** role-appropriate status, support action,
+  counts where relevant and next review.
+
+Dedicated registers filter by teacher, standard and starting date. The dashboard
+reports recorded sessions and explicitly conducted/reviewed entries; an older
+unstructured note is not claimed to be a conducted session. A passed review date
+is a reminder, not proof that a task was missed. All entries retain links to
+student/staff profiles and notes/evidence. Counselling remains restricted.
+
+Existing generic notes remain compatible and editable. New structured details
+use the already-protected Mission path, so this release adds no Firebase rules
+or setup step. Staff projections expose only known, typed detail fields, never
+unknown fields or the Principal-only edit history. Live faculty PIN access still
+has the previously documented Vercel credential prerequisite.
+
+Validation: `node tests/cbse-monitoring-model.test.mjs` and
+`python3 tests/cbse-teacher-monitoring-browser.py`. Checks use synthetic data and
+mocked Firebase to verify invalid counts/times, structured session/worksheet
+feeding, directory/profile navigation, filtering, CT watch, mobile layout and
+public/private separation. These checks do not establish live deployment.

@@ -1,4 +1,5 @@
 import {entries,clone} from './cbse-model.js';
+import {validateMonitoringDetails,visibleMonitoringDetails} from './cbse-monitoring-model.js';
 export const RECORD_KINDS={observation:'Classroom observation',remedial:'Remedial monitoring',worksheet:'Worksheet / practice',effort:'Other improvement effort',class_teacher:'CT / Co-CT follow-up',counselling:'Counselling',prt:'PRT support',contact:'Contact follow-up',weekly:'Weekly review',faculty_comment:'Faculty progress comment'};
 export const today=()=>new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 export function emptyMission(){return {schemaVersion:1,revision:0,settings:{redBelow:33,greenFrom:75,attendanceRedBelow:75,attendanceGreenFrom:90},students:{},exams:{},marks:{},attendance:{},records:{},tasks:{},timetable:{},staff:{},allocations:{},gradingRules:{}};}
@@ -24,6 +25,7 @@ export function validateMission(m,draft,faculty){
  for(const[,a]of entries(m.attendance))assert(text(a.studentKey,300,true)&&date(a.date)&&['school','remedial'].includes(a.session)&&['present','absent','leave'].includes(a.status),'Invalid attendance record.');
  for(const[,r]of entries(m.records)){
   assert(RECORD_KINDS[r.kind]&&date(r.date)&&text(r.notes,3000,true)&&text(r.outcome,2000)&&text(r.studentKey,300)&&text(r.staffId,300)&&text(r.sectionKey,200)&&text(r.subjectId,100)&&['general','restricted'].includes(r.visibility),'Enter a valid dated monitoring record.');
+  validateMonitoringDetails(r);
   assert(r.kind!=='counselling'||r.visibility==='restricted','Counselling notes must be restricted.');
   assert(!r.evidenceUrl||/^https:\/\//.test(r.evidenceUrl)&&text(r.evidenceUrl,1000),'Evidence links must use HTTPS.');
  }
@@ -57,7 +59,7 @@ export function staffCanView(staffId,studentKey,m,draft,faculty){
  if(entries(m.allocations).some(([,a])=>a.staffId===staffId&&a.classId===p.classId&&a.sectionId===p.sectionId))return true;
  return staff.classId===p.classId&&String(staff.teachingSections||'').split(/[,;]/).map(s=>s.trim().toUpperCase()).includes(p.section.toUpperCase());
 }
-export function staffVisibleRecord(id,r){return {id,date:r.date,kind:r.kind,notes:r.notes,outcome:r.outcome,authorName:r.authorName||'',authorId:r.authorId||'',visibility:r.visibility};}
+export function staffVisibleRecord(id,r){return {id,date:r.date,kind:r.kind,notes:r.notes,outcome:r.outcome,authorName:r.authorName||'',authorId:r.authorId||'',visibility:r.visibility,details:visibleMonitoringDetails(r)};}
 export function staffProfileView(staffId,key,m,draft,faculty){
  assert(staffCanView(staffId,key,m,draft,faculty),'This student is not assigned to you.');
  const p=studentIndex(draft)[key],staff=staffIndex(faculty,m)[staffId],role=faculty?.classes?.[p.classId]?.roles?.[p.sectionId],tid=staffId.split(':').slice(1).join(':');
