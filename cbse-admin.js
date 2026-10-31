@@ -27,7 +27,7 @@ function button(label,handler,danger=false){const b=el('button',label,danger?'da
 function actions(row,onEdit,onDelete){const td=cell(row,'');td.append(button('Edit',onEdit),button('Delete',onDelete,true));}
 function publicationStatus(){
  const pub=publication;
- $('publish-status').textContent=pub?`Last published: ${date(pub.publishedAt)} (IST). ${pub.draftRevision===draft?.revision?'Public search matches the saved draft.':'There are saved changes that have not been published.'}`:'No public data has been published.';
+ $('publish-status').textContent=pub?`Last published: ${date(pub.publishedAt)} (IST). ${pub.draftRevision===draft?.revision?'The published Mission dashboard matches the saved draft.':'There are saved changes that have not been published.'}`:'No public data has been published.';
 }
 function render(){
  if(!draft)return;
@@ -129,8 +129,8 @@ $('backup-file').onchange=async e=>{
 $('export-backup').onclick=()=>{if(!draft)return;const url=URL.createObjectURL(new Blob([JSON.stringify(draft,null,2)],{type:'application/json'}));const a=el('a');a.href=url;a.download=`cbse-private-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 function publicReview(){const output=buildPublic(draft,true),nodes=[el('p','Only student name, roll number, class, section and stream will be public. Subject selections will stay private.')];let count=0;for(const[,s]of entries(output.sections)){count+=s.count;nodes.push(el('p',`Class ${s.classId} · Section ${s.section} · ${s.stream||'No stream'} · ${s.count} students`));}nodes.unshift(el('p',`${count} students across ${entries(output.sections).length} sections. Saved revision ${draft.revision}.`));return {output,nodes};}
 $('preview-publish').onclick=()=>{const{nodes}=publicReview();review('Review public data',nodes);};
-$('publish').onclick=()=>{const {output,nodes}=publicReview();review('Publish student data?',nodes,async()=>{if(busy)return;busy=true;document.documentElement.dataset.portalBusy='true';try{await api.set(api.ref(db,'cbse/public'),{...output,publishedAt:api.serverTimestamp()});message('Published. Connected public search pages will update automatically.','success');}finally{busy=false;document.documentElement.dataset.portalBusy='false';}},'Publish approved fields');};
-$('unpublish').onclick=()=>review('Unpublish all student data?','Public search will stop displaying the published records. Your private draft will remain available to the Principal.',async()=>{await api.remove(api.ref(db,'cbse/public'));message('Public data removed. Private draft retained.','success');},'Unpublish all');
+$('publish').onclick=()=>{const {output,nodes}=publicReview();review('Publish student data?',nodes,async()=>{if(busy)return;busy=true;document.documentElement.dataset.portalBusy='true';try{await api.set(api.ref(db,'cbse/public'),{...output,publishedAt:api.serverTimestamp()});message('Published. The public Mission dashboard will update automatically.','success');}finally{busy=false;document.documentElement.dataset.portalBusy='false';}},'Publish approved fields');};
+$('unpublish').onclick=()=>review('Unpublish all student data?','The public Mission dashboard will stop displaying the published records. Your private draft will remain available to the Principal.',async()=>{await api.remove(api.ref(db,'cbse/public'));message('Public data removed. Private draft retained.','success');},'Unpublish all');
 $('login-form').onsubmit=async e=>{e.preventDefault();if(!auth)return;$('login-button').disabled=true;try{await authApi.signInWithEmailAndPassword(auth,PRINCIPAL_ACCOUNT,$('login-password').value);$('login-password').value='';}catch(error){message(errorText(error),'error');}finally{$('login-button').disabled=false;}};
 $('signout').onclick=async()=>{if(busy){message('Wait for the current save to finish before signing out.');return;}await authApi.signOut(auth);};
 async function connect(){

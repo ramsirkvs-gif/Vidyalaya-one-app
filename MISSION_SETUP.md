@@ -149,3 +149,36 @@ new rules, enter the Vercel secret, change the user's live role assignments, or
 verify live production PIN login. Those are external activation steps, not
 claims covered by local tests. Do not label the entire service live until they
 are completed and checked with a second real device.
+
+
+## Unified public dashboard and mobile navigation
+
+`cbse-mission.html` is the one public dashboard and search destination. Legacy
+`cbse-students.html` links redirect to it and preserve supported searches/profile
+links. There is no separate Published search tab. Public users can browse X/XII,
+sections, student profile cards and approved published fields without signing in.
+Principal controls appear only after authorised access, inside **Manage portal**.
+
+The dashboard includes a global search (including `XA`/`X-A` shorthand), class and
+section filters, touch-sized student cards, a mobile bottom navigation bar and
+clear loading/empty/error states. Unavailable or unpublished data displays a dash
+and explanation, rather than claiming the school has zero students. Counts-only
+publication continues to show its published totals without exposing names.
+
+The Principal's private roster can be previewed from the existing student draft
+while full Mission setup is pending. Academic forms and sensitive monitoring data
+still require the protected Mission workspace. Anonymous requests never fall
+back to private drafts. Public publication remains an explicit Principal action.
+
+The independent `cbse-mission.css` theme uses system fonts and no additional
+external assets. The build allowlist includes these CSS files. Search results and
+profile navigation move to the content area while typing keeps the search field
+focused. Reduced-motion preferences are respected. Existing Firebase access
+rules and data schemas are unchanged by this presentation update.
+
+Regression checks include `python3 tests/cbse-public-dashboard-browser.py` at
+320/360/390/768/1440-pixel widths, legacy redirect/search checks, touch target
+sizes, public-only reads, counts-only publication and empty/error states. Existing
+Mission profile and student feeding/publishing browser checks were also run with
+synthetic data and mocked Firebase services. Live production deployment remains
+separate from these local checks.

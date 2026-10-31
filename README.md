@@ -52,7 +52,7 @@ prove a Vercel deployment succeeded; check its deployment status and live page.
 
 ## CBSE Students Basic Data
 
-The CBSE card now opens `cbse-students.html`, with a separate Principal workspace
+The CBSE card opens the unified public `cbse-mission.html` dashboard, with a protected Principal workspace
 at `cbse-admin.html`. See [CBSE_SETUP.md](CBSE_SETUP.md) for the one-time Firebase
 Authentication and database rules setup, private CSV/JSON import, and publishing.
 No student records or Principal password are included in this repository.
@@ -98,3 +98,13 @@ notes; counsellor/PRT support; and break/remedial timetables. See
 privacy boundaries, secure faculty PIN setup and validation evidence. Private
 Mission access requires the updated rules. Server-verified faculty PINs also
 need the protected Vercel credential setting documented there.
+
+
+Mission Perfect 100 is the single public display/search page. Older
+`cbse-students.html` links redirect to it. The responsive dashboard has a global
+search, X/XII and section cards, student profile cards, class/section filters and
+mobile bottom navigation. Principal feeding/settings are grouped under **Manage
+portal** and remain protected. Public results use only the approved published
+snapshot; the signed-in Principal can also search private contacts, faculty,
+actions and notes. If the public dashboard has no roster, use Students feeding →
+Publish. This UI update requires no database-rule change.

@@ -16,7 +16,7 @@ with sync_playwright() as p:
  browser=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
  page=browser.new_page();page.route('https://www.gstatic.com/firebasejs/**',sdk)
  page.route('**/api/staff-access',lambda route:route.fulfill(status=503,content_type='application/json',body=json.dumps({'error':'Secure faculty PIN service needs Vercel credential activation.'})))
- page.goto('http://127.0.0.1:8000/cbse-mission.html');page.locator('#mission-tools').wait_for(state='visible')
+ page.goto('http://127.0.0.1:8000/cbse-mission.html');page.locator('#mission-tools').wait_for(state='visible');page.locator('#mission-tools').evaluate('node=>node.open=true')
  for width in [360,768,1440]:
   page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
  page.get_by_role('button',name='Class X',exact=True).click();page.get_by_role('button',name='Synthetic Student X',exact=True).click()

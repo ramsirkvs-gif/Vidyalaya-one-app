@@ -21,7 +21,7 @@ async function copy(relative){
  }
 }
 for(const name of (await fs.readdir(root)).sort()){
- if(name==='index.html'||/^cbse-[\w-]+\.(html|js)$/.test(name)||['firebase-client.js','portal-firebase.js','live-update.js','cbse.css','database.rules.json'].includes(name)||/\.(png|svg|ico)$/.test(name))await copy(name);
+ if(name==='index.html'||/^cbse-[\w-]+\.(html|js|css)$/.test(name)||['firebase-client.js','portal-firebase.js','live-update.js','cbse.css','database.rules.json'].includes(name)||/\.(png|svg|ico)$/.test(name))await copy(name);
 }
 await copy('vendor');
 const version=hash.digest('hex');

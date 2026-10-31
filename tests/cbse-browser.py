@@ -70,13 +70,13 @@ with sync_playwright() as p:
  page.locator('#publish').click();page.get_by_role('button',name='Publish approved fields').click();page.locator('#review').wait_for(state='hidden');published=page.evaluate('window.__dbData["cbse/public"]');assert len(published['sections'])==9;assert sum(s['count'] for s in published['sections'].values())==240
  assert all(set(s)=={'name','roll'} for sec in published['sections'].values() for s in sec.get('students',{}).values())
  public=browser.new_page();public.route('https://www.gstatic.com/firebasejs/**',intercept);public.goto('http://127.0.0.1:8000/cbse-students.html');public.wait_for_function('typeof window.__emit === "function"');public.evaluate('data=>window.__emit("cbse/public",data)',published)
- assert public.locator('#public-body tr').count()==240
+ public.get_by_role('button',name='View all students').click();public.locator('.student-card').first.wait_for();assert public.locator('.student-card').count()==240
  for width in [360,768,1440]:
   public.set_viewport_size({'width':width,'height':900});assert public.evaluate('document.documentElement.scrollWidth <= innerWidth')
- public.locator('#public-class').select_option('XII');public.locator('#public-section').select_option('D');assert public.locator('#public-body tr').count()==35
- public.locator('#public-search').fill('Humanities');assert public.locator('#public-body tr').count()==35
- public.locator('#public-search').fill('ZZ-NO-SUCH-ROLL');assert public.locator('#public-body tr').count()==0
- public.locator('#public-search').fill('');public.evaluate('window.__emit("cbse/public",null)');assert public.locator('#public-body tr').count()==0
+ public.get_by_role('combobox',name='Search class',exact=True).select_option('XII');public.get_by_role('combobox',name='Search section',exact=True).select_option('D');public.wait_for_function('document.querySelectorAll(".student-card").length===35')
+ public.locator('#mission-search-input').fill('Humanities');public.locator('#mission-global-search').evaluate('node=>node.requestSubmit()');public.wait_for_function('document.querySelectorAll(".student-card").length===62')
+ public.locator('#mission-search-input').fill('ZZ-NO-SUCH-ROLL');public.locator('#mission-global-search').evaluate('node=>node.requestSubmit()');public.wait_for_function('document.querySelectorAll(".student-card").length===0')
+ public.locator('#mission-search-input').fill('');public.evaluate('window.__emit("cbse/public",null)');assert public.locator('.student-card').count()==0
  print('PASS publication whitelist, 240-row public search, filters, live updates, unpublication and responsive layout')
  page.locator('#unpublish').click();page.get_by_role('button',name='Unpublish all',exact=True).last.click();page.locator('#review').wait_for(state='hidden');assert page.evaluate('window.__dbData["cbse/public"] === undefined')
  page.locator('#signout').click();page.locator('#login-panel').wait_for(state='visible');assert page.locator('#workspace').is_hidden();assert page.locator('#data-body').inner_text()==''
