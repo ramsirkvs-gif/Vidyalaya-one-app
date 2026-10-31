@@ -285,3 +285,14 @@ credential errors log only safe codes (`PIN_SERVICE_STARTUP_FAILED`,
 contents or PINs. Check the protected Production `FIREBASE_SERVICE_ACCOUNT_JSON`
 value and redeploy after changing it. A non-JSON error alone does not establish
 the underlying hosting failure; use the live URL/logs to diagnose that cause.
+
+## Firebase Admin ESM compatibility
+
+The Vercel logs reported `ERR_REQUIRE_ESM` from `jwks-rsa` requiring `jose`.
+Firebase Admin is pinned to 13.6.0 with the lockfile resolving jwks-rsa 3.x /
+jose 4.x, which supports CommonJS loading without Node's experimental require-ESM
+interop. Keep the lockfile committed. Node 22 remains the deployment runtime.
+`node tests/firebase-admin-runtime.test.mjs` loads App/Auth/Database and signs a
+synthetic staff token with `--no-experimental-require-module`; it uses an
+ephemeral local test key and makes no Firebase network calls. The protected
+Production service-account variable is still required separately.
