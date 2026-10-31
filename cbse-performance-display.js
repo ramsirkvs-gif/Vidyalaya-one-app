@@ -11,7 +11,7 @@ export function renderPerformanceCriteria(parent,marks,mission,{classId=''}={}){
  }
  if(!groups.size)return;
  const box=el('section',undefined,'performance-criteria');box.append(el('h3','Colour criteria (%)'));
- for(const g of groups.values()){const row=el('div',undefined,'performance-legend');row.append(el('strong',`Papers out of ${g.maximum}: `));if(g.critical!==null)row.append(el('span',`Critical fail: below ${number(g.critical)}%`,'band critical'));row.append(el('span',`Fail${g.critical!==null?' (excluding critical): '+number(g.critical)+'% to below ':': below '}${number(g.pass)}%`,'band red'),el('span',`Borderline: ${number(g.pass)}% to below ${number(g.secure)}%`,'band yellow'),el('span',`Secure pass: ${number(g.secure)}% and above`,'band green'));box.append(row);}
+ for(const g of groups.values()){const row=el('div',undefined,'performance-legend');row.append(el('strong',`Papers out of ${g.maximum}: `));if(g.critical!==null)row.append(el('span',`Critical fail: below ${number(g.critical)}%`,'band critical'));row.append(el('span',`Fail${g.critical!==null?' (excluding critical): '+number(g.critical)+'% to below ':': below '}${number(g.pass)}%`,'band red'),el('span',`Borderline: ${number(Math.ceil(g.pass))}% and above to below ${number(g.secure)}%`,'band yellow'),el('span',`Secure pass: ${number(g.secure)}% and above`,'band green'));box.append(row);}
  const notes=el('div',undefined,'criteria-notes');if([...groups.values()].some(g=>g.maximum===40&&g.pass===32.5))notes.append(el('span','Pass: 13/40 = 32.5%'));for(const text of ['Total fail = Critical + Fail','AB = unassessed','Colour = weakest subject'])notes.append(el('span',text));box.append(notes);parent.append(box);return box;
 }
 
