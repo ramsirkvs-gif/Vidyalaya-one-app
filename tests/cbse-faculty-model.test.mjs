@@ -24,10 +24,10 @@ test('first-time merge captures only X/XII; repeat imports preserve manual edits
  const again=mergeFacultyRoster(first.data,r,emptyDraft().classes,'a'.repeat(64));assert.equal(again.summary.X.added,0);assert.equal(again.summary.X.kept,1);assert.equal(again.data.classes.X.teachers[id].name,'Edited Name');assert.equal(again.data.classes.X.roles.a.classTeacher,id);
 });
 test('screenshot presets apply only to original PDF and use current section identifiers',()=>{
- const serials={X:[19,33,26,35,43],XII:[10,11,16,3,12,5,4,9]};const records=[];
+ const serials={X:[30,32,19,33,26,35,43],XII:[10,11,16,3,12,5,4,9]};const records=[];
  for(const[cl,ids]of Object.entries(serials))for(const serial of ids)records.push({serial,name:`Synthetic ${cl} ${serial}`,designation:'Teacher',status:'active',teaching:[{classId:cl,section:'A',subject:'Subject'}]});
  const classes=emptyDraft().classes;classes.X.sections.renamedB=classes.X.sections.b;delete classes.X.sections.b;
- const merged=mergeFacultyRoster(emptyFaculty(),records,classes,ORIGINAL_FACULTY_SHA);assert.equal(Object.keys(merged.data.classes.X.roles).length,3);assert.equal(Object.keys(merged.data.classes.XII.roles).length,5);assert.ok(merged.data.classes.X.roles.renamedB);assert.equal(merged.data.classes.X.roles.a,undefined);
+ const merged=mergeFacultyRoster(emptyFaculty(),records,classes,ORIGINAL_FACULTY_SHA);assert.equal(Object.keys(merged.data.classes.X.roles).length,4);assert.equal(Object.keys(merged.data.classes.XII.roles).length,5);assert.ok(merged.data.classes.X.roles.renamedB);assert.ok(merged.data.classes.X.roles.a);
  assert.equal(Object.keys(mergeFacultyRoster(emptyFaculty(),records,classes,'b'.repeat(64)).data.classes.X.roles).length,0);
 });
 test('PDF parser distinguishes wrapped XII rows from unrelated XI rows and ignores evaluator columns',()=>{

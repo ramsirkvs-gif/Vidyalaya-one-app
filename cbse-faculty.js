@@ -1,5 +1,5 @@
 import {clone,entries,uniqueKey,emptyDraft} from './cbse-model.js';
-import {emptyFaculty,validateFaculty,clearTeacherRoles,removeFaculty,mergeFacultyRoster} from './cbse-faculty-model.js';
+import {emptyFaculty,validateFaculty,clearTeacherRoles,removeFaculty,mergeFacultyRoster,applyCapturedTeacherRoles} from './cbse-faculty-model.js';
 import {el,cell,options,stats} from './cbse-ui.js';
 import {exportFacultyCSV,importFacultyCSV} from './cbse-faculty-csv.js';
 import {resetFacultySetup,showFacultySetup} from './cbse-faculty-setup.js';
@@ -87,7 +87,7 @@ $('faculty-file').onchange=async e=>{
   const merged=mergeFacultyRoster(data,parsed.roster,studentClasses,parsed.digest);setBusy(false);
   const nodes=[el('p','Only faculty teaching Class X or XII are captured. Existing faculty edits and saved assignments are retained.')];
   for(const cl of ['X','XII'])nodes.push(el('p',`Class ${cl}: ${merged.summary[cl].added} new faculty; ${merged.summary[cl].kept} existing records retained.`));
-  nodes.push(el('p',merged.screenshotApplied?'Class teacher/co-class teacher defaults from your screenshot are included for empty section assignments. Class X-A is unset because its row was cropped.':'This is a different roster. Set teacher roles after import; screenshot defaults were not applied.'));
+  nodes.push(el('p',merged.screenshotApplied?'Class teacher/co-class teacher defaults from your screenshot are included for empty section assignments. All nine X/XII section pairs are captured from your updated screenshot.':'This is a different roster. Set teacher roles after import; screenshot defaults were not applied.'));
   review('Review faculty import',nodes,()=>save(merged.data,expected),'Import faculty privately');message('Review the faculty import before saving.');
  }catch(e){if(token===generation)message(errorText(e),'error');}finally{setBusy(false);}
 };
@@ -126,3 +126,12 @@ try{
   }catch(e){if(token===generation)accessError(e);}
  });
 }catch{lock();message('Secure faculty feeding could not load. Check your connection and reload.','error');}
+
+$('faculty-apply-roles').onclick=()=>{
+ if(!data||busy)return;try{const expected=data.revision,result=applyCapturedTeacherRoles(data,studentClasses),nodes=[];
+ for(const change of result.changes)nodes.push(el('p',`${change.classId}-${change.section}: ${change.lead} / ${change.co}`));
+ if(result.missing.length)nodes.push(el('p',`Some original faculty records were not found: ${result.missing.join(', ')}. Assign those rows manually.`));
+ if(!result.changes.length){message('The available CT/Co-CT pairs already match the updated list.');return;}
+ review('Apply updated CT / Co-CT list',nodes,()=>save(result.data,expected),'Apply updated pairs');
+ }catch(e){message(errorText(e),'error');}
+};

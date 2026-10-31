@@ -354,6 +354,34 @@
         "$other": {
           ".validate": false
         }
+      },
+      "mission": {
+        ".read": "auth != null && auth.uid === root.child('cbse/adminUid').val()",
+        ".write": "auth != null && auth.uid === root.child('cbse/adminUid').val()",
+        ".validate": "newData.hasChildren(['schemaVersion','revision','settings']) && newData.child('schemaVersion').val() === 1 && newData.child('revision').isNumber() && ((!data.exists() && newData.child('revision').val() === 1) || (data.exists() && newData.child('revision').val() === data.child('revision').val() + 1))",
+        "schemaVersion": {
+          ".validate": "newData.val() === 1"
+        },
+        "revision": {
+          ".validate": "newData.isNumber() && newData.val() >= 1"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "settings": {
+          ".validate": "newData.hasChildren(['redBelow','greenFrom','attendanceRedBelow','attendanceGreenFrom']) && newData.child('redBelow').val() < newData.child('greenFrom').val() && newData.child('attendanceRedBelow').val() < newData.child('attendanceGreenFrom').val()",
+          "$threshold": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 100"
+          }
+        }
+      },
+      "staffAccess": {
+        ".read": false,
+        ".write": false
+      },
+      "staffAttempts": {
+        ".read": false,
+        ".write": false
       }
     }
   }

@@ -8,13 +8,19 @@ A responsive static landing page for PM SHRI Kendriya Vidyalaya No. 1 Itanagar.
 - Timetable & School Duty Hub, Academic Progress & Student Support, and Examination Management Centre are placeholders until their URLs/apps are ready.
 
 ## Deploy on Vercel
-1. Create a new GitHub repository named `vidyalaya-central-portal`.
-2. Upload `index.html` to the repository root.
-3. In Vercel, choose **Add New → Project**, import the new repository, and deploy.
-4. Use Framework Preset **Other**. `vercel.json` runs `node scripts/build-site.mjs` and publishes the generated `public` directory. No dependency installation is needed.
 
-## Important security note
-This starter is a public-facing static page unless access is restricted through a suitable deployment/authentication setup. It does not include authentication, staff roles, permissions, or confidential student data. Add secure server-side authentication and authorization before using it for internal or sensitive school operations.
+Use the existing `ramsirkvs-gif/Vidyalaya-one-app` repository, production branch
+`main`, Framework Preset **Other**, and the repository root. Vercel installs the
+locked Firebase Admin SDK dependency, runs `node scripts/build-site.mjs`, and
+publishes the generated `public` directory. Serverless PIN routes are under
+`api/`. Node 22 is declared in `package.json`.
+
+Principal pages use Firebase Authentication and the configured Principal UID.
+The public portal shows only the approved published snapshot. Private monitoring
+and contact records are kept separately. Staff PIN access additionally requires
+the protected server credential described in [MISSION_SETUP.md](MISSION_SETUP.md).
+No student roster, faculty roster, PIN or service-account key is bundled in the
+website source.
 
 ## Live application tiles with Firebase
 
@@ -82,3 +88,13 @@ not require another Console rule update. CSV preserves basic faculty data and
 class/co-class teacher assignments; custom responsibilities stay managed in the
 page and are included in the complete JSON backup. CSV checks:
 `node tests/cbse-faculty-csv.test.mjs`.
+
+## Mission Perfect 100
+
+The CBSE tile opens the X/XII Mission dashboard, with linked section, student and
+staff profiles; academic/attendance records; team actions; contacts; monitoring
+notes; counsellor/PRT support; and break/remedial timetables. See
+[MISSION_SETUP.md](MISSION_SETUP.md) for activation, the corrected CT/Co-CT list,
+privacy boundaries, secure faculty PIN setup and validation evidence. Private
+Mission access requires the updated rules. Server-verified faculty PINs also
+need the protected Vercel credential setting documented there.

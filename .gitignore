@@ -1,3 +1,9 @@
 
 # Generated static website
 /public/
+/node_modules/
+/firebase-debug.log
+*.local
+.env*
+*firebase-adminsdk*.json
+*service-account*.json

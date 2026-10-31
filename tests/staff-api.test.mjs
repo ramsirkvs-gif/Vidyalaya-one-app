@@ -1,0 +1,6 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import handler from '../api/staff-access.js';
+function response(){return {headers:{},statusCode:0,setHeader(k,v){this.headers[k]=v;},status(n){this.statusCode=n;return this;},json(v){this.body=v;return this;}};}
+test('staff API fails closed without a server credential and never echoes credentials',async()=>{const old=process.env.FIREBASE_SERVICE_ACCOUNT_JSON;delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;try{const res=response();await handler({method:'POST',headers:{},body:{action:'directory'}},res);assert.equal(res.statusCode,503);assert.match(res.body.error,/activation/);assert.equal(res.headers['Cache-Control'],'no-store');}finally{if(old!==undefined)process.env.FIREBASE_SERVICE_ACCOUNT_JSON=old;}});
+test('staff API rejects unsupported methods, malformed JSON and missing authorization',async()=>{let res=response();await handler({method:'GET',headers:{}},res);assert.equal(res.statusCode,405);res=response();await handler({method:'POST',headers:{},body:'not-json'},res);assert.equal(res.statusCode,400);res=response();await handler({method:'POST',headers:{},body:{action:'set-pin'}},res);assert.equal(res.statusCode,401);});

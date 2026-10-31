@@ -8,14 +8,14 @@ test('static build is repeatable, includes working app assets, and excludes priv
  const build=id=>import(new URL(`../scripts/build-site.mjs?check=${id}`,import.meta.url));
  await build('first');const first=JSON.parse(await fs.readFile(path.join(root,'public/app-version.json'),'utf8'));await build('second');const second=JSON.parse(await fs.readFile(path.join(root,'public/app-version.json'),'utf8'));assert.equal(first.version,second.version);assert.match(first.version,/^[a-f0-9]{64}$/);
  const names=await fs.readdir(path.join(root,'public'));
- for(const page of ['index.html','cbse-admin.html','cbse-faculty.html','cbse-settings.html','cbse-students.html']){
+ for(const page of ['index.html','cbse-admin.html','cbse-faculty.html','cbse-settings.html','cbse-students.html','cbse-mission.html','cbse-staff.html']){
   const text=await fs.readFile(path.join(root,'public',page),'utf8');assert.ok(text.includes(`live-update.js?v=${first.version}`));
   for(const match of text.matchAll(/(?:src|href)="([^"#]+)"/g)){
    const value=match[1].split('?')[0];if(value.includes('://')||value.startsWith('mailto:'))continue;
    await fs.access(path.join(root,'public',value));
   }
  }
- for(const excluded of ['AGENTS.md','CBSE_SETUP.md','README.md','firebase.json','.firebaserc','tests','cbse-private','faculty.pdf','firebase-applications.json'])assert.ok(!names.includes(excluded),excluded);
+ for(const excluded of ['AGENTS.md','CBSE_SETUP.md','README.md','firebase.json','.firebaserc','tests','cbse-private','faculty.pdf','firebase-applications.json','api','_server','package.json','package-lock.json','MISSION_SETUP.md'])assert.ok(!names.includes(excluded),excluded);
  assert.ok(names.includes('database.rules.json'));await fs.access(path.join(root,'public/vendor/pdfjs/pdf.worker.min.mjs'));
  const vercel=JSON.parse(await fs.readFile(path.join(root,'vercel.json'),'utf8'));assert.equal(vercel.buildCommand,'node scripts/build-site.mjs');assert.equal(vercel.outputDirectory,'public');
 });

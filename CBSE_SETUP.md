@@ -192,10 +192,10 @@ accounts or grant access to feeding pages.
    **14 teach Class XII**. Unrelated classes, evaluator/QP-setter names, Principal
    and other non-teaching roster entries are excluded. Vacant teaching positions
    are retained and marked **VACANT** rather than treated as filled posts.
-4. The eight complete teacher/co-teacher pairs visible in the supplied screenshot
+4. The nine complete Class X/XII teacher/co-teacher pairs visible in the updated screenshot
    are applied only for the exact original PDF and only to empty assignments.
-   **Class X-A is left unassigned** because the screenshot crops out its row.
-   Review and fill that row. Class XI screenshot rows are outside this workflow.
+   **Class X-A uses the newly confirmed pair** from the complete screenshot.
+   Existing records can be corrected using **Apply updated CT / Co-CT list**. Class XI screenshot rows are outside this workflow.
 
 The PDF is parsed locally in the signed-in browser with PDF.js 4.10.38. It is not
 uploaded to Vercel or committed to GitHub. Extracted faculty records and roles
@@ -239,7 +239,7 @@ PDF parsed by PDF.js, and mocked Firebase to verify the protected area, standard
 separation, vacancies, CRUD, role assignments, live snapshots, conflict handling,
 repeat import, sign-out cleanup and layouts at 360/768/1440 pixels.
 The uploaded actual PDF was separately parsed and checked against its 29
-relevant entries and eight complete screenshot assignments. Live Firebase writes
+relevant entries and nine complete screenshot assignments. Live Firebase writes
 and the new rules require console activation and were not verified by these
 local browser tests.
 
@@ -303,7 +303,7 @@ faculty path and schema; it needs no additional Firebase rule changes.
   and do not publish faculty to the student search page.
 
 The original supplied data was converted to a private 29-record CSV and verified
-to round-trip exactly, including all eight complete screenshot role pairs. It is
+to round-trip exactly, including all nine complete screenshot role pairs. It is
 kept outside the website repository. Because chat workspace download links were
 not usable for this user, the browser download/conversion buttons provide the
 file directly on the user's device without publishing staff records in the
@@ -313,3 +313,11 @@ website bundle.
 retention, role clearing, invalid input and spreadsheet-safe text. The faculty
 browser test also verifies an actual download, CSV edit/reupload, and PDF-to-CSV
 conversion without a database write.
+
+
+## Mission Perfect 100
+
+The CBSE portal tile now opens `cbse-mission.html`. See [MISSION_SETUP.md](MISSION_SETUP.md)
+for the activated dashboard/profile workflows, rule deployment and secure PIN
+service configuration. The existing student/faculty feeding pages remain linked
+and reuse the same persistent Principal session.

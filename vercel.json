@@ -104,6 +104,24 @@
           "value": "no-cache"
         }
       ]
+    },
+    {
+      "source": "/cbse-mission.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
+    },
+    {
+      "source": "/cbse-staff.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        }
+      ]
     }
   ],
   "buildCommand": "node scripts/build-site.mjs",

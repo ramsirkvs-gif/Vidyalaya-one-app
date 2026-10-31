@@ -73,8 +73,8 @@ export function extractFacultyRoster(pages){
  assert(roster.length&&roster.some(r=>r.teaching.length),'No Class X/XII faculty found. Use the original VEMS faculty roster PDF.');
  return roster;
 }
-// Captured from the supplied screenshot. X-A is cropped out and remains unset.
-const SCREENSHOT_ROLES={X:{B:[19,33],C:[26,35],D:[33,43]},XII:{A:[10,11],B:[11,16],C:[3,12],D:[5,4],E:[9,4]}};
+// Captured from the complete, updated screenshot supplied by the Principal.
+const SCREENSHOT_ROLES={X:{A:[30,32],B:[19,33],C:[26,35],D:[33,43]},XII:{A:[10,11],B:[11,16],C:[3,12],D:[5,4],E:[9,4]}};
 export const ORIGINAL_FACULTY_SHA='02222829e8b1896edee71ed6be370756139438895389e8ea8a859542e858999f';
 export function mergeFacultyRoster(value,roster,studentClasses,digest){
  const result=clone(value),summary={X:{added:0,kept:0},XII:{added:0,kept:0}},ids={X:{},XII:{}};
@@ -99,4 +99,18 @@ export function mergeFacultyRoster(value,roster,studentClasses,digest){
   }
  }
  validateFaculty(result);return {data:result,summary,screenshotApplied:digest===ORIGINAL_FACULTY_SHA};
+}
+
+export function applyCapturedTeacherRoles(value,studentClasses){
+ const result=clone(value),changes=[],missing=[];
+ for(const cl of ['X','XII'])for(const[name,pair]of entries(SCREENSHOT_ROLES[cl])){
+  const area=result.classes[cl],sid=entries(studentClasses[cl]?.sections).find(([,s])=>s.name.toUpperCase()===name)?.[0];
+  if(!sid)continue;
+  const ids=pair.map(serial=>`pdf_${ORIGINAL_FACULTY_SHA.slice(0,16)}_${serial}`);
+  if(ids.some(id=>!area.teachers?.[id]||area.teachers[id].status==='inactive')){missing.push(`${cl}-${name}`);continue;}
+  area.roles||={};const old=area.roles[sid]||{classTeacher:'',coClassTeacher:''};
+  if(old.classTeacher!==ids[0]||old.coClassTeacher!==ids[1])changes.push({classId:cl,section:name,lead:area.teachers[ids[0]].name,co:area.teachers[ids[1]].name});
+  area.roles[sid]={...old,classTeacher:ids[0],coClassTeacher:ids[1]};
+ }
+ validateFaculty(result);return {data:result,changes,missing};
 }
