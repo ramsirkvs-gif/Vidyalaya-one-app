@@ -93,8 +93,8 @@ function render(force=false){
   const range=recordedProgressRange(mission,records.map(([key])=>key));top.append(el('p',range.to?`Latest progress · ${monthLabel(range.from)} to ${monthLabel(range.to)} · latest result in each subject`:'Latest progress · no marks imported yet','latest-progress-note'),button('Open academic history',()=>go({tab:'academics',class:cl,...(section?{section:draft.classes[cl].sections[section].name}:{}),...(effectiveStream?{stream:effectiveStream}:{})})));
 
   renderPerformanceCriteria(top,records.flatMap(([key])=>studentProgress(key,mission,draft).subjects.map(s=>s.latest)).filter(Boolean),mission,{classId:cl});
-  const teams=el('div',undefined,'section-team-grid compact-teams'),seen=new Set();for(const[,person]of records)if(!seen.has(person.sectionId)){seen.add(person.sectionId);renderSectionTeam(teams,sectionTeam(faculty,cl,person.sectionId,person.section),{onTeacher:openTeacherProfile});}top.append(teams);
-  renderSubjectTeachers(cl,section,effectiveStream,top);
+  const contextColumns=el('div',undefined,'section-context-columns'),teams=el('div',undefined,'section-team-grid compact-teams'),seen=new Set();for(const[,person]of records)if(!seen.has(person.sectionId)){seen.add(person.sectionId);renderSectionTeam(teams,sectionTeam(faculty,cl,person.sectionId,person.section),{onTeacher:openTeacherProfile});}contextColumns.append(teams);
+  renderSubjectTeachers(cl,section,effectiveStream,contextColumns);top.append(contextColumns);
   renderGenderStatistics(top,genders,total,{selected:gender,onSelect:value=>go({...context,...(value?{gender:value}:{})})});
   top.append(el('p',`${genders.unknown} students: gender not recorded${gender?' · Showing '+(gender==='girl'?'girls':gender==='boy'?'boys':'gender not recorded')+' · '+outOf(cohort.length,total):''}`,'muted'));
   const bands={critical:0,red:0,yellow:0,green:0,grey:0};for(const[key]of cohort)bands[studentProgress(key,mission,draft,examId).academic]++;renderCountStatistics(top,bands,cohort.length,{selected:r.get('band')||'all',onSelect:band=>go({...context,...(gender?{gender}:{}),...(band!=='all'?{band}:{})})});

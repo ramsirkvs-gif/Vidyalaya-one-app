@@ -10,10 +10,9 @@ export function renderPerformanceCriteria(parent,marks,mission,{classId=''}={}){
   const key=[m.maximum,critical,pass,secure].join('|');if(!groups.has(key))groups.set(key,{maximum:m.maximum,critical,pass,secure});
  }
  if(!groups.size)return;
- const box=el('section',undefined,'performance-criteria');box.append(el('h3','How the colours are decided · percentage criteria'));
+ const box=el('section',undefined,'performance-criteria');box.append(el('h3','Colour criteria (%)'));
  for(const g of groups.values()){const row=el('div',undefined,'performance-legend');row.append(el('strong',`Papers out of ${g.maximum}: `));if(g.critical!==null)row.append(el('span',`Critical fail: below ${number(g.critical)}%`,'band critical'));row.append(el('span',`Fail${g.critical!==null?' (excluding critical): '+number(g.critical)+'% to below ':': below '}${number(g.pass)}%`,'band red'),el('span',`Borderline: ${number(g.pass)}% to below ${number(g.secure)}%`,'band yellow'),el('span',`Secure pass: ${number(g.secure)}% and above`,'band green'));box.append(row);}
- if([...groups.values()].some(g=>g.maximum===40&&g.pass===32.5))box.append(el('p','For these /40 papers, 13/40 = 32.5% is the pass mark used by the workbook.','muted'));
- box.append(el('p','Total fail = Critical fail + Fail (excluding critical). Total fail is a combined count, so do not add it again when counting all students. AB/unassessed is separate and is not zero. A student’s colour follows the weakest selected subject. A critical tile means at least one critical subject; student tiles list every critical subject, not just one example.','muted'));parent.append(box);return box;
+ const notes=el('div',undefined,'criteria-notes');if([...groups.values()].some(g=>g.maximum===40&&g.pass===32.5))notes.append(el('span','Pass: 13/40 = 32.5%'));for(const text of ['Total fail = Critical + Fail','AB = unassessed','Colour = weakest subject'])notes.append(el('span',text));box.append(notes);parent.append(box);return box;
 }
 
 export function renderCountStatistics(parent,counts,total,{onSelect,selected='all'}={}){
