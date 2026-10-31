@@ -1,5 +1,37 @@
 # Mission Perfect 100 — activation and use
 
+## Latest progress, attendance and XII stream groups
+
+Monitoring now always uses the latest recorded result per selected subject. The
+class exam dropdown and academic month dropdown are removed; old exam URLs do
+not change the latest report. Student graphs still show the journey from the
+beginning. The latest subject table includes change since the first appeared
+result, and full examination/monthly tables are retained under optional history.
+An absent latest result stays AB rather than falling back to an old pass.
+
+The supplied academic package contains cumulative workbook attendance for all
+240 students. Imports store it in `academicAttendance`, separately from the daily
+`attendance` register. Student headers show the workbook percentage, session and
+source period when available, and separately show daily-register attendance only
+when real dated entries exist. Zero daily entries no longer hides a supplied
+workbook figure. A workbook percentage is never expanded into invented dates.
+
+Student identity/CT team and contact/call/map panels use two equal columns on
+wider screens and stack on phones. Comment cells and their text areas are compact.
+The Principal comment cell now includes a password sign-in form in place, using
+the existing Firebase account and persistent session. The configured Principal
+UID is still checked; this is not a teacher PIN or a new login system. Successful
+sign-in retains the teacher report, selected student and page location. Passwords
+are cleared after each attempt and never saved by the application.
+
+Class XII uses the Principal-confirmed section grouping: **Science A/B**,
+**Commerce C**, **Humanities D/E**. Stream tiles show student counts and lead to
+the relevant sections. An individual section displays its fixed stream, without
+a redundant dropdown. Academic analysis and the teacher directory use the same
+groups; teacher stream filters follow actual subject/CT duties or explicit
+teaching-section metadata. This display mapping does not alter stored subjects,
+marks or student identities.
+
 ## Touch reports and comment cells
 
 Teacher profiles now use report tiles instead of the Review role dropdown:

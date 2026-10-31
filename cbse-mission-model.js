@@ -1,3 +1,4 @@
+import {sectionStream} from './cbse-stream-model.js';
 import {normalizedGender} from './cbse-view-data.js';
 import {sectionTeam} from './cbse-section-team.js';
 import {validateContact,staffStudentRoles} from './cbse-contact-model.js';
@@ -11,7 +12,7 @@ const assert=(ok,msg)=>{if(!ok)throw Error(msg);};
 const text=(v,max=200,required=false)=>typeof v==='string'&&v.length<=max&&(!required||v.trim().length>0);
 const date=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v+'T00:00:00Z'))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
 const safeKeys=v=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).every(k=>/^[a-zA-Z0-9_:-]{1,300}$/.test(k)&&!['__proto__','constructor','prototype'].includes(k));
-export function studentIndex(draft){const result=Object.create(null);for(const[cl,c]of entries(draft?.classes))for(const[sid,s]of entries(c.sections))for(const[id,p]of entries(s.students)){const key=`${cl}:${sid}:${id}`;result[key]={...p,key,classId:cl,sectionId:sid,section:s.name,stream:draft.streams?.[s.stream]?.name||s.stream||'',subjectCatalog:s.subjects||{}};}return result;}
+export function studentIndex(draft){const result=Object.create(null);for(const[cl,c]of entries(draft?.classes))for(const[sid,s]of entries(c.sections))for(const[id,p]of entries(s.students)){const key=`${cl}:${sid}:${id}`;result[key]={...p,key,classId:cl,sectionId:sid,section:s.name,stream:sectionStream(cl,s.name,draft.streams?.[s.stream]?.name||s.stream||''),subjectCatalog:s.subjects||{}};}return result;}
 export function staffIndex(faculty,mission){const result=Object.create(null);for(const[cl,c]of entries(faculty?.classes))for(const[id,t]of entries(c.teachers))result[`${cl}:${id}`]={...t,key:`${cl}:${id}`,classId:cl,kind:'faculty'};for(const[id,t]of entries(mission?.staff))result[`support:${id}`]={...t,key:`support:${id}`,classId:''};return result;}
 export function validateMission(m,draft,faculty){
  assert(m&&m.schemaVersion===1&&Number.isInteger(m.revision)&&m.revision>=0,'Invalid Mission data.');

@@ -5,5 +5,5 @@ export function renderContactActions(parent,contact={},ctx={}){
  if(contact.mapLocation){try{const a=el('a','⌖ Open home location in Google Maps','button');a.href=mapLink(contact.mapLocation);a.target='_blank';a.rel='noopener noreferrer';parent.append(a);}catch{parent.append(el('p','The saved map link needs correction.','muted'));}}
  if(ctx.onEdit){const b=el('button','Add / update phone numbers & home location');b.type='button';b.onclick=ctx.onEdit;parent.append(b);}
  if(ctx.onLog){const b=el('button','Log call / home visit');b.type='button';b.onclick=ctx.onLog;parent.append(b);}
- parent.append(el('p','Call opens your phone dialler. Record the outcome after the call; the portal cannot read your device call history.','muted'));
+ parent.append(el('p','Call opens your phone dialler. Add the outcome in Remarks.','muted'));
 }
