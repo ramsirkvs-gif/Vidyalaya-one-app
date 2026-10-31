@@ -1,3 +1,4 @@
+import {validMonth,academicMarkBand,overallAcademicBand} from './cbse-academic-model.js';
 import {entries,clone} from './cbse-model.js';
 import {validateMonitoringDetails,visibleMonitoringDetails} from './cbse-monitoring-model.js';
 export const RECORD_KINDS={observation:'Classroom observation',remedial:'Remedial monitoring',worksheet:'Worksheet / practice',effort:'Other improvement effort',class_teacher:'CT / Co-CT follow-up',counselling:'Counselling',prt:'PRT support',contact:'Contact follow-up',weekly:'Weekly review',faculty_comment:'Faculty progress comment'};
@@ -13,15 +14,17 @@ export function validateMission(m,draft,faculty){
  assert(m&&m.schemaVersion===1&&Number.isInteger(m.revision)&&m.revision>=0,'Invalid Mission data.');
  const students=studentIndex(draft),staff=staffIndex(faculty,m),s=m.settings;
  assert(s&&[s.redBelow,s.greenFrom,s.attendanceRedBelow,s.attendanceGreenFrom].every(v=>Number.isFinite(v)&&v>=0&&v<=100)&&s.redBelow<s.greenFrom&&s.attendanceRedBelow<s.attendanceGreenFrom,'Colour thresholds must be ordered percentages between 0 and 100.');
- for(const field of ['students','exams','marks','attendance','records','tasks','timetable','staff','allocations','gradingRules'])assert(!m[field]||safeKeys(m[field]),`Invalid ${field} data.`);
+ for(const field of ['students','exams','marks','attendance','records','tasks','timetable','staff','allocations','gradingRules','academicAttendance'])assert(!m[field]||safeKeys(m[field]),`Invalid ${field} data.`);
  for(const[,p]of entries(m.students)){assert(['girl','boy','unknown'].includes(p.gender),'Choose a gender or Not recorded.');assert(text(p.guardian,120)&&text(p.phones,200)&&text(p.location,500),'Contact details are too long.');}
  for(const[,p]of entries(m.staff))assert(text(p.name,120,true)&&['counsellor','prt','support'].includes(p.kind)&&['active','inactive'].includes(p.status)&&text(p.subjects,300),'Invalid support-team record.');
- for(const[,e]of entries(m.exams))assert(text(e.name,100,true)&&['X','XII'].includes(e.classId)&&date(e.date)&&['test','PB-1','PB-2','weekly','mock'].includes(e.type),'Enter a valid test name, class, type and date.');
+ for(const[,e]of entries(m.exams))assert(text(e.name,100,true)&&['X','XII'].includes(e.classId)&&(e.datePrecision==='month'?validMonth(e.date):date(e.date))&&['test','PB-1','PB-2','weekly','mock','monthly'].includes(e.type),'Enter a valid test name, class, type and date.');
  for(const[,v]of entries(m.marks)){
   assert(text(v.studentKey,300,true)&&text(v.subjectId,100,true)&&m.exams?.[v.examId],'Choose a valid student, subject and examination.');
   const p=students[v.studentKey];if(p){assert(m.exams[v.examId].classId===p.classId&&p.subjects?.[v.subjectId],'The test/subject does not match the student.');}
+  if(v.importSource==='monthly_workbook_v1')assert(v.maximum===40&&v.passFrom===13&&v.secureFrom===18&&v.criticalBelow===10&&(!v.absent||v.score===null||v.score===undefined)&&typeof v.inferredAbsent==='boolean'&&(!v.inferredAbsent||v.absent),'Invalid imported monitoring rules.');
   assert(typeof v.absent==='boolean'&&Number.isFinite(v.maximum)&&v.maximum>0&&v.maximum<=1000&&(v.absent||Number.isFinite(v.score)&&v.score>=0&&v.score<=v.maximum),'Marks must be between zero and the maximum, or marked Absent.');
  }
+ for(const[,a]of entries(m.academicAttendance))assert(Number.isFinite(a.percentage)&&a.percentage>=0&&a.percentage<=100&&text(a.session,20,true),'Invalid cumulative source attendance.');
  for(const[,a]of entries(m.attendance))assert(text(a.studentKey,300,true)&&date(a.date)&&['school','remedial'].includes(a.session)&&['present','absent','leave'].includes(a.status),'Invalid attendance record.');
  for(const[,r]of entries(m.records)){
   assert(RECORD_KINDS[r.kind]&&date(r.date)&&text(r.notes,3000,true)&&text(r.outcome,2000)&&text(r.studentKey,300)&&text(r.staffId,300)&&text(r.sectionKey,200)&&text(r.subjectId,100)&&['general','restricted'].includes(r.visibility),'Enter a valid dated monitoring record.');
@@ -45,10 +48,10 @@ export function studentProgress(key,m,draft,examId=""){
  const person=studentIndex(draft)[key],latest={},history={};
  for(const[id,mark]of entries(m.marks))if(mark.studentKey===key&&(!examId||mark.examId===examId)){const item={...mark,id,exam:m.exams?.[mark.examId]};if(!item.exam)continue;(history[mark.subjectId]||=[]).push(item);}
  for(const[id,list]of entries(history)){list.sort((a,b)=>a.exam.date.localeCompare(b.exam.date)||(a.updatedAt||0)-(b.updatedAt||0));latest[id]=list.at(-1);}
- const subjects=entries(person?.subjects).map(([id])=>{const v=latest[id],percentage=v&&!v.absent?v.score/v.maximum*100:null,thresholds=gradeThresholds(m,person.classId,id,v?.examId||examId);return {id,name:person.subjectCatalog[id]?.name||id,latest:v,percentage,band:band(percentage,thresholds.redBelow,thresholds.greenFrom),history:history[id]||[]};});
- const bands=subjects.map(s=>s.band),academic=!bands.length||bands.includes('grey')?'grey':bands.includes('yellow')?'yellow':'green';
+ const subjects=entries(person?.subjects).map(([id])=>{const v=latest[id],percentage=v&&!v.absent?v.score/v.maximum*100:null,thresholds=gradeThresholds(m,person.classId,id,v?.examId||examId);return {id,name:person.subjectCatalog[id]?.name||id,latest:v,percentage,band:academicMarkBand(v,thresholds.redBelow,thresholds.greenFrom),history:history[id]||[]};});
+ const bands=subjects.map(s=>s.band);
  const school=entries(m.attendance).map(([,a])=>a).filter(a=>a.studentKey===key&&a.session==='school'),percentage=school.length?school.filter(a=>a.status==='present').length/school.length*100:null;
- return {subjects,academic:bands.includes('red')?'red':academic,attendance:percentage,attendanceBand:band(percentage,m.settings.attendanceRedBelow,m.settings.attendanceGreenFrom),recordedDays:school.length,overdue:entries(m.tasks).filter(([,t])=>t.studentKey===key&&!['done','cancelled'].includes(t.status)&&t.due<today()).length};
+ return {subjects,academic:overallAcademicBand(bands),attendance:percentage,attendanceBand:band(percentage,m.settings.attendanceRedBelow,m.settings.attendanceGreenFrom),recordedDays:school.length,overdue:entries(m.tasks).filter(([,t])=>t.studentKey===key&&!['done','cancelled'].includes(t.status)&&t.due<today()).length};
 }
 export function genderCounts(keys,m){const out={girl:0,boy:0,unknown:0};for(const key of keys)out[m.students?.[key]?.gender||'unknown']++;return out;}
 export function staffCanView(staffId,studentKey,m,draft,faculty){
@@ -64,8 +67,9 @@ export function staffProfileView(staffId,key,m,draft,faculty){
  assert(staffCanView(staffId,key,m,draft,faculty),'This student is not assigned to you.');
  const p=studentIndex(draft)[key],staff=staffIndex(faculty,m)[staffId],role=faculty?.classes?.[p.classId]?.roles?.[p.sectionId],tid=staffId.split(':').slice(1).join(':');
  const allowContact=staff.kind==='counsellor'||staff.classId===p.classId&&(role?.classTeacher===tid||role?.coClassTeacher===tid);
- const original=studentProgress(key,m,draft),mark=v=>v?{score:v.score,maximum:v.maximum,absent:v.absent,exam:{name:v.exam.name,date:v.exam.date,type:v.exam.type}}:null;
+ const original=studentProgress(key,m,draft),mark=v=>v?{score:v.score,maximum:v.maximum,absent:v.absent,exam:{name:v.exam.name,date:v.exam.date,type:v.exam.type},...(v.importSource==='monthly_workbook_v1'?{importSource:v.importSource,inferredAbsent:!!v.inferredAbsent,passFrom:v.passFrom,secureFrom:v.secureFrom,criticalBelow:v.criticalBelow}:{})}:null;
  const progress={academic:original.academic,attendance:original.attendance,attendanceBand:original.attendanceBand,recordedDays:original.recordedDays,overdue:original.overdue,subjects:original.subjects.map(s=>({id:s.id,name:s.name,percentage:s.percentage,band:s.band,latest:mark(s.latest),history:s.history.map(mark)}))};
+ const sourceAttendance=m.academicAttendance?.[key];if(sourceAttendance)progress.sourceAttendance={percentage:sourceAttendance.percentage,session:sourceAttendance.session};
  const contact=m.students?.[key]||{};
  return {student:{key,name:p.name,roll:p.roll,classId:p.classId,section:p.section,stream:p.stream},progress,contact:allowContact?{guardian:contact.guardian||'',phones:contact.phones||'',location:contact.location||'',gender:contact.gender||'unknown'}:null,tasks:entries(m.tasks).filter(([,t])=>(t.studentKey===key||!t.studentKey&&t.sectionKey===`${p.classId}:${p.sectionId}`)&&t.staffId===staffId).map(([id,t])=>({id,title:t.title,due:t.due,status:t.status,outcome:t.outcome,category:t.category,studentKey:key})),records:entries(m.records).filter(([,r])=>(r.studentKey===key||!r.studentKey&&r.sectionKey===`${p.classId}:${p.sectionId}`)&&(r.visibility==='general'||r.authorId===staffId)).map(([id,r])=>staffVisibleRecord(id,r))};
 }

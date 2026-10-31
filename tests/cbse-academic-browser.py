@@ -1,0 +1,26 @@
+"""Academic import, month-scoped colours, history, graphs and private access."""
+from pathlib import Path
+exec(Path('tests/cbse-teacher-monitoring-browser.py').read_text().split('with sync_playwright() as p:')[0])
+records=[]
+for period,score in [('2026-04',9),('2026-06',13),('2026-07',None),('2026-08',18),('2026-09',35)]:
+ records.append({'classId':'X','section':'A','name':'Synthetic Student X','period':period,'subject':'English','score':score,'maximum':40,'absent':score is None,'sourceValue':'—' if score is None else str(score),'inferredAbsent':score is None,'passFrom':13,'secureFrom':18,'criticalBelow':10})
+pkg={'format':'mission-academic-history-v1','session':'2026-27','records':records,'attendance':[{'classId':'X','section':'A','name':'Synthetic Student X','percentage':88.5,'session':'2026-27'}]}
+with sync_playwright() as p:
+ browser=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);page=browser.new_page();page.route('https://www.gstatic.com/firebasejs/**',sdk);page.on('pageerror',lambda e:print('BROWSER ERROR',str(e)))
+ page.goto('http://127.0.0.1:8000/cbse-mission.html');page.locator('#mission-tools').wait_for(state='visible')
+ page.locator('#mission-academic-file').set_input_files({'name':'Academic.json','mimeType':'application/json','buffer':json.dumps(pkg).encode()});page.get_by_role('heading',name='Review academic history import',exact=True).wait_for();assert '5 new results' in page.locator('#mission-fields').inner_text();assert page.evaluate('window.__teacherMission') is None
+ page.locator('#mission-save').click();page.locator('#mission-editor').wait_for(state='hidden');page.get_by_role('heading',name='Students academic history',exact=True).wait_for();assert len(page.evaluate('window.__teacherMission.marks'))==5
+ page.get_by_role('combobox',name='Academic class',exact=True).select_option('X');page.get_by_role('combobox',name='Academic month',exact=True).select_option('2026-04');assert 'Critical' in page.get_by_role('button',name='Academic profile: Synthetic Student X',exact=True).inner_text()
+ page.get_by_role('combobox',name='Academic month',exact=True).select_option('2026-06');assert 'Borderline' in page.get_by_role('button',name='Academic profile: Synthetic Student X',exact=True).inner_text()
+ page.get_by_role('combobox',name='Academic month',exact=True).select_option('2026-07');assert 'AB' in page.get_by_role('button',name='Academic profile: Synthetic Student X',exact=True).inner_text()
+ page.get_by_role('combobox',name='Academic month',exact=True).select_option('2026-05');assert page.get_by_role('button',name='Academic profile: Synthetic Student X',exact=True).inner_text().find('AB / not assessed')>=0
+ page.get_by_role('combobox',name='Academic month',exact=True).select_option('2026-09');page.get_by_role('button',name='Assign teacher',exact=True).click();assert page.locator('[name=subjectId]').input_value()=='english';page.locator('[name=staffId]').select_option('X:one');page.locator('#mission-save').click();page.locator('#mission-editor').wait_for(state='hidden');assert 'Synthetic Teacher' in page.locator('#mission-view').inner_text()
+ page.get_by_role('button',name='Academic profile: Synthetic Student X',exact=True).click();page.get_by_role('heading',name='Academic history · monthly & subject-wise',exact=True).wait_for();text=page.locator('#mission-view').inner_text();assert 'AB*' in text;assert 'May 2026' in text;assert '88.5%' in text;assert 'Source attendance' in text;assert page.locator('.academic-graph svg').count()==2
+ for width in [360,768,1440]:
+  page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ page.get_by_role('button',name='Edit',exact=True).first.click();assert page.locator('[name=maximum]').get_attribute('readonly') is not None;page.locator('#mission-cancel').click()
+ page.get_by_role('button',name='Edit',exact=True).nth(2).click();assert page.locator('[name=examId]').is_disabled();assert page.locator('[name=subjectId]').is_disabled();page.locator('[name=absent]').select_option('false');page.locator('[name=score]').fill('14');page.locator('#mission-save').click();page.locator('#mission-editor').wait_for(state='hidden');assert page.evaluate("Object.values(window.__teacherMission.marks).find(m=>window.__teacherMission.exams[m.examId].date==='2026-07').inferredAbsent") is False
+ print('PASS reviewed academic import, critical/13-pass/AB colours, May gap, teacher allocation, graphs and responsive profile')
+ guest=browser.new_page();guest.add_init_script('window.__guest=true');guest.route('https://www.gstatic.com/firebasejs/**',sdk);guest.goto('http://127.0.0.1:8000/cbse-mission.html#tab=academics');guest.wait_for_timeout(300);assert guest.evaluate('window.__teacherReads')==['cbse/public'];assert 'Synthetic Student X' not in guest.locator('#mission-view').inner_text();assert guest.locator('#mission-tools').is_hidden()
+ print('PASS academic history and import controls remain private to Principal access')
+ browser.close()

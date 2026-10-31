@@ -322,3 +322,49 @@ designation, subject expertise, teaching sections and a generated, editable
 three-digit initial PIN. The Principal-authorized API validates the faculty
 roster and saves faculty + PIN in one transaction. Invalid or duplicate faculty
 create neither record. CT/Co-CT assignments remain in Faculty feeding.
+
+## April–September academic history import and graphs
+
+Principal controls → **Import academic history JSON** accepts the private
+`mission-academic-history-v1` package. Review the section/student/result counts,
+then Save into the existing protected Mission path. The app does not publish
+these results to the public snapshot. No new Firebase rule or server credential
+is needed for this Principal import. Raw spreadsheets, private JSON/CSV packages
+and rosters must remain outside Git and public output.
+
+The supplied nine workbook pattern contains 240 roster-matched students and
+7200 applicable subject/month records: five monthly tests, six selected subjects
+per student. All papers are /40. The importer checks names, sections, selected
+subjects, session/month validity, scores and duplicate records. It rejects the
+whole package on any unmatched row. Alternative Maths and XII subject options
+are not invented as enrolments. Missing marks in selected subjects are AB under
+the user's instruction, with the original value and inferred-absence flag kept.
+
+Imported exams store YYYY-MM with `datePrecision: month`; exact dates are not
+fabricated. The shared /40 monitoring rules are below 10 Critical, below 13 Fail,
+below 18 Borderline, 18+ Secure pass. This preserves the workbook's 13/40 pass
+rule; manual/PB results retain their existing percentage grading rules. Student
+tiles follow the weakest subject, with AB/incomplete status never called a full
+pass. Critical or fail results take priority over incomplete/AB badges. Global
+colour settings explain this separation.
+
+Reimport deterministically replaces only the matching imported record IDs.
+Other marks, contacts, daily attendance, tasks and notes are retained. Corrections
+to these same imported records will be replaced by a subsequent source reimport;
+the review states this explicitly. Cumulative workbook attendance is stored
+separately from actual dated daily attendance and labelled as a source summary.
+
+**Academic history & graphs** / the Academic history navigation button opens
+class, section, month, subject and student filters. Subject summaries link to
+confirmed section allocations; missing allocations offer Assign teacher.
+Student profiles show the subject-teacher history grid, percentage-point change
+between the last two appeared marks, subject graphs and consolidated monthly
+graphs with coverage. Gaps/AB are not zero-valued graph points. Missing May test
+data remains a gap. Exact marks and appeared maxima are displayed alongside
+percentages. Authorized scoped staff profiles use the same graphs from their
+safe server projection; no additional student access is granted.
+
+Validation includes `node tests/cbse-academic-model.test.mjs` and
+`python3 tests/cbse-academic-browser.py`, plus existing Mission, staff, teacher
+and build checks. The complete private 240-student/7200-result package was also
+validated locally and checked in the browser without writing live records.

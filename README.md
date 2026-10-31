@@ -113,3 +113,8 @@ Teacher monitoring is a dedicated Mission area, with separate remedial,
 worksheet/practice, CT/Co-CT, counsellor, PRT and weekly-review registers.
 Structured monitoring fields and existing notes share the current protected
 Mission workspace; no new rules are required for this update.
+
+Academic history now supports reviewed private monthly-result packages, X/XII
+section/subject filters, teacher allocation links, AB-aware student heatmaps and
+subject/monthly graphs. See MISSION_SETUP.md for the import format, /40 workbook
+monitoring pattern, month-only dates and privacy/verification details.
