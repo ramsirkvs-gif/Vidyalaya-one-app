@@ -1,10 +1,10 @@
-import {scrypt as scryptCallback,randomBytes,timingSafeEqual,createHash,randomUUID} from 'node:crypto';
+import {scrypt as scryptCallback,randomBytes,timingSafeEqual,createHash,randomUUID,randomInt} from 'node:crypto';
 import {promisify} from 'node:util';
 import {emptyMission,studentIndex,staffIndex,staffCanView,staffProfileView,staffVisibleRecord,today} from '../cbse-mission-model.js';
 const scrypt=promisify(scryptCallback);
 export class AccessError extends Error{constructor(message,status=403){super(message);this.status=status;}}
-export async function hashPIN(pin,salt=randomBytes(16).toString('hex')){if(!/^\d{6,12}$/.test(String(pin)))throw new AccessError('Use a PIN with 6–12 digits.',400);return {salt,hash:(await scrypt(String(pin),salt,64)).toString('hex')};}
-export async function verifyPIN(pin,record){if(!/^\d{6,12}$/.test(String(pin))||!record?.hash||!record.salt)return false;const expected=Buffer.from(record.hash,'hex'),actual=await scrypt(String(pin),record.salt,64);return expected.length===actual.length&&timingSafeEqual(expected,actual);}
+export async function hashPIN(pin,salt=randomBytes(16).toString('hex')){if(!/^(?:\d{3}|\d{6,12})$/.test(String(pin)))throw new AccessError('Use a three-digit PIN (existing 6–12 digit PINs remain supported).',400);return {salt,hash:(await scrypt(String(pin),salt,64)).toString('hex')};}
+export async function verifyPIN(pin,record){if(!/^(?:\d{3}|\d{6,12})$/.test(String(pin))||!record?.hash||!record.salt)return false;const expected=Buffer.from(record.hash,'hex'),actual=await scrypt(String(pin),record.salt,64);return expected.length===actual.length&&timingSafeEqual(expected,actual);}
 const entries=value=>Object.entries(value||{});
 export function createStaffService({db,auth,now=Date.now}){
  const read=async path=>(await db.ref(path).get()).val();
@@ -23,9 +23,19 @@ export function createStaffService({db,auth,now=Date.now}){
    if(!await verifyPIN(input.pin,access))throw new AccessError('Choose a staff member and enter the correct PIN.',401);
    const customToken=await auth.createCustomToken('mission_'+createHash('sha256').update(id).digest('hex').slice(0,40),{missionStaff:true,staffId:id,pinVersion:access.version});await db.ref(`cbse/staffAttempts/${attemptKey}`).remove();return {customToken,name:person.name};
   }
-  if(['list','set-pin','disable'].includes(action)){
+  if(['list','set-pin','disable','generate-pins'].includes(action)){
    await principal(token);const staff=await directoryStaff();
    if(action==='list'){const access=await read('cbse/staffAccess');return {access:Object.fromEntries(entries(access).map(([id,a])=>[id,{enabled:!!a.enabled,pinSet:!!a.hash,updatedAt:a.updatedAt}]))};}
+   if(action==='generate-pins'){
+    const access=await read('cbse/staffAccess')||{},missing=entries(staff).filter(([id,p])=>p.status==='active'&&!access[id]?.hash);
+    if(missing.length>900)throw new AccessError('Generate PINs for fewer than 901 staff at a time.',400);
+    const used=new Set(),prepared=[];
+    for(const[id,p]of missing){let pin;do{pin=String(randomInt(100,1000));}while(used.has(pin));used.add(pin);prepared.push({id,name:p.name,pin,record:{...await hashPIN(pin),enabled:true,version:randomUUID(),updatedAt:now()}});}
+    let created=[];
+    const result=await db.ref('cbse/staffAccess').transaction(current=>{const next=current||{};created=[];for(const p of prepared)if(!next[p.id]?.hash){next[p.id]=p.record;created.push({staffId:p.id,name:p.name,pin:p.pin});}return next;});
+    if(!result.committed)throw new AccessError('PIN generation did not save. Try again.',409);
+    return {created};
+   }
    const id=String(input.staffId||'');if(!staff[id])throw new AccessError('Staff member not found.',404);
    if(action==='set-pin'){if(staff[id].status!=='active')throw new AccessError('Enable this staff member first.',400);const hash=await hashPIN(input.pin);await revoke(id);await db.ref(`cbse/staffAccess/${id}`).set({...hash,enabled:true,version:randomUUID(),updatedAt:now()});}
    else{await revoke(id);await db.ref(`cbse/staffAccess/${id}`).update({enabled:false,version:randomUUID(),updatedAt:now()});}

@@ -233,3 +233,19 @@ Validation: `node tests/cbse-monitoring-model.test.mjs` and
 mocked Firebase to verify invalid counts/times, structured session/worksheet
 feeding, directory/profile navigation, filtering, CT watch, mobile layout and
 public/private separation. These checks do not establish live deployment.
+
+## Three-digit faculty PIN settings
+
+Mission → Principal controls → Faculty PIN settings includes **Generate missing
+3-digit PINs**. Only the verified Principal can generate, replace or disable PINs.
+Generation creates random three-digit values for active staff without a stored
+PIN; existing PINs and disabled accounts are retained. Generated PINs are visible
+via Show during the current dialog visit and cleared when the dialog closes.
+The server stores salted hashes; forgotten PINs must be replaced. Individual
+rows accept exactly three digits, including leading zeroes. Previous 6–12 digit
+PINs remain supported for continuity. Existing failed-attempt limits apply.
+This adds no Firebase rules or authentication-provider changes. It uses the
+existing `/api/staff-access` server and its `FIREBASE_SERVICE_ACCOUNT_JSON`
+prerequisite; generation cannot save until that server credential is configured.
+The proposed shared staff curtain is a separate workflow and is not implemented
+by this PIN settings change.

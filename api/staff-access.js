@@ -16,7 +16,7 @@ export default async function handler(req,res){
  if(req.method!=='POST'){res.setHeader('Allow','POST');res.status(405).json({error:'Use POST.'});return;}
  try{
   let input;try{input=typeof req.body==='string'?JSON.parse(req.body):req.body||{};}catch{throw new AccessError('Invalid JSON request.',400);}if(!input||typeof input!=='object'||Array.isArray(input))throw new AccessError('Invalid request body.',400);if(Buffer.byteLength(JSON.stringify(input))>12000)throw new AccessError('Request is too large.',413);
-  const action=String(input.action||'');if(!['directory','login','list','set-pin','disable','students','profile','comment','update-task'].includes(action))throw new AccessError('Unknown action.',400);const bearer=String(req.headers.authorization||'');const token=bearer.startsWith('Bearer ')?bearer.slice(7):'';
+  const action=String(input.action||'');if(!['directory','login','generate-pins','list','set-pin','disable','students','profile','comment','update-task'].includes(action))throw new AccessError('Unknown action.',400);const bearer=String(req.headers.authorization||'');const token=bearer.startsWith('Bearer ')?bearer.slice(7):'';
   if(!['directory','login'].includes(action)&&!token)throw new AccessError('Sign in first.',401);
   const ip=String(req.headers['x-vercel-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0];
   res.status(200).json(await getService()(action,input,token,ip));
