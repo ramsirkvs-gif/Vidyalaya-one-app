@@ -2,7 +2,7 @@
 from pathlib import Path
 ns={};exec(Path('tests/cbse-teacher-monitoring-browser.py').read_text().split('with sync_playwright() as p:')[0],ns)
 with ns['sync_playwright']() as p:
- b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);page=b.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.route('https://www.gstatic.com/firebasejs/**',ns['sdk']);page.route('**/api/staff-access',lambda r:r.fulfill(json={'ok':True,'staff':[{'id':'X:one','name':'Synthetic Teacher'}]}));page.goto('http://127.0.0.1:8000/cbse-mission.html#student=X%3Aa%3Aone');page.get_by_role('heading',name='Progress remarks & teacher reports',exact=True).wait_for();assert page.locator('[name=comment-pin]').count()==0
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);page=b.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.route('https://www.gstatic.com/firebasejs/**',ns['sdk']);page.route('**/api/staff-access',lambda r:r.fulfill(json={'ok':True,'staff':[{'id':'X:one','name':'Synthetic Teacher'}]}));page.goto('http://127.0.0.1:8000/cbse-mission.html#student=X%3Aa%3Aone');page.get_by_role('heading',name='Progress remarks & teacher reports',exact=True).wait_for();assert page.locator('[name=comment-pin]').count()==1;assert page.locator('.principal-composer textarea').is_enabled();assert page.locator('.teacher-composer textarea').is_enabled()
  for mode in ['ct','subjects','single']:
   page.locator('[name=progress-notes]').fill('Please report '+mode);page.locator('[name=request-mode]').select_option(mode)
   if mode=='subjects':page.locator('[name=allocate_english]').select_option('X:one')

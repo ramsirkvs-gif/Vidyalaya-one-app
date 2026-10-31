@@ -1,5 +1,26 @@
 # Mission Perfect 100 — activation and use
 
+## Touch reports and comment cells
+
+Teacher profiles now use report tiles instead of the Review role dropdown:
+**CT / Co-CT**, one **Subject teacher** tile per allocated section, and a
+**Combined** tile when the teacher covers multiple sections. A CT with two
+subject sections therefore has four tiles. Tile changes reset the colour filter;
+student reviews remain inline and retain the selected report after a submission.
+
+Above each filtered teacher list, a section breakdown shows the matching count
+and population for every section, including zero matches. For example, eighteen
+borderline students across XII-D and XII-E can be shown as XII-D: 8 and XII-E: 10.
+Each section list repeats its own listed count. Population denominators use
+smaller text; the main performance counts remain prominent.
+
+Both Principal and teacher comment cells are visible together in teacher
+profiles, student profiles and inline student reviews, with one shared thread.
+The Principal cell requires the existing Principal sign-in. Staff see that cell
+as read-only and use their own teacher cell with a fresh PIN to submit. Replies
+to reporting requests target the visible teacher composer; no identity toggle or
+extra sign-out is required. Teacher profile headers include a comments shortcut.
+
 ## Master Overview and compact review layout
 
 A browser refresh opens the master **Overview** while keeping the remembered
@@ -15,7 +36,7 @@ follows the cohort and stream/subject selection. Gender cards keep the original
 population total so staff can return to all students easily.
 
 Teacher reviews open the selected student inside the teacher page. **Back to
-teacher list** closes the review without losing its role, stream or colour
+teacher list** closes the review without losing its report choice, stream or colour
 filter. Header Back closes an open review first. PIN submissions and refreshed
 server data retain this teacher context. Academic-dashboard selections are also
 remembered during navigation in the same visit; refresh deliberately resets the
