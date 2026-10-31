@@ -8,7 +8,7 @@ export function academicMarkBand(mark,red=33,green=75){
  const pct=mark.score/mark.maximum*100;return pct<red?'red':pct<green?'yellow':'green';
 }
 export function overallAcademicBand(bands){for(const value of ['critical','red','grey','yellow'])if(bands.includes(value))return value;return bands.length?'green':'grey';}
-export function importAcademicHistory(pkg,mission,draft){
+export function importAcademicHistory(pkg,mission,draft,{replaceExisting=false}={}){
  assert(pkg?.format==='mission-academic-history-v1'&&/^\d{4}-\d{2}$/.test(pkg.session),'Choose the prepared academic-history JSON package.');
  assert(Array.isArray(pkg.records)&&pkg.records.length>0&&pkg.records.length<=30000,'Academic package must contain 1–30000 results.');
  const next=clone(mission),lookup=new Map(),latestPeriods=new Map(),counts={},seen=new Set();
@@ -17,26 +17,26 @@ export function importAcademicHistory(pkg,mission,draft){
   if(lookup.has(k))lookup.set(k,null);else lookup.set(k,item);
  }
  const resolve=r=>{assert(r&&typeof r==='object','Invalid academic row.');const identity=`${r.classId}|${norm(r.section)}|${norm(r.name)}`,person=lookup.get(identity);assert(person,`No unique roster match for ${r.classId}-${r.section} ${String(r.name||'')}.`);return person;};
- next.exams||={};next.marks||={};next.academicAttendance||={};let added=0,updated=0,absent=0,inferred=0;
+ next.exams||={};next.marks||={};next.academicAttendance||={};let added=0,updated=0,skipped=0,absent=0,inferred=0;
  for(const[rindex,r]of pkg.records.entries()){
   const p=resolve(r);assert(validMonth(r.period),'Each result needs a real YYYY-MM period; exact dates are not invented.');
   const sessionStart=Number(pkg.session.slice(0,4)),year=Number(r.period.slice(0,4)),month=Number(r.period.slice(5));assert(Number(pkg.session.slice(5))===(sessionStart+1)%100&&year===(month>=4?sessionStart:sessionStart+1),'A result falls outside the selected academic session.');
   const matches=entries(p.catalog).filter(([,s])=>norm(s.name)===norm(r.subject));assert(matches.length===1,`Unknown/ambiguous subject for row ${rindex+1}: ${r.subject}.`);const sid=matches[0][0];assert(p.subjects?.[sid],`${r.subject} is not selected for ${p.name}; it cannot be imported as AB.`);
-  assert(typeof r.absent==='boolean'&&r.maximum===40&&(r.absent?r.score===null:Number.isFinite(r.score)&&r.score>=0&&r.score<=r.maximum),'Expected a /40 result or an explicit AB with no numeric score.');
-  assert(r.passFrom===13&&r.secureFrom===18&&r.criticalBelow===10,'The prepared /40 pattern must use pass 13, secure 18 and critical below 10.');
+  assert(typeof r.absent==='boolean'&&Number.isFinite(r.maximum)&&r.maximum>0&&r.maximum<=1000&&(r.absent?r.score===null:Number.isFinite(r.score)&&r.score>=0&&r.score<=r.maximum),'Expected valid marks/maximum, or an explicit AB without a numeric score.');
+  assert([r.passFrom,r.secureFrom,r.criticalBelow].every(Number.isFinite)&&r.criticalBelow>=0&&r.criticalBelow<=r.passFrom&&r.passFrom<r.secureFrom&&r.secureFrom<=r.maximum,'Review the critical, pass and secure-pass marks for this paper maximum.');
   assert(typeof r.inferredAbsent==='boolean'&&(!r.inferredAbsent||r.absent)&&typeof r.sourceValue==='string'&&r.sourceValue.length<=30,'Invalid source/absence metadata.');
-  const examId=`academic_${p.classId}_${r.period.replace('-','_')}`,id=`academic_${p.key.replaceAll(':','_')}_${r.period.replace('-','_')}_${sid}`;
+  const type=r.examType||'monthly';assert(['monthly','test','PB-1','PB-2','weekly','mock'].includes(type),'Invalid exam type.');const suffix=type==='monthly'?'':'_'+String(r.examKey||type).replace(/[^a-zA-Z0-9_-]/g,'_').slice(0,70);const examId=`academic_${p.classId}_${r.period.replace('-','_')}${suffix}`,id=`academic_${p.key.replaceAll(':','_')}_${r.period.replace('-','_')}_${sid}${suffix}`;
   assert(!seen.has(id),`Duplicate result for ${p.name}, ${r.subject}, ${r.period}.`);seen.add(id);
   if(!latestPeriods.has(p.key)||r.period>latestPeriods.get(p.key))latestPeriods.set(p.key,r.period);
-  const old=next.marks[id];if(old)updated++;else added++;
+  const old=next.marks[id];if(old&&!replaceExisting){skipped++;continue;}if(old)updated++;else added++;
   const existing=next.exams[examId];assert(!existing||existing.classId===p.classId&&existing.date===r.period&&existing.datePrecision==='month','An existing exam conflicts with this import.');
-  next.exams[examId]={name:`Monthly Test · ${r.period}`,classId:p.classId,type:'monthly',date:r.period,datePrecision:'month',session:pkg.session};
-  next.marks[id]={studentKey:p.key,subjectId:sid,examId,maximum:40,score:r.score,absent:r.absent,importSource:'monthly_workbook_v1',sourceValue:r.sourceValue,inferredAbsent:r.inferredAbsent,passFrom:13,secureFrom:18,criticalBelow:10};
+  next.exams[examId]={name:String(r.examName||`Monthly Test · ${r.period}`).slice(0,100),classId:p.classId,type,date:r.period,datePrecision:'month',session:pkg.session};
+  next.marks[id]={updatedAt:Date.now(),studentKey:p.key,subjectId:sid,examId,maximum:r.maximum,score:r.score,absent:r.absent,importSource:'monthly_workbook_v1',sourceValue:r.sourceValue,inferredAbsent:r.inferredAbsent,passFrom:r.passFrom,secureFrom:r.secureFrom,criticalBelow:r.criticalBelow};
   absent+=r.absent?1:0;inferred+=r.inferredAbsent?1:0;const section=`${p.classId}-${p.section}`;counts[section]||={students:new Set(),results:0};counts[section].students.add(p.key);counts[section].results++;
  }
  assert(pkg.attendance===undefined||Array.isArray(pkg.attendance)&&pkg.attendance.length<=2000,'Invalid attendance summary.');
  const attendanceSeen=new Set();for(const r of pkg.attendance||[]){const p=resolve(r);assert(!attendanceSeen.has(p.key),'Duplicate attendance summary.');attendanceSeen.add(p.key);assert(latestPeriods.has(p.key),'Attendance summary has no matching academic results.');assert(Number.isFinite(r.percentage)&&r.percentage>=0&&r.percentage<=100&&r.session===pkg.session,'Invalid cumulative attendance percentage.');next.academicAttendance[p.key]={percentage:r.percentage,session:pkg.session,source:'consolidated_workbook',throughPeriod:latestPeriods.get(p.key)||''};}
- return {next,added,updated,absent,inferred,summary:Object.entries(counts).map(([section,c])=>({section,students:c.students.size,results:c.results})).sort((a,b)=>a.section.localeCompare(b.section))};
+ return {next,added,updated,skipped,absent,inferred,summary:Object.entries(counts).map(([section,c])=>({section,students:c.students.size,results:c.results})).sort((a,b)=>a.section.localeCompare(b.section))};
 }
 export function academicPeriods(mission){return [...new Set(entries(mission.exams).map(([,e])=>String(e.date||'').slice(0,7)).filter(validMonth))].sort();}
 export function periodRange(periods){if(!periods.length)return [];const sorted=[...periods].sort(),out=[];let year=Number(sorted[0].slice(0,4)),month=Number(sorted[0].slice(5));for(let i=0;i<120;i++){const p=`${year}-${String(month).padStart(2,'0')}`;if(p>sorted.at(-1))break;out.push(p);if(++month>12){month=1;year++;}}return out;}

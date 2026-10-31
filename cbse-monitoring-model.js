@@ -8,6 +8,7 @@ export const MONITOR_AREAS={
  weekly:{title:'Weekly review & other efforts',description:'Meeting-ready updates, evidence and next actions.',icon:'✓',kind:'weekly'}
 };
 export const DETAIL_FIELDS={
+ contact:[['channel','Contact method','select',['call','home_visit','message']],['nextReview','Next follow-up','date']],
  remedial:[['status','Session status','select',['planned','conducted','cancelled']],['start','Start time','time'],['end','End time','time'],['planned','Students planned','number'],['attended','Students attended','number'],['learningGap','Learning gap / focus','text'],['practice','Practice / work given','textarea'],['nextReview','Next review','date']],
  worksheet:[['status','Work status','select',['assigned','collected','checked','follow_up']],['planned','Students assigned work','number'],['submitted','Students submitted','number'],['checked','Students checked / reviewed','number'],['due','Submission due date','date'],['learningGap','Skill / practice focus','text'],['practice','Worksheet / practice description','textarea'],['nextReview','Next review','date']],
  observation:[['lessonPlanning','Lesson planning','select',['needs_support','developing','effective']],['participation','Student participation','select',['needs_support','developing','effective']],['understanding','Checking understanding','select',['needs_support','developing','effective']],['practice','Agreed improvement action','textarea'],['nextReview','Next observation / review','date']],

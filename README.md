@@ -118,3 +118,10 @@ Academic history now supports reviewed private monthly-result packages, X/XII
 section/subject filters, teacher allocation links, AB-aware student heatmaps and
 subject/monthly graphs. See MISSION_SETUP.md for the import format, /40 workbook
 monitoring pattern, month-only dates and privacy/verification details.
+
+
+Meeting workflows now include full student profiles with call/map and tagged
+action controls, CT/subject teacher reviews across sections, verified staff
+remarks/replies, and direct Samagam Excel imports that skip existing results by
+default. Explicit Correction mode allows reviewed replacements. See
+MISSION_SETUP.md for contact permissions, exam-month/rule review and tests.

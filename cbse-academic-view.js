@@ -1,5 +1,5 @@
 import {entries} from './cbse-model.js';
-import {academicPeriods,periodRange,academicSnapshot} from './cbse-academic-model.js';
+import {academicPeriods,periodRange,academicSnapshot,academicMarkBand} from './cbse-academic-model.js';
 import {el,cell,head,options,stats} from './cbse-ui.js';
 const labels={critical:'Critical',red:'Fail',yellow:'Borderline',green:'Secure pass',grey:'AB / not assessed'};
 export const monthLabel=p=>new Intl.DateTimeFormat('en-IN',{month:'short',year:'numeric',timeZone:'UTC'}).format(new Date(p+'-01T00:00:00Z'));
@@ -33,6 +33,9 @@ export function renderStudentAcademics(parent,person,mission,ctx={}){
  const draw=()=>{const values=periods.map(p=>{const m=snapshots.get(p).subjects.find(s=>s.id===subject.value)?.mark;return m&&!m.absent?m.score/m.maximum*100:null;});graph.replaceChildren(academicGraph(periods,values,'Subject progress percentage'));};subject.onchange=draw;draw();
  parent.append(el('h3','Monthly consolidated progress'),academicGraph(periods,periods.map(p=>snapshots.get(p).percentage),'Monthly consolidated percentage'));
  const monthly=table(parent,['Month','Marks / appeared maximum','Percentage','Appeared / expected','AB','Not recorded','Status']);for(const p of periods){const s=snapshots.get(p),row=el('tr');cell(row,monthLabel(p));cell(row,s.maximum?`${s.total}/${s.maximum}`:'—');cell(row,s.percentage===null?'—':s.percentage.toFixed(1)+'%');cell(row,`${s.appeared}/${s.expected}`);cell(row,s.absent);cell(row,s.unrecorded);cell(row,'').append(tag(s.academic));monthly.append(row);}
+ parent.append(el('h3','All examinations · complete subject record'),el('p','The monthly grid uses the latest entered result per subject when several tests share a month. Every test is retained below.','muted'));
+ const all=table(parent,['Examination','Period / date','Subject','Result','Status']);for(const[id,mark]of entries(mission.marks).filter(([,m])=>m.studentKey===person.key&&person.subjects?.[m.subjectId]).sort((a,b)=>String(mission.exams[a[1].examId]?.date).localeCompare(String(mission.exams[b[1].examId]?.date)))){const exam=mission.exams[mark.examId];if(!exam)continue;const row=el('tr');cell(row,exam.name);cell(row,exam.date+(exam.datePrecision==='month'?' · month only':''));cell(row,person.subjectCatalog?.[mark.subjectId]?.name||mark.subjectId);cell(row,mark.absent?'AB':`${mark.score}/${mark.maximum}`);const subject=academicSnapshot(person,mission,String(exam.date).slice(0,7)).subjects.find(s=>s.id===mark.subjectId);cell(row,'').append(tag(academicMarkBand(mark,mission.settings.redBelow,mission.settings.greenFrom)));all.append(row);}
+
 }
 export function renderAcademicDashboard(parent,people,mission,ctx={}){
  parent.append(el('h2','Students academic history'),el('p','Review each month, subject and student. Critical/failing subjects determine the tile colour; averages cannot hide them. Teacher links follow confirmed section allocations.'),el('p','Imported /40 pattern: 0–9 Critical · 10–12 Fail · 13–17 Borderline · 18–40 Secure pass. AB is shown separately.','muted'));

@@ -59,3 +59,22 @@ test('only Principal can recover encrypted PIN list, stored database never conta
  const directory=await service('directory');assert.ok(!JSON.stringify(directory).includes('029'));assert.ok(!JSON.stringify(directory).includes('displayPIN'));
  record.displayPIN.tag='invalid';assert.equal((await service('list',{},'principal')).access['X:one'].pin,'');
 });
+
+test('staff contact updates are versioned, map-only updates work for any PIN holder, and protected phones stay scoped',async()=>{
+ const {service,data}=fixture();await service('set-pin',{staffId:'X:one',pin:'123'},'principal');const token=(await service('login',{staffId:'X:one',pin:'123'},'','contact-test')).customToken;
+ await service('update-contact',{studentKey:'X:b:two',expectedRevision:0,contact:{mapLocation:'27.1,93.7'}},token);assert.match(data.cbse.mission.students['X:b:two'].mapLocation,/google.com\/maps/);assert.equal(data.cbse.mission.students['X:b:two'].updatedBy,'X:one');assert.equal(data.cbse.mission.students['X:b:two'].phones,'private-phone');
+ await assert.rejects(service('update-contact',{studentKey:'X:b:two',expectedRevision:1,contact:{numbers:{x:{label:'Father',phone:'1234567890'}}}},token),/assigned student/);
+ await assert.rejects(service('update-contact',{studentKey:'X:b:two',expectedRevision:0,contact:{mapLocation:'27.2,93.8'}},token),/changed/);
+ await assert.rejects(service('update-contact',{studentKey:'X:b:two',expectedRevision:1,contact:{mapLocation:'javascript:alert(1)'}},token),/Google Maps/);
+ await service('update-contact',{studentKey:'X:a:one',expectedRevision:0,contact:{numbers:{one:{label:'Father',phone:'1234567890'}},mapLocation:'https://maps.app.goo.gl/example'}},token);assert.equal(data.cbse.mission.students['X:a:one'].numbers.one.phone,'1234567890');assert.equal((await service('profile',{studentKey:'X:a:one'},token)).contact.numbers.one.label,'Father');
+});
+test('remark roles are checked against live CT and subject allocations, and action replies retain identity',async()=>{
+ const {service,data}=fixture();await service('set-pin',{staffId:'X:one',pin:'123'},'principal');const token=(await service('login',{staffId:'X:one',pin:'123'},'','roles-test')).customToken;
+ await assert.rejects(service('comment',{studentKey:'X:a:one',notes:'Spoofed CT',role:'class_teacher'},token),/not assigned/);
+ data.cbse.facultyDraft.classes.X.roles.a={classTeacher:'one',coClassTeacher:''};await service('comment',{studentKey:'X:a:one',notes:'CT watch',role:'class_teacher'},token);
+ await assert.rejects(service('comment',{studentKey:'X:a:one',notes:'Spoofed subject',role:'subject_teacher',subjectId:'english'},token),/not assigned/);
+ data.cbse.mission.allocations.a={classId:'X',sectionId:'a',subjectId:'english',staffId:'X:one'};await service('comment',{studentKey:'X:a:one',notes:'English practice',role:'subject_teacher',subjectId:'english'},token);
+ const record=Object.values(data.cbse.mission.records).find(r=>r.notes==='English practice');assert.equal(record.authorRole,'subject_teacher');assert.equal(record.subjectId,'english');
+ data.cbse.mission.tasks.mine={staffId:'X:one',studentKey:'X:a:one',status:'open',title:'Home visit'};await service('comment',{studentKey:'X:a:one',notes:'Visit planned',channel:'home_visit',taskId:'mine'},token);const reply=Object.values(data.cbse.mission.records).find(r=>r.notes==='Visit planned');assert.equal(reply.replyTo,'mine');assert.equal(reply.kind,'contact');assert.equal(reply.authorName,'Synthetic Teacher');
+ await service('update-task',{studentKey:'X:a:one',taskId:'mine',status:'done',outcome:'Family contacted'},token);assert.ok(Object.values(data.cbse.mission.records).some(r=>r.notes==='Family contacted'&&r.replyTo==='mine'));
+});

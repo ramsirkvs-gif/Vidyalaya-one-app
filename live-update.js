@@ -3,7 +3,7 @@
 let version=new URL(import.meta.url).searchParams.get('v');
 let updatePending=false,reloading=false,checking=false;
 function editing(){
- return document.documentElement.dataset.portalBusy==='true'||document.querySelector('dialog[open]')||Array.from(document.querySelectorAll('input[type="password"]')).some(input=>input.value);
+ return document.documentElement.dataset.portalBusy==='true'||document.querySelector('dialog[open], form[data-portal-dirty="true"]')||Array.from(document.querySelectorAll('input[type="password"]')).some(input=>input.value);
 }
 function applyUpdate(){
  if(!updatePending||reloading)return;
@@ -28,4 +28,4 @@ async function check(){
 check();setInterval(check,30000);
 document.addEventListener('visibilitychange',check);
 document.addEventListener('close',()=>setTimeout(applyUpdate,0),true);
-document.addEventListener('input',()=>{if(updatePending)applyUpdate();});
+document.addEventListener('input',event=>{const form=event.target?.closest?.('form[data-portal-track-dirty]');if(form)form.dataset.portalDirty='true';if(updatePending)applyUpdate();});

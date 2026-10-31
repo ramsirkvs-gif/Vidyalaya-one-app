@@ -348,10 +348,9 @@ tiles follow the weakest subject, with AB/incomplete status never called a full
 pass. Critical or fail results take priority over incomplete/AB badges. Global
 colour settings explain this separation.
 
-Reimport deterministically replaces only the matching imported record IDs.
-Other marks, contacts, daily attendance, tasks and notes are retained. Corrections
-to these same imported records will be replaced by a subsequent source reimport;
-the review states this explicitly. Cumulative workbook attendance is stored
+Reimport skips matching imported record IDs by default; explicit Correction mode may replace them.
+Other marks, contacts, daily attendance, tasks and notes are retained. Existing corrections remain unchanged on ordinary repeat uploads. Correction mode
+explicitly replaces matching imported results; the review reports this count. Cumulative workbook attendance is stored
 separately from actual dated daily attendance and labelled as a source summary.
 
 **Academic history & graphs** / the Academic history navigation button opens
@@ -368,3 +367,82 @@ Validation includes `node tests/cbse-academic-model.test.mjs` and
 `python3 tests/cbse-academic-browser.py`, plus existing Mission, staff, teacher
 and build checks. The complete private 240-student/7200-result package was also
 validated locally and checked in the browser without writing live records.
+
+
+## Meeting-centred student and teacher monitoring
+
+Mission home keeps the X/XII → section → student flow and direct name search.
+Principal shortcuts open student search, teacher review and new Samagam uploads.
+Student profiles have sticky shortcuts for Academics, Call/map, Actions and
+Remarks. Existing results, attendance, support tasks and monitoring notes remain
+linked to the same student keys. Current-evidence tiles show Critical/deep red,
+Red, Yellow or Green; genuinely unassessed/AB-only records retain an explicit
+incomplete indicator rather than being claimed as a pass.
+
+Teacher profiles include CT/Co-CT and subject-teacher meeting modes. CT mode
+lists every assigned CT/Co-CT section; subject mode lists every confirmed
+section/subject allocation. A subject review opens the student's complete exam
+history filtered to that subject, with Full student profile and Back to teacher
+meeting controls. Set CT roles in Faculty feeding and subject allocations using
+Assign teacher in Academic history. Responsibility is not inferred from names.
+
+### Samagam Excel: default incremental import
+
+**Upload Samagam Excel · new exams** reads `.xlsx` locally with the vendored
+ExcelJS reader (MIT license in vendor/exceljs). No workbook is sent to a third
+party. The reader handles merged examination headers, subject maxima, selected
+subject alternatives, numeric marks, AB/NE/NF/NA and missing marks. It matches
+current roster names and selected subject names before importing.
+
+The Principal reviews examination months (supplying a month when absent) and
+critical/pass/secure marks per maximum. For current /40 papers the defaults
+remain 10/13/18. Other maxima receive suggested values that must be reviewed.
+Upcoming PB and other examinations retain their names/types and maxima. Dates
+are stored at month precision when exact exam dates are absent. All tests remain
+in a detailed register, including several tests in the same month; the monthly
+grid uses latest-entered evidence where exact dates cannot order them.
+
+By default, matching result identities are skipped. New exam/student/subject
+results are added; existing scores and corrections stay unchanged. Repeated
+uploads with no new results perform no write. **Correction mode** is explicit
+and is reported before Save. Other profiles, tasks, contacts and remarks are
+retained. All nine supplied workbooks were parsed and validated locally: first
+pass 7200 records, repeated pass 7200 skipped. This is not a live import.
+
+### Calls, maps and contact updates
+
+Student, Father, Mother and additional labelled numbers render safe `tel:`
+links. Clicking opens the device dialler; the portal cannot read device call
+history. Log actual call/home-visit outcomes through monitoring or a staff
+remark. Principal contact editing supports up to 12 labelled numbers, address,
+Google Maps links or latitude/longitude. Google map links are validated.
+
+Verified assigned staff can read/update phone/address details needed for their
+student-support work. Any active PIN holder can submit a map-only update for an
+existing student, as requested; this does not disclose unassigned contact,
+academic or restricted counselling records. Staff updates check the contact
+revision, preserve unrelated fields, and record verified actor/time. Concurrent
+changes require reloading the record. No Firebase rule changes are needed;
+these staff actions use the already-activated server endpoint.
+
+### Remarks, tags and action replies
+
+The final student section accepts a Principal remark and an optional tagged
+teacher/due date. Save creates the remark and assigned action together. Tagged
+actions appear in the teacher's existing action list; this is an in-app workflow.
+PIN-authenticated staff choose CT/Co-CT, an allocated subject-teacher role, or
+general staff support. Server checks prevent claiming an unassigned CT/subject
+role. Remarks may record progress, calls or home visits, and reference an
+assigned action. Each task outcome is also retained as a dated verified reply
+in the student's timeline, preserving earlier replies.
+
+Shared Principal login remains persistent. Deployment updates now also wait
+for dirty inline meeting remarks/contact forms, as well as open dialogs and
+pending saves. An operation-level authorization error does not force staff to
+log in again; disabled/reset/inactive sessions still clear access.
+
+Checks include cbse-samagam, cbse-contact-model and cbse-teacher-review unit
+suites; staff service authorization/concurrency tests; actual browser workbook
+loading, incremental imports, Principal tagging, CT/subject navigation, contact
+updates, faculty remark roles and inline-deployment guards. All test data in Git
+is synthetic. Production-private student/teacher files remain outside Git/build.

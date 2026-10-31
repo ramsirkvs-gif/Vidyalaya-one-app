@@ -1,9 +1,10 @@
+import {validateContact,mapLink,serializePhones,staffStudentRoles} from '../cbse-contact-model.js';
 import {encryptDisplayPIN,decryptDisplayPIN} from './pin-vault.js';
 import {emptyFaculty,validateFaculty} from '../cbse-faculty-model.js';
 import {validatePINRows} from '../cbse-pin-import.js';
 import {scrypt as scryptCallback,randomBytes,timingSafeEqual,createHash,randomUUID,randomInt} from 'node:crypto';
 import {promisify} from 'node:util';
-import {emptyMission,studentIndex,staffIndex,staffCanView,staffProfileView,staffVisibleRecord,today} from '../cbse-mission-model.js';
+import {emptyMission,studentIndex,studentProgress,staffIndex,staffCanView,staffProfileView,staffVisibleRecord,today} from '../cbse-mission-model.js';
 const scrypt=promisify(scryptCallback);
 export class AccessError extends Error{constructor(message,status=403){super(message);this.status=status;}}
 export async function hashPIN(pin,salt=randomBytes(16).toString('hex')){if(!/^(?:\d{3}|\d{6,12})$/.test(String(pin)))throw new AccessError('Use a three-digit PIN (existing 6–12 digit PINs remain supported).',400);return {salt,hash:(await scrypt(String(pin),salt,64)).toString('hex')};}
@@ -68,17 +69,35 @@ export function createStaffService({db,auth,now=Date.now,displayKey}){
   }
   const {decoded}=await staffUser(token),c=await context(),id=decoded.staffId;
   if(staffIndex(c.faculty,c.mission)[id]?.status!=='active')throw new AccessError('Staff access is inactive.');
-  if(action==='students')return {staff:staffIndex(c.faculty,c.mission)[id]?.name,students:entries(studentIndex(c.draft)).map(([key,p])=>({key,name:p.name,roll:p.roll,classId:p.classId,section:p.section,assigned:staffCanView(id,key,c.mission,c.draft,c.faculty)}))};
+  if(action==='students')return {staff:staffIndex(c.faculty,c.mission)[id]?.name,students:entries(studentIndex(c.draft)).map(([key,p])=>({key,name:p.name,roll:p.roll,classId:p.classId,section:p.section,assigned:staffCanView(id,key,c.mission,c.draft,c.faculty),academic:staffCanView(id,key,c.mission,c.draft,c.faculty)?studentProgress(key,c.mission,c.draft).academic:'grey'}))};
   const key=String(input.studentKey||'');if(!/^(X|XII):[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/.test(key)||!studentIndex(c.draft)[key])throw new AccessError('Student not found.',404);
-  if(action==='profile'){if(staffCanView(id,key,c.mission,c.draft,c.faculty))return {...staffProfileView(id,key,c.mission,c.draft,c.faculty),assigned:true};const p=studentIndex(c.draft)[key];return {student:{key,name:p.name,roll:p.roll,classId:p.classId,section:p.section,stream:p.stream},assigned:false,progress:null,contact:null,tasks:[],records:entries(c.mission.records).filter(([,r])=>r.studentKey===key&&r.authorId===id).map(([id,r])=>staffVisibleRecord(id,r))};}
+  if(action==='profile'){if(staffCanView(id,key,c.mission,c.draft,c.faculty))return {...staffProfileView(id,key,c.mission,c.draft,c.faculty),assigned:true};const p=studentIndex(c.draft)[key];return {student:{key,name:p.name,roll:p.roll,classId:p.classId,section:p.section,stream:p.stream},assigned:false,progress:null,contact:null,mapLocation:c.mission.students?.[key]?.mapLocation||'',contactRevision:c.mission.students?.[key]?.revision||0,roles:staffStudentRoles(id,studentIndex(c.draft)[key],c.faculty,c.mission),tasks:[],records:entries(c.mission.records).filter(([,r])=>r.studentKey===key&&r.authorId===id).map(([id,r])=>staffVisibleRecord(id,r))};}
+  if(action==='update-contact'){
+   const patch=input.contact;if(!patch||typeof patch!=='object'||Array.isArray(patch))throw new AccessError('Invalid contact update.',400);
+   const allowed=['mapLocation','location','numbers'];if(Object.keys(patch).some(k=>!allowed.includes(k)))throw new AccessError('Only phone numbers, address or map location can be updated.',400);
+   if(Object.keys(patch).some(k=>k!=='mapLocation')&&!staffCanView(id,key,c.mission,c.draft,c.faculty))throw new AccessError('Phone/address updates require an assigned student.',403);
+   if(!Number.isInteger(input.expectedRevision)||input.expectedRevision<0)throw new AccessError('Reload the contact record before updating.',409);
+   let failed='';const result=await db.ref('cbse/mission').transaction(current=>{
+    failed='';const m=current||emptyMission();if(staffIndex(c.faculty,m)[id]?.status!=='active')return;
+    const old=m.students?.[key]||{gender:'unknown',guardian:'',phones:'',location:''};if((old.revision||0)!==input.expectedRevision){failed='Contact details changed. Reload this student before saving.';return;}
+    if(Object.keys(patch).some(k=>k!=='mapLocation')&&!staffCanView(id,key,m,c.draft,c.faculty))return;
+    const next={...old,...patch,revision:(old.revision||0)+1,updatedBy:id,updatedByName:staffIndex(c.faculty,m)[id]?.name,updatedAt:now()};
+    try{if(patch.mapLocation!==undefined)next.mapLocation=mapLink(patch.mapLocation);if(patch.numbers!==undefined)next.phones=serializePhones(patch.numbers);if(typeof next.location!=='string'||next.location.length>500)throw Error('Home address is too long.');validateContact(next);}catch(error){failed=error.message;return;}
+    m.students||={};m.students[key]=next;m.revision=(m.revision||0)+1;m.updatedAt=now();return m;
+   });if(!result.committed)throw new AccessError(failed||'Assignment changed. Reload before updating.',failed?.includes('changed')?409:400);return {ok:true};
+  }
   if(action==='comment'){
    const notes=String(input.notes||'').trim();if(!notes||notes.length>2000)throw new AccessError('Enter a progress comment of up to 2000 characters.',400);
+   const channel=String(input.channel||'progress');if(!['progress','call','home_visit'].includes(channel))throw new AccessError('Choose a valid contact/remark type.',400);
+   const roles=staffStudentRoles(id,studentIndex(c.draft)[key],c.faculty,c.mission),role=String(input.role||'faculty_support'),subjectId=String(input.subjectId||'');
+   if(!['class_teacher','subject_teacher','faculty_support'].includes(role)||role==='class_teacher'&&!roles.classTeacher||role==='subject_teacher'&&!roles.subjects.some(s=>s.id===subjectId))throw new AccessError('This CT/subject role is not assigned to you for this student.',403);
+   const taskId=String(input.taskId||'');if(taskId&&!(c.mission.tasks?.[taskId]?.staffId===id&&(c.mission.tasks[taskId].studentKey===key||!c.mission.tasks[taskId].studentKey&&c.mission.tasks[taskId].sectionKey===`${studentIndex(c.draft)[key].classId}:${studentIndex(c.draft)[key].sectionId}`)))throw new AccessError('You can reply only to your own assigned action.',403);
    const recordId='record_'+randomUUID().replaceAll('-','');
-   const result=await db.ref('cbse/mission').transaction(current=>{const m=current||emptyMission();if(staffIndex(c.faculty,m)[id]?.status!=='active')return;m.records||={};m.records[recordId]={kind:'faculty_comment',date:today(),studentKey:key,staffId:id,sectionKey:'',subjectId:'',notes,outcome:'',evidenceUrl:'',visibility:'general',authorId:id,authorName:staffIndex(c.faculty,m)[id]?.name||'Staff',updatedAt:now()};m.revision=(m.revision||0)+1;m.updatedAt=now();return m;});if(!result.committed)throw new AccessError('Assignment changed. Reload your student list.');return {ok:true};
+   const result=await db.ref('cbse/mission').transaction(current=>{const m=current||emptyMission();if(staffIndex(c.faculty,m)[id]?.status!=='active')return;m.records||={};if(taskId){const task=m.tasks?.[taskId],person=studentIndex(c.draft)[key];if(!task||task.staffId!==id||task.status==='cancelled'||!(task.studentKey===key||!task.studentKey&&task.sectionKey===`${person.classId}:${person.sectionId}`))return;}const liveRoles=staffStudentRoles(id,studentIndex(c.draft)[key],c.faculty,m);if(role==='class_teacher'&&!liveRoles.classTeacher||role==='subject_teacher'&&!liveRoles.subjects.some(s=>s.id===subjectId))return;m.records[recordId]={details:channel==='progress'?{}:{channel},authorRole:role,replyTo:taskId,kind:channel==='progress'?'faculty_comment':'contact',date:today(),studentKey:key,staffId:id,sectionKey:'',subjectId:role==='subject_teacher'?subjectId:'',notes,outcome:'',evidenceUrl:'',visibility:'general',authorId:id,authorName:staffIndex(c.faculty,m)[id]?.name||'Staff',updatedAt:now()};m.revision=(m.revision||0)+1;m.updatedAt=now();return m;});if(!result.committed)throw new AccessError('Assignment changed. Reload your student list.');return {ok:true};
   }
   if(action==='update-task'){
    const taskId=String(input.taskId||''),status=String(input.status||''),outcome=String(input.outcome||'').trim();if(!['open','in_progress','done'].includes(status)||outcome.length>2000)throw new AccessError('Invalid task update.',400);
-   const result=await db.ref('cbse/mission').transaction(current=>{if(!current?.tasks?.[taskId]||current.tasks[taskId].status==='cancelled'||current.tasks[taskId].staffId!==id||!(current.tasks[taskId].studentKey===key||!current.tasks[taskId].studentKey&&current.tasks[taskId].sectionKey===`${studentIndex(c.draft)[key].classId}:${studentIndex(c.draft)[key].sectionId}`))return;current.tasks[taskId]={...current.tasks[taskId],status,outcome,updatedAt:now()};current.revision++;current.updatedAt=now();return current;});if(!result.committed)throw new AccessError('Task is not assigned to you.');return {ok:true};
+   const result=await db.ref('cbse/mission').transaction(current=>{if(!current?.tasks?.[taskId]||current.tasks[taskId].status==='cancelled'||current.tasks[taskId].staffId!==id||!(current.tasks[taskId].studentKey===key||!current.tasks[taskId].studentKey&&current.tasks[taskId].sectionKey===`${studentIndex(c.draft)[key].classId}:${studentIndex(c.draft)[key].sectionId}`))return;current.tasks[taskId]={...current.tasks[taskId],status,outcome,updatedAt:now()};if(outcome){current.records||={};current.records['reply_'+randomUUID().replaceAll('-','')]={kind:'faculty_comment',date:today(),studentKey:key,staffId:id,sectionKey:'',subjectId:'',notes:outcome,outcome:'',visibility:'general',authorId:id,authorName:staffIndex(c.faculty,current)[id]?.name||'Staff',authorRole:'faculty_support',replyTo:taskId,updatedAt:now()};}current.revision++;current.updatedAt=now();return current;});if(!result.committed)throw new AccessError('Task is not assigned to you.');return {ok:true};
   }
   throw new AccessError('Unknown action.',400);
  };

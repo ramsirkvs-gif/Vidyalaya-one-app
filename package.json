@@ -10,6 +10,7 @@
     "build": "node scripts/build-site.mjs"
   },
   "dependencies": {
+    "exceljs": "4.4.0",
     "firebase-admin": "13.6.0"
   }
 }

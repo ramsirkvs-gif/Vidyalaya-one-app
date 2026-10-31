@@ -1,0 +1,20 @@
+import {gradeThresholds} from './cbse-mission-model.js';
+import {entries} from './cbse-model.js';import {el,cell,head,options} from './cbse-ui.js';
+import {academicMarkBand,overallAcademicBand} from './cbse-academic-model.js';
+const button=(text,fn)=>{const b=el('button',text);b.type='button';b.onclick=fn;return b;};
+export function teacherResponsibilities(id,faculty,mission){
+ const [cl,...parts]=id.split(':'),teacher=parts.join(':'),ct=[];for(const[sid,roles]of entries(faculty.classes?.[cl]?.roles))if(roles.classTeacher===teacher||roles.coClassTeacher===teacher)ct.push({classId:cl,sectionId:sid,role:roles.classTeacher===teacher?'Class teacher':'Co-class teacher'});
+ return {ct,subjects:entries(mission.allocations).filter(([,a])=>a.staffId===id).map(([,a])=>a)};
+}
+export function renderTeacherMeeting(parent,id,faculty,mission,people,ctx){
+ const responsibilities=teacherResponsibilities(id,faculty,mission),controls=el('div',undefined,'actions'),content=el('div');parent.append(el('h2','Teacher meeting · responsibilities & students'),controls,content);
+ const draw=mode=>{content.replaceChildren();const groups=mode==='ct'?responsibilities.ct:responsibilities.subjects;
+  if(!groups.length){content.append(el('p',mode==='ct'?'No CT/Co-CT sections assigned.':'No subject allocations saved yet. Assign the teacher to each section/subject in Academic history.','muted'));return;}
+  for(const group of groups){const students=entries(people).filter(([,p])=>p.classId===group.classId&&p.sectionId===group.sectionId&&(!group.subjectId||p.subjects?.[group.subjectId]));const sample=students[0]?.[1],subject=group.subjectId?(sample?.subjectCatalog?.[group.subjectId]?.name||group.subjectId):'',box=el('section',undefined,'panel');box.append(el('h3',`${group.classId}-${sample?.section||group.sectionId} · ${mode==='ct'?group.role:subject}`),el('p',`${students.length} students · latest recorded evidence`));
+   const table=el('table'),thead=el('thead'),body=el('tbody'),scroll=el('div',undefined,'table-scroll');head(thead,['Student','Status','Latest result','Review']);
+   for(const[key,p]of students){const selected=mode==='subject'?{...p,subjects:{[group.subjectId]:true}}:p,subjects=entries(selected.subjects).map(([sid])=>{let latest;for(const[,m]of entries(mission.marks)){const exam=mission.exams?.[m.examId];if(m.studentKey!==key||m.subjectId!==sid||!exam)continue;if(!latest||exam.date>latest.exam.date||exam.date===latest.exam.date&&(m.updatedAt||0)>=(latest.updatedAt||0))latest={...m,exam};}return latest;}),band=overallAcademicBand(subjects.map(m=>{const rule=gradeThresholds(mission,p.classId,m?.subjectId||'',m?.examId||'');return academicMarkBand(m,rule.redBelow,rule.greenFrom);})),row=el('tr');cell(row,p.name);cell(row,'').append(el('span',band.toUpperCase(),`band ${band}`));cell(row,mode==='subject'?(subjects[0]?subjects[0].absent?'AB':`${subjects[0].score}/${subjects[0].maximum} · ${subjects[0].exam.date}`:'Not assessed'):'All subjects / full profile');cell(row,'').append(button(mode==='subject'?'Review this subject':'Open full profile',()=>ctx.onStudent(key,group.subjectId||'')));body.append(row);}
+   table.append(thead,body);scroll.append(table);box.append(scroll);content.append(box);
+  }
+ };
+ controls.append(button(`CT / Co-CT review · ${responsibilities.ct.length} sections`,()=>draw('ct')),button(`Subject-teacher review · ${responsibilities.subjects.length} allocations`,()=>draw('subject')));draw(responsibilities.ct.length?'ct':'subject');
+}

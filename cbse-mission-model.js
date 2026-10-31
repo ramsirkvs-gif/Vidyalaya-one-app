@@ -1,3 +1,4 @@
+import {validateContact,staffStudentRoles} from './cbse-contact-model.js';
 import {validMonth,academicMarkBand,overallAcademicBand} from './cbse-academic-model.js';
 import {entries,clone} from './cbse-model.js';
 import {validateMonitoringDetails,visibleMonitoringDetails} from './cbse-monitoring-model.js';
@@ -15,13 +16,13 @@ export function validateMission(m,draft,faculty){
  const students=studentIndex(draft),staff=staffIndex(faculty,m),s=m.settings;
  assert(s&&[s.redBelow,s.greenFrom,s.attendanceRedBelow,s.attendanceGreenFrom].every(v=>Number.isFinite(v)&&v>=0&&v<=100)&&s.redBelow<s.greenFrom&&s.attendanceRedBelow<s.attendanceGreenFrom,'Colour thresholds must be ordered percentages between 0 and 100.');
  for(const field of ['students','exams','marks','attendance','records','tasks','timetable','staff','allocations','gradingRules','academicAttendance'])assert(!m[field]||safeKeys(m[field]),`Invalid ${field} data.`);
- for(const[,p]of entries(m.students)){assert(['girl','boy','unknown'].includes(p.gender),'Choose a gender or Not recorded.');assert(text(p.guardian,120)&&text(p.phones,200)&&text(p.location,500),'Contact details are too long.');}
+ for(const[,p]of entries(m.students)){assert(['girl','boy','unknown'].includes(p.gender),'Choose a gender or Not recorded.');assert(text(p.guardian,120)&&text(p.phones,1000)&&text(p.location,500),'Contact details are too long.');validateContact(p);}
  for(const[,p]of entries(m.staff))assert(text(p.name,120,true)&&['counsellor','prt','support'].includes(p.kind)&&['active','inactive'].includes(p.status)&&text(p.subjects,300),'Invalid support-team record.');
  for(const[,e]of entries(m.exams))assert(text(e.name,100,true)&&['X','XII'].includes(e.classId)&&(e.datePrecision==='month'?validMonth(e.date):date(e.date))&&['test','PB-1','PB-2','weekly','mock','monthly'].includes(e.type),'Enter a valid test name, class, type and date.');
  for(const[,v]of entries(m.marks)){
   assert(text(v.studentKey,300,true)&&text(v.subjectId,100,true)&&m.exams?.[v.examId],'Choose a valid student, subject and examination.');
   const p=students[v.studentKey];if(p){assert(m.exams[v.examId].classId===p.classId&&p.subjects?.[v.subjectId],'The test/subject does not match the student.');}
-  if(v.importSource==='monthly_workbook_v1')assert(v.maximum===40&&v.passFrom===13&&v.secureFrom===18&&v.criticalBelow===10&&(!v.absent||v.score===null||v.score===undefined)&&typeof v.inferredAbsent==='boolean'&&(!v.inferredAbsent||v.absent),'Invalid imported monitoring rules.');
+  if(v.importSource==='monthly_workbook_v1')assert([v.passFrom,v.secureFrom,v.criticalBelow].every(Number.isFinite)&&v.criticalBelow>=0&&v.criticalBelow<=v.passFrom&&v.passFrom<v.secureFrom&&v.secureFrom<=v.maximum&&(!v.absent||v.score===null||v.score===undefined)&&typeof v.inferredAbsent==='boolean'&&(!v.inferredAbsent||v.absent),'Invalid imported monitoring rules.');
   assert(typeof v.absent==='boolean'&&Number.isFinite(v.maximum)&&v.maximum>0&&v.maximum<=1000&&(v.absent||Number.isFinite(v.score)&&v.score>=0&&v.score<=v.maximum),'Marks must be between zero and the maximum, or marked Absent.');
  }
  for(const[,a]of entries(m.academicAttendance))assert(Number.isFinite(a.percentage)&&a.percentage>=0&&a.percentage<=100&&text(a.session,20,true),'Invalid cumulative source attendance.');
@@ -62,14 +63,14 @@ export function staffCanView(staffId,studentKey,m,draft,faculty){
  if(entries(m.allocations).some(([,a])=>a.staffId===staffId&&a.classId===p.classId&&a.sectionId===p.sectionId))return true;
  return staff.classId===p.classId&&String(staff.teachingSections||'').split(/[,;]/).map(s=>s.trim().toUpperCase()).includes(p.section.toUpperCase());
 }
-export function staffVisibleRecord(id,r){return {id,date:r.date,kind:r.kind,notes:r.notes,outcome:r.outcome,authorName:r.authorName||'',authorId:r.authorId||'',visibility:r.visibility,details:visibleMonitoringDetails(r)};}
+export function staffVisibleRecord(id,r){return {id,authorRole:r.authorRole||'',subjectId:r.subjectId||'',taggedStaffId:r.taggedStaffId||'',replyTo:r.replyTo||'',date:r.date,kind:r.kind,notes:r.notes,outcome:r.outcome,authorName:r.authorName||'',authorId:r.authorId||'',visibility:r.visibility,details:visibleMonitoringDetails(r)};}
 export function staffProfileView(staffId,key,m,draft,faculty){
  assert(staffCanView(staffId,key,m,draft,faculty),'This student is not assigned to you.');
  const p=studentIndex(draft)[key],staff=staffIndex(faculty,m)[staffId],role=faculty?.classes?.[p.classId]?.roles?.[p.sectionId],tid=staffId.split(':').slice(1).join(':');
- const allowContact=staff.kind==='counsellor'||staff.classId===p.classId&&(role?.classTeacher===tid||role?.coClassTeacher===tid);
+ const allowContact=true; // This function has already verified the student's assignment; teachers need call/contact access.
  const original=studentProgress(key,m,draft),mark=v=>v?{score:v.score,maximum:v.maximum,absent:v.absent,exam:{name:v.exam.name,date:v.exam.date,type:v.exam.type},...(v.importSource==='monthly_workbook_v1'?{importSource:v.importSource,inferredAbsent:!!v.inferredAbsent,passFrom:v.passFrom,secureFrom:v.secureFrom,criticalBelow:v.criticalBelow}:{})}:null;
  const progress={academic:original.academic,attendance:original.attendance,attendanceBand:original.attendanceBand,recordedDays:original.recordedDays,overdue:original.overdue,subjects:original.subjects.map(s=>({id:s.id,name:s.name,percentage:s.percentage,band:s.band,latest:mark(s.latest),history:s.history.map(mark)}))};
  const sourceAttendance=m.academicAttendance?.[key];if(sourceAttendance)progress.sourceAttendance={percentage:sourceAttendance.percentage,session:sourceAttendance.session};
  const contact=m.students?.[key]||{};
- return {student:{key,name:p.name,roll:p.roll,classId:p.classId,section:p.section,stream:p.stream},progress,contact:allowContact?{guardian:contact.guardian||'',phones:contact.phones||'',location:contact.location||'',gender:contact.gender||'unknown'}:null,tasks:entries(m.tasks).filter(([,t])=>(t.studentKey===key||!t.studentKey&&t.sectionKey===`${p.classId}:${p.sectionId}`)&&t.staffId===staffId).map(([id,t])=>({id,title:t.title,due:t.due,status:t.status,outcome:t.outcome,category:t.category,studentKey:key})),records:entries(m.records).filter(([,r])=>(r.studentKey===key||!r.studentKey&&r.sectionKey===`${p.classId}:${p.sectionId}`)&&(r.visibility==='general'||r.authorId===staffId)).map(([id,r])=>staffVisibleRecord(id,r))};
+ return {student:{key,name:p.name,roll:p.roll,classId:p.classId,section:p.section,stream:p.stream},progress,roles:staffStudentRoles(staffId,p,faculty,m),contact:allowContact?{guardian:contact.guardian||'',phones:contact.phones||'',location:contact.location||'',gender:contact.gender||'unknown',numbers:contact.numbers||{},mapLocation:contact.mapLocation||'',revision:contact.revision||0}:null,contactRevision:contact.revision||0,mapLocation:contact.mapLocation||'',tasks:entries(m.tasks).filter(([,t])=>(t.studentKey===key||!t.studentKey&&t.sectionKey===`${p.classId}:${p.sectionId}`)&&t.staffId===staffId).map(([id,t])=>({id,title:t.title,due:t.due,status:t.status,outcome:t.outcome,category:t.category,studentKey:key})),records:entries(m.records).filter(([,r])=>(r.studentKey===key||!r.studentKey&&r.sectionKey===`${p.classId}:${p.sectionId}`)&&(r.visibility==='general'||r.authorId===staffId)).map(([id,r])=>staffVisibleRecord(id,r))};
 }
