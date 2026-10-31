@@ -3,7 +3,7 @@ import {randomBytes,createHash,scryptSync,timingSafeEqual} from 'node:crypto';
 import {emptyMission,staffVisibleRecord} from '../cbse-mission-model.js';
 export const VIEW_COOKIE='mission_staff_view';
 const pick=(value,keys)=>Object.fromEntries(keys.filter(k=>value?.[k]!==undefined).map(k=>[k,value[k]]));
-function viewingDraft(draft){if(!draft)return null;const out=pick(draft,['schemaVersion','revision','streams']);out.classes={};for(const[cl,c]of Object.entries(draft.classes||{})){const group=out.classes[cl]={label:c.label,sections:{}};for(const[id,s]of Object.entries(c.sections||{})){const section=group.sections[id]=pick(s,['name','stream','subjects']);section.students=Object.fromEntries(Object.entries(s.students||{}).map(([id,p])=>[id,pick(p,['name','roll','subjects'])]));}}return out;}
+function viewingDraft(draft){if(!draft)return null;const out=pick(draft,['schemaVersion','revision','streams']);out.classes={};for(const[cl,c]of Object.entries(draft.classes||{})){const group=out.classes[cl]={label:c.label,sections:{}};for(const[id,s]of Object.entries(c.sections||{})){const section=group.sections[id]=pick(s,['name','stream','subjects']);section.students=Object.fromEntries(Object.entries(s.students||{}).map(([id,p])=>[id,pick(p,['name','roll','subjects','gender'])]));}}return out;}
 function viewingFaculty(faculty){if(!faculty)return null;const out=pick(faculty,['schemaVersion','revision']);out.classes={};for(const[cl,c]of Object.entries(faculty.classes||{}))out.classes[cl]={classId:c.classId,roles:c.roles||{},teachers:Object.fromEntries(Object.entries(c.teachers||{}).map(([id,t])=>[id,pick(t,['name','designation','subjects','teachingSections','status'])]))};return out;}
 
 export function createSharedView({db,context,now=Date.now,defaultSecret}){
@@ -28,7 +28,7 @@ export function createSharedView({db,context,now=Date.now,defaultSecret}){
    if(action==='view-version'){const [draft,faculty,mission]=await Promise.all(['cbse/draft/revision','cbse/facultyDraft/revision','cbse/mission/revision'].map(read));return {versions:[draft||0,faculty||0,mission||0]};}
    const c=await browsingContext(),mission=structuredClone(c.mission||emptyMission());
    // Viewing never exposes PIN/access records, private edit history or restricted counselling notes.
-   mission.records=Object.fromEntries(Object.entries(mission.records||{}).filter(([,r])=>r.visibility!=='restricted').map(([id,r])=>[id,{...staffVisibleRecord(id,r),...pick(r,['studentKey','staffId','sectionKey','evidenceUrl','updatedAt','requestId','requestTargetId','taskId'])}]));
+   mission.records=Object.fromEntries(Object.entries(mission.records||{}).filter(([,r])=>r.visibility!=='restricted').map(([id,r])=>[id,{...staffVisibleRecord(id,r),...pick(r,['studentKey','staffId','sectionKey','evidenceUrl','updatedAt','requestId','requestTargetId','taskId','replyToRecord'])}]));
    mission.students=Object.fromEntries(Object.entries(mission.students||{}).map(([id,p])=>[id,pick(p,['gender','guardian','phones','location','numbers','mapLocation','revision','updatedBy','updatedByName','updatedAt'])]));
    const markRows=packViewingMarks(mission.marks);delete mission.marks;
    const allowed=['schemaVersion','revision','settings','students','exams','marks','attendance','academicAttendance','tasks','records','timetable','staff','allocations','gradingRules','reportRequests','updatedAt'];

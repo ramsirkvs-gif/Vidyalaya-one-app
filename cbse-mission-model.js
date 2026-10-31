@@ -1,3 +1,4 @@
+import {normalizedGender} from './cbse-view-data.js';
 import {sectionTeam} from './cbse-section-team.js';
 import {validateContact,staffStudentRoles} from './cbse-contact-model.js';
 import {validMonth,academicMarkBand,overallAcademicBand} from './cbse-academic-model.js';
@@ -10,7 +11,7 @@ const assert=(ok,msg)=>{if(!ok)throw Error(msg);};
 const text=(v,max=200,required=false)=>typeof v==='string'&&v.length<=max&&(!required||v.trim().length>0);
 const date=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v+'T00:00:00Z'))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
 const safeKeys=v=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).every(k=>/^[a-zA-Z0-9_:-]{1,300}$/.test(k)&&!['__proto__','constructor','prototype'].includes(k));
-export function studentIndex(draft){const result=Object.create(null);for(const[cl,c]of entries(draft?.classes))for(const[sid,s]of entries(c.sections))for(const[id,p]of entries(s.students)){const key=`${cl}:${sid}:${id}`;result[key]={...p,key,classId:cl,sectionId:sid,section:s.name,stream:draft.streams?.[s.stream]?.name||'',subjectCatalog:s.subjects||{}};}return result;}
+export function studentIndex(draft){const result=Object.create(null);for(const[cl,c]of entries(draft?.classes))for(const[sid,s]of entries(c.sections))for(const[id,p]of entries(s.students)){const key=`${cl}:${sid}:${id}`;result[key]={...p,key,classId:cl,sectionId:sid,section:s.name,stream:draft.streams?.[s.stream]?.name||s.stream||'',subjectCatalog:s.subjects||{}};}return result;}
 export function staffIndex(faculty,mission){const result=Object.create(null);for(const[cl,c]of entries(faculty?.classes))for(const[id,t]of entries(c.teachers))result[`${cl}:${id}`]={...t,key:`${cl}:${id}`,classId:cl,kind:'faculty'};for(const[id,t]of entries(mission?.staff))result[`support:${id}`]={...t,key:`support:${id}`,classId:''};return result;}
 export function validateMission(m,draft,faculty){
  assert(m&&m.schemaVersion===1&&Number.isInteger(m.revision)&&m.revision>=0,'Invalid Mission data.');
@@ -47,16 +48,16 @@ export function validateMission(m,draft,faculty){
 }
 export function band(value,red,green){return value===null||!Number.isFinite(value)?'grey':value<red?'red':value<green?'yellow':'green';}
 export function gradeThresholds(m,classId,subjectId,examId){const matched=entries(m.gradingRules).map(([,r])=>r).filter(r=>r.classId===classId&&(!r.subjectId||r.subjectId===subjectId)&&(!r.examId||r.examId===examId)).sort((a,b)=>(b.subjectId?2:0)+(b.examId?1:0)-(a.subjectId?2:0)-(a.examId?1:0));return matched[0]||{redBelow:m.settings.redBelow,greenFrom:m.settings.greenFrom};}
-export function studentProgress(key,m,draft,examId=""){
+export function studentProgress(key,m,draft,examId="",subjectScope=[]){
  const person=studentIndex(draft)[key],latest={},history={};
  for(const[id,mark]of entries(m.marks))if(mark.studentKey===key&&(!examId||mark.examId===examId)){const item={...mark,id,exam:m.exams?.[mark.examId]};if(!item.exam)continue;(history[mark.subjectId]||=[]).push(item);}
  for(const[id,list]of entries(history)){list.sort((a,b)=>a.exam.date.localeCompare(b.exam.date)||(a.updatedAt||0)-(b.updatedAt||0));latest[id]=list.at(-1);}
- const subjects=entries(person?.subjects).map(([id])=>{const v=latest[id],percentage=v&&!v.absent?v.score/v.maximum*100:null,thresholds=gradeThresholds(m,person.classId,id,v?.examId||examId);return {id,name:person.subjectCatalog[id]?.name||id,latest:v,percentage,band:academicMarkBand(v,thresholds.redBelow,thresholds.greenFrom),history:history[id]||[]};});
+ const subjects=entries(person?.subjects).filter(([id])=>!subjectScope.length||subjectScope.includes(id)).map(([id])=>{const v=latest[id],percentage=v&&!v.absent?v.score/v.maximum*100:null,thresholds=gradeThresholds(m,person.classId,id,v?.examId||examId);return {id,name:person.subjectCatalog[id]?.name||id,latest:v,percentage,band:academicMarkBand(v,thresholds.redBelow,thresholds.greenFrom),history:history[id]||[]};});
  const bands=subjects.map(s=>s.band);
  const school=entries(m.attendance).map(([,a])=>a).filter(a=>a.studentKey===key&&a.session==='school'),percentage=school.length?school.filter(a=>a.status==='present').length/school.length*100:null;
  return {subjects,academic:overallAcademicBand(bands),attendance:percentage,attendanceBand:band(percentage,m.settings.attendanceRedBelow,m.settings.attendanceGreenFrom),recordedDays:school.length,overdue:entries(m.tasks).filter(([,t])=>t.studentKey===key&&!['done','cancelled'].includes(t.status)&&t.due<today()).length};
 }
-export function genderCounts(keys,m){const out={girl:0,boy:0,unknown:0};for(const key of keys)out[m.students?.[key]?.gender||'unknown']++;return out;}
+export function genderCounts(keys,m){const out={girl:0,boy:0,unknown:0};for(const key of keys)out[normalizedGender(m.students?.[key]?.gender)]++;return out;}
 export function staffCanView(staffId,studentKey,m,draft,faculty){
  const p=studentIndex(draft)[studentKey],staff=staffIndex(faculty,m)[staffId];if(!p||!staff||staff.status!=='active')return false;
  const role=faculty?.classes?.[p.classId]?.roles?.[p.sectionId];const id=staffId.split(':').slice(1).join(':');

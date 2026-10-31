@@ -22,9 +22,9 @@ function renderApplications(value) {
         typeof entry.note !== "string" || typeof entry.url !== "string") continue;
     // Keep the implemented CBSE workspace accessible if an older catalogue still
     // contains its original Coming soon entry.
-    if (entry.title === "CBSE BOARD EXAMINATION — PROGRESS MONITORING") {
-      entry = {...entry, url: new URL("cbse-mission.html", location.href).href,
-        status: "BASIC DATA & SEARCH", action: "Open Mission Perfect 100"};
+    if (entry.title === "CBSE BOARD EXAMINATION — PROGRESS MONITORING" || /cbse-mission\.html(?:[?#]|$)/.test(entry.url) || entry.title.startsWith("MISSION PERFECT 100")) {
+      entry = {...entry, title: "MISSION PERFECT 100 — CBSE X & XII", url: new URL("cbse-mission.html", location.href).href,
+        status: "STUDENTS & TEACHERS", action: "Open Mission Perfect 100"};
     }
     const placeholder = entry.url === "#";
     if (!placeholder) {

@@ -101,3 +101,15 @@ test('an existing staff login cannot bypass a fresh submission PIN',async()=>{
  const {service}=fixture();await service('set-pin',{staffId:'X:one',pin:'123'},'principal');const token=(await service('login',{staffId:'X:one',pin:'123'},'','legacy-submit')).customToken;
  await assert.rejects(service('comment',{studentKey:'X:a:one',notes:'No new PIN'},token),/personal PIN/);await service('comment',{pin:'123',studentKey:'X:a:one',notes:'Fresh PIN supplied'},token);
 });
+
+test('teacher-profile comments require a fresh own-identity PIN and bind replies to a public Principal comment',async()=>{
+ const {service,data}=fixture();await service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ data.cbse.mission.records.review={kind:'faculty_comment',studentKey:'',staffId:'X:one',authorId:'principal',visibility:'general',notes:'Report your review'};
+ const payload={operation:'teacher-comment',teacherId:'X:one',staffId:'X:one',notes:'Practice reviewed',replyToRecord:'review'};
+ await assert.rejects(service('pin-submit',payload),/personal PIN/);
+ await assert.rejects(service('pin-submit',{...payload,pin:'000'}),/does not match/);
+ await assert.rejects(service('pin-submit',{...payload,pin:'123',replyToRecord:'missing'}),/not available/);
+ await service('pin-submit',{...payload,pin:'123'});
+ const reply=Object.values(data.cbse.mission.records).find(r=>r.replyToRecord==='review');assert.equal(reply.authorId,'X:one');assert.equal(reply.studentKey,'');assert.equal(reply.staffId,'X:one');
+ const login=await service('view-login',{password:'synthetic-curtain'}),view=await service('view-data',{},'','ip',{viewerToken:login.viewerToken});assert.ok(Object.values(view.mission.records).some(r=>r.replyToRecord==='review'));
+});

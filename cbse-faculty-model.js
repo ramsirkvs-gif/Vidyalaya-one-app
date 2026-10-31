@@ -114,3 +114,22 @@ export function applyCapturedTeacherRoles(value,studentClasses){
  }
  validateFaculty(result);return {data:result,changes,missing};
 }
+
+// Resolve saved section-name keys and fill only missing roles from the approved
+// original screenshot. Existing assignments, including explicit empty roles, win.
+export function resolvedFaculty(value,studentClasses){
+ if(!value)return value;
+ const result=clone(value);
+ for(const cl of ['X','XII']){
+  const area=result.classes?.[cl];if(!area)continue;area.roles||={};
+  for(const[sid,s]of entries(studentClasses?.[cl]?.sections)){
+   if(!area.roles[sid]){const legacy=entries(area.roles).find(([key])=>key.toUpperCase()===s.name.toUpperCase());if(legacy)area.roles[sid]=legacy[1];}
+   const pair=SCREENSHOT_ROLES[cl]?.[s.name.toUpperCase()];if(!pair)continue;
+   const ids=pair.map(n=>`pdf_${ORIGINAL_FACULTY_SHA.slice(0,16)}_${n}`),old=area.roles[sid]||{};
+   if(ids.every(id=>area.teachers?.[id]&&area.teachers[id].status!=='inactive')){
+    if(!area.roles[sid])area.roles[sid]={...old,classTeacher:ids[0],coClassTeacher:ids[1]};
+   }
+  }
+ }
+ return result;
+}

@@ -1,5 +1,37 @@
 # Mission Perfect 100 — activation and use
 
+## Students and Teachers zone
+
+Mission Perfect 100 (CBSE X & XII) now uses a Students path and a single Teachers
+zone. The role/status dropdown opens a teacher's CT/Co-CT responsibilities,
+allocated subjects and relevant students together. Teachers with the same exact
+saved name and designation across both standards share a review view; each PIN
+still verifies its own saved identity. No assignment is made from a name alone.
+
+Large statistic buttons filter the student list. **Total fail = Critical fail +
+Fail (excluding critical)**; the combined tile overlaps those two counts. Teacher
+subject totals count each enrolled student once across that teacher's sections,
+using only their allocated subjects. Lists are ordered X-A, X-B, and so on.
+Opening a student from subject review scopes marks, graphs, status and remarks to
+those subjects. Opening the ordinary student profile shows every selected subject.
+XII stream filters apply to student lists and academic statistics. The same saved
+gender data is projected to remembered staff views and Principal views.
+
+Missing CT pairs are resolved from the previously approved screenshot only when
+both original roster IDs exist and no saved role entry overrides them. Older
+section-name role keys are resolved to the current section IDs. Missing subject
+allocations can resolve from the exact original roster when a teacher has one
+subject, explicitly teaches that section, and is the unique matching active
+teacher. Saved assignments take priority. Mixed-subject, vacant or ambiguous
+allocations remain explicit for Principal confirmation.
+
+Student and teacher profiles end with a single comment thread. Teachers reply
+with a fresh PIN; Principal remarks use the existing Principal session. A teacher
+profile reply can satisfy only its linked public Principal remark and must use a
+verified identity for that teacher. Pending student requests and Principal
+comments are highlighted on the teacher profile. Legacy monitoring data is retained;
+extra task/remedial/register controls are removed from the normal profile flow.
+
 ## Current simplified staff workflow
 
 This workflow supersedes earlier descriptions of a separate PIN login and
