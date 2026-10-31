@@ -1,3 +1,4 @@
+import {readStaffResponse} from './cbse-service-response.js';
 import {parsePINCSV,pinTemplateCSV,validatePINRows} from './cbse-pin-import.js';
 import {importBasicStudents} from './cbse-basic-import.js';
 import {entries,clone,emptyDraft} from './cbse-model.js';
@@ -115,7 +116,7 @@ $('mission-cancel').onclick=()=>{if(!busy)$('mission-editor').close();};$('missi
 function editGlobalThresholds(){editor('Red / Yellow / Green thresholds',()=>{for(const[key,label]of [['redBelow','Academic Red below (%)'],['greenFrom','Academic Green from (%)'],['attendanceRedBelow','Attendance Red below (%)'],['attendanceGreenFrom','Attendance Green from (%)']])field(key,label,mission.settings[key],{type:'number',required:true,min:0,maximum:100,step:'0.1'});},form=>{const next=clone(mission);for(const key of Object.keys(next.settings))next.settings[key]=Number(form.get(key));return save(next,editorRevision);});}
 $('mission-thresholds').onclick=()=>go({tab:'grading'});
 $('mission-backup').onclick=()=>{if(!mission)return;const url=URL.createObjectURL(new Blob([JSON.stringify(mission,null,2)],{type:'application/json'})),a=el('a');a.href=url;a.download='Mission_Perfect_100_Private.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
-async function staffAPI(action,values={}){const response=await fetch('/api/staff-access',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${await user.getIdToken()}`},body:JSON.stringify({action,...values})});const body=await response.json();if(!response.ok)throw Error(body.error||'Staff service unavailable.');return body;}
+async function staffAPI(action,values={}){const response=await fetch('/api/staff-access',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${await user.getIdToken()}`},body:JSON.stringify({action,...values})});return readStaffResponse(response);}
 let pinAccess={},generatedPINs={};
 function renderPINSettings(){
  $('mission-pin-body').replaceChildren();

@@ -270,3 +270,18 @@ server verification. This update does not activate the proposed staff curtain.
 Checks: `node tests/cbse-pin-import.test.mjs`, `node tests/staff-service.test.mjs`,
 and `python3 tests/cbse-pin-settings-browser.py` use synthetic data. The browser
 check verifies that preview performs no database update until Save.
+
+## PIN save returns “Unexpected token” / a server error
+
+A hosting gateway can return text/HTML instead of API JSON if a function fails
+before responding. Both Principal and staff screens now handle this explicitly;
+the Principal import review remains open and no successful save is claimed.
+The server loads Firebase Admin after checking activation, inside its error
+boundary, and returns JSON diagnostics for missing or invalid credentials.
+
+Check the Production deployment's `/api/staff-access` Function logs. Startup and
+credential errors log only safe codes (`PIN_SERVICE_STARTUP_FAILED`,
+`PIN_SERVICE_CREDENTIAL_INVALID`, `PIN_SERVICE_REQUEST_FAILED`), never credential
+contents or PINs. Check the protected Production `FIREBASE_SERVICE_ACCOUNT_JSON`
+value and redeploy after changing it. A non-JSON error alone does not establish
+the underlying hosting failure; use the live URL/logs to diagnose that cause.

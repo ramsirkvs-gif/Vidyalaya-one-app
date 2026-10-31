@@ -1,14 +1,17 @@
-import {getApps,initializeApp,cert} from 'firebase-admin/app';
-import {getAuth} from 'firebase-admin/auth';
-import {getDatabase} from 'firebase-admin/database';
 import {createStaffService,AccessError} from '../_server/staff-service.js';
 let service;
-function getService(){
+async function getService(){
  if(service)return service;
  const raw=process.env.FIREBASE_SERVICE_ACCOUNT_JSON;if(!raw)throw new AccessError('Secure faculty PIN access needs activation: add FIREBASE_SERVICE_ACCOUNT_JSON in the Vercel project’s protected environment settings.',503);
  let credential;try{credential=JSON.parse(raw);}catch{throw new AccessError('The server Firebase credential is not configured correctly.',503);}
+ if(!credential||typeof credential!=='object'||Array.isArray(credential))throw new AccessError('The server Firebase credential must be a service-account JSON object.',503);
  if(credential.project_id!=='vidyalaya-one-app')throw new AccessError('The server credential must belong to vidyalaya-one-app.',503);
- const app=getApps().find(a=>a.name==='mission-server')||initializeApp({credential:cert(credential),databaseURL:'https://vidyalaya-one-app-default-rtdb.firebaseio.com'},'mission-server');
+ let admin;try{admin=await Promise.all([import('firebase-admin/app'),import('firebase-admin/auth'),import('firebase-admin/database')]);}
+ catch(error){console.error('PIN_SERVICE_STARTUP_FAILED',String(error?.code||'dependency-load'));throw new AccessError('The secure PIN server could not start. Check the Vercel Function logs for PIN_SERVICE_STARTUP_FAILED and redeploy with dependencies installed.',503);}
+ const [{getApps,initializeApp,cert},{getAuth},{getDatabase}]=admin;
+ if(typeof credential.client_email!=='string'||typeof credential.private_key!=='string')throw new AccessError('The server Firebase credential is missing its service-account email or private key. Update FIREBASE_SERVICE_ACCOUNT_JSON in Vercel and redeploy.',503);
+ let app;try{app=getApps().find(a=>a.name==='mission-server')||initializeApp({credential:cert(credential),databaseURL:'https://vidyalaya-one-app-default-rtdb.firebaseio.com'},'mission-server');}
+ catch(error){console.error('PIN_SERVICE_CREDENTIAL_INVALID',String(error?.code||'invalid-certificate'));throw new AccessError('The server Firebase service-account credential is invalid. Update FIREBASE_SERVICE_ACCOUNT_JSON in Vercel and redeploy.',503);}
  service=createStaffService({db:getDatabase(app),auth:getAuth(app)});return service;
 }
 export default async function handler(req,res){
@@ -19,6 +22,6 @@ export default async function handler(req,res){
   const action=String(input.action||'');if(!['directory','login','generate-pins','import-pins','list','set-pin','disable','students','profile','comment','update-task'].includes(action))throw new AccessError('Unknown action.',400);const bearer=String(req.headers.authorization||'');const token=bearer.startsWith('Bearer ')?bearer.slice(7):'';
   if(!['directory','login'].includes(action)&&!token)throw new AccessError('Sign in first.',401);
   const ip=String(req.headers['x-vercel-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0];
-  res.status(200).json(await getService()(action,input,token,ip));
- }catch(error){const status=error instanceof AccessError?error.status:String(error.code||'').startsWith('auth/')?401:500;res.status(status).json({error:status===500?'Staff service could not complete the request. Please try again.':error instanceof AccessError?error.message:'Your session is invalid. Sign in again.'});}
+  res.status(200).json(await (await getService())(action,input,token,ip));
+ }catch(error){if(!(error instanceof AccessError)&&!String(error?.code||'').startsWith('auth/'))console.error('PIN_SERVICE_REQUEST_FAILED',String(error?.code||'initialization-or-request'));const status=error instanceof AccessError?error.status:String(error.code||'').startsWith('auth/')?401:500;res.status(status).json({error:status===500?'Staff service could not complete the request. Please try again.':error instanceof AccessError?error.message:'Your session is invalid. Sign in again.'});}
 }
