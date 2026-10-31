@@ -464,3 +464,29 @@ Checks: section-team resolver and browser tests verify class-specific IDs,
 updated/missing assignments, home/class/section/student display, profile links,
 mobile layout and no private team display to an unauthenticated visitor. Existing
 academics, staff and teacher-monitoring regressions passed.
+
+## Percentage criteria and population denominators
+
+Academic headers now show percentage-based criteria derived from each stored
+paper maximum/rule, including the current /40 pattern: Critical fail below 25%,
+other Fail 25% to below 32.5%, Borderline 32.5% to below 45%, Secure pass 45%+.
+The header explicitly explains that the source workbook passes at 13/40=32.5%.
+No grading thresholds or saved marks changed. Manual paper rules and different
+maxima are represented separately. AB remains AB, never 0%.
+
+Monthly subject grids pair marks with a percentage column; complete exam
+registers, teacher reviews and legacy staff result tables also retain marks plus
+percentage. Student tiles show the latest appeared-paper percentage and weakest
+subject percentage with coverage. Student subject counts use a subject
+denominator, never a student denominator.
+
+Academic counts display N out of the class/section/subject population, along
+with a combined Critical+other Fail support total. Search changes shown counts
+without shrinking the cohort denominator. Subject summaries include both the
+section population and actual subject enrolment, distinguishing them from the
+appeared denominator used in pass percentages. Class summaries and teacher
+section reviews also state population totals. Staff lists show found/total and
+assigned counts; student profiles retain section size.
+
+Validation: performance formatting unit test, cohort/percentage browser test,
+existing academic, meeting, Principal/staff and static-build checks.

@@ -10,3 +10,7 @@
 .profile-quick-nav{display:flex;gap:8px;position:sticky;top:0;z-index:8;background:#fff;padding:10px;border:1px solid #dce7e0;border-radius:12px;overflow:auto}.profile-quick-nav button{flex:1;white-space:nowrap;min-height:44px;font-size:12px}#student-contact-section,#student-academic-section,#student-actions-section,#student-remarks-section{scroll-margin-top:75px}
 
 .section-team-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:12px;margin:14px 0}.section-team{padding:14px;background:#f1f7f3;border:1px solid #d5e5dc;border-radius:12px;margin:10px 0;min-width:0}.section-team h3{margin:0 0 12px;font-size:14px}.section-team-member{display:flex;flex-direction:column;gap:5px;margin:10px 0;min-width:0}.section-team-member small{color:#516b5e}.section-team-member button{text-align:left;white-space:normal;overflow-wrap:anywhere;min-height:44px}.section-team-member strong{overflow-wrap:anywhere}.zone-team{display:block;white-space:normal;font-size:10px;line-height:1.5;margin-top:10px}
+
+.performance-criteria{padding:14px;background:#f5f8f5;border:1px solid #d7e3db;border-radius:12px;margin:14px 0}.performance-criteria h3{font-size:14px;margin:0 0 10px}.performance-legend{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}.performance-legend .band{white-space:normal}.stats .stat strong{overflow-wrap:anywhere}
+
+.performance-counts .stat strong{font-size:18px;line-height:1.4;white-space:normal}.performance-legend strong{font-size:13px}
