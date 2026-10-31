@@ -21,3 +21,12 @@ test('email-only import skips blanks, invalid addresses and mismatches; rejects 
  assert.throws(()=>importBasicStudents('Class,Section,StudentName,Email,Gender\nX,A,Test Student,a@example.org,Female',m,draft),/exactly/);
  assert.throws(()=>importBasicStudents(h+'X,A,Test Student,a@example.org\nX,A,Test Student,b@example.org',m,draft),/Duplicate/);
 });
+test('meeting-only import preserves emails and other records and rejects shared or unsafe links',()=>{
+ const m=emptyMission();m.students['X:a:one']={gender:'girl',guardian:'Parent',phones:'123',location:'Home',email:'student@example.org'};
+ const h='Class,Section,StudentName,MeetingLink\n';const r=importBasicStudents(h+'X,A,Test Student,https://meet.google.com/abc-defg-hij',m,draft);
+ const expected=structuredClone(m);expected.students['X:a:one'].meetingLink='https://meet.google.com/abc-defg-hij';assert.deepEqual(r.next,expected);assert.equal(r.meetingOnly,true);
+ assert.equal(importBasicStudents(h+'X,A,Test Student,',r.next,draft).changed,0);
+ assert.throws(()=>importBasicStudents(h+'X,A,Test Student,https://example.org',m,draft),/Google Meet/);
+ m.students['X:a:other']={meetingLink:'https://meet.google.com/abc-defg-hij'};
+ assert.throws(()=>importBasicStudents(h+'X,A,Test Student,https://meet.google.com/abc-defg-hij',m,draft),/another student/);
+});

@@ -11,7 +11,7 @@ import {renderProgressDiscussion,openPINContact} from './cbse-progress-panel.js'
 import {requestTargets,requestProgress} from './cbse-report-requests.js';
 import {percentage,markPercentage,outOf,renderPerformanceCriteria,renderCountStatistics,renderGenderStatistics,subjectCareLines} from './cbse-performance-display.js';
 import {sectionTeam,sectionTeamText,renderSectionTeam,renderSectionTeams} from './cbse-section-team.js';
-import {contactNumbers,mapLink,validateContact,serializePhones} from './cbse-contact-model.js';
+import {contactNumbers,meetingLink,mapLink,validateContact,serializePhones} from './cbse-contact-model.js';
 import {renderContactActions} from './cbse-contact-view.js';
 import {renderTeacherMeeting,teacherResponsibilities} from './cbse-teacher-review.js';
 import {readSamagamExcel,parseSamagamGrid} from './cbse-samagam.js';
@@ -121,7 +121,7 @@ function renderStudent(key,review={}){
  const reviewTeacher=review.teacherId||route().get('reviewStaff'),reviewSubjects=String(review.subjects??route().get('subject')??'').split(',').filter(id=>s.subjects?.[id]),reviewSubject=reviewSubjects[0],reviewPerson=reviewSubjects.length?{...s,subjects:Object.fromEntries(reviewSubjects.map(id=>[id,true]))}:s;if(reviewSubjects.length){p.append(el('p',`Subject-teacher review: ${reviewSubjects.map(id=>s.subjectCatalog[id]?.name||id).join(', ')} · Only these subjects and relevant teacher remarks are shown.`,'scope-notice'),button('Open full student profile',()=>review.parent?review.openFull?.():go({student:key})));if(reviewTeacher&&!review.parent)p.append(button('Back to teacher page',()=>go({staff:reviewTeacher})));}
  const progress=studentProgress(key,mission,draft,'',reviewSubjects),contact=mission.students?.[key]||{gender:'unknown',guardian:'',phones:'',location:''};
  p.append(badge(progress.academic));for(const line of attendanceLines(key,mission,progress))p.append(el('p',line,'attendance-summary'));
- const controls=el('div',undefined,'actions');if(editable())controls.append(button('Edit basic/contact details',()=>editContact(key)),button('Record marks',()=>editMark(key)),button('Record attendance',()=>editAttendance(key)),button('Print meeting summary',()=>window.print()));else controls.append(button('Print meeting summary',()=>window.print()));p.append(controls);renderAttendanceDetails(p,key,mission);
+ const controls=el('div',undefined,'actions');if(editable())controls.append(button('Edit basic/contact details',()=>editContact(key)),button('Record marks',()=>editMark(key)),button('Record attendance',()=>editAttendance(key)),button('Print meeting summary',()=>window.print()));else controls.append(button('Print meeting summary',()=>window.print()));if(contact.meetingLink)controls.append(Object.assign(el('a','Join student–parent meeting','button primary'),{href:meetingLink(contact.meetingLink),target:'_blank',rel:'noopener noreferrer'}));if(editable())controls.append(button(contact.meetingLink?'Change meeting link':'Set meeting link',()=>editMeeting(key)));p.append(controls);renderAttendanceDetails(p,key,mission);
  const contacts=studentPanel('Contact & home location',overview);contacts.classList.add('student-contact-card');contacts.id='student-contact-section';if(contact.email)contacts.append(el('p',`Email: ${contact.email}`));contacts.append(el('p',`Gender: ${contact.gender==='unknown'?'Not recorded':contact.gender} · Guardian: ${contact.guardian||'Not recorded'}`),el('p',`Contact numbers: ${contact.phones||'Not recorded'}`),el('p',`Home location: ${contact.location||'Not recorded'}`));
  renderContactActions(contacts,contact,{onEdit:()=>editable()?editContact(key):openPINContact({person:s,contact,staff:staff(),pinStaff:pinDirectory,onSubmit:submitPINUpdate}),onLog:()=>document.getElementById('student-remarks-section')?.scrollIntoView({behavior:'smooth'})});
  const academic=studentPanel();academic.id='student-academic-section';renderStudentAcademics(academic,reviewPerson,mission,{showCriteria:!review.parent,staff:staff(),onTeacher:openTeacherProfile,onAssignTeacher:editable()?editAllocation:undefined,onEditMark:editable()?editMark:undefined});
@@ -167,6 +167,14 @@ async function save(next,expected=mission?.revision){if(!editable()||busy)throw 
 async function commit(field,id,value){const next=clone(mission);next[field]||={};next[field][id]=value;return save(next,editorRevision);}
 function formObject(form,fields){return Object.fromEntries(fields.map(k=>[k,String(form.get(k)||'').trim()]));}
 function editGradeRule(id){const r=mission.gradingRules?.[id]||{classId:'X',subjectId:'',examId:'',redBelow:mission.settings.redBelow,greenFrom:mission.settings.greenFrom};editor('Subject / examination colour rule',()=>{const cl=select('classId','Class',[['X','Class X'],['XII','Class XII']],r.classId);const subject=select('subjectId','Subject',[['','All subjects']],''),exam=select('examId','Examination',[['','All examinations']],'');const update=()=>{const names={};for(const[,s]of entries(draft.classes[cl.value]?.sections))for(const[id,p]of entries(s.subjects))names[id]=p.name;options(subject,[['','All subjects'],...entries(names)],cl.value===r.classId?r.subjectId:'');options(exam,[['','All examinations'],...entries(mission.exams).filter(([,e])=>e.classId===cl.value).map(([id,e])=>[id,e.name])],cl.value===r.classId?r.examId:'');};cl.onchange=update;update();field('redBelow','Red below (%)',r.redBelow,{type:'number',required:true,min:0,maximum:100,step:'0.1'});field('greenFrom','Green from (%)',r.greenFrom,{type:'number',required:true,min:0,maximum:100,step:'0.1'});},form=>commit('gradingRules',id||uid('grading'),{...formObject(form,['classId','subjectId','examId']),redBelow:Number(form.get('redBelow')),greenFrom:Number(form.get('greenFrom'))}));}
+function editMeeting(key){
+ const saved=mission.students?.[key]||{gender:'unknown',guardian:'',phones:'',location:''};
+ editor('Student–parent Google Meet',()=>{
+  field('meetingLink','Google Meet link',saved.meetingLink||'',{max:100,type:'url'});
+  $('mission-fields').append(el('p',`Student / parent email: ${saved.email||'No email saved'}`),el('p','Paste the link from this student’s individual Google Calendar event. Invite the approved account and review access settings in Google Meet.'));
+ },form=>{const link=meetingLink(String(form.get('meetingLink')||''));if(link&&entries(mission.students).some(([other,p])=>other!==key&&p.meetingLink===link))throw Error('This meeting link belongs to another student.');return commit('students',key,{...saved,meetingLink:link});});
+}
+
 function editContact(key){
  const saved=mission.students?.[key]||{gender:'unknown',guardian:'',phones:'',location:''};
  editor('Student contacts & home location',()=>{
@@ -274,12 +282,12 @@ $('mission-basic-file').onchange=async event=>{
   if(!editable()||mission.revision!==expected)throw Error('Data changed while reading the file. Please select it again.');
   if(!result.matched)throw Error('No students matched. Import the student roster first, then check class, section and names.');
   validateMission(result.next,draft,faculty);
-  editor(result.emailOnly?'Review student emails only':'Review student basic-data import',()=>{
+  editor(result.meetingOnly?'Review student meeting links':result.emailOnly?'Review student emails only':'Review student basic-data import',()=>{
    $('mission-fields').append(el('p',`${result.matched} of ${result.total} rows matched; ${result.changed} profiles will change. ${result.issues.length} rows will be skipped.`));
    for(const[label,count]of entries(result.counts))$('mission-fields').append(el('p',`${label}: ${count} students`));
-   $('mission-fields').append(el('p',result.emailOnly?'Updates only the matched student email fields privately. All other saved data stays unchanged.':'Updates gender, parent names, contact numbers and home addresses privately. Empty cells retain existing values. Marks, attendance, subjects and public information stay unchanged.'));
+   $('mission-fields').append(el('p',result.meetingOnly?'Updates only matched students’ Google Meet links. Google controls meeting invitations and entry permissions.':result.emailOnly?'Updates only the matched student email fields privately. All other saved data stays unchanged.':'Updates gender, parent names, contact numbers and home addresses privately. Empty cells retain existing values. Marks, attendance, subjects and public information stay unchanged.'));
    if(result.issues.length){const details=el('details');details.append(el('summary','Review skipped rows'));for(const issue of result.issues)details.append(el('p',issue));$('mission-fields').append(details);}
-  },async()=>{const saved=await save(result.next,expected);if(saved)message(`${result.emailOnly?'Emails':'Basic data'} saved privately for ${result.matched} students; ${result.issues.length} rows skipped.`,'success');return saved;});
+  },async()=>{const saved=await save(result.next,expected);if(saved)message(`${result.meetingOnly?'Meeting links':result.emailOnly?'Emails':'Basic data'} saved privately for ${result.matched} students; ${result.issues.length} rows skipped.`,'success');return saved;});
  }catch(error){message(error.message,'error');}
 };
 

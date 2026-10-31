@@ -1,3 +1,4 @@
+import {meetingLink} from './cbse-contact-model.js';
 import {clone,entries} from './cbse-model.js';
 import {studentIndex} from './cbse-mission-model.js';
 const norm=v=>String(v||'').trim().replace(/\s+/g,' ').toUpperCase();
@@ -8,6 +9,7 @@ export function parseCSVRows(text){
 }
 export function importBasicStudents(text,mission,draft){
  const rows=parseCSVRows(text.replace(/^\uFEFF/,'')),header=rows.shift()||[];
+ if(header.includes('MeetingLink'))return importStudentMeetings(rows,header,mission,draft);
  if(header.includes('Email'))return importStudentEmails(rows,header,mission,draft);
  const required=['Class','Section','StudentName','Gender'];
  if(!required.every(h=>header.includes(h))||new Set(header).size!==header.length)throw Error('Use the cleaned basic-data CSV with Class, Section, StudentName and Gender columns.');
@@ -49,3 +51,22 @@ function importStudentEmails(rows,header,mission,draft){
  return {next,matched,changed,issues,counts,total:rows.length,emailOnly:true};
 }
 export function validStudentEmail(value){return typeof value==='string'&&value.length<=254&&/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$/.test(value)&&!value.startsWith('.')&&!value.split('@')[0].endsWith('.')&&!value.split('@')[0].includes('..');}
+
+function importStudentMeetings(rows,header,mission,draft){
+ if(header.join(',')!=='Class,Section,StudentName,MeetingLink')throw Error('Meeting import requires exactly Class, Section, StudentName, MeetingLink columns.');
+ if(!rows.length)throw Error('No meeting rows found.');
+ const next=clone(mission),people=entries(studentIndex(draft)),seen=new Set(),issues=[],counts={};let matched=0,changed=0;
+ for(const [i,values]of rows.entries()){
+  if(values.length!==4)throw Error(`Row ${i+2} has the wrong number of columns.`);
+  const [classValue,section,name,url]=values,cl=({'10':'X','12':'XII'})[norm(classValue)]||norm(classValue);
+  const candidates=people.filter(([,p])=>p.classId===cl&&norm(p.section)===norm(section)&&norm(p.name)===norm(name));
+  if(candidates.length!==1){issues.push(`Row ${i+2}: no unique roster match.`);continue;}
+  if(!url){issues.push(`Row ${i+2}: no meeting link; unchanged.`);continue;}
+  const link=meetingLink(url),[key]=candidates[0];if(seen.has(key))throw Error(`Duplicate student at row ${i+2}.`);seen.add(key);
+  if(entries(next.students).some(([other,p])=>other!==key&&p.meetingLink&&meetingLink(p.meetingLink)===link))throw Error(`Row ${i+2}: this meeting link belongs to another student.`);
+  next.students||={};const old=next.students[key]||{gender:'unknown',guardian:'',phones:'',location:''};
+  if(old.meetingLink!==link){next.students[key]={...old,meetingLink:link};changed++;}
+  matched++;counts[`${cl}-${norm(section)}`]=(counts[`${cl}-${norm(section)}`]||0)+1;
+ }
+ return {next,matched,changed,issues,counts,total:rows.length,meetingOnly:true};
+}
