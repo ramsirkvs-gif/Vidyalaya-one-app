@@ -1,21 +1,28 @@
 import {clone,entries,uniqueKey,emptyDraft} from './cbse-model.js';
 import {emptyFaculty,validateFaculty,clearTeacherRoles,removeFaculty,mergeFacultyRoster} from './cbse-faculty-model.js';
 import {el,cell,options,stats} from './cbse-ui.js';
+import {resetFacultySetup,showFacultySetup} from './cbse-faculty-setup.js';
 const $=id=>document.getElementById(id);
-let data=null,studentClasses=null,currentClass='X',user=null,busy=false,generation=0;
+let data=null,studentClasses=null,currentClass='X',user=null,busy=false,generation=0,principalVerified=false;
 let api,authApi,auth,db,stopFaculty,stopStudents,editorSave,editorRevision=0,reviewSave;
 const area=()=>data?.classes[currentClass];
 const classSections=cl=>studentClasses?.[cl]?.sections||{};
 const conflict='Another session changed faculty data. Close this form, review the latest data and try again. Nothing was overwritten.';
 function message(text,type=''){$('faculty-message').textContent=text;$('faculty-message').className=`notice ${type}`;}
 function errorText(error){const code=String(error.code||'').toLowerCase();if(code.includes('permission'))return 'Faculty access needs activation. Publish the updated database rules in Firebase Console, then reload this page.';if(code.includes('network'))return 'Connection failed. Your changes have not been confirmed. Please try again.';return error.message||'The operation could not be completed.';}
-function lock(){data=null;studentClasses=null;stopFaculty?.();stopStudents?.();stopFaculty=null;stopStudents=null;$('faculty-workspace').hidden=true;$('faculty-locked').hidden=false;$('faculty-signout').hidden=!user;$('faculty-body').replaceChildren();$('faculty-roles').replaceChildren();$('faculty-stats').replaceChildren();$('faculty-search').value='';$('faculty-editor').close();$('faculty-editor-fields').replaceChildren();$('faculty-review').close();$('faculty-review-content').replaceChildren();editorSave=null;reviewSave=null;}
-function setBusy(value){busy=value;for(const button of document.querySelectorAll('#faculty-workspace button,#faculty-workspace select,#faculty-save,#faculty-confirm,#faculty-signout'))button.disabled=value;}
+function lock(){data=null;studentClasses=null;stopFaculty?.();stopStudents?.();stopFaculty=null;stopStudents=null;$('faculty-workspace').hidden=true;$('faculty-locked').hidden=!!user;resetFacultySetup();$('faculty-signout').hidden=!user;$('faculty-body').replaceChildren();$('faculty-roles').replaceChildren();$('faculty-stats').replaceChildren();$('faculty-search').value='';$('faculty-editor').close();$('faculty-editor-fields').replaceChildren();$('faculty-review').close();$('faculty-review-content').replaceChildren();editorSave=null;reviewSave=null;}
+function accessError(error){
+ lock();
+ if(principalVerified&&String(error.code||'').toLowerCase().includes('permission')){
+  showFacultySetup();message('You are signed in. Complete the three setup steps below to enable Faculty.');
+ }else message(errorText(error),'error');
+}
+function setBusy(value){busy=value;document.documentElement.dataset.portalBusy=String(value);for(const button of document.querySelectorAll('#faculty-workspace button,#faculty-workspace select,#faculty-save,#faculty-confirm,#faculty-signout'))button.disabled=value;}
 function availableOptions(cl){return [['','-- Select --'],...entries(data.classes[cl].teachers).filter(([,t])=>t.status!=='inactive').sort((a,b)=>a[1].name.localeCompare(b[1].name)).map(([id,t])=>[id,`${t.name} (${t.designation})${t.status==='vacant'?' — VACANT':''}`])];}
 function action(label,fn,danger=false){const b=el('button',label,danger?'danger':'');b.type='button';b.onclick=fn;return b;}
 function render(){
  if(!data||!studentClasses)return;
- $('faculty-workspace').hidden=false;$('faculty-locked').hidden=true;
+ $('faculty-workspace').hidden=false;$('faculty-locked').hidden=true;resetFacultySetup();
  for(const b of document.querySelectorAll('[data-class]'))b.setAttribute('aria-selected',String(b.dataset.class===currentClass));
  $('faculty-area').setAttribute('aria-labelledby',currentClass==='X'?'faculty-tab-x':'faculty-tab-xii');
  $('faculty-heading').textContent=`Class ${currentClass} Faculty`;$('roles-heading').textContent=`Class ${currentClass} · Section responsibilities`;
@@ -88,11 +95,11 @@ $('faculty-signout').onclick=async()=>{if(!busy)await authApi.signOut(auth);};
 try{
  const [client,authentication,database]=await Promise.all([import('./firebase-client.js'),import('https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js'),import('https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js')]);({auth,db}=client);authApi=authentication;api=database;
  authApi.onAuthStateChanged(auth,async current=>{
-  const token=++generation;user=current;lock();if(!current){message('Sign in to the portal before opening Faculty feeding.');return;}
+  const token=++generation;user=current;principalVerified=false;lock();if(!current){message('Sign in to the portal before opening Faculty feeding.');return;}
   try{
-   const principal=await api.get(api.ref(db,'cbse/adminUid'));if(token!==generation)return;if(principal.val()!==current.uid)throw Error('This account is not registered as the Principal.');$('faculty-locked').hidden=true;
-   stopStudents=api.onValue(api.ref(db,'cbse/draft'),snapshot=>{if(token!==generation)return;studentClasses=snapshot.val()?.classes||emptyDraft().classes;render();},error=>{if(token===generation){lock();message(errorText(error),'error');}});
-   stopFaculty=api.onValue(api.ref(db,'cbse/facultyDraft'),snapshot=>{if(token!==generation)return;try{data=snapshot.val()?validateFaculty(snapshot.val()):emptyFaculty();render();message(snapshot.val()?'Private faculty data loaded. Changes are saved across your devices.':'Import your faculty PDF once to capture Class X/XII faculty, or add faculty manually.');}catch(e){lock();message(errorText(e),'error');}},error=>{if(token===generation){lock();message(errorText(error),'error');}});
-  }catch(e){if(token===generation){lock();message(errorText(e),'error');}}
+   const principal=await api.get(api.ref(db,'cbse/adminUid'));if(token!==generation)return;if(principal.val()!==current.uid)throw Error('This account is not registered as the Principal.');principalVerified=true;$('faculty-locked').hidden=true;
+   stopStudents=api.onValue(api.ref(db,'cbse/draft'),snapshot=>{if(token!==generation)return;studentClasses=snapshot.val()?.classes||emptyDraft().classes;render();},error=>{if(token===generation)accessError(error);});
+   stopFaculty=api.onValue(api.ref(db,'cbse/facultyDraft'),snapshot=>{if(token!==generation)return;try{data=snapshot.val()?validateFaculty(snapshot.val()):emptyFaculty();render();message(snapshot.val()?'Private faculty data loaded. Changes are saved across your devices.':'Import your faculty PDF once to capture Class X/XII faculty, or add faculty manually.');}catch(e){lock();message(errorText(e),'error');}},error=>{if(token===generation)accessError(error);});
+  }catch(e){if(token===generation)accessError(e);}
  });
 }catch{lock();message('Secure faculty feeding could not load. Check your connection and reload.','error');}

@@ -65,7 +65,7 @@ function render(){
 async function save(next,expected=draft?.revision){
  if(busy)throw Error('Please wait for the current operation.');
  if(!user||!draft)throw Error('Sign in again before saving.');
- validateDraft(next);const saveGeneration=generation;busy=true;message('Saving to the private database…');$('save-editor').disabled=true;$('add-record').disabled=true;
+ validateDraft(next);const saveGeneration=generation;busy=true;document.documentElement.dataset.portalBusy='true';message('Saving to the private database…');$('save-editor').disabled=true;$('add-record').disabled=true;
  try{
   const result=await api.runTransaction(api.ref(db,'cbse/draft'),current=>{
    const revision=current?.revision||0;if(revision!==expected)return;
@@ -74,7 +74,7 @@ async function save(next,expected=draft?.revision){
   if(!result.committed)throw Error('Another session changed this data. Close this form, review the latest records and try again. Nothing was overwritten.');
   if(saveGeneration!==generation)return false;
   draft=result.snapshot.val();message('Changes saved privately. Use Publish when the public page should update.','success');render();return true;
- }finally{busy=false;$('save-editor').disabled=false;if(draft)render();}
+ }finally{busy=false;document.documentElement.dataset.portalBusy='false';$('save-editor').disabled=false;if(draft)render();}
 }
 function field(name,label,value='',{type='text',max=120,required=true}={}){const wrap=el('label',label),input=el('input');input.name=name;input.type=type;input.value=value;input.required=required;input.maxLength=max;wrap.append(input);$('editor-fields').append(wrap);return input;}
 function selectField(name,label,items,value){const wrap=el('label',label),input=el('select');input.name=name;options(input,items,value);wrap.append(input);$('editor-fields').append(wrap);return input;}
@@ -129,7 +129,7 @@ $('backup-file').onchange=async e=>{
 $('export-backup').onclick=()=>{if(!draft)return;const url=URL.createObjectURL(new Blob([JSON.stringify(draft,null,2)],{type:'application/json'}));const a=el('a');a.href=url;a.download=`cbse-private-backup-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);};
 function publicReview(){const output=buildPublic(draft,true),nodes=[el('p','Only student name, roll number, class, section and stream will be public. Subject selections will stay private.')];let count=0;for(const[,s]of entries(output.sections)){count+=s.count;nodes.push(el('p',`Class ${s.classId} · Section ${s.section} · ${s.stream||'No stream'} · ${s.count} students`));}nodes.unshift(el('p',`${count} students across ${entries(output.sections).length} sections. Saved revision ${draft.revision}.`));return {output,nodes};}
 $('preview-publish').onclick=()=>{const{nodes}=publicReview();review('Review public data',nodes);};
-$('publish').onclick=()=>{const {output,nodes}=publicReview();review('Publish student data?',nodes,async()=>{if(busy)return;busy=true;try{await api.set(api.ref(db,'cbse/public'),{...output,publishedAt:api.serverTimestamp()});message('Published. Connected public search pages will update automatically.','success');}finally{busy=false;}},'Publish approved fields');};
+$('publish').onclick=()=>{const {output,nodes}=publicReview();review('Publish student data?',nodes,async()=>{if(busy)return;busy=true;document.documentElement.dataset.portalBusy='true';try{await api.set(api.ref(db,'cbse/public'),{...output,publishedAt:api.serverTimestamp()});message('Published. Connected public search pages will update automatically.','success');}finally{busy=false;document.documentElement.dataset.portalBusy='false';}},'Publish approved fields');};
 $('unpublish').onclick=()=>review('Unpublish all student data?','Public search will stop displaying the published records. Your private draft will remain available to the Principal.',async()=>{await api.remove(api.ref(db,'cbse/public'));message('Public data removed. Private draft retained.','success');},'Unpublish all');
 $('login-form').onsubmit=async e=>{e.preventDefault();if(!auth)return;$('login-button').disabled=true;try{await authApi.signInWithEmailAndPassword(auth,PRINCIPAL_ACCOUNT,$('login-password').value);$('login-password').value='';}catch(error){message(errorText(error),'error');}finally{$('login-button').disabled=false;}};
 $('signout').onclick=async()=>{if(busy){message('Wait for the current save to finish before signing out.');return;}await authApi.signOut(auth);};
@@ -137,7 +137,7 @@ async function connect(){
  try{
   const [client,authentication,database]=await Promise.all([import('./firebase-client.js'),import('https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js'),import('https://www.gstatic.com/firebasejs/11.10.0/firebase-database.js')]);
   ({auth,db}=client);authApi=authentication;api=database;
-  await authApi.setPersistence(auth,authApi.browserSessionPersistence);$('login-button').disabled=false;
+  $('login-button').disabled=false;
   authApi.onAuthStateChanged(auth,async current=>{
    const token=++generation;user=current;lockUI();
    if(!current){message('Sign in with the Principal account. Your student data is not public.');return;}

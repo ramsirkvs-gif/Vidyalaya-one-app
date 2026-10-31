@@ -11,7 +11,7 @@ A responsive static landing page for PM SHRI Kendriya Vidyalaya No. 1 Itanagar.
 1. Create a new GitHub repository named `vidyalaya-central-portal`.
 2. Upload `index.html` to the repository root.
 3. In Vercel, choose **Add New → Project**, import the new repository, and deploy.
-4. For this static HTML page, no build command is needed; the root directory should contain `index.html`.
+4. Use Framework Preset **Other**. `vercel.json` runs `node scripts/build-site.mjs` and publishes the generated `public` directory. No dependency installation is needed.
 
 ## Important security note
 This starter is a public-facing static page unless access is restricted through a suitable deployment/authentication setup. It does not include authentication, staff roles, permissions, or confidential student data. Add secure server-side authentication and authorization before using it for internal or sensitive school operations.
@@ -38,7 +38,8 @@ One-time Firebase Console setup (project `vidyalaya-one-app`):
    Firebase Console access is required to edit; no public write rule is needed.
 
 For Vercel, connect this GitHub repository with production branch `main`, framework
-preset Other, repository root directory, and no build command. A push to `main`
+preset Other and repository root directory. The build/output settings in
+`vercel.json` generate the public website and deployment version. A push to `main`
 should trigger the linked project's deployment. GitHub publishing alone does not
 prove a Vercel deployment succeeded; check its deployment status and live page.
 
@@ -64,3 +65,13 @@ roles**, with separate Class X/XII directories and class-teacher assignments.
 Publish the updated database rules, then import the original faculty PDF once.
 See the faculty section of [CBSE_SETUP.md](CBSE_SETUP.md) for the captured counts,
 screenshot defaults, private-data handling, and validation commands.
+
+
+The Principal signs in once for all protected pages on the same browser/device.
+Normal deployments keep that login. Open pages check for app updates every 30
+seconds; updates wait for open forms or pending saves before reloading.
+
+Production build checks: `node tests/build-site.test.mjs`. Serve the generated
+`public` directory on port 8001 and run
+`python3 tests/cbse-session-updates-browser.py` to check persistent-session API
+selection and safe deployment reloads with simulated Firebase authentication.

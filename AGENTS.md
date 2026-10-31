@@ -24,3 +24,11 @@ intended workflow.
 
 Use the existing checkout; each cloud task is isolated. Do not create a worktree
 unless the user requests one.
+
+
+Keep a single persistent Principal session shared across Students, Faculty and
+Password Settings. Ordinary navigation, password updates and deployments should
+not force sign-out. Explicit Sign out must still clear protected access.
+Vercel builds with `node scripts/build-site.mjs` into `public`; that build creates
+the deployment version automatically. Preserve the live-update guard for open
+edit forms and pending saves. Do not put private source records in build output.

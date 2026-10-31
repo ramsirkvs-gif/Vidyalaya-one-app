@@ -6,7 +6,7 @@ const user={uid:'principal-test',email:'ramsirkvs@gmail.com'};
 let listener;
 const auth={currentUser:sessionStorage.getItem('testSignedIn')==='yes'?user:null};
 export function getAuth(){return auth;}
-export const browserSessionPersistence={};export async function setPersistence(){}
+export const browserLocalPersistence={};export async function setPersistence(){}
 export function onAuthStateChanged(a,cb){listener=cb;cb(a.currentUser);}
 export const EmailAuthProvider={credential:(email,password)=>({email,password})};
 export async function reauthenticateWithCredential(u,c){
@@ -71,12 +71,14 @@ with sync_playwright() as p:
     page.evaluate('window.__rejectUpdate=false')
     fill('synthetic-old-password','synthetic-new-password')
     page.get_by_role('status').filter(has_text='Password changed successfully').wait_for()
-    assert page.locator('#settings-panel').is_hidden()
-    assert page.evaluate("sessionStorage.getItem('testSignedIn')") is None
+    assert page.locator('#settings-panel').is_visible()
+    assert page.evaluate("sessionStorage.getItem('testSignedIn')")=='yes'
     assert page.locator('#old-password').input_value()==''
     assert page.locator('#new-password').input_value()==''
     assert page.locator('#confirm-password').input_value()==''
     page.goto('http://127.0.0.1:8000/cbse-admin.html')
+    page.locator('#workspace').wait_for(state='visible')
+    page.locator('#signout').click()
     page.wait_for_function('!document.querySelector("#login-button").disabled')
     page.locator('#login-password').fill('synthetic-old-password');page.locator('#login-button').click()
     page.get_by_role('status').filter(has_text='Password is incorrect').wait_for()
@@ -84,5 +86,5 @@ with sync_playwright() as p:
     page.locator('#login-password').fill('synthetic-new-password');page.locator('#login-button').click()
     page.locator('#workspace').wait_for(state='visible')
     assert page.get_by_role('link',name='Password Settings').is_visible()
-    print('PASS password update, sign-out, field clearing, old password rejection and new password login')
+    print('PASS password update preserves session; explicit sign-out, field clearing and new password login work')
     browser.close()

@@ -25,7 +25,7 @@ stored in GitHub or the Vercel website files.
    overwriting those rules. Do not enable database-wide public reads or writes.
 5. Authentication → **Settings → Authorized domains**. Add
    `vidyalaya-one-app.vercel.app` if it is absent. The app uses Email/Password,
-   with sign-in kept in the current browser session and an explicit Sign out.
+   with sign-in retained on this browser/device until the Principal chooses Sign out.
 6. Open the live **CBSE Board Examination** card → **Principal sign in**. Enter only the Principal password,
    then **Import private JSON** and choose the private 240-student import file
    supplied separately. Confirm **Replace private draft**. Alternatively,
@@ -87,8 +87,8 @@ are editable and must be unique within a section.
 After signing in, choose **Password Settings** in the workspace toolbar. This
 opens a separate Principal-only page with Old password, New password and Confirm
 new password fields. It verifies the current password with Firebase, applies the
-new password through Firebase Authentication, then signs out. Sign in to the
-portal with the new password. There is no email field. The new password must meet
+new password through Firebase Authentication, and keeps the current session signed in. Use the
+new password the next time you sign in. There is no email field. The new password must meet
 Firebase's account policy (at least 6 characters by default). No passwords are
 stored in the database, source code or browser storage by the application.
 
@@ -244,3 +244,32 @@ and the new rules require console activation and were not verified by these
 local browser tests.
 
 PDF.js's Apache-2.0 license is retained at `vendor/pdfjs/LICENSE`.
+
+
+## One login and automatic website updates
+
+Firebase uses `browserLocalPersistence` in the shared client, so the Principal's
+session is reused by Students, Faculty and Password Settings, across navigation,
+reloads and tabs on the same browser/device. Password changes no longer force a
+logout. Explicit Sign out still clears the session. Firebase may require a new
+login if the account is disabled, tokens are revoked, or browser storage is
+cleared; normal deployments do not intentionally sign out the Principal.
+
+The Faculty activation screen now gives one linear sequence: **Copy rules → Open
+Firebase Rules and Publish → Reload Faculty**. An authenticated Principal with
+missing faculty permissions sees this setup sequence, not a misleading login
+request. A clipboard fallback provides selectable rules if copying is blocked.
+The existing rules still need to be published once by an authorized console user;
+copying settings is not a backend deployment.
+
+Vercel runs `node scripts/build-site.mjs`, which creates the `public` directory
+from an explicit website-asset allowlist and adds an automatic content version.
+Private imports, tests, agent instructions, development docs and Firebase config
+files are excluded from the website output. Public database rules are included
+for the setup copy button. Build output is ignored by Git.
+
+`live-update.js` checks for a new deployment every 30 seconds and when the page
+becomes visible. It reloads a new deployment while retaining the Firebase login.
+An open edit dialog, entered password or pending save delays the reload until
+it is safe. Saved records already update independently through Firebase listeners.
+A page opened before this watcher was introduced needs one initial refresh.

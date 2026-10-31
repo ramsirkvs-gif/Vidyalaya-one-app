@@ -3,6 +3,17 @@
 <main class="wrap"><section class="hero"><div class="eyebrow">Private faculty feeding</div><h1>Faculty &amp; Teacher Roles</h1><p>Maintain Class X and XII faculty, class teachers, co-class teachers and additional responsibilities.</p></section>
 <div id="faculty-message" class="notice" role="status" aria-live="polite">Checking Principal access…</div>
 <section id="faculty-locked" class="panel narrow" hidden><h2>Principal login required</h2><p>Enter the portal with your Principal password to manage faculty.</p><a class="button" href="cbse-admin.html">Principal sign in</a></section>
+<section id="faculty-setup" class="panel" hidden aria-labelledby="faculty-setup-title">
+<h2 id="faculty-setup-title">One-time Faculty setup</h2>
+<p>You are signed in. Follow these three steps to enable Faculty feeding.</p>
+<ol class="setup-steps">
+<li><strong>Copy the rules</strong><p>Copy the prepared settings for this portal.</p><button id="faculty-copy-rules" class="primary">1. Copy rules</button></li>
+<li><strong>Publish in Firebase</strong><p>Open Firebase, select all the existing rules, paste, then click Publish.</p><a id="faculty-open-firebase" class="button" href="https://console.firebase.google.com/project/vidyalaya-one-app/database/vidyalaya-one-app-default-rtdb/rules" target="_blank" rel="noopener noreferrer">2. Open Firebase Rules ↗</a></li>
+<li><strong>Return here</strong><p>After publishing, reload this page to open the Faculty area.</p><button id="faculty-reload">3. Reload Faculty</button></li>
+</ol>
+<p id="faculty-copy-status" class="muted" role="status" aria-live="polite"></p>
+<label id="faculty-manual-copy" hidden>Rules to copy<textarea id="faculty-rules-text" readonly rows="8" spellcheck="false"></textarea></label>
+</section>
 <div id="faculty-workspace" hidden>
 <div class="toolbar"><span class="badge">PRINCIPAL ONLY · PRIVATE</span><div class="actions"><button id="faculty-import">Import faculty PDF</button><button id="faculty-export">Download faculty backup</button></div></div>
 <input id="faculty-file" type="file" accept=".pdf,application/pdf" hidden>
@@ -17,4 +28,4 @@
 </div></div>
 <dialog id="faculty-editor"><form id="faculty-form"><h2 id="faculty-editor-title"></h2><div id="faculty-editor-fields"></div><div id="faculty-editor-error" class="notice error" role="alert" hidden></div><div class="actions"><button type="button" id="faculty-cancel">Cancel</button><button id="faculty-save" class="primary">Save changes</button></div></form></dialog>
 <dialog id="faculty-review"><h2 id="faculty-review-title"></h2><div id="faculty-review-content"></div><div class="actions"><button id="faculty-review-cancel">Cancel</button><button id="faculty-confirm" class="primary">Confirm</button></div></dialog>
-</main><footer><div class="wrap">PM SHRI Kendriya Vidyalaya No. 1 Itanagar · Private faculty feeding</div></footer><script type="module" src="cbse-faculty.js"></script></body></html>
+</main><footer><div class="wrap">PM SHRI Kendriya Vidyalaya No. 1 Itanagar · Private faculty feeding</div></footer><script type="module" src="cbse-faculty.js"></script><script type="module" src="live-update.js"></script></body></html>

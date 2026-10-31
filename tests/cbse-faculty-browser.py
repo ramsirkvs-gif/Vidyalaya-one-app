@@ -18,7 +18,7 @@ def synthetic_pdf():
     start=len(data);data+=b'xref\n0 6\n0000000000 65535 f \n'+b''.join(f'{offset:010} 00000 n \n'.encode() for offset in offsets[1:])+b'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n'+str(start).encode()+b'\n%%EOF'
     return data
 APP='export function initializeApp(c){return c;} export function getApps(){return [];}'
-AUTH='''let listener;const user={uid:'principal-test',email:'principal@example.invalid'};export function getAuth(){return {}} export function onAuthStateChanged(a,cb){listener=cb;cb(sessionStorage.getItem('facultySignedIn')?user:null);}export async function signOut(){sessionStorage.removeItem('facultySignedIn');listener(null);}'''
+AUTH='''let listener;const user={uid:'principal-test',email:'principal@example.invalid'};export function getAuth(){return {}} export const browserLocalPersistence={}; export async function setPersistence(){} export function onAuthStateChanged(a,cb){listener=cb;cb(sessionStorage.getItem('facultySignedIn')?user:null);}export async function signOut(){sessionStorage.removeItem('facultySignedIn');listener(null);}'''
 DB='''let state=null,students=null;window.__facultyReads=[];const callbacks={};export function getDatabase(){return {}} export function ref(d,p){return p;}
 export async function get(path){window.__facultyReads.push(path);return {val:()=>sessionStorage.getItem('wrongFacultyRole')?'other':'principal-test'};}
 export function onValue(path,cb,error){window.__facultyReads.push(path);if(window.__denyFaculty&&path==='cbse/facultyDraft'){error({code:'PERMISSION_DENIED'});return ()=>{};} (callbacks[path]||=[]).push(cb);cb({val:()=>path==='cbse/facultyDraft'?state:students});return ()=>{callbacks[path]=callbacks[path].filter(c=>c!==cb)};}
@@ -40,6 +40,21 @@ try:
     page.reload();page.get_by_role('status').filter(has_text='not registered').wait_for();assert page.locator('#faculty-workspace').is_hidden()
     page.evaluate("sessionStorage.removeItem('wrongFacultyRole')");page.reload();page.locator('#faculty-workspace').wait_for(state='visible')
     assert page.locator('#faculty-roles tr').count()==4
+    # Permission denial is setup, not a request to log in again.
+    page.add_init_script("window.__denyFaculty=sessionStorage.getItem('denyFaculty')==='yes'")
+    page.evaluate("sessionStorage.setItem('denyFaculty','yes')");page.reload();page.locator('#faculty-setup').wait_for(state='visible')
+    assert page.locator('#faculty-locked').is_hidden()
+    assert page.locator('#faculty-setup .setup-steps li').count()==3
+    page.evaluate("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async text=>window.__copiedRules=text}})")
+    page.locator('#faculty-copy-rules').click();page.wait_for_function('!!window.__copiedRules')
+    assert page.evaluate('JSON.parse(window.__copiedRules).rules.cbse.facultyDraft!==undefined')
+    for width in [360,768,1440]:
+        page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+    page.evaluate("Object.defineProperty(navigator,'clipboard',{configurable:true,value:{writeText:async()=>{throw Error('Clipboard blocked')}}})")
+    page.locator('#faculty-copy-rules').click();page.locator('#faculty-manual-copy').wait_for(state='visible')
+    assert 'facultyDraft' in page.locator('#faculty-rules-text').input_value()
+    page.evaluate("sessionStorage.removeItem('denyFaculty')");page.reload();page.locator('#faculty-workspace').wait_for(state='visible');assert page.locator('#faculty-setup').is_hidden()
+    print('PASS linear setup, clipboard copy/fallback and no repeated login on permission denial')
     page.locator('#faculty-file').set_input_files(fixture.name);page.get_by_role('button',name='Import faculty privately').wait_for();assert '2 new faculty' in page.locator('#faculty-review-content').inner_text();page.get_by_role('button',name='Import faculty privately').click();page.locator('#faculty-review').wait_for(state='hidden');assert page.locator('#faculty-body tr').count()==2
     page.locator('#faculty-tab-xii').click();assert page.locator('#faculty-body tr').count()==2;assert page.locator('#faculty-roles tr').count()==5;assert page.locator('#faculty-stats strong').nth(1).inner_text()=='1'
     page.locator('#faculty-tab-x').click()

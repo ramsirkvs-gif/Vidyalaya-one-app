@@ -1,5 +1,5 @@
 const $ = id => document.getElementById(id);
-let auth, authApi, user = null, verified = false, busy = false, finished = false;
+let auth, authApi, user = null, verified = false, busy = false;
 let generation = 0;
 function message(text, type = '') {
   $('settings-message').textContent = text;
@@ -37,6 +37,7 @@ $('password-form').addEventListener('submit', async event => {
   }
   const current = user;
   busy = true;
+  document.documentElement.dataset.portalBusy='true';
   $('change-password').disabled = true;
   message('Verifying your old password…');
   try {
@@ -44,16 +45,14 @@ $('password-form').addEventListener('submit', async event => {
     await authApi.reauthenticateWithCredential(current, credential);
     if (!verified || user?.uid !== current.uid) throw Error('Your session changed. Sign in again before continuing.');
     await authApi.updatePassword(current, newPassword);
-    finished = true;
-    lock();
-    message('Password changed successfully. Sign in again with your new password.', 'success');
-    try { await authApi.signOut(auth); }
-    catch { message('Password changed successfully. Return to the portal and sign out before signing in with your new password.', 'success'); }
+    $('password-form').reset();
+    message('Password changed successfully. You remain signed in.', 'success');
   } catch (error) {
     $('old-password').value = '';
     message(errorText(error), 'error');
   } finally {
     busy = false;
+    document.documentElement.dataset.portalBusy='false';
     $('change-password').disabled = false;
   }
 });
@@ -70,10 +69,9 @@ try {
     user = current;
     lock();
     if (!current) {
-      if (!finished) message('Sign in to the portal before opening Password Settings.');
+      message('Sign in to the portal before opening Password Settings.');
       return;
     }
-    if (finished) return;
     $('settings-locked').hidden = true;
     message('Checking Principal access…');
     try {
