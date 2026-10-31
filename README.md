@@ -58,3 +58,9 @@ validate a live Firebase deployment or replace database-rule enforcement tests.
 
 Password settings checks: `python3 tests/cbse-password-browser.py` (same local
 server and browser requirements). Tests use synthetic credentials only.
+
+Faculty feeding is available after Principal login through **Faculty & teacher
+roles**, with separate Class X/XII directories and class-teacher assignments.
+Publish the updated database rules, then import the original faculty PDF once.
+See the faculty section of [CBSE_SETUP.md](CBSE_SETUP.md) for the captured counts,
+screenshot defaults, private-data handling, and validation commands.

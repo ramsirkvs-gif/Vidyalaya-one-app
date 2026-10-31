@@ -170,3 +170,77 @@ passed against Firebase Auth emulator/CLI 15.34.2 with SDK 11.10.0. Production
 activation remains unverified: no Firebase CLI account was authorized, the MCP
 connection timed out, and the environment's live Firebase network additions had
 not been applied.
+
+## Faculty feeding: Class X and Class XII
+
+After Principal login, choose **Faculty & teacher roles** to open
+`cbse-faculty.html`. Each standard has its own editable faculty directory and
+section responsibility table. The page reuses the existing Principal session and
+UID check. Faculty responsibilities describe school duties; they do not create
+accounts or grant access to feeding pages.
+
+### One-time activation and capture
+
+1. Publish the latest `database.rules.json` in Realtime Database → Rules. The new
+   `/cbse/facultyDraft` path is Principal-only. Previously published rules do not
+   include this path, so the faculty page will report access denied until updated.
+   Existing student rules, the Principal UID and data are retained unchanged.
+2. In the protected faculty page, select **Import faculty PDF** and choose the
+   original `faculty.pdf` supplied for this task. Review the import and click
+   **Import faculty privately**. Both standards are filled in one operation.
+3. The original PDF contains 51 roster entries, of which **15 teach Class X** and
+   **14 teach Class XII**. Unrelated classes, evaluator/QP-setter names, Principal
+   and other non-teaching roster entries are excluded. Vacant teaching positions
+   are retained and marked **VACANT** rather than treated as filled posts.
+4. The eight complete teacher/co-teacher pairs visible in the supplied screenshot
+   are applied only for the exact original PDF and only to empty assignments.
+   **Class X-A is left unassigned** because the screenshot crops out its row.
+   Review and fill that row. Class XI screenshot rows are outside this workflow.
+
+The PDF is parsed locally in the signed-in browser with PDF.js 4.10.38. It is not
+uploaded to Vercel or committed to GitHub. Extracted faculty records and roles
+are saved directly to the protected Firebase path only after confirmation.
+The initial captured data is also retained privately in this task's workspace;
+there are no faculty names in the website bundle. The public bundle stores only
+an original-file digest and the screenshot's roster-number mappings.
+
+### Ongoing editing
+
+- Add/edit/remove faculty separately in each standard. Fields are name,
+  designation, subjects/expertise, teaching sections and status.
+- Class teacher and co-class teacher dropdowns save immediately after selection.
+  Each section's two people must differ; one person may lead only one section
+  within a standard. Co-class teachers can support multiple sections.
+- **Other roles** allows up to ten named responsibilities per section, such as
+  mentor or coordinator. These can be added, reassigned or removed.
+- Inactive faculty remain in the directory but cannot be assigned. Deactivation
+  and removal clear that person's responsibilities in that standard. The other
+  standard is unaffected. Removal requires confirmation.
+- Section names/availability follow the existing student draft. New sections
+  appear automatically, renames preserve assignments through stable section IDs,
+  and removed sections disappear from the responsibility table. Old hidden
+  assignments are pruned on the next faculty save.
+- Reimporting the same PDF preserves edited faculty and saved assignments. A
+  different VEMS roster can add matching X/XII faculty, but screenshot defaults
+  are never applied to an unrecognized file. The parser expects the supplied
+  VEMS column layout and text-based PDFs, not arbitrary scans.
+- Faculty writes use independent revision checks, so faculty editing does not
+  overwrite students, streams, subjects or published student snapshots. Student
+  backups/imports and student publishing do not include faculty records.
+- **Download faculty backup** exports the private faculty state for secure local
+  retention. The PDF can be reimported for initial capture; no automatic backup
+  restore feature is included.
+
+### Faculty validation
+
+`node tests/cbse-faculty-model.test.mjs` runs seven model tests.
+`python3 tests/cbse-faculty-browser.py` uses synthetic faculty, an actual generated
+PDF parsed by PDF.js, and mocked Firebase to verify the protected area, standard
+separation, vacancies, CRUD, role assignments, live snapshots, conflict handling,
+repeat import, sign-out cleanup and layouts at 360/768/1440 pixels.
+The uploaded actual PDF was separately parsed and checked against its 29
+relevant entries and eight complete screenshot assignments. Live Firebase writes
+and the new rules require console activation and were not verified by these
+local browser tests.
+
+PDF.js's Apache-2.0 license is retained at `vendor/pdfjs/LICENSE`.

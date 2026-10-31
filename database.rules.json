@@ -211,6 +211,149 @@
         "$other": {
           ".validate": false
         }
+      },
+      "facultyDraft": {
+        ".read": "auth != null && auth.uid === root.child('cbse/adminUid').val()",
+        ".write": "auth != null && auth.uid === root.child('cbse/adminUid').val()",
+        ".validate": "newData.hasChildren(['schemaVersion','revision','classes']) && newData.child('schemaVersion').val() === 1 && newData.child('revision').isNumber() && ((!data.exists() && newData.child('revision').val() === 1) || (data.exists() && newData.child('revision').val() === data.child('revision').val() + 1))",
+        "schemaVersion": {
+          ".validate": "newData.val() === 1"
+        },
+        "revision": {
+          ".validate": "newData.isNumber() && newData.val() >= 1"
+        },
+        "updatedAt": {
+          ".validate": "newData.isNumber()"
+        },
+        "classes": {
+          "X": {
+            ".validate": "newData.hasChild('classId')",
+            "classId": {
+              ".validate": "newData.val() === 'X'"
+            },
+            "teachers": {
+              "$teacher": {
+                ".validate": "newData.hasChildren(['name','designation','subjects','teachingSections','status'])",
+                "name": {
+                  ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().length > 0"
+                },
+                "designation": {
+                  ".validate": "newData.isString() && newData.val().length <= 100 && newData.val().length > 0"
+                },
+                "subjects": {
+                  ".validate": "newData.isString() && newData.val().length <= 300"
+                },
+                "teachingSections": {
+                  ".validate": "newData.isString() && newData.val().length <= 150"
+                },
+                "status": {
+                  ".validate": "newData.val() === 'active' || newData.val() === 'vacant' || newData.val() === 'inactive'"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            },
+            "roles": {
+              "$section": {
+                ".validate": "newData.hasChildren(['classTeacher','coClassTeacher']) && (newData.child('classTeacher').val() === '' || newData.child('classTeacher').val() !== newData.child('coClassTeacher').val())",
+                "classTeacher": {
+                  ".validate": "newData.isString() && (newData.val() === '' || (newData.parent().parent().parent().child('teachers').child(newData.val()).exists() && newData.parent().parent().parent().child('teachers').child(newData.val()).child('status').val() !== 'inactive'))"
+                },
+                "coClassTeacher": {
+                  ".validate": "newData.isString() && (newData.val() === '' || (newData.parent().parent().parent().child('teachers').child(newData.val()).exists() && newData.parent().parent().parent().child('teachers').child(newData.val()).child('status').val() !== 'inactive'))"
+                },
+                "other": {
+                  "$role": {
+                    ".validate": "newData.hasChildren(['label','teacherId'])",
+                    "label": {
+                      ".validate": "newData.isString() && newData.val().length <= 60 && newData.val().length > 0"
+                    },
+                    "teacherId": {
+                      ".validate": "newData.isString() && newData.val().length > 0 && newData.parent().parent().parent().parent().parent().child('teachers').child(newData.val()).exists() && newData.parent().parent().parent().parent().parent().child('teachers').child(newData.val()).child('status').val() !== 'inactive'"
+                    },
+                    "$other": {
+                      ".validate": false
+                    }
+                  }
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          "XII": {
+            ".validate": "newData.hasChild('classId')",
+            "classId": {
+              ".validate": "newData.val() === 'XII'"
+            },
+            "teachers": {
+              "$teacher": {
+                ".validate": "newData.hasChildren(['name','designation','subjects','teachingSections','status'])",
+                "name": {
+                  ".validate": "newData.isString() && newData.val().length <= 120 && newData.val().length > 0"
+                },
+                "designation": {
+                  ".validate": "newData.isString() && newData.val().length <= 100 && newData.val().length > 0"
+                },
+                "subjects": {
+                  ".validate": "newData.isString() && newData.val().length <= 300"
+                },
+                "teachingSections": {
+                  ".validate": "newData.isString() && newData.val().length <= 150"
+                },
+                "status": {
+                  ".validate": "newData.val() === 'active' || newData.val() === 'vacant' || newData.val() === 'inactive'"
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            },
+            "roles": {
+              "$section": {
+                ".validate": "newData.hasChildren(['classTeacher','coClassTeacher']) && (newData.child('classTeacher').val() === '' || newData.child('classTeacher').val() !== newData.child('coClassTeacher').val())",
+                "classTeacher": {
+                  ".validate": "newData.isString() && (newData.val() === '' || (newData.parent().parent().parent().child('teachers').child(newData.val()).exists() && newData.parent().parent().parent().child('teachers').child(newData.val()).child('status').val() !== 'inactive'))"
+                },
+                "coClassTeacher": {
+                  ".validate": "newData.isString() && (newData.val() === '' || (newData.parent().parent().parent().child('teachers').child(newData.val()).exists() && newData.parent().parent().parent().child('teachers').child(newData.val()).child('status').val() !== 'inactive'))"
+                },
+                "other": {
+                  "$role": {
+                    ".validate": "newData.hasChildren(['label','teacherId'])",
+                    "label": {
+                      ".validate": "newData.isString() && newData.val().length <= 60 && newData.val().length > 0"
+                    },
+                    "teacherId": {
+                      ".validate": "newData.isString() && newData.val().length > 0 && newData.parent().parent().parent().parent().parent().child('teachers').child(newData.val()).exists() && newData.parent().parent().parent().parent().parent().child('teachers').child(newData.val()).child('status').val() !== 'inactive'"
+                    },
+                    "$other": {
+                      ".validate": false
+                    }
+                  }
+                },
+                "$other": {
+                  ".validate": false
+                }
+              }
+            },
+            "$other": {
+              ".validate": false
+            }
+          },
+          ".validate": "newData.hasChildren(['X','XII'])",
+          "$other": {
+            ".validate": false
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     }
   }
