@@ -16,9 +16,12 @@ publishes the generated `public` directory. Serverless PIN routes are under
 `api/`. Node 22 is declared in `package.json`.
 
 Principal pages use Firebase Authentication and the configured Principal UID.
-The public portal shows only the approved published snapshot. Private monitoring
-and contact records are kept separately. Staff PIN access additionally requires
-the protected server credential described in [MISSION_SETUP.md](MISSION_SETUP.md).
+The landing page uses the approved published snapshot. Mission staff viewing is
+protected by a shared, remembered curtain: staff can browse student history and
+contacts without a personal PIN after entering the curtain password once per
+browser/device. Each comment or update requires a fresh personal PIN. Principal
+controls retain Firebase authorization. Server access uses the protected credential
+described in [MISSION_SETUP.md](MISSION_SETUP.md).
 No student roster, faculty roster, PIN or service-account key is bundled in the
 website source.
 

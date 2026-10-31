@@ -16,8 +16,9 @@ export function validateMission(m,draft,faculty){
  assert(m&&m.schemaVersion===1&&Number.isInteger(m.revision)&&m.revision>=0,'Invalid Mission data.');
  const students=studentIndex(draft),staff=staffIndex(faculty,m),s=m.settings;
  assert(s&&[s.redBelow,s.greenFrom,s.attendanceRedBelow,s.attendanceGreenFrom].every(v=>Number.isFinite(v)&&v>=0&&v<=100)&&s.redBelow<s.greenFrom&&s.attendanceRedBelow<s.attendanceGreenFrom,'Colour thresholds must be ordered percentages between 0 and 100.');
- for(const field of ['students','exams','marks','attendance','records','tasks','timetable','staff','allocations','gradingRules','academicAttendance'])assert(!m[field]||safeKeys(m[field]),`Invalid ${field} data.`);
+ for(const field of ['students','exams','marks','attendance','records','tasks','timetable','staff','allocations','gradingRules','academicAttendance','reportRequests'])assert(!m[field]||safeKeys(m[field]),`Invalid ${field} data.`);
  for(const[,p]of entries(m.students)){assert(['girl','boy','unknown'].includes(p.gender),'Choose a gender or Not recorded.');assert(text(p.guardian,120)&&text(p.phones,1000)&&text(p.location,500),'Contact details are too long.');validateContact(p);}
+ for(const[,r]of entries(m.reportRequests)){assert(text(r.studentKey,300,true)&&text(r.notes,2000,true)&&date(r.due)&&['open','cancelled'].includes(r.status)&&safeKeys(r.targets),'Invalid teacher reporting request.');for(const[,t]of entries(r.targets))assert(text(t.staffId,300)&&['class_teacher','subject_teacher','faculty_support'].includes(t.role)&&text(t.subjectId,100),'Invalid reporting recipient.');}
  for(const[,p]of entries(m.staff))assert(text(p.name,120,true)&&['counsellor','prt','support'].includes(p.kind)&&['active','inactive'].includes(p.status)&&text(p.subjects,300),'Invalid support-team record.');
  for(const[,e]of entries(m.exams))assert(text(e.name,100,true)&&['X','XII'].includes(e.classId)&&(e.datePrecision==='month'?validMonth(e.date):date(e.date))&&['test','PB-1','PB-2','weekly','mock','monthly'].includes(e.type),'Enter a valid test name, class, type and date.');
  for(const[,v]of entries(m.marks)){

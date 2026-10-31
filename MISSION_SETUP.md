@@ -1,5 +1,37 @@
 # Mission Perfect 100 — activation and use
 
+## Current simplified staff workflow
+
+This workflow supersedes earlier descriptions of a separate PIN login and
+assigned-student list. Keep the existing Firebase credential and rules; this
+update needs no additional Console setup.
+
+- On the first Mission visit in a browser/device, enter the shared staff curtain
+  password. A secure HttpOnly cookie remembers access with a rolling 400-day
+  lifetime. Clearing browser storage or choosing **Lock staff view** requires
+  entry again. The password verifier stays on the server; no plaintext password
+  is shipped in the browser bundle.
+- Browse X/XII → section → student, search by name, or open Teacher monitoring.
+  Full academic history, colour criteria, percentages, student denominators,
+  contacts, call links, locations and general remarks are available without a
+  personal PIN. The old staff URL redirects into this same view.
+- Submit remarks, requested reports or contact/location updates from the student
+  profile with the teacher's name and a fresh personal PIN. No PIN is remembered
+  and no separate staff login/list opens. CT and subject roles are checked against
+  saved allocations. Principal submissions use the existing Principal session.
+- Principal can request the CT, all subject teachers, or an individual teacher.
+  Missing subject allocations can be confirmed inline. Vacant/unassigned subjects
+  remain explicit and are excluded from teacher response counts. A matching
+  teacher/role/subject reply changes **Teacher has not reported progress** to
+  reported and completes its linked report task. An unrelated remark does not.
+- The shared read-only API validates the remembered session on every call. It
+  excludes PIN secrets, restricted counselling records and edit histories.
+  Browsing polls revisions every 20 seconds and fetches a compact full-history
+  snapshot only when data changes. Principal controls retain their live Firebase
+  subscriptions and authorization.
+- Existing data and incremental Samagam exam imports are retained. Percentage
+  criteria and colour explanations remain visible in student monitoring.
+
 ## Updated teacher pairs
 
 The complete screenshot supplies all four X and five XII pairs. X-A is now

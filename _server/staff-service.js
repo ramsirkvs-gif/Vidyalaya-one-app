@@ -1,3 +1,5 @@
+import {createSharedView} from './shared-view.js';
+import {defaultViewSecret} from './view-default.js';
 import {validateContact,mapLink,serializePhones,staffStudentRoles} from '../cbse-contact-model.js';
 import {encryptDisplayPIN,decryptDisplayPIN} from './pin-vault.js';
 import {emptyFaculty,validateFaculty} from '../cbse-faculty-model.js';
@@ -10,15 +12,28 @@ export class AccessError extends Error{constructor(message,status=403){super(mes
 export async function hashPIN(pin,salt=randomBytes(16).toString('hex')){if(!/^(?:\d{3}|\d{6,12})$/.test(String(pin)))throw new AccessError('Use a three-digit PIN (existing 6–12 digit PINs remain supported).',400);return {salt,hash:(await scrypt(String(pin),salt,64)).toString('hex')};}
 export async function verifyPIN(pin,record){if(!/^(?:\d{3}|\d{6,12})$/.test(String(pin))||!record?.hash||!record.salt)return false;const expected=Buffer.from(record.hash,'hex'),actual=await scrypt(String(pin),record.salt,64);return expected.length===actual.length&&timingSafeEqual(expected,actual);}
 const entries=value=>Object.entries(value||{});
-export function createStaffService({db,auth,now=Date.now,displayKey}){
+export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=defaultViewSecret}){
  const read=async path=>(await db.ref(path).get()).val();
  async function context(){const [draft,faculty,mission]=await Promise.all([read('cbse/draft'),read('cbse/facultyDraft'),read('cbse/mission')]);return {draft,faculty,mission:mission||emptyMission()};}
  async function directoryStaff(){const[faculty,support]=await Promise.all([read('cbse/facultyDraft'),read('cbse/mission/staff')]);return staffIndex(faculty,{staff:support||{}});}
  async function principal(token){const decoded=await auth.verifyIdToken(token,true),uid=await read('cbse/adminUid');if(decoded.uid!==uid)throw new AccessError('Principal access required.');return decoded;}
  async function staffUser(token){const decoded=await auth.verifyIdToken(token,true);if(decoded.missionStaff!==true||typeof decoded.staffId!=='string')throw new AccessError('Staff access required.');const access=await read(`cbse/staffAccess/${decoded.staffId}`);if(!access?.enabled||decoded.pinVersion!==access.version)throw new AccessError('Staff access has been disabled or reset. Sign in again.');return {decoded,access};}
  async function throttle(staffId,ip){const key=createHash('sha256').update(`${ip}|${staffId}`).digest('hex');for(const[scope,limit]of [[`ip|${ip}`,25],[`${ip}|${staffId}`,8],[`staff|${staffId}`,30]]){const bucket=createHash('sha256').update(scope).digest('hex');let denied=false;await db.ref(`cbse/staffAttempts/${bucket}`).transaction(current=>{const value=current&&now()-current.started<15*60_000?current:{started:now(),count:0};if(value.count>=limit){denied=true;return;}return {...value,count:value.count+1};});if(denied)throw new AccessError('Too many PIN attempts. Try again in 15 minutes.',429);}return key;}
+ async function verifySubmissionPIN(id,pin,access,ip){
+  if(!pin)throw new AccessError('Enter your personal PIN for this submission on the student profile.',403);
+  const key=await throttle(id,'submit|'+ip);if(!await verifyPIN(pin,access))throw new AccessError('The PIN does not match this staff member.',401);await db.ref(`cbse/staffAttempts/${key}`).remove();for(const scope of [`ip|submit|${ip}`,`submit|${ip}|${id}`,`staff|${id}`])await db.ref('cbse/staffAttempts/'+createHash('sha256').update(scope).digest('hex')).remove();
+ }
  async function revoke(staffId){try{await auth.revokeRefreshTokens('mission_'+createHash('sha256').update(staffId).digest('hex').slice(0,40));}catch(e){if(e.code!=='auth/user-not-found')throw e;}}
- return async function handle(action,input={},token='',ip='unknown'){
+ const sharedView=createSharedView({db,context,now,defaultSecret:viewSecret});
+ return async function handle(action,input={},token='',ip='unknown',session={}){
+  if(['view-login','view-data','view-version','view-logout'].includes(action)){const result=await sharedView(action,{...input,ip},session.viewerToken||'');if(result?.error){const error=new AccessError(result.error,result.status);error.curtainRequired=result.curtainRequired;throw error;}return result;}
+  if(action==='remember-view'){await principal(token);return sharedView('view-grant');}
+  let pinIdentity;
+  if(action==='pin-submit'){
+   const id=String(input.staffId||'');if(!/^[a-zA-Z0-9_:-]{1,200}$/.test(id))throw new AccessError('Choose your name and enter your PIN.',401);const access=await read(`cbse/staffAccess/${id}`),person=(await directoryStaff())[id];if(!access?.enabled||person?.status!=='active')throw new AccessError('Choose your name and enter the correct PIN.',401);
+   await verifySubmissionPIN(id,input.pin,access,ip);
+   action=String(input.operation||'comment');if(!['comment','update-contact','update-task'].includes(action))throw new AccessError('This operation requires Principal access.',403);pinIdentity={decoded:{staffId:id},access};
+  }
   if(action==='directory'){const staff=await directoryStaff(),access=await read('cbse/staffAccess');return {staff:entries(access).filter(([id,a])=>a.enabled&&staff[id]?.status==='active').map(([id])=>({id,name:staff[id].name,role:staff[id].classId?`Class ${staff[id].classId} faculty`:staff[id].kind}))};}
   if(action==='login'){
    const id=String(input.staffId||'');if(!/^[a-zA-Z0-9_:-]{1,200}$/.test(id))throw new AccessError('Choose a staff member and enter the correct PIN.',401);
@@ -67,7 +82,7 @@ export function createStaffService({db,auth,now=Date.now,displayKey}){
    else{await revoke(id);await db.ref(`cbse/staffAccess/${id}`).update({enabled:false,version:randomUUID(),updatedAt:now()});}
    return {ok:true};
   }
-  const {decoded}=await staffUser(token),c=await context(),id=decoded.staffId;
+  const identity=pinIdentity||await staffUser(token),{decoded}=identity,id=decoded.staffId;if(!pinIdentity&&['comment','update-contact','update-task'].includes(action))await verifySubmissionPIN(id,input.pin,identity.access,ip);const c=await context();
   if(staffIndex(c.faculty,c.mission)[id]?.status!=='active')throw new AccessError('Staff access is inactive.');
   if(action==='students')return {staff:staffIndex(c.faculty,c.mission)[id]?.name,students:entries(studentIndex(c.draft)).map(([key,p])=>({key,name:p.name,roll:p.roll,classId:p.classId,section:p.section,assigned:staffCanView(id,key,c.mission,c.draft,c.faculty),academic:staffCanView(id,key,c.mission,c.draft,c.faculty)?studentProgress(key,c.mission,c.draft).academic:'grey'}))};
   const key=String(input.studentKey||'');if(!/^(X|XII):[a-zA-Z0-9_-]+:[a-zA-Z0-9_-]+$/.test(key)||!studentIndex(c.draft)[key])throw new AccessError('Student not found.',404);
@@ -75,12 +90,12 @@ export function createStaffService({db,auth,now=Date.now,displayKey}){
   if(action==='update-contact'){
    const patch=input.contact;if(!patch||typeof patch!=='object'||Array.isArray(patch))throw new AccessError('Invalid contact update.',400);
    const allowed=['mapLocation','location','numbers'];if(Object.keys(patch).some(k=>!allowed.includes(k)))throw new AccessError('Only phone numbers, address or map location can be updated.',400);
-   if(Object.keys(patch).some(k=>k!=='mapLocation')&&!staffCanView(id,key,c.mission,c.draft,c.faculty))throw new AccessError('Phone/address updates require an assigned student.',403);
+   if(!pinIdentity&&Object.keys(patch).some(k=>k!=='mapLocation')&&!staffCanView(id,key,c.mission,c.draft,c.faculty))throw new AccessError('Phone/address updates require an assigned student.',403);
    if(!Number.isInteger(input.expectedRevision)||input.expectedRevision<0)throw new AccessError('Reload the contact record before updating.',409);
    let failed='';const result=await db.ref('cbse/mission').transaction(current=>{
     failed='';const m=current||emptyMission();if(staffIndex(c.faculty,m)[id]?.status!=='active')return;
     const old=m.students?.[key]||{gender:'unknown',guardian:'',phones:'',location:''};if((old.revision||0)!==input.expectedRevision){failed='Contact details changed. Reload this student before saving.';return;}
-    if(Object.keys(patch).some(k=>k!=='mapLocation')&&!staffCanView(id,key,m,c.draft,c.faculty))return;
+    if(!pinIdentity&&Object.keys(patch).some(k=>k!=='mapLocation')&&!staffCanView(id,key,m,c.draft,c.faculty))return;
     const next={...old,...patch,revision:(old.revision||0)+1,updatedBy:id,updatedByName:staffIndex(c.faculty,m)[id]?.name,updatedAt:now()};
     try{if(patch.mapLocation!==undefined)next.mapLocation=mapLink(patch.mapLocation);if(patch.numbers!==undefined)next.phones=serializePhones(patch.numbers);if(typeof next.location!=='string'||next.location.length>500)throw Error('Home address is too long.');validateContact(next);}catch(error){failed=error.message;return;}
     m.students||={};m.students[key]=next;m.revision=(m.revision||0)+1;m.updatedAt=now();return m;
@@ -92,8 +107,11 @@ export function createStaffService({db,auth,now=Date.now,displayKey}){
    const roles=staffStudentRoles(id,studentIndex(c.draft)[key],c.faculty,c.mission),role=String(input.role||'faculty_support'),subjectId=String(input.subjectId||'');
    if(!['class_teacher','subject_teacher','faculty_support'].includes(role)||role==='class_teacher'&&!roles.classTeacher||role==='subject_teacher'&&!roles.subjects.some(s=>s.id===subjectId))throw new AccessError('This CT/subject role is not assigned to you for this student.',403);
    const taskId=String(input.taskId||'');if(taskId&&!(c.mission.tasks?.[taskId]?.staffId===id&&(c.mission.tasks[taskId].studentKey===key||!c.mission.tasks[taskId].studentKey&&c.mission.tasks[taskId].sectionKey===`${studentIndex(c.draft)[key].classId}:${studentIndex(c.draft)[key].sectionId}`)))throw new AccessError('You can reply only to your own assigned action.',403);
+   const requestId=String(input.requestId||''),requestTargetId=String(input.requestTargetId||'');
+   const validRequest=m=>{if(!requestId)return true;const r=m.reportRequests?.[requestId],target=r?.targets?.[requestTargetId];return r?.studentKey===key&&r.status!=='cancelled'&&target?.staffId===id&&target.role===role&&(target.subjectId||'')===(role==='subject_teacher'?subjectId:'');};
+   if(!validRequest(c.mission))throw new AccessError('This reporting request is not assigned to this teacher/role.',403);
    const recordId='record_'+randomUUID().replaceAll('-','');
-   const result=await db.ref('cbse/mission').transaction(current=>{const m=current||emptyMission();if(staffIndex(c.faculty,m)[id]?.status!=='active')return;m.records||={};if(taskId){const task=m.tasks?.[taskId],person=studentIndex(c.draft)[key];if(!task||task.staffId!==id||task.status==='cancelled'||!(task.studentKey===key||!task.studentKey&&task.sectionKey===`${person.classId}:${person.sectionId}`))return;}const liveRoles=staffStudentRoles(id,studentIndex(c.draft)[key],c.faculty,m);if(role==='class_teacher'&&!liveRoles.classTeacher||role==='subject_teacher'&&!liveRoles.subjects.some(s=>s.id===subjectId))return;m.records[recordId]={details:channel==='progress'?{}:{channel},authorRole:role,replyTo:taskId,kind:channel==='progress'?'faculty_comment':'contact',date:today(),studentKey:key,staffId:id,sectionKey:'',subjectId:role==='subject_teacher'?subjectId:'',notes,outcome:'',evidenceUrl:'',visibility:'general',authorId:id,authorName:staffIndex(c.faculty,m)[id]?.name||'Staff',updatedAt:now()};m.revision=(m.revision||0)+1;m.updatedAt=now();return m;});if(!result.committed)throw new AccessError('Assignment changed. Reload your student list.');return {ok:true};
+   const result=await db.ref('cbse/mission').transaction(current=>{const m=current||emptyMission();if(staffIndex(c.faculty,m)[id]?.status!=='active')return;m.records||={};if(taskId){const task=m.tasks?.[taskId],person=studentIndex(c.draft)[key];if(!task||task.staffId!==id||task.status==='cancelled'||!(task.studentKey===key||!task.studentKey&&task.sectionKey===`${person.classId}:${person.sectionId}`))return;}if(!validRequest(m))return;const liveRoles=staffStudentRoles(id,studentIndex(c.draft)[key],c.faculty,m);if(role==='class_teacher'&&!liveRoles.classTeacher||role==='subject_teacher'&&!liveRoles.subjects.some(s=>s.id===subjectId))return;m.records[recordId]={requestId,requestTargetId,details:channel==='progress'?{}:{channel},authorRole:role,replyTo:taskId,kind:channel==='progress'?'faculty_comment':'contact',date:today(),studentKey:key,staffId:id,sectionKey:'',subjectId:role==='subject_teacher'?subjectId:'',notes,outcome:'',evidenceUrl:'',visibility:'general',authorId:id,authorName:staffIndex(c.faculty,m)[id]?.name||'Staff',updatedAt:now()};if(requestId)for(const task of Object.values(m.tasks||{}))if(task.requestId===requestId&&task.requestTargetId===requestTargetId&&task.staffId===id&&task.status!=='cancelled'){task.status='done';task.outcome=notes;task.updatedAt=now();}m.revision=(m.revision||0)+1;m.updatedAt=now();return m;});if(!result.committed)throw new AccessError('Assignment changed. Reload your student list.');return {ok:true};
   }
   if(action==='update-task'){
    const taskId=String(input.taskId||''),status=String(input.status||''),outcome=String(input.outcome||'').trim();if(!['open','in_progress','done'].includes(status)||outcome.length>2000)throw new AccessError('Invalid task update.',400);

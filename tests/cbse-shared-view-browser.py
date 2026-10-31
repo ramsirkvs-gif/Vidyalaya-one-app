@@ -1,0 +1,34 @@
+"""One shared browse flow; remembered curtain; PIN only for direct profile writes."""
+from pathlib import Path
+ns={};exec(Path('tests/cbse-teacher-monitoring-browser.py').read_text().split('with sync_playwright() as p:')[0],ns)
+import json
+D=ns['D'];F=ns['F'];M={'schemaVersion':1,'revision':1,'settings':{'redBelow':33,'greenFrom':75,'attendanceRedBelow':75,'attendanceGreenFrom':90},'students':{'X:a:one':{'gender':'girl','guardian':'Synthetic Parent','phones':'Father: 1234567890','location':'Synthetic home','mapLocation':'https://maps.app.goo.gl/example','revision':0}},'exams':{'e':{'name':'Monthly September','classId':'X','date':'2026-09','datePrecision':'month','type':'monthly'}},'marks':{'one':{'studentKey':'X:a:one','subjectId':'english','examId':'e','score':9,'maximum':40,'absent':False,'importSource':'monthly_workbook_v1','criticalBelow':10,'passFrom':13,'secureFrom':18,'inferredAbsent':False}},'records':{},'tasks':{},'allocations':{'a':{'classId':'X','sectionId':'a','subjectId':'english','staffId':'X:one'}},'reportRequests':{'r':{'studentKey':'X:a:one','notes':'Please report the remedial progress','due':'2026-11-05','status':'open','targets':{'ct':{'staffId':'X:one','role':'class_teacher','subjectId':''}}}}}
+calls=[]
+def api(route):
+ d=route.request.post_data_json;a=d['action'];calls.append(d);cookie=route.request.headers.get('cookie','')
+ if a=='view-login':route.fulfill(headers={'content-type':'application/json','set-cookie':'mission_staff_view=synthetic-session; Path=/; HttpOnly; Max-Age=34560000'},body='{}');return
+ if a in ['view-data','view-version']:
+  if 'mission_staff_view=' not in cookie:route.fulfill(status=401,json={'curtainRequired':True,'error':'Enter the staff viewing password.'});return
+  route.fulfill(json={'versions':[1,1,M['revision']]} if a=='view-version' else {'draft':D,'faculty':F,'mission':{k:v for k,v in M.items() if k!='marks'},'markRows':[[m['studentKey'],m['examId'],m['subjectId'],m['score'],m['maximum'],m['absent'],m['inferredAbsent'],m['criticalBelow'],m['passFrom'],m['secureFrom'],m.get('updatedAt',0),True] for m in M['marks'].values()],'pinStaff':[{'id':'X:one','name':'Synthetic Teacher'}],'versions':[1,1,M['revision']]});return
+ if a=='view-logout':route.fulfill(headers={'content-type':'application/json','set-cookie':'mission_staff_view=; Path=/; Max-Age=0'},body='{}');return
+ if a=='pin-submit':
+  if d.get('pin')!='123':route.fulfill(status=401,json={'error':'The PIN does not match this staff member.'});return
+  if d['operation']=='comment':M['records']['new']={'kind':'faculty_comment','date':'2026-10-31','studentKey':d['studentKey'],'staffId':d['staffId'],'subjectId':d['subjectId'],'notes':d['notes'],'outcome':'','visibility':'general','authorId':d['staffId'],'authorName':'Synthetic Teacher','authorRole':d['role'],'requestId':d.get('requestId',''),'requestTargetId':d.get('requestTargetId',''),'updatedAt':1000};M['revision']+=1
+  elif d['operation']=='update-contact':M['students'][d['studentKey']].update(d['contact']);M['students'][d['studentKey']]['revision']+=1;M['revision']+=1
+  route.fulfill(json={'ok':True});return
+ if a=='directory':route.fulfill(json={'staff':[{'id':'X:one','name':'Synthetic Teacher'}]});return
+ route.fulfill(json={'ok':True})
+with ns['sync_playwright']() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);ctx=b.new_context();ctx.add_init_script('window.__guest=true');ctx.route('https://www.gstatic.com/firebasejs/**',ns['sdk']);ctx.route('**/api/staff-access',api);page=ctx.new_page();errors=[];page.on('pageerror',lambda e:(errors.append(str(e)),print('PAGE ERROR:',str(e),flush=True)))
+ page.goto('http://127.0.0.1:8000/cbse-mission.html');page.get_by_role('heading',name='Staff viewing · first visit only',exact=True).wait_for();page.locator('[name=staff-curtain-password]').fill('synthetic-password');page.get_by_role('button',name='Open staff view',exact=True).click();page.get_by_role('heading',name='Choose your class',exact=True).wait_for();assert page.locator('#mission-tools').is_hidden()
+ page.evaluate("location.hash='class=X&section=a'");page.get_by_role('button',name='Synthetic Student X',exact=True).wait_for();assert 'care-critical' in page.get_by_role('button',name='Synthetic Student X',exact=True).get_attribute('class');page.get_by_role('button',name='Synthetic Student X',exact=True).click();page.get_by_role('heading',name='Academic history · monthly & subject-wise',exact=True).wait_for();assert page.get_by_role('link',name='Call Father',exact=True).get_attribute('href')=='tel:1234567890';assert page.locator('.academic-graph svg').count()==2
+ page.reload();page.get_by_role('heading',name='Academic history · monthly & subject-wise',exact=True).wait_for();assert page.get_by_role('heading',name='Staff viewing · first visit only',exact=True).count()==0;assert sum(c['action']=='view-login' for c in calls)==1
+ page.get_by_role('button',name='Reply with PIN',exact=True).click();page.locator('[name=progress-notes]').fill('CT has reviewed the practice');page.locator('[name=comment-pin]').fill('000');page.get_by_role('button',name='Submit remark with PIN',exact=True).click();page.get_by_text('The PIN does not match this staff member.',exact=True).wait_for();assert page.get_by_role('heading',name='Academic history · monthly & subject-wise',exact=True).is_visible();assert not M['records']
+ page.locator('[name=comment-pin]').fill('123');page.get_by_role('button',name='Submit remark with PIN',exact=True).click();page.wait_for_function("document.querySelector('#student-remarks-section').textContent.includes('Progress reported')");assert any(c.get('requestId')=='r' and c['action']=='pin-submit' for c in calls);assert page.locator('[name=comment-pin]').input_value()==''
+ page.get_by_role('button',name='Add / update phone numbers & home location',exact=True).click();page.locator('[name=update-staff]').select_option('X:one');page.locator('[name=map]').fill('27.1,93.7');page.locator('[name=update-pin]').fill('123');page.get_by_role('button',name='Save update with PIN',exact=True).click();page.locator('dialog').filter(has=page.locator('[name=update-pin]')).wait_for(state='hidden');assert 'google.com/maps' in M['students']['X:a:one']['mapLocation']
+ for w in [360,768,1440]:page.set_viewport_size({'width':w,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ page.locator('[name=progress-notes]').fill('Unsubmitted draft before locking');page.get_by_role('button',name='Lock staff view',exact=True).click();page.get_by_role('heading',name='Staff viewing · first visit only',exact=True).wait_for();assert page.locator('.academic-graph').count()==0
+ assert not errors,errors
+ assert not any(c['action']=='login' for c in calls)
+ print('PASS one-time remembered curtain, no-PIN profile browsing, colour tiles/graphs/calls, profile-local PIN replies, request completion and PIN contact updates')
+ b.close()

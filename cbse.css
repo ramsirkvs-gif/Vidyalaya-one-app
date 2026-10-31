@@ -14,3 +14,5 @@
 .performance-criteria{padding:14px;background:#f5f8f5;border:1px solid #d7e3db;border-radius:12px;margin:14px 0}.performance-criteria h3{font-size:14px;margin:0 0 10px}.performance-legend{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0}.performance-legend .band{white-space:normal}.stats .stat strong{overflow-wrap:anywhere}
 
 .performance-counts .stat strong{font-size:18px;line-height:1.4;white-space:normal}.performance-legend strong{font-size:13px}
+
+.report-board{display:grid;gap:12px;margin:18px 0}.report-request{border:1px solid #d8e4dc;background:#f6faf7;padding:16px;border-radius:12px}.report-request>small{display:block;margin:8px 0}.report-target{padding:12px 0;border-top:1px solid #d8e4dc;display:flex;gap:10px;align-items:center;flex-wrap:wrap}.report-target>span{flex:1;min-width:180px}.not-reported{color:#9d4316;font-weight:650}.reported{color:#176b42;font-weight:650}.progress-thread{margin-top:22px}#student-remarks-section textarea{min-height:110px}#student-remarks-section form{display:grid;gap:13px}#student-remarks-section select,#student-remarks-section input{min-height:44px}
