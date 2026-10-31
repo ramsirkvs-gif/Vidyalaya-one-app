@@ -7,7 +7,9 @@ export function parseCSVRows(text){
  if(quoted)throw Error('Unclosed CSV field.');row.push(value.trim());if(row.some(Boolean))rows.push(row);return rows;
 }
 export function importBasicStudents(text,mission,draft){
- const rows=parseCSVRows(text.replace(/^\uFEFF/,'')),header=rows.shift()||[],required=['Class','Section','StudentName','Gender'];
+ const rows=parseCSVRows(text.replace(/^\uFEFF/,'')),header=rows.shift()||[];
+ if(header.includes('Email'))return importStudentEmails(rows,header,mission,draft);
+ const required=['Class','Section','StudentName','Gender'];
  if(!required.every(h=>header.includes(h))||new Set(header).size!==header.length)throw Error('Use the cleaned basic-data CSV with Class, Section, StudentName and Gender columns.');
  if(!rows.length)throw Error('No student rows found.');
  const next=clone(mission);next.students||={};const people=entries(studentIndex(draft)),seen=new Set(),issues=[],counts={};let matched=0,changed=0;
@@ -28,3 +30,22 @@ export function importBasicStudents(text,mission,draft){
  if(JSON.stringify(p)!==JSON.stringify(old))changed++;next.students[key]=p;matched++;counts[`${cl}-${section}`]=(counts[`${cl}-${section}`]||0)+1;
  });return {next,matched,changed,issues,counts,total:rows.length};
 }
+
+function importStudentEmails(rows,header,mission,draft){
+ if(header.join(',')!=='Class,Section,StudentName,Email')throw Error('Email-only import requires exactly Class, Section, StudentName, Email columns.');
+ if(!rows.length)throw Error('No email rows found.');
+ const next=clone(mission),people=entries(studentIndex(draft)),seen=new Set(),issues=[],counts={};let matched=0,changed=0;
+ for(const [i,values]of rows.entries()){
+  if(values.length!==4)throw Error(`Row ${i+2} has the wrong number of columns.`);
+  const [classValue,section,name,email]=values,cl=({'10':'X','12':'XII'})[norm(classValue)]||norm(classValue);
+  const candidates=people.filter(([,p])=>p.classId===cl&&norm(p.section)===norm(section)&&norm(p.name)===norm(name));
+  if(candidates.length!==1){issues.push(`Row ${i+2}: no unique roster match.`);continue;}
+  if(!validStudentEmail(email)){issues.push(`Row ${i+2}: blank or invalid email; unchanged.`);continue;}
+  const [key]=candidates[0];if(seen.has(key))throw Error(`Duplicate student at row ${i+2}.`);seen.add(key);
+  next.students||={};const old=next.students[key]||{gender:'unknown',guardian:'',phones:'',location:''};
+  if(old.email!==email){next.students[key]={...old,email};changed++;}
+  matched++;counts[`${cl}-${norm(section)}`]=(counts[`${cl}-${norm(section)}`]||0)+1;
+ }
+ return {next,matched,changed,issues,counts,total:rows.length,emailOnly:true};
+}
+export function validStudentEmail(value){return typeof value==='string'&&value.length<=254&&/^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$/.test(value)&&!value.startsWith('.')&&!value.split('@')[0].endsWith('.')&&!value.split('@')[0].includes('..');}

@@ -122,7 +122,7 @@ function renderStudent(key,review={}){
  const progress=studentProgress(key,mission,draft,'',reviewSubjects),contact=mission.students?.[key]||{gender:'unknown',guardian:'',phones:'',location:''};
  p.append(badge(progress.academic));for(const line of attendanceLines(key,mission,progress))p.append(el('p',line,'attendance-summary'));
  const controls=el('div',undefined,'actions');if(editable())controls.append(button('Edit basic/contact details',()=>editContact(key)),button('Record marks',()=>editMark(key)),button('Record attendance',()=>editAttendance(key)),button('Print meeting summary',()=>window.print()));else controls.append(button('Print meeting summary',()=>window.print()));p.append(controls);renderAttendanceDetails(p,key,mission);
- const contacts=studentPanel('Contact & home location',overview);contacts.classList.add('student-contact-card');contacts.id='student-contact-section';contacts.append(el('p',`Gender: ${contact.gender==='unknown'?'Not recorded':contact.gender} · Guardian: ${contact.guardian||'Not recorded'}`),el('p',`Contact numbers: ${contact.phones||'Not recorded'}`),el('p',`Home location: ${contact.location||'Not recorded'}`));
+ const contacts=studentPanel('Contact & home location',overview);contacts.classList.add('student-contact-card');contacts.id='student-contact-section';if(contact.email)contacts.append(el('p',`Email: ${contact.email}`));contacts.append(el('p',`Gender: ${contact.gender==='unknown'?'Not recorded':contact.gender} · Guardian: ${contact.guardian||'Not recorded'}`),el('p',`Contact numbers: ${contact.phones||'Not recorded'}`),el('p',`Home location: ${contact.location||'Not recorded'}`));
  renderContactActions(contacts,contact,{onEdit:()=>editable()?editContact(key):openPINContact({person:s,contact,staff:staff(),pinStaff:pinDirectory,onSubmit:submitPINUpdate}),onLog:()=>document.getElementById('student-remarks-section')?.scrollIntoView({behavior:'smooth'})});
  const academic=studentPanel();academic.id='student-academic-section';renderStudentAcademics(academic,reviewPerson,mission,{showCriteria:!review.parent,staff:staff(),onTeacher:openTeacherProfile,onAssignTeacher:editable()?editAllocation:undefined,onEditMark:editable()?editMark:undefined});
 
@@ -274,12 +274,12 @@ $('mission-basic-file').onchange=async event=>{
   if(!editable()||mission.revision!==expected)throw Error('Data changed while reading the file. Please select it again.');
   if(!result.matched)throw Error('No students matched. Import the student roster first, then check class, section and names.');
   validateMission(result.next,draft,faculty);
-  editor('Review student basic-data import',()=>{
+  editor(result.emailOnly?'Review student emails only':'Review student basic-data import',()=>{
    $('mission-fields').append(el('p',`${result.matched} of ${result.total} rows matched; ${result.changed} profiles will change. ${result.issues.length} rows will be skipped.`));
    for(const[label,count]of entries(result.counts))$('mission-fields').append(el('p',`${label}: ${count} students`));
-   $('mission-fields').append(el('p','Updates gender, parent names, contact numbers and home addresses privately. Empty cells retain existing values. Marks, attendance, subjects and public information stay unchanged.'));
+   $('mission-fields').append(el('p',result.emailOnly?'Updates only the matched student email fields privately. All other saved data stays unchanged.':'Updates gender, parent names, contact numbers and home addresses privately. Empty cells retain existing values. Marks, attendance, subjects and public information stay unchanged.'));
    if(result.issues.length){const details=el('details');details.append(el('summary','Review skipped rows'));for(const issue of result.issues)details.append(el('p',issue));$('mission-fields').append(details);}
-  },async()=>{const saved=await save(result.next,expected);if(saved)message(`Basic data saved privately for ${result.matched} students; ${result.issues.length} rows skipped.`,'success');return saved;});
+  },async()=>{const saved=await save(result.next,expected);if(saved)message(`${result.emailOnly?'Emails':'Basic data'} saved privately for ${result.matched} students; ${result.issues.length} rows skipped.`,'success');return saved;});
  }catch(error){message(error.message,'error');}
 };
 
