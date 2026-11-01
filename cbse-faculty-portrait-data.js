@@ -1,4 +1,4 @@
-// Original embedded photos extracted from the user-supplied staff PDFs.
+// Staff portraits from user-supplied PDFs, plus the user-requested Ajay portrait redraw.
 export const facultyPortraits=[
   {
     "file": "faculty-photo-bharatlalmeena.png",
@@ -282,5 +282,13 @@ export const facultyPortraits=[
       "PARTHA PROTIM BORAH"
     ],
     "staffId": "XII:pdf_02222829e8b1896e_13"
+  },
+  {
+    "file": "faculty-photo-ajaypratapsinghchauhan.png",
+    "names": [
+      "MR. AJAY PRATAP SINGH C.",
+      "AJAY PRATAP SINGH CHAUHAN"
+    ],
+    "staffId": "X:pdf_02222829e8b1896e_27"
   }
 ];
