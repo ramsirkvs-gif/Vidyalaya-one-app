@@ -1,4 +1,4 @@
-// Staff portraits from user-supplied PDFs, plus the user-requested Ajay portrait redraw.
+// Staff portraits from user-supplied PDFs, plus user-requested Ajay and Gaurav portrait redraws.
 export const facultyPortraits=[
   {
     "file": "faculty-photo-bharatlalmeena.png",
@@ -290,5 +290,12 @@ export const facultyPortraits=[
       "AJAY PRATAP SINGH CHAUHAN"
     ],
     "staffId": "X:pdf_02222829e8b1896e_27"
+  },
+  {
+    "file": "faculty-photo-gauravsingh.png",
+    "names": [
+      "MR. GAURAV SINGH"
+    ],
+    "staffId": "X:pdf_02222829e8b1896e_30"
   }
 ];
