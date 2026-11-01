@@ -39,3 +39,13 @@
 @media(min-width:761px){.mission-hero{grid-template-columns:minmax(0,1fr) 280px;gap:24px;padding:28px 32px}.mission-logo{width:280px;height:280px}.mission-app.mission-detail-view .mission-hero{grid-template-columns:minmax(0,1fr) 112px;padding:14px 22px}.mission-detail-view .mission-logo{width:112px;height:112px}}
 @media(max-width:760px){.mission-hero{grid-template-columns:minmax(0,1fr) 116px}.mission-logo{width:116px;height:116px}.hero-copy #mission-global-search,.hero-links{margin-right:-128px}.mission-app.mission-detail-view .mission-hero{grid-template-columns:minmax(0,1fr) 76px}.mission-detail-view .mission-logo{width:76px;height:76px}.mission-detail-view .hero-copy #mission-global-search{margin-right:0}}
 @media(max-width:760px){.mission-app:not(.mission-detail-view) .mission-hero{padding:20px}.mission-app:not(.mission-detail-view) .mission-hero h1{font-size:26px;line-height:1.1;margin:8px 0}.mission-app:not(.mission-detail-view) .mission-hero p{font-size:11px;line-height:1.4;margin-bottom:14px}.mission-app:not(.mission-detail-view) .hero-kicker{font-size:7px;letter-spacing:.9px}.mission-app:not(.mission-detail-view) .hero-links{margin-top:6px}}
+
+/* Keep search controls in a short toolbar above the actual matches. */
+.mission-app .search-results-panel{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 16px;padding:14px 18px;align-items:center}
+.search-results-panel>h2{font-size:16px;line-height:1.4;margin:0;min-width:0;overflow-wrap:anywhere}
+.search-results-panel>.result-filters{margin:0;gap:10px;flex-wrap:nowrap}
+.search-results-panel>.result-filters>label{display:flex;align-items:center;gap:6px;min-width:0;flex:initial;margin:0;font-size:11px;white-space:nowrap}
+.mission-app .search-results-panel select{width:132px;min-height:38px;margin:0;padding:6px 8px;font-size:12px}
+.search-results-panel>.result-summary{grid-column:1/-1;margin:0;font-size:11px}
+.search-results-panel>.student-cards{grid-column:1/-1;margin-top:2px}
+@media(max-width:700px){.mission-app .search-results-panel{grid-template-columns:minmax(0,1fr);padding:12px;gap:7px}.search-results-panel>.result-filters{grid-column:1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.search-results-panel>.result-filters>label{min-width:0;gap:4px}.mission-app .search-results-panel select{width:100%;min-width:0;min-height:44px}.search-results-panel>h2{font-size:15px}}
