@@ -27,5 +27,12 @@ test('Calendar script preserves individual links/guests, creates distinct Class 
  for(let i=0;i<53;i++){const e=events.get('old'+i);assert.equal(e.hangoutLink,students[i].meetingLink);assert.equal(e.attendees[0].responseStatus,'accepted');assert.equal(e.attendees.filter(a=>a.email==='teacher@example.org').length,1);}
  assert.deepEqual(sheets['Class VC upload'].rows,[['Class','Section','MeetingLink'],['X','A','https://meet.google.com/uvw-xyza-bcd']]);
  assert.ok(sheets['VC update'].rows.some(r=>r[6]==='Existing Meet link not found in school Calendar; review manually'));
+ // A newer portal export must replace stale issue/guest lists in the same book,
+ // retain completed Class VC links, and retry only changed participant rows.
+ vm.runInContext("VC_PLAN.students[0].emails.push('new-support@example.org');VC_PLAN.issues=['Only current issue'];",context);
+ context.vcPrepareUpdate();assert.equal(patches,calls);assert.equal(inserts,1);
+ assert.equal(sheets['VC update'].rows[1][6],'Pending');assert.match(sheets['VC update'].rows[1][5],/new-support@example.org/);assert.equal(sheets['VC update'].rows[2][6],'Ready');
+ assert.equal(sheets['VC update'].rows.at(-1)[4],'https://meet.google.com/uvw-xyza-bcd');assert.equal(sheets['VC update'].rows.at(-1)[6],'Ready');assert.equal(sheets.Issues.rows[1][0],'Only current issue');assert.equal(sheets.Issues.rows.some(r=>r[0]==='Synthetic missing email'),false);
+ context.vcApplyNextBatch();assert.equal(inserts,1);assert.equal(patches,calls+1);assert.ok(events.get('old0').attendees.some(a=>a.email==='new-support@example.org'));
  account='wrong@example.org';assert.throws(()=>context.vcApplyNextBatch(),/Use the school account/);
 });

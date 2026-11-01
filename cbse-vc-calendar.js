@@ -3,7 +3,8 @@
 export function calendarVCScript(plan){return `/* School account: ${plan.hostEmail}
 Add this as a NEW Apps Script file (VCUpdate.gs) in your existing project.
 Keep the Calendar advanced service enabled. Do not replace your earlier code.
-1. Run vcPrepareUpdate; open the private sheet URL from the log and review guests.
+1. Run vcPrepareUpdate; it refreshes the existing private sheet from this export.
+   Open its URL from the log and review the current guests and Issues tab.
 2. Run vcApplyNextBatch until every row is Ready (50 events per run).
 3. Run vcExportClassCSV; click the direct CSV download URL from the log.
 4. Portal > Principal controls > Import VC setup / Class VC links > select CSV > Save.
@@ -25,16 +26,28 @@ ${vcExportClassCSV.toString()}
 `;}
 function vcBook(){const id=PropertiesService.getUserProperties().getProperty('vcUpdateBook');if(!id)throw Error('Run vcPrepareUpdate first.');return SpreadsheetApp.openById(id);}
 function vcPrepareUpdate(){
+ const lock=LockService.getUserLock();lock.waitLock(10000);
+ try{
  const account=Calendar.CalendarList.get('primary').id;if(account.toLowerCase()!==VC_PLAN.hostEmail.toLowerCase())throw Error('Use the school account '+VC_PLAN.hostEmail+'.');
  const props=PropertiesService.getUserProperties(),existing=props.getProperty('vcUpdateBook');
- if(existing){console.log('Existing update sheet: '+SpreadsheetApp.openById(existing).getUrl());console.log('This export has '+VC_PLAN.students.length+' individual meetings and '+VC_PLAN.classes.length+' classes. A new export does not duplicate completed Calendar events.');return;}
- const book=SpreadsheetApp.create('Private VC update · students and classes'),sheet=book.getSheets()[0];sheet.setName('VC update');
+ const book=existing?SpreadsheetApp.openById(existing):SpreadsheetApp.create('Private VC update · students and classes'),sheet=existing?book.getSheetByName('VC update'):book.getSheets()[0];
+ if(!sheet)throw Error('The saved update workbook is missing its VC update tab.');if(!existing)sheet.setName('VC update');
+ const key=row=>JSON.stringify(row.slice(0,4)),old=new Map((existing?sheet.getDataRange().getDisplayValues().slice(1):[]).map(row=>[key(row),row]));
+ const guests=value=>[...new Set(String(value||'').split(';').map(s=>s.trim().toLowerCase()).filter(Boolean))].sort().join(';');
  const rows=[...VC_PLAN.students.map(s=>['Individual',s.classId,s.section,s.name,s.meetingLink,s.emails.join('; '),'Pending']),...VC_PLAN.classes.map(c=>['Class',c.classId,c.section,'Class VC',c.meetingLink,c.emails.join('; '),'Pending'])];
+ for(const row of rows){const previous=old.get(key(row));if(!previous)continue;
+  if(row[0]==='Class'&&!row[4]&&/^https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/.test(previous[4]))row[4]=previous[4];
+  if(previous[6]==='Ready'&&previous[4]===row[4]&&guests(previous[5])===guests(row[5]))row[6]='Ready';
+ }
+ sheet.clearContents();
  sheet.getRange(1,1,1,7).setValues([['Type','Class','Section','StudentName','MeetingLink','Guests','Status']]);
  if(rows.length)sheet.getRange(2,1,rows.length,7).setNumberFormat('@').setValues(rows);sheet.setFrozenRows(1);
- const issues=book.insertSheet('Issues');issues.getRange(1,1).setValue('Review before Calendar updates');
+ const issues=book.getSheetByName('Issues')||book.insertSheet('Issues');issues.clearContents();issues.getRange(1,1).setValue('Current export: review before Calendar updates');
  const notes=[...VC_PLAN.issues,VC_PLAN.unverifiedFaculty+' faculty email records are marked Not Verified in the uploaded source.'];issues.getRange(2,1,notes.length,1).setNumberFormat('@').setValues(notes.map(s=>[s]));
- book.insertSheet('Class VC upload');props.setProperty('vcUpdateBook',book.getId());console.log('Private update sheet: '+book.getUrl());
+ if(!book.getSheetByName('Class VC upload'))book.insertSheet('Class VC upload');props.setProperty('vcUpdateBook',book.getId());
+ console.log((existing?'Refreshed':'Private')+' update sheet: '+book.getUrl());
+ console.log('Current export: '+VC_PLAN.students.length+' individual meetings; '+VC_PLAN.classes.length+' classes; '+VC_PLAN.issues.length+' review items; '+rows.filter(r=>r[6]!=='Ready').length+' pending updates. Existing links are preserved.');
+ }finally{lock.releaseLock();}
 }
 function vcLink(event){return event.hangoutLink||((event.conferenceData||{}).entryPoints||[]).filter(p=>p.entryPointType==='video').map(p=>p.uri)[0]||'';}
 function vcEventId(c){return 'c'+Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,VC_PLAN.hostEmail+'|class-vc|'+c.classId+'|'+c.section,Utilities.Charset.UTF_8).map(b=>((b+256)%256).toString(16).padStart(2,'0')).join('');}

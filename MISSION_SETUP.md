@@ -693,7 +693,7 @@ After saving setup, **Download Calendar VC script** produces a private Apps Scri
 file using the current saved roster, CT/Co-CT, subject teachers, support team,
 emails and individual links. Missing matches are listed for review. In the school
 Google account, add it as a new script file alongside the original meeting script;
-keep the Calendar advanced service enabled. Run `vcPrepareUpdate`, review its
+keep the Calendar advanced service enabled. Run `vcPrepareUpdate` to create or refresh the same private update workbook from the latest export; existing Class VC links are preserved and changed guest lists return to Pending. Review its
 private sheet, then run `vcApplyNextBatch` until rows are Ready. The script adds
 guests to existing individual events without changing their links and creates one
 distinct Class VC per section. Existing guest lists are preserved; no recurring
