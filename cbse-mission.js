@@ -1,3 +1,4 @@
+import {showFacultyPortrait} from './cbse-faculty-portrait.js';
 import {importVCSetup,importClassMeetings,calendarVCPlan,supportDuties,parseVCSetupCSV,supportRoleLabel,supportClasses,supportTeam} from './cbse-vc-model.js';
 import {renderSupportTeam,renderSupportResponsibilities} from './cbse-vc-view.js';
 import {calendarVCScript} from './cbse-vc-calendar.js';
@@ -430,3 +431,5 @@ $('mission-attendance-files').onchange=async event=>{
   },async()=>{const saved=await save(result.next,expected);if(saved)message(`Attendance saved for ${result.matched} matched students. Verified coverage through ${result.asOf}: ${result.covered}/${result.covered+result.missingLatest.length} students.`,'success');return saved;});
  }catch(e){message(e.message||'Attendance register could not be read.','error');}finally{attendanceReading=false;$('mission-import-attendance').disabled=false;document.documentElement.dataset.portalBusy=busy?'true':'false';}
 };
+
+showFacultyPortrait($('mission-view'),()=>canBrowse()?staff():{});
