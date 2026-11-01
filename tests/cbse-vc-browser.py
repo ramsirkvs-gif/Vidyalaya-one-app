@@ -9,12 +9,14 @@ pkg={'format':'mission-vc-support-v1','members':[
 stream=io.StringIO();writer=csv.writer(stream);writer.writerow(['RecordType','Name','Designation','Role','Purpose','Class','Sections','SubjectScope','Email','SourceVerified'])
 for m in pkg['members']:
  for scope in m['scopes']:writer.writerow(['Support',m['name'],m['designation'],m['kind'],m['purpose'],scope['classId'],';'.join(scope['sections']),scope['subjectScope'],'',''])
+writer.writerow(['Teaching','Synthetic Teacher','','one','English','X','A','source_roster','',''])
 for r in pkg['emails']:writer.writerow(['Email',r['name'],'','','','','','',r['email'],'Verified' if r['sourceVerified'] else 'Not Verified'])
 with ns['sync_playwright']() as p:
  b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);page=b.new_page();page.route('https://www.gstatic.com/firebasejs/**',ns['sdk']);errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.goto('http://127.0.0.1:8000/cbse-mission.html');page.locator('#mission-tools').wait_for(state='visible')
  page.locator('#mission-vc-file').set_input_files({'name':'setup.csv','mimeType':'text/csv','buffer':stream.getvalue().encode()});page.get_by_role('heading',name='Review VC setup',exact=True).wait_for();assert page.evaluate('window.__teacherMission') is None
  page.locator('#mission-save').click();page.locator('#mission-editor').wait_for(state='hidden');before=page.evaluate('window.__teacherMission');assert len(before['staff'])==2;assert before['staffEmails']['X:one']['email']=='teacher@example.org'
+ page.locator('#mission-tools').evaluate('(node)=>node.open=true');page.locator('#manage-support').click();page.get_by_role('heading',name='Support team / co-opted members',exact=True).wait_for();assert '2 active support members' in page.locator('#mission-view').inner_text();
  page.evaluate("location.hash='class=X&section=a'");page.get_by_role('heading',name='Student support team',exact=True).wait_for();assert 'MCQs & writing practice implementation' in page.locator('.vc-support-team').inner_text()
  page.evaluate("location.hash='student=X%3Aa%3Aone'");page.get_by_role('heading',name='Student support team',exact=True).wait_for();page.get_by_role('button',name='Synthetic PRT',exact=True).click();page.get_by_role('heading',name='Assigned support duties',exact=True).wait_for();page.get_by_role('button',name='Total students: 1 out of 1 students',exact=True).wait_for();assert 'MCQs & writing practice implementation' in page.locator('.vc-support-duties').inner_text()
  page.evaluate("location.hash='tab=teachers'");page.get_by_role('button',name='Teacher profile: Synthetic PRT',exact=True).wait_for();page.get_by_role('button',name='Teacher profile: Synthetic Special Educator',exact=True).wait_for()

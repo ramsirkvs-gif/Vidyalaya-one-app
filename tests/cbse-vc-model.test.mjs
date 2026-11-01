@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {emptyDraft} from '../cbse-model.js';
 import {emptyMission,validateMission,staffCanView,studentIndex,staffIndex} from '../cbse-mission-model.js';
 import {emptyFaculty} from '../cbse-faculty-model.js';
-import {importVCSetup,supportTeam,supportDuties,calendarVCPlan,importClassMeetings,parseVCSetupCSV} from '../cbse-vc-model.js';
+import {importVCSetup,supportTeam,supportDuties,calendarVCPlan,importClassMeetings,parseVCSetupCSV,facultyName} from '../cbse-vc-model.js';
 import {teacherReviewRows} from '../cbse-teacher-review.js';
 function fixture(){
  const draft=emptyDraft(),faculty=emptyFaculty(),mission=emptyMission();
@@ -28,6 +28,15 @@ test('readable VC CSV preserves separate support scopes and source email verific
  const rows=[['Support','Synthetic PRT','PRT','prt','Practice','X','A;B','non_ai','',''],['Support','Synthetic PRT','PRT','prt','Practice','XII','C','non_ai','',''],['Email','Synthetic PRT','PRT','','','','','','prt@example.org','Not Verified']];
  const pkg=parseVCSetupCSV(header,rows);assert.equal(pkg.members.length,1);assert.equal(pkg.members[0].scopes.length,2);assert.deepEqual(pkg.members[0].scopes[0].sections,['A','B']);assert.equal(pkg.emails[0].sourceVerified,false);
  assert.throws(()=>parseVCSetupCSV(header,[['Other']]),/wrong number/);assert.throws(()=>parseVCSetupCSV(header,[rows[0],['Support','Synthetic PRT','PRT','counsellor','Practice','X','A','all','','']]),/conflicting/);
+});
+test('honorific matching handles Mrs without stripping prefixes from ordinary names',()=>{
+ assert.equal(facultyName('MRS. Synthetic Teacher'),facultyName('Synthetic Teacher'));assert.equal(facultyName('Mr. Synthetic Teacher'),facultyName('Synthetic Teacher'));assert.equal(facultyName('Mridul'), 'MRIDUL');assert.equal(facultyName('Dravid'),'DRAVID');
+});
+test('reviewed source teaching rows fill only missing scopes, retain saved choices and skip ambiguity',()=>{
+ const f=fixture();f.pkg.teachingRows=[{classId:'X',teacherId:'teacher',name:'MR. Synthetic Teacher',sections:['A'],subjects:['English','AI']}];
+ const r=importVCSetup(f.pkg,f.mission,f.draft,f.faculty);assert.equal(r.teaching,1);assert.deepEqual(r.next.allocations.old,f.mission.allocations.old);assert.equal(r.next.allocations.source_X_a_ai.staffId,'X:teacher');assert.equal(importVCSetup(f.pkg,r.next,f.draft,f.faculty).teaching,0);
+ f.faculty.classes.X.teachers.other={...f.faculty.classes.X.teachers.teacher,name:'Different Teacher'};f.pkg.teachingRows.push({...f.pkg.teachingRows[0],teacherId:'other',name:'Different Teacher'});
+ const conflict=importVCSetup(f.pkg,f.mission,f.draft,f.faculty);assert.equal(conflict.next.allocations.source_X_a_ai,undefined);assert.ok(conflict.issues.some(s=>s.includes('multiple source teachers')));
 });
 test('reviewed support import adds only needed records, preserves teaching assignments and is idempotent',()=>{
  const f=fixture(),before=structuredClone(f);const r=importVCSetup(f.pkg,f.mission,f.draft,f.faculty);

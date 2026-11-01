@@ -1,12 +1,13 @@
 import {clone,entries,uniqueKey} from './cbse-model.js';
 import {meetingLink} from './cbse-contact-model.js';
-export const facultyName=value=>String(value||'').toUpperCase().replace(/\b(MR|MRS|MS|DR|SHRI|SMT|MISS)\.?\s*/g,'').replace(/[^A-Z0-9]/g,'');
+export const facultyName=value=>String(value||'').toUpperCase().replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS)\b\.?\s*/g,'').replace(/[^A-Z0-9]/g,'');
 const designationKind=value=>{const s=String(value||'').toUpperCase();return s.match(/\b(PGT|TGT|PRT)\b/)?.[1]||(/COUNS/.test(s)?'COUNSELLOR':/SPECIAL/.test(s)?'SPECIAL':/COMP/.test(s)?'COMPUTER':s.replace(/[^A-Z]/g,''));};
 export const validFacultyEmail=value=>typeof value==='string'&&value.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 export const isAISubject=value=>['AI','ARTIFICIALINTELLIGENCE'].includes(String(value||'').toUpperCase().replace(/[^A-Z]/g,''));
+const teachingSubject=value=>{const s=String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');return /^(MATHS|MATH|MATHEMATICS)(STANDARD|BASIC)?$/.test(s)?'MATHS':/^(ENGLISH|ENGLISHCORE|ENGLISHLANGUAGEANDLITERATURE)$/.test(s)?'ENGLISH':['AI','ARTIFICIALINTELLIGENCE'].includes(s)?'AI':['BSTD','BST','BUSINESSSTUDIES'].includes(s)?'BUSINESSSTUDIES':['CS','COMPUTERSCIENCE'].includes(s)?'CS':['IP','INFORMATICSPRACTICES'].includes(s)?'IP':['POLSCI','POLITICALSCIENCE'].includes(s)?'POLITICALSCIENCE':s;};
 export function parseVCSetupCSV(header,rows){
  if(header.join(',')!=='RecordType,Name,Designation,Role,Purpose,Class,Sections,SubjectScope,Email,SourceVerified')throw Error('Use the prepared VC support CSV.');
- const members=new Map(),emails=[];
+ const members=new Map(),emails=[],teachingRows=[];
  for(const [i,row]of rows.entries()){
   if(row.length!==header.length)throw Error(`VC CSV row ${i+2} has the wrong number of columns.`);
   const [type,name,designation,kind,purpose,classId,sections,subjectScope,email,verified]=row;
@@ -14,13 +15,15 @@ export function parseVCSetupCSV(header,rows){
    const key=facultyName(name);if(!members.has(key))members.set(key,{name,designation,kind,purpose,scopes:[]});
    const member=members.get(key);if(member.designation!==designation||member.kind!==kind||member.purpose!==purpose)throw Error(`VC CSV row ${i+2}: conflicting support member.`);
    member.scopes.push({classId,sections:sections.split(';').map(s=>s.trim()).filter(Boolean),subjectScope});
+  }else if(type==='Teaching'){
+   teachingRows.push({classId,teacherId:kind,name,sections:sections.split(';').map(s=>s.trim()).filter(Boolean),subjects:purpose.split(';').map(s=>s.trim()).filter(Boolean)});
   }else if(type==='Email'){
    if(!['Verified','Not Verified'].includes(verified))throw Error(`VC CSV row ${i+2}: use Verified or Not Verified.`);
    emails.push({name,designation,email,sourceVerified:verified==='Verified'});
-  }else throw Error(`VC CSV row ${i+2}: use Support or Email record type.`);
+  }else throw Error(`VC CSV row ${i+2}: use Support, Email or Teaching record type.`);
  }
  if(!members.size&&!emails.length)throw Error('No VC setup records.');
- return {format:'mission-vc-support-v1',members:[...members.values()],emails};
+ return {format:'mission-vc-support-v1',members:[...members.values()],emails,...(teachingRows.length?{teachingRows}:{})};
 }
 export function vcStaff(faculty,mission){
  const out={};for(const[cl,c]of entries(faculty?.classes))for(const[id,t]of entries(c.teachers))out[cl+':'+id]={...t,classId:cl,kind:'faculty'};
@@ -63,7 +66,18 @@ export function importVCSetup(pkg,mission,draft,faculty){
   const designations=new Set(candidates.map(([,t])=>String(t.designation||t.kind).toUpperCase().replace(/[^A-Z]/g,'')));if(designations.size>1){issues.push(`${row.name}: ambiguous faculty name; email unchanged.`);continue;}
   for(const[id]of candidates){const value={email:row.email.trim(),sourceVerified:row.sourceVerified===true};if(JSON.stringify(next.staffEmails[id])!==JSON.stringify(value)){next.staffEmails[id]=value;emails++;}}
  }
- return {next,added,updated,assignments,emails,ignored,issues};
+ let teaching=0;
+ if(pkg.teachingRows){
+  if(!Array.isArray(pkg.teachingRows))throw Error('Invalid source teaching rows.');
+  const rows=pkg.teachingRows.filter(row=>{const t=faculty?.classes?.[row.classId]?.teachers?.[row.teacherId];if(!t||t.status!=='active'||facultyName(t.name)!==facultyName(row.name)){issues.push(`${row.name}: source faculty no longer matches; teaching assignments unchanged.`);return false;}if(!Array.isArray(row.sections)||!Array.isArray(row.subjects))throw Error('Invalid source subject/section list.');return true;});
+  next.allocations||={};for(const[cl,c]of entries(draft.classes))for(const[sid,s]of entries(c.sections))for(const[subId,sub]of entries(s.subjects)){
+   if(entries(next.allocations).some(([,a])=>a.classId===cl&&a.sectionId===sid&&a.subjectId===subId))continue;
+   const matches=rows.filter(r=>r.classId===cl&&r.sections.includes(s.name)&&r.subjects.some(name=>teachingSubject(name)===teachingSubject(sub.name)));
+   if(matches.length===1){next.allocations[`source_${cl}_${sid}_${subId}`]={classId:cl,sectionId:sid,subjectId:subId,staffId:cl+':'+matches[0].teacherId};teaching++;}
+   else if(matches.length>1)issues.push(`${cl}-${s.name}: multiple source teachers for ${sub.name}; choose manually.`);
+  }
+ }
+ return {next,added,updated,assignments,teaching,emails,ignored,issues};
 }
 export function importClassMeetings(rows,mission,draft){
  const next=clone(mission);next.classMeetings||={};let matched=0,changed=0;const seen=new Set();
@@ -87,7 +101,7 @@ export function calendarVCPlan(draft,faculty,mission){
    const key=`${cl}:${sid}:${id}`,contact=mission.students?.[key]||{},email=validFacultyEmail(contact.email)?contact.email:'';
    if(!email)issues.push(`${cl}-${s.name} · ${p.name}: student email missing.`);else classStudents.push(email.toLowerCase());
    const teachers=entries(mission.allocations).map(([,a])=>a).filter(a=>a.classId===cl&&a.sectionId===sid&&p.subjects?.[a.subjectId]).map(a=>a.staffId);
-   for(const[subId]of entries(p.subjects))if(!entries(mission.allocations).some(([,a])=>a.classId===cl&&a.sectionId===sid&&a.subjectId===subId))issues.push(`${cl}-${s.name} · ${p.name}: subject teacher not assigned for ${s.subjects?.[subId]?.name||subId}.`);
+   for(const[subId]of entries(p.subjects))if(!entries(mission.allocations).some(([,a])=>a.classId===cl&&a.sectionId===sid&&a.subjectId===subId))issues.push(`${cl}-${s.name}: subject teacher not assigned for ${s.subjects?.[subId]?.name||subId}.`);
    const support=supportTeam(mission,faculty,cl,sid,Object.keys(p.subjects||{})).map(t=>t.id);
    const guests=emailFor([...leads,...teachers,...support],`${cl}-${s.name}`);
    if(contact.meetingLink)students.push({classId:cl,section:s.name,name:p.name,meetingLink:meetingLink(contact.meetingLink),emails:[...new Set([email.toLowerCase(),...guests].filter(Boolean))]});else issues.push(`${cl}-${s.name} · ${p.name}: individual meeting link missing.`);

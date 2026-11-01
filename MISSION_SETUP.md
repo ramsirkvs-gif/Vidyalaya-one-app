@@ -681,6 +681,8 @@ matches. Existing CT/Co-CT, subject allocations, student contacts, marks,
 attendance and individual Meet links are retained. The source's Verified / Not
 Verified label describes the uploaded sheet, not proof of mailbox ownership.
 
+The visible **Support team / co-opted members** control lists saved support members; they are not part of the subject-faculty CSV export. A reviewed setup CSV may also contain Teaching rows from the supplied current faculty roster: these fill only missing, uniquely matched subject/section assignments and retain every saved choice.
+
 Support duties are separate from ordinary subject-teacher allocations. Co-opted
 PRTs cover their specified section's non-AI subjects; AI support covers only
 enrolled AI students; counsellor and special educator cover all sections.
