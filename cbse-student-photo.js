@@ -27,3 +27,23 @@ export function placeStudentPhoto(parent,person,photo){
  if(!photo)return;validateStudentPhoto(photo);const title=parent.querySelector('h2');if(!title||parent.querySelector('.student-profile-portrait'))return;
  const row=document.createElement('div');row.className='student-profile-heading';const image=document.createElement('img');image.src=photo.dataUrl;image.alt='Photo of '+person.name;image.className='student-profile-portrait';image.width=80;image.height=100;image.decoding='async';title.replaceWith(row);row.append(image,title);
 }
+export function markStudentPhoto(node,key,mode='name'){
+ node.dataset.studentPhotoKey=key;node.dataset.studentPhotoMode=mode;if(mode==='avatar')node.dataset.studentPhotoInitials=node.textContent;return node;
+}
+export function observeStudentPhotos(root,getState){
+ const cache=new Map(),waiting=new Set(),inflight=new Map();let version='',epoch=0,running=0,scheduled=false;
+ const schedule=()=>{if(!scheduled){scheduled=true;queueMicrotask(draw);}};
+ const paint=(node,photo)=>{let image=node.querySelector('.student-name-portrait');if(!photo){image?.remove();if(node.dataset.studentPhotoMode==='avatar'&&node.textContent!==(node.dataset.studentPhotoInitials||''))node.textContent=node.dataset.studentPhotoInitials||'';node.classList.remove('has-student-photo');return;}
+  try{validateStudentPhoto(photo);}catch{return;}if(!image){image=document.createElement('img');image.className='student-name-portrait';image.alt='';image.setAttribute('aria-hidden','true');image.decoding='async';if(node.dataset.studentPhotoMode==='avatar')node.replaceChildren(image);else node.prepend(image);}
+  if(image.getAttribute('src')!==photo.dataUrl)image.src=photo.dataUrl;node.classList.add('has-student-photo');
+ };
+ const start=state=>{while(running<2&&waiting.size){const keys=[...waiting].slice(0,20),task={epoch,keys};for(const key of keys){waiting.delete(key);inflight.set(key,task);}running++;
+  Promise.resolve().then(()=>state.fetch(keys)).then(result=>{if(task.epoch!==epoch||!getState().enabled)return;for(const key of keys)cache.set(key,result.photos?.[key]||null);}).catch(()=>{if(task.epoch===epoch)for(const key of keys)cache.set(key,null);}).finally(()=>{for(const key of keys)if(inflight.get(key)===task)inflight.delete(key);running--;schedule();});
+ }};
+ const draw=()=>{scheduled=false;const state=getState(),nextVersion=String(state.enabled)+':'+state.revision;if(version!==nextVersion){version=nextVersion;epoch++;cache.clear();waiting.clear();inflight.clear();}if(!state.enabled)return;
+  const nodes=[...root.querySelectorAll('[data-student-photo-key]')],visible=new Set(nodes.map(n=>n.dataset.studentPhotoKey));for(const key of waiting)if(!visible.has(key))waiting.delete(key);
+  for(const node of nodes){const key=node.dataset.studentPhotoKey;if(state.local){paint(node,state.local[key]||null);continue;}if(cache.has(key))paint(node,cache.get(key));else if(!inflight.has(key))waiting.add(key);}
+  if(!state.local)start(state);
+ };
+ const observer=new MutationObserver(schedule);observer.observe(root,{childList:true,subtree:true});schedule();return ()=>observer.disconnect();
+}

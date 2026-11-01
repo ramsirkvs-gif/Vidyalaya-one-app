@@ -88,10 +88,11 @@ test('staff curtain gives read-only browsing without personal PIN and never expo
 });
 test('student portraits require the staff curtain and load one profile at a time',async()=>{
  const {service,data}=fixture(),photo={dataUrl:'data:image/png;base64,PRIVATE_SYNTHETIC_PHOTO',width:64,height:80};data.cbse.mission.studentPhotos={'X:a:one':photo};
- await assert.rejects(service('view-student-photo',{studentKey:'X:a:one'}),/viewing password/);
+ await assert.rejects(service('view-student-photo',{studentKey:'X:a:one'}),/viewing password/);await assert.rejects(service('view-student-photos',{studentKeys:['X:a:one']}),/viewing password/);
  const login=await service('view-login',{password:'synthetic-curtain'},'','photo-viewer'),session={viewerToken:login.viewerToken};
  const view=await service('view-data',{},'','photo-viewer',session);assert.equal(view.mission.studentPhotos,undefined);assert.ok(!JSON.stringify(view).includes('PRIVATE_SYNTHETIC_PHOTO'));
  assert.deepEqual((await service('view-student-photo',{studentKey:'X:a:one'},'','photo-viewer',session)).photo,photo);
+ const batch=await service('view-student-photos',{studentKeys:['X:a:one','X:b:two']},'','photo-viewer',session);assert.deepEqual(batch.photos['X:a:one'],photo);assert.equal(batch.photos['X:b:two'],null);await assert.rejects(service('view-student-photos',{studentKeys:Array(21).fill('X:a:one')},'','photo-viewer',session),/up to 20/);await assert.rejects(service('view-student-photos',{studentKeys:['../staffAccess']},'','photo-viewer',session),/valid student/);
  assert.equal((await service('view-student-photo',{studentKey:'X:b:two'},'','photo-viewer',session)).photo,null);
  await assert.rejects(service('view-student-photo',{studentKey:'../../staffAccess'},'','photo-viewer',session),/Invalid student photo key/);
  await service('view-logout',{},'','photo-viewer',session);await assert.rejects(service('view-student-photo',{studentKey:'X:a:one'},'','photo-viewer',session),/viewing password/);

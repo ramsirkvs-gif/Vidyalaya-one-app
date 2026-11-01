@@ -23,8 +23,9 @@ export function createSharedView({db,context,now=Date.now,defaultSecret}){
    const token=randomBytes(32).toString('hex'),expiresAt=now()+400*24*60*60_000;await db.ref('cbse/viewSessions/'+digest(token)).set({expiresAt,createdAt:now()});await db.ref('cbse/viewAttempts/'+key).remove();return {viewerToken:token,expiresAt};
   }
   if(action==='view-logout'){if(/^[a-f0-9]{64}$/.test(viewerToken||''))await db.ref('cbse/viewSessions/'+digest(viewerToken)).remove();return {ok:true};}
-  if(['view-data','view-version','view-student-photo'].includes(action)){
+  if(['view-data','view-version','view-student-photo','view-student-photos'].includes(action)){
    if(!await session(viewerToken))return {error:'Enter the staff viewing password once to browse student profiles.',status:401,curtainRequired:true};
+   if(action==='view-student-photos'){const keys=input.studentKeys;if(!Array.isArray(keys)||keys.length>20||keys.some(key=>typeof key!=='string'||!/^[A-Za-z0-9_:-]{1,300}$/.test(key)||['__proto__','constructor','prototype'].includes(key)))return {error:'Choose up to 20 valid student photo keys.',status:400};return {photos:Object.fromEntries(await Promise.all([...new Set(keys)].map(async key=>[key,await read('cbse/mission/studentPhotos/'+key)||null])))};}
    if(action==='view-student-photo'){const key=String(input.studentKey||'');if(!/^[A-Za-z0-9_:-]{1,300}$/.test(key)||['__proto__','constructor','prototype'].includes(key))return {error:'Invalid student photo key.',status:400};return {photo:await read('cbse/mission/studentPhotos/'+key)||null};}
    if(action==='view-version'){const [draft,faculty,mission]=await Promise.all(['cbse/draft/revision','cbse/facultyDraft/revision','cbse/mission/revision'].map(read));return {versions:[draft||0,faculty||0,mission||0]};}
    const c=await browsingContext(),mission=structuredClone(c.mission||emptyMission());

@@ -27,7 +27,7 @@ export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=d
  async function revoke(staffId){try{await auth.revokeRefreshTokens('mission_'+createHash('sha256').update(staffId).digest('hex').slice(0,40));}catch(e){if(e.code!=='auth/user-not-found')throw e;}}
  const sharedView=createSharedView({db,context,now,defaultSecret:viewSecret});
  return async function handle(action,input={},token='',ip='unknown',session={}){
-  if(['view-login','view-data','view-version','view-student-photo','view-logout'].includes(action)){const result=await sharedView(action,{...input,ip},session.viewerToken||'');if(result?.error){const error=new AccessError(result.error,result.status);error.curtainRequired=result.curtainRequired;throw error;}return result;}
+  if(['view-login','view-data','view-version','view-student-photo','view-student-photos','view-logout'].includes(action)){const result=await sharedView(action,{...input,ip},session.viewerToken||'');if(result?.error){const error=new AccessError(result.error,result.status);error.curtainRequired=result.curtainRequired;throw error;}return result;}
   if(action==='remember-view'){await principal(token);return sharedView('view-grant');}
   let pinIdentity;
   if(action==='pin-submit'){

@@ -716,8 +716,8 @@ numbers never substitute for a matching name. Imports merge only studentPhotos,
 retain existing data and are idempotent. Store photo CSVs and extracted images
 outside the repository. No student photo belongs in public build assets.
 
-Photos appear only in the private student profile header, including an inline
-student profile, and not in student cards or comment icons. Staff browsing snapshots
+Photos appear in private student profiles, student cards, search results, teacher
+reviews and academic lists beside keyed student names. Student comment icons remain unchanged. Staff browsing snapshots
 exclude the photo collection. The existing staff-view cookie gates the
-view-student-photo action, which returns a single requested photo with no-store
+view-student-photo and view-student-photos actions, which return one photo or at most 20 requested photos with no-store
 headers. Direct Firebase reads/writes remain Principal-only under existing rules.

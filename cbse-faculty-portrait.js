@@ -6,7 +6,7 @@ export function showFacultyPortrait(root,getStaff){
  const maps=()=>{const staff=getStaff()||{},names=new Map(),ids=new Map();for(const item of facultyPortraits){const aliases=new Set(item.names.map(nameKey));const people=Object.entries(staff).filter(([id,t])=>t.status==='active'&&aliases.has(nameKey(t.name))&&(item.staffId?id===item.staffId:t.kind===item.kind));for(const[id,t]of people){ids.set(id,item);for(const alias of [...aliases,nameKey(t.name)]){if(!names.has(alias)||names.get(alias)?.file===item.file)names.set(alias,item);else names.set(alias,null);}}}return {names,ids};};
  const draw=()=>{scheduled=false;const {names,ids}=maps();if(!ids.size)return;
   for(const node of root.querySelectorAll('button,strong,h2,p')){
-   if(node.querySelector('.faculty-portrait'))continue;
+   if(node.querySelector('.faculty-portrait')||node.closest('[data-student-photo-key]'))continue;
    const label=node.getAttribute('aria-label')||'',card=label.startsWith('Teacher profile: ');if(node.classList.contains('student-card')&&!card)continue;
    const text=card?label.slice(17):node.textContent.trim().replace(/^Posting as /,'').split(' · ')[0],person=names.get(nameKey(text));if(!person)continue;
    if(node.tagName==='H2'&&node.closest('.student-identity-card'))continue;
