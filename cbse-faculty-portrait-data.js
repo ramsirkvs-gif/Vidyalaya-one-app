@@ -1,4 +1,4 @@
-// Original embedded photos extracted from the user-supplied staff PDF.
+// Original embedded photos extracted from the user-supplied staff PDFs.
 export const facultyPortraits=[
   {
     "file": "faculty-photo-bharatlalmeena.png",
@@ -218,5 +218,69 @@ export const facultyPortraits=[
       "MR. SUYASH PATEL"
     ],
     "kind": "prt"
+  },
+  {
+    "file": "faculty-photo-laishramgangadevi.png",
+    "names": [
+      "LAISHRAM GANGA DEVI"
+    ],
+    "staffId": "XII:faculty_laishram_ganga_devi"
+  },
+  {
+    "file": "faculty-photo-tailyangyasung.png",
+    "names": [
+      "TAILYANG YASUNG"
+    ],
+    "kind": "special_educator"
+  },
+  {
+    "file": "faculty-photo-avinashsingh.png",
+    "names": [
+      "MR. AVINASH SINGH"
+    ],
+    "staffId": "X:pdf_02222829e8b1896e_43"
+  },
+  {
+    "file": "faculty-photo-bamangmeha.png",
+    "names": [
+      "BAMANG MEHA"
+    ],
+    "kind": "counsellor"
+  },
+  {
+    "file": "faculty-photo-bibekkumardubey.png",
+    "names": [
+      "BIBEK KUMAR DUBEY"
+    ],
+    "kind": "support"
+  },
+  {
+    "file": "faculty-photo-lenjinggete.png",
+    "names": [
+      "MR. LENJING GETE"
+    ],
+    "staffId": "XII:pdf_02222829e8b1896e_17"
+  },
+  {
+    "file": "faculty-photo-techiyazar.png",
+    "names": [
+      "MS. TECHI YAZAR"
+    ],
+    "staffId": "XII:pdf_02222829e8b1896e_12"
+  },
+  {
+    "file": "faculty-photo-bikashjyotidas.png",
+    "names": [
+      "MR. BIKASH JYOTI DAS"
+    ],
+    "staffId": "X:pdf_02222829e8b1896e_38"
+  },
+  {
+    "file": "faculty-photo-parthaprotimborah.png",
+    "names": [
+      "MR. PARTHA P. BORAH",
+      "PARTHA PROTIM BORAH"
+    ],
+    "staffId": "XII:pdf_02222829e8b1896e_13"
   }
 ];
