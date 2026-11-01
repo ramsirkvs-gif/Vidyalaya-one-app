@@ -1,0 +1,34 @@
+"""Requested logo, scoped search/directory, student-first layouts and continuous trends."""
+from pathlib import Path
+import json
+fx={};exec(Path('tests/cbse-simple-review-browser.py').read_text().split("with ns['sync_playwright']() as p:")[0],fx)
+old_faculty=json.dumps(fx['F']);fx['F']['classes']['XII']['teachers']['two']={'name':'Senior Synthetic Teacher','designation':'PGT','subjects':'English','teachingSections':'A, C','status':'active'};fx['DB']=fx['DB'].replace(old_faculty,json.dumps(fx['F']))
+with fx['ns']['sync_playwright']() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);ctx=b.new_context();ctx.add_init_script('window.__guest=true');ctx.route('https://www.gstatic.com/firebasejs/**',fx['sdk']);ctx.route('**/api/staff-access',fx['api']);page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+ page.goto('http://127.0.0.1:8000/cbse-mission.html');page.get_by_role('heading',name='Overview',exact=True).wait_for();page.wait_for_function("document.querySelector('.mission-logo').naturalWidth>0")
+ for width in [360,768,1440]:
+  page.set_viewport_size({'width':width,'height':900});assert page.locator('.mission-logo').is_visible();assert page.evaluate('document.documentElement.scrollWidth<=innerWidth');assert page.locator('#mission-global-search').bounding_box()['width']>200
+ page.screenshot(path='/tmp/mission-new-overview.png',full_page=True)
+ page.evaluate("location.hash='zone=teachers&tab=teachers&class=X'");directory=page.get_by_role('combobox',name='Teacher directory class',exact=True);directory.wait_for();assert directory.input_value()=='X';assert all(not v.startswith('XII:') for v in page.get_by_role('combobox',name='See my role / status',exact=True).locator('option').evaluate_all('(a)=>a.map(o=>o.value)'))
+ page.get_by_role('button',name='View both X & XII teams',exact=True).click();page.wait_for_function("document.querySelector('[aria-label=\"Teacher directory class\"]').value===''");assert any(v.startswith('XII:') for v in page.get_by_role('combobox',name='See my role / status',exact=True).locator('option').evaluate_all('(a)=>a.map(o=>o.value)'))
+ page.evaluate("location.hash='zone=teachers&tab=teachers&class=X'");directory.wait_for();page.locator('#mission-search-input').fill('Synthetic');page.get_by_role('combobox',name='Search class',exact=True).wait_for();assert page.get_by_role('combobox',name='Search class',exact=True).input_value()=='X';assert 'C' not in page.get_by_role('combobox',name='Search section',exact=True).locator('option').all_text_contents();assert page.locator('#mission-view .performance-criteria').count()==0;assert page.get_by_role('heading',name='Actions & monitoring',exact=True).count()==0
+ page.locator('#mission-search-input').fill('002');page.wait_for_function("new URLSearchParams(location.hash.slice(1)).get('q')==='002'");assert page.get_by_role('combobox',name='Search class',exact=True).input_value()=='X';assert 'Second Synthetic' in page.locator('#mission-view').inner_text();assert 'Commerce Student' not in page.locator('#mission-view').inner_text()
+ page.get_by_role('combobox',name='Search class',exact=True).select_option('XII');page.wait_for_function("new URLSearchParams(location.hash.slice(1)).get('class')==='XII'");assert 'Commerce Student' in page.locator('#mission-view').inner_text()
+ page.evaluate("location.hash='zone=students&class=X&section=a'");page.locator('#class-student-list').wait_for();page.locator('#mission-search-input').fill('Synthetic');page.get_by_role('combobox',name='Search section',exact=True).wait_for();assert page.get_by_role('combobox',name='Search section',exact=True).input_value()=='A'
+ page.evaluate("location.hash='staff=X%3Aone'");page.locator('.teacher-profile-header').wait_for();assert page.locator('.teacher-profile-header .teacher-report-scopes').count()==1
+ assert page.evaluate("!!(document.querySelector('.large-statistics').compareDocumentPosition(document.querySelector('.teacher-section-list'))&Node.DOCUMENT_POSITION_FOLLOWING)")
+ assert page.evaluate("!!(document.querySelector('.teacher-section-list').compareDocumentPosition(document.querySelector('.teacher-review-teams'))&Node.DOCUMENT_POSITION_FOLLOWING)")
+ assert page.evaluate("!!(document.querySelector('.teacher-review-teams').compareDocumentPosition(document.querySelector('.performance-criteria'))&Node.DOCUMENT_POSITION_FOLLOWING)")
+ page.screenshot(path='/tmp/mission-new-teacher.png',full_page=True)
+ for width in [360,768,1440]:
+  page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth');assert page.evaluate("parseFloat(getComputedStyle(document.querySelector('.teacher-review-teams')).maxHeight)<=220")
+ page.evaluate("location.hash='class=X&section=a'");page.locator('#class-student-list').wait_for();assert page.evaluate("!!(document.querySelector('#class-student-list').compareDocumentPosition(document.querySelector('.class-context-panel'))&Node.DOCUMENT_POSITION_FOLLOWING)")
+ page.screenshot(path='/tmp/mission-new-class.png',full_page=True)
+ for width in [360,768,1440]:
+  page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth');assert page.evaluate("parseFloat(getComputedStyle(document.querySelector('.section-context-columns .compact-teams')).maxHeight)<=220")
+ result=page.evaluate("""async()=>{const {academicGraph}=await import('./cbse-academic-view.js');const graph=academicGraph(['2026-04','2026-05','2026-06','2026-07','2026-08'],[40,null,0,null,57.5],'Trend');return {dots:graph.querySelectorAll('circle').length,gaps:[...graph.querySelectorAll('text')].filter(t=>t.textContent==='No result').length,path:graph.querySelector('path').getAttribute('d'),empty:academicGraph(['2026-04'],[null],'Empty').querySelectorAll('path').length};}""");assert result['dots']==3 and result['gaps']==2 and result['path'].count(' C ')==2 and result['empty']==0
+ page.reload();page.get_by_role('heading',name='Overview',exact=True).wait_for();assert page.locator('.overview-choice').count()==2
+ page.goto('http://127.0.0.1:8000/index.html');page.wait_for_function("document.querySelector('.mission-entry-logo').naturalWidth>0");assert page.locator('a[href="cbse-mission.html"] .mission-entry-logo').count()==1
+ assert not errors,errors
+ print('PASS exact PDF logo in both entry points; class-scoped searches/role dropdowns and explicit combined team; student-first layouts; bounded team windows; connected curves retain missing months and genuine zero scores; refresh Overview; phone/tablet/desktop fit')
+ b.close()

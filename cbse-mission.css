@@ -20,3 +20,17 @@
 .student-profile-heading{display:flex;align-items:center;gap:14px;margin-bottom:12px}.student-profile-heading h2{margin:0;min-width:0;overflow-wrap:anywhere}.student-profile-portrait{width:80px;height:100px;flex:none;object-fit:cover;object-position:50% 25%;border:1px solid var(--line);border-radius:10px;background:white}.student-photo-preview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}.student-photo-preview-grid img{width:60px;height:80px;object-fit:cover;border-radius:8px}.student-photo-preview-grid small{display:block;overflow-wrap:anywhere}@media(max-width:550px){.student-photo-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .student-name-portrait{display:inline-block;width:32px;height:40px;object-fit:cover;object-position:50% 25%;border-radius:6px;vertical-align:middle;margin-right:8px;flex:none}.student-avatar.has-student-photo{overflow:hidden;background:white}.student-avatar>.student-name-portrait{display:block;width:100%;height:100%;margin:0;border-radius:inherit}.academic-student>.student-name-portrait{width:44px;height:54px}.teacher-section-list td:first-child{white-space:normal}
+
+/* Keep the supplied team identity visible on the landing page and compact routes. */
+.mission-hero{grid-template-columns:minmax(0,1fr) 240px}
+.mission-logo{display:block;width:240px;height:240px;object-fit:contain;border-radius:50%;justify-self:end;background:#fff}
+.mission-app.mission-detail-view .mission-hero{grid-template-columns:minmax(0,1fr) 100px;gap:20px}
+.mission-detail-view .mission-logo{width:100px;height:100px}
+.teacher-profile-header{display:grid;grid-template-columns:minmax(240px,1fr) minmax(0,2fr);gap:24px;align-items:start}
+.teacher-profile-header>*{min-width:0}.teacher-profile-roles h2{font-size:18px;margin-bottom:12px}
+.teacher-profile-roles .teacher-roles{margin:0}.teacher-profile-identity p{font-size:13px;overflow-wrap:anywhere}
+.teacher-team-switch{margin-top:10px}.teacher-team-switch button{font-size:12px;min-height:38px}
+.mission-app .teacher-review-teams,.mission-app .section-context-columns .compact-teams:has(.section-support-member),.mission-app .section-context-columns .compact-teams{max-height:220px;overflow:auto;overscroll-behavior:contain;scrollbar-gutter:stable}
+.teacher-review-teams{padding:3px;align-items:start}.class-context-panel{margin-top:18px}
+@media(max-width:760px){.mission-hero{grid-template-columns:minmax(0,1fr) 90px;gap:12px;padding:24px 20px}.mission-logo{width:90px;height:90px;align-self:start}.hero-copy #mission-global-search{margin-right:-102px}.hero-kicker{display:block}.mission-hero h1{font-size:30px}.mission-hero p{font-size:12px}.hero-links{margin-right:-102px}.mission-app.mission-detail-view .mission-hero{grid-template-columns:minmax(0,1fr) 66px;gap:12px}.mission-detail-view .mission-logo{width:66px;height:66px}.mission-detail-view .hero-copy #mission-global-search{margin-right:0}.mission-detail-view .mission-hero h1{font-size:22px}.teacher-profile-header{grid-template-columns:1fr;gap:16px}}
+@media(max-width:550px){.mission-app .teacher-review-teams{display:grid;grid-template-columns:1fr;max-height:220px;overflow:auto;scroll-snap-type:none}.teacher-review-teams>.section-team{min-width:0}.mission-detail-view #mission-global-search{gap:4px}.mission-detail-view #mission-global-search .search-submit{font-size:11px;padding:8px}.mission-detail-view #mission-search-input{font-size:12px}}
