@@ -1,3 +1,4 @@
+import {importStudentPhotos,placeStudentPhoto} from './cbse-student-photo.js';
 import {showFacultyPortrait} from './cbse-faculty-portrait.js';
 import {importVCSetup,importClassMeetings,calendarVCPlan,supportDuties,parseVCSetupCSV,supportRoleLabel,supportClasses,supportTeam} from './cbse-vc-model.js';
 import {renderSupportTeam,renderSupportResponsibilities} from './cbse-vc-view.js';
@@ -122,6 +123,7 @@ function renderStudent(key,review={}){
  const s=people()[key];if(!s){studentPanel('Student not found').append(el('p','Return to the standard/section list.'));return;}
  const p=studentPanel(s.name,overview);p.classList.add('student-identity-card');p.append(el('p',`Class ${s.classId}-${s.section} · Roll ${s.roll} · ${s.stream?s.stream+' · ':''}Section total: ${listPeople(s.classId,s.sectionId).length} students`));
  if(!canBrowse()){p.append(el('p',viewPrivate()?'Your student roster is available. Complete the one-time Mission activation to open monitoring and feeding controls.':'This is the published student profile. Staff access opens authorised academic and monitoring information.'));p.append(Object.assign(el('a','Faculty PIN access','button'),{href:'cbse-staff.html?student='+encodeURIComponent(key)}));return;}
+ if(mission.studentPhotos?.[key])placeStudentPhoto(p,s,mission.studentPhotos[key]);else if(viewer)sharedAPI('view-student-photo',{studentKey:key}).then(result=>{if(canBrowse()&&p.isConnected&&result.photo)placeStudentPhoto(p,s,result.photo);}).catch(()=>{});
  if(!review.parent)renderSectionTeam(p,sectionTeam(faculty,s.classId,s.sectionId,s.section,mission,Object.keys(s.subjects||{})),{onTeacher:openTeacherProfile,heading:false});
  const reviewTeacher=review.teacherId||route().get('reviewStaff'),reviewSubjects=String(review.subjects??route().get('subject')??'').split(',').filter(id=>s.subjects?.[id]),reviewSubject=reviewSubjects[0],reviewPerson=reviewSubjects.length?{...s,subjects:Object.fromEntries(reviewSubjects.map(id=>[id,true]))}:s;if(reviewSubjects.length){p.append(el('p',`Subject-teacher review: ${reviewSubjects.map(id=>s.subjectCatalog[id]?.name||id).join(', ')} · Only these subjects and relevant teacher remarks are shown.`,'scope-notice'),button('Open full student profile',()=>review.parent?review.openFull?.():go({student:key})));if(reviewTeacher&&!review.parent)p.append(button('Back to teacher page',()=>go({staff:reviewTeacher})));}
  const progress=studentProgress(key,mission,draft,'',reviewSubjects),contact=mission.students?.[key]||{gender:'unknown',guardian:'',phones:'',location:''};
@@ -284,6 +286,19 @@ function renderTeacherDirectory(){
 }
 
 function renderClassTeacherWatch(){const p=panel('Section CT / Co-CT watch'),body=table(p,['Section','Class teacher','Co-class teacher','Open CT actions','Last review','Review']);for(const[cl,c]of entries(faculty.classes))for(const[sid,s]of entries(draft.classes[cl]?.sections)){const roles=c.roles?.[sid]||{},row=el('tr');cell(row,`${cl}-${s.name}`);for(const field of ['classTeacher','coClassTeacher']){const id=roles[field]?`${cl}:${roles[field]}`:'';const td=cell(row,'');if(id&&staff()[id])td.append(button(staffName(id),()=>go({staff:id})));else td.textContent='Not assigned';}cell(row,entries(mission.tasks).filter(([,t])=>t.category==='class_teacher'&&t.sectionKey===`${cl}:${sid}`&&!['done','cancelled'].includes(t.status)).length);const reviews=entries(mission.records).map(([,r])=>r).filter(r=>r.kind==='class_teacher'&&r.sectionKey===`${cl}:${sid}`).sort((a,b)=>b.date.localeCompare(a.date));cell(row,reviews[0]?.date||'No review recorded');const actions=cell(row,'');for(const[field,label]of [['classTeacher','Review CT'],['coClassTeacher','Review Co-CT']])if(roles[field])actions.append(button(label,()=>editRecord(null,'',`${cl}:${roles[field]}`,'class_teacher',`${cl}:${sid}`)));body.append(row);}}
+
+$('mission-import-student-photos').onclick=()=>{if(editable()&&!busy)$('mission-student-photo-file').click();};
+$('mission-student-photo-file').onchange=async event=>{
+ const file=event.target.files[0];event.target.value='';if(!file||!editable()||busy)return;
+ try{if(file.size>8000000)throw Error('Photo CSV must be smaller than 8 MB.');const expected=mission.revision,rows=parseCSVRows((await file.text()).replace(/^\uFEFF/,'')),header=rows.shift()||[],result=importStudentPhotos(header,rows,mission,people());if(!editable()||mission.revision!==expected)throw Error('Data changed while reading photos. Please select the file again.');if(!result.matched)throw Error('No photos matched the final roster.');validateMission(result.next,draft,faculty);
+  editor('Review private student photos',()=>{
+   $('mission-fields').append(el('p',`${result.matched} of ${result.total} photos matched; ${result.changed} will change; ${result.issues.length} skipped.`),el('p','Photos appear only on private student profiles. Existing marks, attendance, contacts, meeting links and comments are retained.'));
+   for(const[label,count]of entries(result.counts))$('mission-fields').append(el('p',`${label}: ${count} photos`));
+   const preview=el('div',undefined,'student-photo-preview-grid');for(const r of result.matchedRows.slice(0,4)){const item=el('div'),img=el('img');img.src=r.photo.dataUrl;img.alt='Photo of '+r.name;item.append(img,el('small',`${r.classId}-${r.section} · ${r.name}`));preview.append(item);}$('mission-fields').append(preview);
+   for(const issue of result.issues)$('mission-fields').append(el('p',issue));
+  },()=>save(result.next,expected));
+ }catch(error){message(error.message,'error');}
+};
 
 $('mission-import-vc').onclick=()=>{if(editable()&&!busy)$('mission-vc-file').click();};
 $('mission-vc-file').onchange=async event=>{

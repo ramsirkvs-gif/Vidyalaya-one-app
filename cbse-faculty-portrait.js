@@ -9,6 +9,7 @@ export function showFacultyPortrait(root,getStaff){
    if(node.querySelector('.faculty-portrait'))continue;
    const label=node.getAttribute('aria-label')||'',card=label.startsWith('Teacher profile: ');if(node.classList.contains('student-card')&&!card)continue;
    const text=card?label.slice(17):node.textContent.trim().replace(/^Posting as /,'').split(' · ')[0],person=names.get(nameKey(text));if(!person)continue;
+   if(node.tagName==='H2'&&node.closest('.student-identity-card'))continue;
    if(node.tagName==='H2'&&ids.get(new URLSearchParams(location.hash.slice(1)).get('staff'))!==person)continue;
    const size=node.tagName==='H2'?96:card?48:node.closest('.record-card')||node.tagName==='P'?32:28;
    node.prepend(portrait(person,size));node.classList.add('has-faculty-portrait');

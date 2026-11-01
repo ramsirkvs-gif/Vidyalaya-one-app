@@ -708,3 +708,16 @@ labelled **Online home visit / One to one VC**. Private setup, exported scripts,
 guest lists and meeting links must not be committed or added to public assets.
 
 Reviewed TemporaryTeaching CSV rows may reference an existing faculty ID in another standard (for example X:faculty_id for a XII assignment). This reuses the existing identity and PIN instead of duplicating the teacher. Temporary coverage is labelled in profiles and subject tables. Only missing or vacant assignments are filled; active saved choices are retained.
+
+Student portraits use a separate Principal-only **Import student photos CSV**
+review/save flow. The exact columns are Class, Section, StudentName, PhotoDataURL,
+Width, Height. A unique current roster match is required; source roll/admission
+numbers never substitute for a matching name. Imports merge only studentPhotos,
+retain existing data and are idempotent. Store photo CSVs and extracted images
+outside the repository. No student photo belongs in public build assets.
+
+Photos appear only in the private student profile header, including an inline
+student profile, and not in student cards or comment icons. Staff browsing snapshots
+exclude the photo collection. The existing staff-view cookie gates the
+view-student-photo action, which returns a single requested photo with no-store
+headers. Direct Firebase reads/writes remain Principal-only under existing rules.
