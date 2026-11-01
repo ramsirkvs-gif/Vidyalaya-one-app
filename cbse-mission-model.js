@@ -1,3 +1,4 @@
+import {vcStaff,supportDuties,validFacultyEmail} from './cbse-vc-model.js';
 import {validateAttendanceRegister,latestAttendanceRegister} from './cbse-attendance-model.js';
 import {sectionStream} from './cbse-stream-model.js';
 import {normalizedGender} from './cbse-view-data.js';
@@ -14,15 +15,18 @@ const text=(v,max=200,required=false)=>typeof v==='string'&&v.length<=max&&(!req
 const date=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&Number.isFinite(Date.parse(v+'T00:00:00Z'))&&new Date(v+'T00:00:00Z').toISOString().slice(0,10)===v;
 const safeKeys=v=>v&&typeof v==='object'&&!Array.isArray(v)&&Object.keys(v).every(k=>/^[a-zA-Z0-9_:-]{1,300}$/.test(k)&&!['__proto__','constructor','prototype'].includes(k));
 export function studentIndex(draft){const result=Object.create(null);for(const[cl,c]of entries(draft?.classes))for(const[sid,s]of entries(c.sections))for(const[id,p]of entries(s.students)){const key=`${cl}:${sid}:${id}`;result[key]={...p,key,classId:cl,sectionId:sid,section:s.name,stream:sectionStream(cl,s.name,draft.streams?.[s.stream]?.name||s.stream||''),subjectCatalog:s.subjects||{}};}return result;}
-export function staffIndex(faculty,mission){const result=Object.create(null);for(const[cl,c]of entries(faculty?.classes))for(const[id,t]of entries(c.teachers))result[`${cl}:${id}`]={...t,key:`${cl}:${id}`,classId:cl,kind:'faculty'};for(const[id,t]of entries(mission?.staff))result[`support:${id}`]={...t,key:`support:${id}`,classId:''};return result;}
+export function staffIndex(faculty,mission){return Object.fromEntries(entries(vcStaff(faculty,mission)).map(([id,t])=>[id,{...t,key:id}]));}
 export function validateMission(m,draft,faculty){
  assert(m&&m.schemaVersion===1&&Number.isInteger(m.revision)&&m.revision>=0,'Invalid Mission data.');
  const students=studentIndex(draft),staff=staffIndex(faculty,m),s=m.settings;
  assert(s&&[s.redBelow,s.greenFrom,s.attendanceRedBelow,s.attendanceGreenFrom].every(v=>Number.isFinite(v)&&v>=0&&v<=100)&&s.redBelow<s.greenFrom&&s.attendanceRedBelow<s.attendanceGreenFrom,'Colour thresholds must be ordered percentages between 0 and 100.');
- for(const field of ['students','exams','marks','attendance','records','tasks','timetable','staff','allocations','gradingRules','academicAttendance','attendanceRegisters','reportRequests'])assert(!m[field]||safeKeys(m[field]),`Invalid ${field} data.`);
+ for(const field of ['students','exams','marks','attendance','records','tasks','timetable','staff','allocations','gradingRules','academicAttendance','attendanceRegisters','reportRequests','staffEmails','supportAssignments','classMeetings'])assert(!m[field]||safeKeys(m[field]),`Invalid ${field} data.`);
  for(const[,p]of entries(m.students)){assert(['girl','boy','unknown'].includes(p.gender),'Choose a gender or Not recorded.');assert(text(p.guardian,120)&&text(p.phones,1000)&&text(p.location,500),'Contact details are too long.');validateContact(p);}
  for(const[,r]of entries(m.reportRequests)){assert(text(r.studentKey,300,true)&&text(r.notes,2000,true)&&date(r.due)&&['open','cancelled'].includes(r.status)&&safeKeys(r.targets),'Invalid teacher reporting request.');for(const[,t]of entries(r.targets))assert(text(t.staffId,300)&&['class_teacher','subject_teacher','faculty_support'].includes(t.role)&&text(t.subjectId,100),'Invalid reporting recipient.');}
- for(const[,p]of entries(m.staff))assert(text(p.name,120,true)&&['counsellor','prt','support'].includes(p.kind)&&['active','inactive'].includes(p.status)&&text(p.subjects,300),'Invalid support-team record.');
+ for(const[,p]of entries(m.staff))assert(text(p.name,120,true)&&['counsellor','special_educator','prt','support'].includes(p.kind)&&['active','inactive'].includes(p.status)&&text(p.subjects,300),'Invalid support-team record.');
+ for(const[id,r]of entries(m.staffEmails))assert(staff[id]&&validFacultyEmail(r.email)&&typeof r.sourceVerified==='boolean','Invalid faculty email.');
+ for(const[,a]of entries(m.supportAssignments))assert(staff[a.staffId]&&students&&['X','XII'].includes(a.classId)&&draft.classes[a.classId]?.sections?.[a.sectionId]?.subjects?.[a.subjectId]&&text(a.purpose,300,true)&&['prt','counsellor','special_educator','support'].includes(a.role),'Invalid support assignment.');
+ for(const[key,r]of entries(m.classMeetings)){assert(key===r.classId+':'+r.sectionId&&draft.classes?.[r.classId]?.sections?.[r.sectionId],'Invalid Class VC section.');validateContact({meetingLink:r.meetingLink});assert(r.meetingLink,'Class VC needs a link.');}
  for(const[,e]of entries(m.exams))assert(text(e.name,100,true)&&['X','XII'].includes(e.classId)&&(e.datePrecision==='month'?validMonth(e.date):date(e.date))&&['test','PB-1','PB-2','weekly','mock','monthly'].includes(e.type),'Enter a valid test name, class, type and date.');
  for(const[,v]of entries(m.marks)){
   assert(text(v.studentKey,300,true)&&text(v.subjectId,100,true)&&m.exams?.[v.examId],'Choose a valid student, subject and examination.');
@@ -67,6 +71,7 @@ export function staffCanView(staffId,studentKey,m,draft,faculty){
  const role=faculty?.classes?.[p.classId]?.roles?.[p.sectionId];const id=staffId.split(':').slice(1).join(':');
  if(staff.classId===p.classId&&(role?.classTeacher===id||role?.coClassTeacher===id))return true;
  if(entries(m.tasks).some(([,t])=>t.staffId===staffId&&(t.studentKey===studentKey||!t.studentKey&&t.sectionKey===`${p.classId}:${p.sectionId}`)&&t.status!=='cancelled'))return true;
+ if(supportDuties(m,staffId,p.classId,p.sectionId,Object.keys(p.subjects||{})).length)return true;
  if(entries(m.allocations).some(([,a])=>a.staffId===staffId&&a.classId===p.classId&&a.sectionId===p.sectionId))return true;
  return staff.classId===p.classId&&String(staff.teachingSections||'').split(/[,;]/).map(s=>s.trim().toUpperCase()).includes(p.section.toUpperCase());
 }

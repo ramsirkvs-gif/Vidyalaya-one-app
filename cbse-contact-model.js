@@ -26,5 +26,5 @@ export function validateContact(contact){
 export function serializePhones(numbers){return Object.values(numbers||{}).map(n=>`${n.label}: ${n.phone}`).join('; ');}
 export function staffStudentRoles(id,student,faculty,mission){
  const teacher=id.split(':').slice(1).join(':'),roles=faculty?.classes?.[student.classId]?.roles?.[student.sectionId]||{};
- return {classTeacher:id.startsWith(student.classId+':')&&(roles.classTeacher===teacher||roles.coClassTeacher===teacher),subjects:Object.values(mission.allocations||{}).filter(a=>a.classId===student.classId&&a.sectionId===student.sectionId&&a.staffId===id&&student.subjects?.[a.subjectId]).map(a=>({id:a.subjectId,name:student.subjectCatalog?.[a.subjectId]?.name||a.subjectId}))};
+ return {classTeacher:id.startsWith(student.classId+':')&&(roles.classTeacher===teacher||roles.coClassTeacher===teacher),subjects:[...Object.values(mission.allocations||{}),...Object.values(mission.supportAssignments||{})].filter(a=>a.classId===student.classId&&a.sectionId===student.sectionId&&a.staffId===id&&student.subjects?.[a.subjectId]).map(a=>({id:a.subjectId,name:student.subjectCatalog?.[a.subjectId]?.name||a.subjectId}))};
 }

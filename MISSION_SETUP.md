@@ -672,3 +672,35 @@ assigned counts; student profiles retain section size.
 
 Validation: performance formatting unit test, cohort/percentage browser test,
 existing academic, meeting, Principal/staff and static-build checks.
+# VC support teams and Calendar setup
+
+The Principal can use **Import VC setup / Class VC links** to review a private
+`mission-vc-support-v1` TXT/JSON package. It reuses matching staff, adds only the
+listed support members, and imports email addresses only for relevant roster
+matches. Existing CT/Co-CT, subject allocations, student contacts, marks,
+attendance and individual Meet links are retained. The source's Verified / Not
+Verified label describes the uploaded sheet, not proof of mailbox ownership.
+
+Support duties are separate from ordinary subject-teacher allocations. Co-opted
+PRTs cover their specified section's non-AI subjects; AI support covers only
+enrolled AI students; counsellor and special educator cover all sections.
+Responsibilities appear in staff, section and student profiles. New support staff
+use the existing Faculty PIN settings flow when they need to submit updates.
+
+After saving setup, **Download Calendar VC script** produces a private Apps Script
+file using the current saved roster, CT/Co-CT, subject teachers, support team,
+emails and individual links. Missing matches are listed for review. In the school
+Google account, add it as a new script file alongside the original meeting script;
+keep the Calendar advanced service enabled. Run `vcPrepareUpdate`, review its
+private sheet, then run `vcApplyNextBatch` until rows are Ready. The script adds
+guests to existing individual events without changing their links and creates one
+distinct Class VC per section. Existing guest lists are preserved; no recurring
+appointments are created. Calendar requests use `sendUpdates:none`; this is not
+an email delivery guarantee or a Meet admission policy. Review Meet controls and
+mailbox ownership in Google. No Google account access is supplied by the portal.
+
+Run `vcExportClassCSV` and use the logged direct download URL. Import that CSV
+(`Class,Section,MeetingLink`) in the same VC import control, review, and Save.
+Class VC buttons appear on section and student profiles. Individual buttons are
+labelled **Online home visit / One to one VC**. Private setup, exported scripts,
+guest lists and meeting links must not be committed or added to public assets.

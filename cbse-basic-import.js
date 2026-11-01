@@ -63,6 +63,7 @@ function importStudentMeetings(rows,header,mission,draft){
   if(candidates.length!==1){issues.push(`Row ${i+2}: no unique roster match.`);continue;}
   if(!url){issues.push(`Row ${i+2}: no meeting link; unchanged.`);continue;}
   const link=meetingLink(url),[key]=candidates[0];if(seen.has(key))throw Error(`Duplicate student at row ${i+2}.`);seen.add(key);
+  if(entries(next.classMeetings).some(([,m])=>m.meetingLink===link))throw Error(`Row ${i+2}: use a separate link from Class VC.`);
   if(entries(next.students).some(([other,p])=>other!==key&&p.meetingLink&&meetingLink(p.meetingLink)===link))throw Error(`Row ${i+2}: this meeting link belongs to another student.`);
   next.students||={};const old=next.students[key]||{gender:'unknown',guardian:'',phones:'',location:''};
   if(old.meetingLink!==link){next.students[key]={...old,meetingLink:link};changed++;}

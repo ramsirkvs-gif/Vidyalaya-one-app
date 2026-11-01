@@ -12,7 +12,7 @@ export const reviewLabels={all:'Total students',critical:'Critical fail',red:'Fa
 export function teacherResponsibilities(id,faculty,mission){
  const identities=teacherIdentityIds(id,faculty,mission),ct=[];
  for(const identity of identities){const [cl,...parts]=identity.split(':'),teacher=parts.join(':');for(const[sid,roles]of entries(faculty?.classes?.[cl]?.roles))if(roles.classTeacher===teacher||roles.coClassTeacher===teacher)ct.push({classId:cl,sectionId:sid,role:roles.classTeacher===teacher?'Class teacher':'Co-class teacher'});}
- return {ct,subjects:entries(mission.allocations).filter(([,a])=>identities.includes(a.staffId)).map(([,a])=>a)};
+ return {ct,subjects:[...entries(mission.allocations),...entries(mission.supportAssignments)].filter(([,a])=>identities.includes(a.staffId)).map(([,a])=>a)};
 }
 export function teacherReviewRows(id,faculty,mission,people,mode='subject'){
  const responsibilities=teacherResponsibilities(id,faculty,mission),groups=mode==='ct'?responsibilities.ct:responsibilities.subjects,latest=new Map();
@@ -22,9 +22,9 @@ export function teacherReviewRows(id,faculty,mission,people,mode='subject'){
 export function teacherReportScopes(id,faculty,mission,people){
  const duties=teacherResponsibilities(id,faculty,mission),sections=new Map(),name=(cl,sid)=>Object.values(people).find(p=>p.classId===cl&&p.sectionId===sid)?.section||sid,scopes=[];
  if(duties.ct.length)scopes.push({key:'ct',mode:'ct',label:'CT / Co-CT',sections:duties.ct.map(g=>g.classId+':'+g.sectionId),detail:duties.ct.map(g=>`${g.role}: ${g.classId}-${name(g.classId,g.sectionId)}`).join(' · ')});
- for(const g of duties.subjects){const key=g.classId+':'+g.sectionId;if(!sections.has(key))sections.set(key,{classId:g.classId,sectionId:g.sectionId,names:[]});const sample=Object.values(people).find(p=>p.classId===g.classId&&p.sectionId===g.sectionId);sections.get(key).names.push(sample?.subjectCatalog?.[g.subjectId]?.name||g.subjectId);}
+ for(const g of duties.subjects){const key=g.classId+':'+g.sectionId;if(!sections.has(key))sections.set(key,{classId:g.classId,sectionId:g.sectionId,names:[],support:!!g.purpose});const sample=Object.values(people).find(p=>p.classId===g.classId&&p.sectionId===g.sectionId);sections.get(key).names.push(sample?.subjectCatalog?.[g.subjectId]?.name||g.subjectId);}
  const sorted=[...sections].sort(([,a],[,b])=>['X','XII'].indexOf(a.classId)-['X','XII'].indexOf(b.classId)||name(a.classId,a.sectionId).localeCompare(name(b.classId,b.sectionId),undefined,{numeric:true}));
- for(const[key,g]of sorted)scopes.push({key:'subject:'+key,mode:'subject',label:`Subject teacher · ${g.classId}-${name(g.classId,g.sectionId)}`,sections:[key],detail:`Subject teacher: ${[...new Set(g.names)].join(', ')} · ${g.classId}-${name(g.classId,g.sectionId)}`});
+ for(const[key,g]of sorted)scopes.push({key:'subject:'+key,mode:'subject',label:`${g.support?'Support':'Subject teacher'} · ${g.classId}-${name(g.classId,g.sectionId)}`,sections:[key],detail:`${g.support?'Support subjects':'Subject teacher'}: ${[...new Set(g.names)].join(', ')} · ${g.classId}-${name(g.classId,g.sectionId)}`});
  if(sorted.length>1)scopes.push({key:'combined',mode:'subject',label:`Combined (${sorted.map(([,g])=>g.classId+'-'+name(g.classId,g.sectionId)).join(' + ')})`,sections:sorted.map(([key])=>key),detail:'Subject report across all allocated sections · each student counted once'});
  return scopes;
 }
