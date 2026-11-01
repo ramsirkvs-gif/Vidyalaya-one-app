@@ -40,6 +40,14 @@ test('reviewed source teaching rows fill only missing scopes, retain saved choic
  f.faculty.classes.X.teachers.other={...f.faculty.classes.X.teachers.teacher,name:'Different Teacher'};f.pkg.teachingRows.push({...f.pkg.teachingRows[0],teacherId:'other',name:'Different Teacher'});
  const conflict=importVCSetup(f.pkg,f.mission,f.draft,f.faculty);assert.equal(conflict.next.allocations.source_X_a_ai,undefined);assert.ok(conflict.issues.some(s=>s.includes('multiple source teachers')));
 });
+test('temporary coverage reuses an existing teacher across standards with working student access',()=>{
+ const f=fixture();f.pkg.teachingRows=[{classId:'XII',staffClassId:'X',teacherId:'teacher',name:'MR. Synthetic Teacher',sections:['A','B','C','D','E'],subjects:['AI'],temporary:true}];
+ const r=importVCSetup(f.pkg,f.mission,f.draft,f.faculty);assert.equal(r.teaching,5);validateMission(r.next,f.draft,f.faculty);
+ for(const sid of Object.keys(f.draft.classes.XII.sections)){const a=r.next.allocations['source_XII_'+sid+'_ai'];assert.equal(a.staffId,'X:teacher');assert.equal(a.temporary,true);assert.equal(staffCanView('X:teacher','XII:'+sid+':one',r.next,f.draft,f.faculty),true);}
+ assert.equal(teacherReviewRows('X:teacher',f.faculty,r.next,studentIndex(f.draft)).filter(r=>r.person.classId==='XII').length,5);
+ assert.deepEqual(f.faculty.classes.XII.teachers,{});assert.equal(importVCSetup(f.pkg,r.next,f.draft,f.faculty).teaching,0);
+ const header='RecordType,Name,Designation,Role,Purpose,Class,Sections,SubjectScope,Email,SourceVerified'.split(',');const parsed=parseVCSetupCSV(header,[['TemporaryTeaching','Synthetic Teacher','','X:teacher','AI','XII','A;B','source_roster','',''],['Email','Synthetic Teacher','','','','','','','teacher@example.org','Verified']]);assert.equal(parsed.teachingRows[0].staffClassId,'X');assert.equal(parsed.teachingRows[0].temporary,true);
+});
 test('reviewed support import adds only needed records, preserves teaching assignments and is idempotent',()=>{
  const f=fixture(),before=structuredClone(f);const r=importVCSetup(f.pkg,f.mission,f.draft,f.faculty);
  assert.equal(r.added,4);assert.equal(r.emails,5);assert.equal(r.ignored,1);assert.deepEqual(r.next.allocations,f.mission.allocations);assert.deepEqual(r.next.students,f.mission.students);assert.deepEqual(f,before);validateMission(r.next,f.draft,f.faculty);

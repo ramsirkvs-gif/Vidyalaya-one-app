@@ -12,3 +12,5 @@
 
 .vc-support-team,.vc-support-duties{margin:12px 0;padding:12px;border:1px solid var(--line);border-radius:12px;background:#f1f7f4}.vc-support-team h3,.vc-support-duties h3{font-size:14px;margin:0 0 8px}.vc-support-member{display:flex;align-items:center;gap:10px;margin:7px 0;flex-wrap:wrap}.vc-support-member small{flex:1;min-width:160px;overflow-wrap:anywhere}.vc-support-duties p{font-size:13px;overflow-wrap:anywhere}
 .section-team .vc-support-team{margin:10px 0 0;padding:9px;background:#eef6f1}.section-support-member>small{display:block;white-space:normal;overflow-wrap:anywhere}.section-context-columns .compact-teams:has(.section-support-member){max-height:480px}.subject-support-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:7px;padding-top:6px;border-top:1px solid var(--line)}.subject-support-line>small{font-weight:700;white-space:normal}.subject-support-line button{white-space:normal;overflow-wrap:anywhere}
+
+.temporary-teacher-note{display:block;margin-top:5px;color:#72520b;font-weight:600;font-size:12px}

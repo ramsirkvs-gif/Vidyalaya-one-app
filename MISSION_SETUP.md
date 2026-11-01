@@ -706,3 +706,5 @@ Run `vcExportClassCSV` and use the logged direct download URL. Import that CSV
 Class VC buttons appear on section and student profiles. Individual buttons are
 labelled **Online home visit / One to one VC**. Private setup, exported scripts,
 guest lists and meeting links must not be committed or added to public assets.
+
+Reviewed TemporaryTeaching CSV rows may reference an existing faculty ID in another standard (for example X:faculty_id for a XII assignment). This reuses the existing identity and PIN instead of duplicating the teacher. Temporary coverage is labelled in profiles and subject tables. Only missing or vacant assignments are filled; active saved choices are retained.

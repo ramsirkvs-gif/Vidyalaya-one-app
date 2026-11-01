@@ -50,7 +50,7 @@ export function validateMission(m,draft,faculty){
   for(const previous of slots)assert(!(previous.weekday===t.weekday&&t.start<previous.end&&t.end>previous.start&&(previous.staffId===t.staffId||previous.classId===t.classId&&previous.sectionId===t.sectionId||t.room&&previous.room===t.room)),'Timetable clash: teacher, section or room is already occupied.');slots.push(t);
  }
  const gradeScopes=new Set();for(const[,r]of entries(m.gradingRules)){assert(['X','XII'].includes(r.classId)&&text(r.subjectId,100)&&text(r.examId,100)&&Number.isFinite(r.redBelow)&&Number.isFinite(r.greenFrom)&&r.redBelow>=0&&r.greenFrom<=100&&r.redBelow<r.greenFrom,'Enter valid class/subject/examination colour thresholds.');assert(!r.examId||m.exams?.[r.examId]?.classId===r.classId,'The grading examination does not match its class.');const scope=`${r.classId}|${r.subjectId}|${r.examId}`;assert(!gradeScopes.has(scope),'A colour rule already exists for this scope.');gradeScopes.add(scope);}
- for(const[,a]of entries(m.allocations))assert(['X','XII'].includes(a.classId)&&text(a.sectionId,100,true)&&text(a.subjectId,100,true)&&text(a.staffId,300,true),'Invalid subject-teacher assignment.');
+ for(const[,a]of entries(m.allocations))assert(['X','XII'].includes(a.classId)&&text(a.sectionId,100,true)&&text(a.subjectId,100,true)&&text(a.staffId,300,true)&&(a.temporary===undefined||typeof a.temporary==='boolean'),'Invalid subject-teacher assignment.');
  return m;
 }
 export function band(value,red,green){return value===null||!Number.isFinite(value)?'grey':value<red?'red':value<green?'yellow':'green';}

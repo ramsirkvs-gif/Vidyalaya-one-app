@@ -20,12 +20,13 @@ export function parseVCSetupCSV(header,rows){
    const key=facultyName(name);if(!members.has(key))members.set(key,{name,designation,kind,purpose,scopes:[]});
    const member=members.get(key);if(member.designation!==designation||member.kind!==kind||member.purpose!==purpose)throw Error(`VC CSV row ${i+2}: conflicting support member.`);
    member.scopes.push({classId,sections:sections.split(';').map(s=>s.trim()).filter(Boolean),subjectScope});
-  }else if(type==='Teaching'){
-   teachingRows.push({classId,teacherId:kind,name,sections:sections.split(';').map(s=>s.trim()).filter(Boolean),subjects:purpose.split(';').map(s=>s.trim()).filter(Boolean)});
+  }else if(type==='Teaching'||type==='TemporaryTeaching'){
+   const parts=kind.split(':');if(parts.length>2||parts.length===2&&!['X','XII'].includes(parts[0]))throw Error(`VC CSV row ${i+2}: invalid faculty reference.`);
+   teachingRows.push({classId,teacherId:parts.at(-1),...(parts.length===2?{staffClassId:parts[0]}:{}),name,sections:sections.split(';').map(s=>s.trim()).filter(Boolean),subjects:purpose.split(';').map(s=>s.trim()).filter(Boolean),...(type==='TemporaryTeaching'?{temporary:true}:{})});
   }else if(type==='Email'){
    if(!['Verified','Not Verified'].includes(verified))throw Error(`VC CSV row ${i+2}: use Verified or Not Verified.`);
    emails.push({name,designation,email,sourceVerified:verified==='Verified'});
-  }else throw Error(`VC CSV row ${i+2}: use Support, Email or Teaching record type.`);
+  }else throw Error(`VC CSV row ${i+2}: use Support, Email, Teaching or TemporaryTeaching record type.`);
  }
  if(!members.size&&!emails.length)throw Error('No VC setup records.');
  return {format:'mission-vc-support-v1',members:[...members.values()],emails,...(teachingRows.length?{teachingRows}:{})};
@@ -74,11 +75,11 @@ export function importVCSetup(pkg,mission,draft,faculty){
  let teaching=0;
  if(pkg.teachingRows){
   if(!Array.isArray(pkg.teachingRows))throw Error('Invalid source teaching rows.');
-  const rows=pkg.teachingRows.filter(row=>{const t=faculty?.classes?.[row.classId]?.teachers?.[row.teacherId];if(!t||t.status!=='active'||facultyName(t.name)!==facultyName(row.name)){issues.push(`${row.name}: source faculty no longer matches; teaching assignments unchanged.`);return false;}if(!Array.isArray(row.sections)||!Array.isArray(row.subjects))throw Error('Invalid source subject/section list.');return true;});
+  const rows=pkg.teachingRows.filter(row=>{const t=faculty?.classes?.[row.staffClassId||row.classId]?.teachers?.[row.teacherId];if(!t||t.status!=='active'||facultyName(t.name)!==facultyName(row.name)){issues.push(`${row.name}: source faculty no longer matches; teaching assignments unchanged.`);return false;}if(!Array.isArray(row.sections)||!Array.isArray(row.subjects))throw Error('Invalid source subject/section list.');return true;});
   next.allocations||={};for(const[cl,c]of entries(draft.classes))for(const[sid,s]of entries(c.sections))for(const[subId,sub]of entries(s.subjects)){
-   if(entries(next.allocations).some(([,a])=>a.classId===cl&&a.sectionId===sid&&a.subjectId===subId))continue;
+   const old=entries(next.allocations).find(([,a])=>a.classId===cl&&a.sectionId===sid&&a.subjectId===subId);if(old&&vcStaff(faculty,next)[old[1].staffId]?.status==='active')continue;
    const matches=rows.filter(r=>r.classId===cl&&r.sections.includes(s.name)&&r.subjects.some(name=>teachingSubject(name)===teachingSubject(sub.name)));
-   if(matches.length===1){next.allocations[`source_${cl}_${sid}_${subId}`]={classId:cl,sectionId:sid,subjectId:subId,staffId:cl+':'+matches[0].teacherId};teaching++;}
+   if(matches.length===1){next.allocations[old?.[0]||`source_${cl}_${sid}_${subId}`]={classId:cl,sectionId:sid,subjectId:subId,staffId:(matches[0].staffClassId||cl)+':'+matches[0].teacherId,...(matches[0].temporary?{temporary:true}:{})};teaching++;}
    else if(matches.length>1)issues.push(`${cl}-${s.name}: multiple source teachers for ${sub.name}; choose manually.`);
   }
  }
