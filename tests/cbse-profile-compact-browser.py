@@ -1,0 +1,20 @@
+"""Compact student views, actionable subject summaries, private contacts and printable threads."""
+from pathlib import Path
+import json
+fx={};exec(Path('tests/cbse-simple-review-browser.py').read_text().split("with ns['sync_playwright']() as p:")[0],fx)
+M=fx['M'];M['staffContacts']={'X:one':{'mobile':'9876543210','whatsapp':'+919876543211'}}
+M['records']['reply']={'kind':'faculty_comment','date':'2026-11-01','studentKey':'X:a:one','staffId':'X:one','subjectId':'english','notes':'Practice and parent follow-up completed','outcome':'','visibility':'general','authorId':'X:one','authorName':'Synthetic Teacher','authorRole':'subject_teacher','replyToRecord':'e','updatedAt':2}
+with fx['ns']['sync_playwright']() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);ctx=b.new_context();ctx.add_init_script('window.__guest=true');ctx.route('https://www.gstatic.com/firebasejs/**',fx['sdk']);ctx.route('**/api/staff-access',fx['api']);page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+ page.goto('http://127.0.0.1:8000/cbse-mission.html#staff=X%3Aone');page.get_by_role('heading',name='Teacher profile · roles & progress',exact=True).wait_for();assert page.get_by_role('link',name='Call teacher',exact=True).get_attribute('href')=='tel:9876543210';assert page.get_by_role('link',name='Message teacher on WhatsApp',exact=True).get_attribute('href')=='https://wa.me/919876543211';assert 'Not Verified' not in page.locator('.teacher-profile-header').inner_text();assert page.get_by_role('button',name='Prime mentor of class (CT/Co CT)',exact=True).count()==1
+ page.evaluate("location.hash='student=X%3Aa%3Aone'");page.get_by_role('heading',name='Academic history and current status',exact=True).wait_for();assert page.locator('.student-identity-card .section-team').count()==0;assert not page.locator('.student-mentor-details').get_attribute('open')
+ page.locator('[data-summary=critical]').click();assert page.locator('.academic-summary-selection').inner_text()=='Critical subjects: Science';assert page.locator('.student-current-results tbody tr:visible').count()==1;assert 'Science' in page.locator('.student-current-results tbody tr:visible').inner_text();page.locator('[data-summary=critical]').click();assert page.locator('.student-current-results tbody tr:visible').count()==2
+ assert page.locator('.conversation-replies [data-record-id=reply]').count()==1;page.locator('[data-record-id=e]').get_by_role('button',name='Reply',exact=True).click();assert 'English progress only' in page.locator('[name=progress-notes]').get_attribute('placeholder');assert page.locator('[name=comment-pin]').count()==1
+ proof=page.evaluate("""async()=>{const {discussionEvidence}=await import('./cbse-discussion-view.js');const node=discussionEvidence(document,document.querySelector('#student-remarks-section .conversation-thread'),'Synthetic Student X · Class X-A · Evidence');return {html:node.outerHTML,forms:node.querySelectorAll('input,textarea,select,button,form').length,messages:node.querySelectorAll('.conversation-message').length};}""");assert proof['forms']==0 and proof['messages']==3
+ proofpage=ctx.new_page();proofpage.set_content(proof['html']);proofpage.pdf(path='/tmp/synthetic-progress-evidence.pdf');proofpage.close()
+ for width in [360,768,1440]:
+  page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth');assert page.evaluate("parseFloat(getComputedStyle(document.querySelector('.academic-progress-window')).maxHeight)<=270");assert page.evaluate("parseFloat(getComputedStyle(document.querySelector('.student-current-results')).maxHeight)<=220")
+ page.screenshot(path='/tmp/compact-student-profile.png',full_page=True)
+ assert not errors,errors
+ print('PASS compact student identity/mentor disclosure; clickable critical subjects; bounded result/graph windows; original phone/WhatsApp targets; nested replies; printable evidence without forms/PINs; mobile/tablet/desktop fit.')
+ b.close()

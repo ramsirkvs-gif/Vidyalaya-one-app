@@ -4,7 +4,7 @@ import {validateAttendanceRegister,latestAttendanceRegister} from './cbse-attend
 import {sectionStream} from './cbse-stream-model.js';
 import {normalizedGender} from './cbse-view-data.js';
 import {sectionTeam} from './cbse-section-team.js';
-import {validateContact,staffStudentRoles} from './cbse-contact-model.js';
+import {validateContact,staffStudentRoles,dialNumber} from './cbse-contact-model.js';
 import {validMonth,academicMarkBand,overallAcademicBand} from './cbse-academic-model.js';
 import {entries,clone} from './cbse-model.js';
 import {validateMonitoringDetails,visibleMonitoringDetails} from './cbse-monitoring-model.js';
@@ -21,11 +21,12 @@ export function validateMission(m,draft,faculty){
  assert(m&&m.schemaVersion===1&&Number.isInteger(m.revision)&&m.revision>=0,'Invalid Mission data.');
  const students=studentIndex(draft),staff=staffIndex(faculty,m),s=m.settings;
  assert(s&&[s.redBelow,s.greenFrom,s.attendanceRedBelow,s.attendanceGreenFrom].every(v=>Number.isFinite(v)&&v>=0&&v<=100)&&s.redBelow<s.greenFrom&&s.attendanceRedBelow<s.attendanceGreenFrom,'Colour thresholds must be ordered percentages between 0 and 100.');
- for(const field of ['students','exams','marks','attendance','records','tasks','timetable','staff','allocations','gradingRules','academicAttendance','attendanceRegisters','reportRequests','staffEmails','supportAssignments','classMeetings','studentPhotos'])assert(!m[field]||safeKeys(m[field]),`Invalid ${field} data.`);
+ for(const field of ['students','exams','marks','attendance','records','tasks','timetable','staff','allocations','gradingRules','academicAttendance','attendanceRegisters','reportRequests','staffEmails','staffContacts','supportAssignments','classMeetings','studentPhotos'])assert(!m[field]||safeKeys(m[field]),`Invalid ${field} data.`);
  if(m.studentPhotos)validateStudentPhotos(m.studentPhotos);
  for(const[,p]of entries(m.students)){assert(['girl','boy','unknown'].includes(p.gender),'Choose a gender or Not recorded.');assert(text(p.guardian,120)&&text(p.phones,1000)&&text(p.location,500),'Contact details are too long.');validateContact(p);}
  for(const[,r]of entries(m.reportRequests)){assert(text(r.studentKey,300,true)&&text(r.notes,2000,true)&&date(r.due)&&['open','cancelled'].includes(r.status)&&safeKeys(r.targets),'Invalid teacher reporting request.');for(const[,t]of entries(r.targets))assert(text(t.staffId,300)&&['class_teacher','subject_teacher','faculty_support'].includes(t.role)&&text(t.subjectId,100),'Invalid reporting recipient.');}
  for(const[,p]of entries(m.staff))assert(text(p.name,120,true)&&['counsellor','special_educator','prt','support'].includes(p.kind)&&['active','inactive'].includes(p.status)&&text(p.subjects,300),'Invalid support-team record.');
+ for(const[id,r]of entries(m.staffContacts))assert(staff[id]&&r&&typeof r.mobile==='string'&&typeof r.whatsapp==='string'&&(!r.mobile||dialNumber(r.mobile))&&(!r.whatsapp||dialNumber(r.whatsapp)),'Invalid staff contact.');
  for(const[id,r]of entries(m.staffEmails))assert(staff[id]&&validFacultyEmail(r.email)&&typeof r.sourceVerified==='boolean','Invalid faculty email.');
  for(const[,a]of entries(m.supportAssignments))assert(staff[a.staffId]&&students&&['X','XII'].includes(a.classId)&&draft.classes[a.classId]?.sections?.[a.sectionId]?.subjects?.[a.subjectId]&&text(a.purpose,300,true)&&['prt','counsellor','special_educator','support'].includes(a.role),'Invalid support assignment.');
  for(const[key,r]of entries(m.classMeetings)){assert(key===r.classId+':'+r.sectionId&&draft.classes?.[r.classId]?.sections?.[r.sectionId],'Invalid Class VC section.');validateContact({meetingLink:r.meetingLink});assert(r.meetingLink,'Class VC needs a link.');}

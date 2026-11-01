@@ -124,3 +124,12 @@ test('teacher-profile comments require a fresh own-identity PIN and bind replies
  const reply=Object.values(data.cbse.mission.records).find(r=>r.replyToRecord==='review');assert.equal(reply.authorId,'X:one');assert.equal(reply.studentKey,'');assert.equal(reply.staffId,'X:one');
  const login=await service('view-login',{password:'synthetic-curtain'}),view=await service('view-data',{},'','ip',{viewerToken:login.viewerToken});assert.ok(Object.values(view.mission.records).some(r=>r.replyToRecord==='review'));
 });
+
+test('student conversation replies require a same-student general remark and retain verified authorship',async()=>{
+ const{service,data}=fixture();await service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ data.cbse.mission.records.parent={kind:'faculty_comment',studentKey:'X:a:one',staffId:'',subjectId:'',authorId:'principal',visibility:'general',notes:'Review practice'};
+ const input={operation:'comment',studentKey:'X:a:one',staffId:'X:one',pin:'123',role:'faculty_support',notes:'Practice completed',replyToRecord:'parent'};
+ await service('pin-submit',input,'','reply-ip');const reply=Object.values(data.cbse.mission.records).find(r=>r.notes==='Practice completed');assert.equal(reply.replyToRecord,'parent');assert.equal(reply.authorName,'Synthetic Teacher');
+ await assert.rejects(service('pin-submit',{...input,studentKey:'X:b:two'},'','reply-ip'),/unavailable for reply/);
+ data.cbse.mission.records.parent.visibility='restricted';await assert.rejects(service('pin-submit',input,'','reply-ip'),/unavailable for reply/);
+});

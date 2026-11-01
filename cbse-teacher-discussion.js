@@ -1,7 +1,8 @@
+import {renderConversation,addDiscussionPrint} from './cbse-discussion-view.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
 import {el,options} from './cbse-ui.js';
 export function renderTeacherDiscussion(parent,{teacherId,teacher,identities=[{id:teacherId,name:teacher.name}],mission,principal,onPrincipal,onStaff,onPrincipalLogin}){
- parent.id='teacher-remarks-section';parent.append(el('h2','Teacher comments & Principal review'));
+ parent.id='teacher-remarks-section';parent.append(el('h2','Teacher comments & Principal review'));addDiscussionPrint(parent,teacher.name+' · Teacher progress conversation');
  const records=Object.entries(mission.records||{}).filter(([,r])=>!r.studentKey&&identities.some(t=>t.id===r.staffId)&&r.kind==='faculty_comment'&&r.visibility==='general').sort((a,b)=>(b[1].updatedAt||0)-(a[1].updatedAt||0));
  const grid=el('div',undefined,'comment-composers'),principalBox=el('section',undefined,'comment-composer principal-composer'),teacherBox=el('section',undefined,'comment-composer teacher-composer');principalBox.append(el('h3','Principal comment'));teacherBox.append(el('h3','Teacher comment · PIN to submit'));grid.append(principalBox,teacherBox);parent.append(grid);
  const composer=(box,asPrincipal)=>{
@@ -12,7 +13,7 @@ export function renderTeacherDiscussion(parent,{teacherId,teacher,identities=[{i
   return {replyTo:(id,text)=>{replyToRecord=id;replyLabel.textContent='Replying to: '+text;notes.focus();form.scrollIntoView({behavior:'smooth',block:'center'});}};
  };
  if(principal)composer(principalBox,true);else{const label=el('label','Principal comment'),field=el('textarea');field.name='principal-teacher-view';field.disabled=true;field.placeholder='The Principal can sign in to add a comment here.';label.append(field);principalBox.append(label);renderPrincipalLogin(principalBox,onPrincipalLogin);}
- const faculty=composer(teacherBox,false),thread=el('div',undefined,'progress-thread');let pending=0;
- for(const[id,r]of records){const card=el('article',undefined,'record-card');card.append(el('strong',r.authorName||'Principal'),el('small',r.date),el('p',r.notes));if(r.authorId==='principal'){const reported=records.some(([,reply])=>identities.some(t=>t.id===reply.authorId)&&reply.replyToRecord===id);card.append(el('span',reported?'Teacher has replied':'Teacher has not reported progress',reported?'reported':'not-reported'));if(!reported)pending++;const reply=el('button','Reply to Principal with PIN');reply.type='button';reply.onclick=()=>faculty.replyTo(id,r.notes);card.append(reply);}else if(r.replyToRecord)card.append(el('small','Reply to Principal review'));thread.append(card);}
- if(pending)parent.insertBefore(el('p',`${pending} Principal comment(s) awaiting a teacher reply`,'pending-report-notice'),grid);parent.append(thread);
+ const faculty=composer(teacherBox,false);let pending=0;
+ const thread=renderConversation(parent,records,{decorate:(card,id,r)=>{if(r.authorId==='principal'){const reported=records.some(([,reply])=>identities.some(t=>t.id===reply.authorId)&&reply.replyToRecord===id);card.append(el('span',reported?'Teacher has replied':'Teacher has not reported progress',reported?'reported':'not-reported'));if(!reported)pending++;const reply=el('button','Reply to Principal with PIN');reply.type='button';reply.onclick=()=>faculty.replyTo(id,r.notes);card.append(reply);}}});parent.insertBefore(thread,grid);
+ if(pending)parent.insertBefore(el('p',`${pending} Principal comment(s) awaiting a teacher reply`,'pending-report-notice'),grid);
 }
