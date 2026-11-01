@@ -675,7 +675,7 @@ existing academic, meeting, Principal/staff and static-build checks.
 # VC support teams and Calendar setup
 
 The Principal can use **Import VC setup / Class VC links** to review a private
-`mission-vc-support-v1` TXT/JSON package. It reuses matching staff, adds only the
+`mission-vc-support-v1` TXT/JSON package or its readable CSV version. It reuses matching staff, adds only the
 listed support members, and imports email addresses only for relevant roster
 matches. Existing CT/Co-CT, subject allocations, student contacts, marks,
 attendance and individual Meet links are retained. The source's Verified / Not

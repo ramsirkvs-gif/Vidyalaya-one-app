@@ -4,6 +4,24 @@ export const facultyName=value=>String(value||'').toUpperCase().replace(/\b(MR|M
 const designationKind=value=>{const s=String(value||'').toUpperCase();return s.match(/\b(PGT|TGT|PRT)\b/)?.[1]||(/COUNS/.test(s)?'COUNSELLOR':/SPECIAL/.test(s)?'SPECIAL':/COMP/.test(s)?'COMPUTER':s.replace(/[^A-Z]/g,''));};
 export const validFacultyEmail=value=>typeof value==='string'&&value.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 export const isAISubject=value=>['AI','ARTIFICIALINTELLIGENCE'].includes(String(value||'').toUpperCase().replace(/[^A-Z]/g,''));
+export function parseVCSetupCSV(header,rows){
+ if(header.join(',')!=='RecordType,Name,Designation,Role,Purpose,Class,Sections,SubjectScope,Email,SourceVerified')throw Error('Use the prepared VC support CSV.');
+ const members=new Map(),emails=[];
+ for(const [i,row]of rows.entries()){
+  if(row.length!==header.length)throw Error(`VC CSV row ${i+2} has the wrong number of columns.`);
+  const [type,name,designation,kind,purpose,classId,sections,subjectScope,email,verified]=row;
+  if(type==='Support'){
+   const key=facultyName(name);if(!members.has(key))members.set(key,{name,designation,kind,purpose,scopes:[]});
+   const member=members.get(key);if(member.designation!==designation||member.kind!==kind||member.purpose!==purpose)throw Error(`VC CSV row ${i+2}: conflicting support member.`);
+   member.scopes.push({classId,sections:sections.split(';').map(s=>s.trim()).filter(Boolean),subjectScope});
+  }else if(type==='Email'){
+   if(!['Verified','Not Verified'].includes(verified))throw Error(`VC CSV row ${i+2}: use Verified or Not Verified.`);
+   emails.push({name,designation,email,sourceVerified:verified==='Verified'});
+  }else throw Error(`VC CSV row ${i+2}: use Support or Email record type.`);
+ }
+ if(!members.size&&!emails.length)throw Error('No VC setup records.');
+ return {format:'mission-vc-support-v1',members:[...members.values()],emails};
+}
 export function vcStaff(faculty,mission){
  const out={};for(const[cl,c]of entries(faculty?.classes))for(const[id,t]of entries(c.teachers))out[cl+':'+id]={...t,classId:cl,kind:'faculty'};
  for(const[id,t]of entries(mission?.staff))out['support:'+id]={...t,classId:''};

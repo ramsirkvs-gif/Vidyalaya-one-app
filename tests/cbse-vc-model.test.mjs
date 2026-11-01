@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {emptyDraft} from '../cbse-model.js';
 import {emptyMission,validateMission,staffCanView,studentIndex,staffIndex} from '../cbse-mission-model.js';
 import {emptyFaculty} from '../cbse-faculty-model.js';
-import {importVCSetup,supportTeam,supportDuties,calendarVCPlan,importClassMeetings} from '../cbse-vc-model.js';
+import {importVCSetup,supportTeam,supportDuties,calendarVCPlan,importClassMeetings,parseVCSetupCSV} from '../cbse-vc-model.js';
 import {teacherReviewRows} from '../cbse-teacher-review.js';
 function fixture(){
  const draft=emptyDraft(),faculty=emptyFaculty(),mission=emptyMission();
@@ -23,6 +23,12 @@ function fixture(){
  ],emails:[{name:'Synthetic Teacher',email:'teacher@example.org',sourceVerified:false},{name:'Synthetic Counsellor',email:'counsellor@example.org',sourceVerified:true},{name:'Synthetic Special Educator',email:'special@example.org',sourceVerified:false},{name:'Synthetic PRT',email:'prt@example.org',sourceVerified:true},{name:'Synthetic AI Support',email:'ai@example.org',sourceVerified:true},{name:'Unrelated employee',email:'unrelated@example.org',sourceVerified:true}]};
  return {draft,faculty,mission,pkg};
 }
+test('readable VC CSV preserves separate support scopes and source email verification',()=>{
+ const header='RecordType,Name,Designation,Role,Purpose,Class,Sections,SubjectScope,Email,SourceVerified'.split(',');
+ const rows=[['Support','Synthetic PRT','PRT','prt','Practice','X','A;B','non_ai','',''],['Support','Synthetic PRT','PRT','prt','Practice','XII','C','non_ai','',''],['Email','Synthetic PRT','PRT','','','','','','prt@example.org','Not Verified']];
+ const pkg=parseVCSetupCSV(header,rows);assert.equal(pkg.members.length,1);assert.equal(pkg.members[0].scopes.length,2);assert.deepEqual(pkg.members[0].scopes[0].sections,['A','B']);assert.equal(pkg.emails[0].sourceVerified,false);
+ assert.throws(()=>parseVCSetupCSV(header,[['Other']]),/wrong number/);assert.throws(()=>parseVCSetupCSV(header,[rows[0],['Support','Synthetic PRT','PRT','counsellor','Practice','X','A','all','','']]),/conflicting/);
+});
 test('reviewed support import adds only needed records, preserves teaching assignments and is idempotent',()=>{
  const f=fixture(),before=structuredClone(f);const r=importVCSetup(f.pkg,f.mission,f.draft,f.faculty);
  assert.equal(r.added,4);assert.equal(r.emails,5);assert.equal(r.ignored,1);assert.deepEqual(r.next.allocations,f.mission.allocations);assert.deepEqual(r.next.students,f.mission.students);assert.deepEqual(f,before);validateMission(r.next,f.draft,f.faculty);

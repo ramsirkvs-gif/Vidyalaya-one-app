@@ -1,4 +1,4 @@
-import {importVCSetup,importClassMeetings,calendarVCPlan,supportDuties} from './cbse-vc-model.js';
+import {importVCSetup,importClassMeetings,calendarVCPlan,supportDuties,parseVCSetupCSV} from './cbse-vc-model.js';
 import {renderSupportTeam,renderSupportResponsibilities} from './cbse-vc-view.js';
 import {calendarVCScript} from './cbse-vc-calendar.js';
 import {renderAttendanceDetails} from './cbse-attendance-view.js';
@@ -288,8 +288,12 @@ $('mission-vc-file').onchange=async event=>{
  const file=event.target.files[0];event.target.value='';if(!file||!editable()||busy)return;
  try{
   if(file.size>5_000_000)throw Error('VC file must be smaller than 5 MB.');const expected=mission.revision,text=(await file.text()).replace(/^\uFEFF/,'');let result,summary;
-  if(/^\s*\{/.test(text)){result=importVCSetup(JSON.parse(text),mission,draft,faculty);summary=`${result.added} support members added; ${result.updated} existing support members updated; ${result.assignments} subject support duties updated; ${result.emails} faculty email records updated. ${result.ignored} unrelated staff ignored.`;}
-  else{const rows=parseCSVRows(text),header=rows.shift()||[];if(header.join(',')!=='Class,Section,MeetingLink')throw Error('Use Class VC upload CSV: Class, Section, MeetingLink.');result=importClassMeetings(rows.map(r=>{if(r.length!==3)throw Error('Invalid Class VC row.');return Object.fromEntries(header.map((h,i)=>[h,r[i]]));}),mission,draft);summary=`${result.matched} Class VC links matched; ${result.changed} will change.`;}
+  let pkg;if(/^\s*\{/.test(text))pkg=JSON.parse(text);
+  else{const rows=parseCSVRows(text),header=rows.shift()||[];
+   if(header[0]==='RecordType')pkg=parseVCSetupCSV(header,rows);
+   else{if(header.join(',')!=='Class,Section,MeetingLink')throw Error('Use the prepared VC support CSV or Class VC upload CSV.');result=importClassMeetings(rows.map(r=>{if(r.length!==3)throw Error('Invalid Class VC row.');return Object.fromEntries(header.map((h,i)=>[h,r[i]]));}),mission,draft);summary=`${result.matched} Class VC links matched; ${result.changed} will change.`;}
+  }
+  if(pkg){result=importVCSetup(pkg,mission,draft,faculty);summary=`${result.added} support members added; ${result.updated} existing support members updated; ${result.assignments} subject support duties updated; ${result.emails} faculty email records updated. ${result.ignored} unrelated staff ignored.`;}
   if(!editable()||mission.revision!==expected)throw Error('Data changed while reading the file. Please select it again.');validateMission(result.next,draft,faculty);
   editor('Review VC setup',()=>{$('mission-fields').append(el('p',summary),el('p','Existing marks, attendance, student emails, individual Meet links, CT/Co-CT and subject teachers are retained. This save does not change Google Calendar.'));for(const issue of result.issues||[])$('mission-fields').append(el('p',issue));},()=>save(result.next,expected));
  }catch(error){message(error.message,'error');}
