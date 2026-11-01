@@ -5,6 +5,8 @@ import {emptyMission,validateMission,staffCanView,studentIndex,staffIndex} from 
 import {emptyFaculty} from '../cbse-faculty-model.js';
 import {importVCSetup,supportTeam,supportDuties,calendarVCPlan,importClassMeetings,parseVCSetupCSV,facultyName} from '../cbse-vc-model.js';
 import {teacherReviewRows} from '../cbse-teacher-review.js';
+import {sectionTeam} from '../cbse-section-team.js';
+import {supportClasses,supportRoleLabel} from '../cbse-vc-model.js';
 function fixture(){
  const draft=emptyDraft(),faculty=emptyFaculty(),mission=emptyMission();
  for(const[cl,g]of Object.entries(draft.classes))for(const[sid,s]of Object.entries(g.sections)){
@@ -55,6 +57,15 @@ test('counsellor and special educator cover every section, AI support never gain
   assert.equal(staffCanView(counsellor,`${cl}:${sid}:two`,m,f.draft,f.faculty),true);
   const team=supportTeam(m,f.faculty,cl,sid,['english']);assert.ok(team.some(t=>t.supportRole==='counsellor'));assert.ok(team.some(t=>t.supportRole==='special_educator'));assert.ok(!team.some(t=>t.id===ai));
  }
+});
+test('section and student teams include scoped support while the support list names assigned classes',()=>{
+ const f=fixture(),m=importVCSetup(f.pkg,f.mission,f.draft,f.faculty).next;
+ const team=sectionTeam(f.faculty,'X','a','A',m,['english']),prt=team.supportMembers.find(p=>p.supportRole==='prt');
+ assert.ok(prt);assert.equal(supportRoleLabel(prt.supportRole),'PRT (Co-opted)');assert.ok(team.supportMembers.some(p=>p.supportRole==='counsellor'));assert.ok(team.supportMembers.some(p=>p.supportRole==='special_educator'));assert.ok(!team.supportMembers.some(p=>p.supportRole==='support'));
+ assert.deepEqual(supportClasses(m,f.draft,prt.id),[{classId:'X',sectionId:'a',name:'A'}]);
+ assert.ok(!sectionTeam(f.faculty,'X','b','B',m).supportMembers.some(p=>p.id===prt.id));
+ assert.ok(!sectionTeam(f.faculty,'X','a','A',m,['ai']).supportMembers.some(p=>p.id===prt.id));
+ const counsellor=team.supportMembers.find(p=>p.supportRole==='counsellor');assert.equal(supportClasses(m,f.draft,counsellor.id).length,9);
 });
 test('existing named support is reused and enriched while unrelated support emails remain untouched',()=>{
  const f=fixture();f.mission.staff.old={name:'Synthetic PRT',kind:'support',subjects:'Existing expertise',status:'inactive'};

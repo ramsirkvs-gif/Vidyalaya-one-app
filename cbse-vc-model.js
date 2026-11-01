@@ -4,6 +4,11 @@ export const facultyName=value=>String(value||'').toUpperCase().replace(/\b(MRS|
 const designationKind=value=>{const s=String(value||'').toUpperCase();return s.match(/\b(PGT|TGT|PRT)\b/)?.[1]||(/COUNS/.test(s)?'COUNSELLOR':/SPECIAL/.test(s)?'SPECIAL':/COMP/.test(s)?'COMPUTER':s.replace(/[^A-Z]/g,''));};
 export const validFacultyEmail=value=>typeof value==='string'&&value.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 export const isAISubject=value=>['AI','ARTIFICIALINTELLIGENCE'].includes(String(value||'').toUpperCase().replace(/[^A-Z]/g,''));
+export const supportRoleLabel=kind=>({prt:'PRT (Co-opted)',counsellor:'Counsellor',special_educator:'Special Educator',support:'AI Support'}[kind]||kind||'Support');
+export function supportClasses(mission,draft,staffId){
+ const sections=new Map();for(const a of supportDuties(mission,staffId)){const key=a.classId+':'+a.sectionId;sections.set(key,{classId:a.classId,sectionId:a.sectionId,name:draft.classes?.[a.classId]?.sections?.[a.sectionId]?.name||a.sectionId});}
+ return [...sections.values()].sort((a,b)=>['X','XII'].indexOf(a.classId)-['X','XII'].indexOf(b.classId)||a.name.localeCompare(b.name,undefined,{numeric:true}));
+}
 const teachingSubject=value=>{const s=String(value||'').toUpperCase().replace(/[^A-Z0-9]/g,'');return /^(MATHS|MATH|MATHEMATICS)(STANDARD|BASIC)?$/.test(s)?'MATHS':/^(ENGLISH|ENGLISHCORE|ENGLISHLANGUAGEANDLITERATURE)$/.test(s)?'ENGLISH':['AI','ARTIFICIALINTELLIGENCE'].includes(s)?'AI':['BSTD','BST','BUSINESSSTUDIES'].includes(s)?'BUSINESSSTUDIES':['CS','COMPUTERSCIENCE'].includes(s)?'CS':['IP','INFORMATICSPRACTICES'].includes(s)?'IP':['POLSCI','POLITICALSCIENCE'].includes(s)?'POLITICALSCIENCE':s;};
 export function parseVCSetupCSV(header,rows){
  if(header.join(',')!=='RecordType,Name,Designation,Role,Purpose,Class,Sections,SubjectScope,Email,SourceVerified')throw Error('Use the prepared VC support CSV.');
