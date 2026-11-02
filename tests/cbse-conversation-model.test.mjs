@@ -23,3 +23,15 @@ test('both older replies remain discoverable when one is linked and the other is
 });
 
 test('an additional older unlinked reply stays visible after the first response has answered the Principal',()=>{const x=fixture();x.m.records={p:{kind:'faculty_comment',staffId:'X:one',authorId:'principal',visibility:'general',notes:'Review',updatedAt:1},r1:{kind:'faculty_comment',staffId:'X:one',authorId:'X:one',visibility:'general',notes:'First',updatedAt:2},r2:{kind:'faculty_comment',staffId:'X:one',authorId:'X:one',visibility:'general',notes:'Second',updatedAt:3}};let threads=conversationThreads(x.m,x.d,x.f);assert.equal(threads.flatMap(t=>t.messages).length,3);assert.equal(threads.find(t=>t.rootRecordId==='r2').context.teacherId,'X:one');mutate(x,{operation:'read',threadId:'legacy_p',through:2});threads=conversationThreads(x.m,x.d,x.f);assert.equal(threads.flatMap(t=>t.messages).length,3);assert.equal(threads.filter(t=>t.rootRecordId==='r2').length,1);});
+
+// Realtime Database drops empty arrays and objects on persistence.
+test('Firebase-omitted empty conversation lists do not block support member saves or alter history',()=>{
+ const x=fixture();mutate(x,{operation:'start',context,notes:'Retain this conversation'});
+ const persisted=JSON.parse(JSON.stringify(x.m,(k,v)=>Array.isArray(v)&&!v.length?undefined:v));
+ const before=structuredClone(persisted.conversations);
+ persisted.staff.new_support={name:'Synthetic Support',kind:'prt',subjects:'Practice',status:'active'};
+ validateMission(persisted,x.d,x.f);assert.deepEqual(persisted.conversations,before);
+ const t=Object.values(persisted.conversations)[0];
+ for(const bad of [{},'invalid',[null]]){t.participantIds=bad;assert.throws(()=>validateMission(persisted,x.d,x.f),/conversation metadata/);}
+ delete t.participantIds;t.context.studentKeys={};assert.throws(()=>validateMission(persisted,x.d,x.f),/conversation metadata/);
+});
