@@ -1,3 +1,4 @@
+import {applyConversationOperation} from '../cbse-conversation-model.js';
 import {teacherConversation} from '../cbse-teacher-conversation.js';
 import {resolvedViewingData,resolvedAllocations,teacherIdentityIds} from '../cbse-view-data.js';
 import {createSharedView} from './shared-view.js';
@@ -44,7 +45,14 @@ export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=d
   if(action==='pin-submit'){
    const id=String(input.staffId||'');if(!/^[a-zA-Z0-9_:-]{1,200}$/.test(id))throw new AccessError('Choose your name and enter your PIN.',401);const access=await read(`cbse/staffAccess/${id}`),person=(await directoryStaff())[id];if(!access?.enabled||person?.status!=='active')throw new AccessError('Choose your name and enter the correct PIN.',401);
    await verifySubmissionPIN(id,input.pin,access,ip);
-   action=String(input.operation||'comment');if(!['comment','teacher-comment','update-contact','update-task'].includes(action))throw new AccessError('This operation requires Principal access.',403);pinIdentity={decoded:{staffId:id},access};
+   action=String(input.operation||'comment');if(!['comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply'].includes(action))throw new AccessError('This operation requires Principal access.',403);pinIdentity={decoded:{staffId:id},access};
+  }
+  if(action==='conversation-principal'||action==='conversation-start'||action==='conversation-reply'){
+   const isPrincipal=action==='conversation-principal';if(isPrincipal)await principal(token);else if(!pinIdentity)throw new AccessError('Use your own PIN to submit conversation feedback.',403);
+   const c=await context(),id=isPrincipal?'principal':pinIdentity.decoded.staffId,person=isPrincipal?null:staffIndex(c.faculty,c.mission)[id],actor={id,name:isPrincipal?'Principal':person?.name||'Staff'},operation=isPrincipal?String(input.operation||''):action==='conversation-start'?'start':'reply',values={...input,operation},ids={now:now(),threadId:'thread_'+randomUUID().replaceAll('-',''),recordId:'record_'+randomUUID().replaceAll('-','')};
+   try{applyConversationOperation(c.mission,c.draft,c.faculty,values,actor,ids);}catch(error){throw new AccessError(error.message,400);}let threadId='',reason='';
+   const result=await db.ref('cbse/mission').transaction(current=>{if(current===null)return null;try{const r=applyConversationOperation(current,c.draft,c.faculty,values,actor,ids);threadId=r.threadId;return r.next;}catch(error){reason=error.message;return;}});
+   if(!result.committed||!threadId||!result.snapshot.val()?.conversations?.[threadId])throw new AccessError(reason||'Conversation changed. Reload and retry.',409);return {ok:true,threadId};
   }
   if(action==='directory'){const staff=await directoryStaff(),access=await read('cbse/staffAccess');return {staff:entries(access).filter(([id,a])=>a.enabled&&staff[id]?.status==='active').map(([id])=>({id,name:staff[id].name,role:staff[id].classId?`Class ${staff[id].classId} faculty`:staff[id].kind}))};}
   if(action==='login'){
@@ -85,7 +93,7 @@ export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=d
    else{await revoke(id);await db.ref(`cbse/staffAccess/${id}`).update({enabled:false,version:randomUUID(),updatedAt:now()});}
    return {ok:true};
   }
-  const identity=pinIdentity||await staffUser(token),{decoded}=identity,id=decoded.staffId;if(!pinIdentity&&['comment','teacher-comment','update-contact','update-task'].includes(action))await verifySubmissionPIN(id,input.pin,identity.access,ip);const c=await context();
+  const identity=pinIdentity||await staffUser(token),{decoded}=identity,id=decoded.staffId;if(!pinIdentity&&['comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply'].includes(action))await verifySubmissionPIN(id,input.pin,identity.access,ip);const c=await context();
   if(staffIndex(c.faculty,c.mission)[id]?.status!=='active')throw new AccessError('Staff access is inactive.');
   if(action==='students')return {staff:staffIndex(c.faculty,c.mission)[id]?.name,students:entries(studentIndex(c.draft)).map(([key,p])=>({key,name:p.name,roll:p.roll,classId:p.classId,section:p.section,assigned:staffCanView(id,key,c.mission,c.draft,c.faculty),academic:staffCanView(id,key,c.mission,c.draft,c.faculty)?studentProgress(key,c.mission,c.draft).academic:'grey'}))};
   if(action==='teacher-comment'){

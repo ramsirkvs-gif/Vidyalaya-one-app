@@ -1,6 +1,6 @@
 // Reconcile older unlinked responses without rewriting saved conversation records.
 export function teacherConversation(records,identityIds){
- const identities=new Set(identityIds),entries=Object.entries(records||{}).filter(([,r])=>!r.studentKey&&identities.has(r.staffId)&&r.kind==='faculty_comment'&&r.visibility==='general'),byId=new Map(entries),pending=[],normalised=new Map(entries.map(([id,r])=>[id,{...r}])),replied=new Set();
+ const identities=new Set(identityIds),entries=Object.entries(records||{}).filter(([,r])=>!r.conversationId&&!r.studentKey&&identities.has(r.staffId)&&r.kind==='faculty_comment'&&r.visibility==='general'),byId=new Map(entries),pending=[],normalised=new Map(entries.map(([id,r])=>[id,{...r}])),replied=new Set();
  const time=r=>Number(r.updatedAt)||Date.parse(r.date)||0;
  for(const[id,r]of [...entries].sort((a,b)=>time(a[1])-time(b[1]))){
   if(r.authorId==='principal'){if(!replied.has(id))pending.push(id);continue;}
