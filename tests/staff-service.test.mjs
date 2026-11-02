@@ -193,3 +193,19 @@ test('adding a standard preserves an existing PIN and photo; role conflicts leav
  data.cbse.facultyDraft.classes.X.teachers.other={name:'Other Faculty',designation:'TGT',subjects:'',teachingSections:'',status:'active'};data.cbse.facultyDraft.classes.X.roles.a={classTeacher:'other',coClassTeacher:''};const before=structuredClone(data.cbse);await assert.rejects(service('save-faculty',{...input,expectedFacultyRevision:1,expectedMissionRevision:1,roles:[{classId:'X',sectionId:'a',role:'classTeacher'}]},'principal'),/already belongs/);assert.deepEqual(data.cbse,before);
  const login=await service('view-login',{password:'synthetic-curtain'});const view=await service('view-data',{},'','ip',{viewerToken:login.viewerToken});assert.ok(view.mission.staffPhotos['X:one']);assert.ok(!JSON.stringify(view).includes('displayPIN'));await assert.rejects(service('view-data'),/password/);
 });
+
+test('unified support save creates a PIN atomically and edits preserve identity, history and PIN',async()=>{
+ const {service,data}=fixture();data.cbse.mission.records={};
+ data.cbse.mission.conversations={saved:{context:{kind:'general',teacherId:'X:one'},status:'open',rootRecordId:'old_record'}};
+ const history=structuredClone(data.cbse.mission.conversations),faculty=structuredClone(data.cbse.facultyDraft);
+ const input={memberType:'support',name:'Synthetic Co-opted PRT',kind:'prt',subjects:'Practice',status:'active',email:'support@example.test',mobile:'9876543210',whatsapp:'9876543211',photoData:'data:image/png;base64,AAAA',expectedFacultyRevision:0,expectedMissionRevision:0,pin:'029',assignments:[{classId:'X',sectionId:'a',subjectId:'english',purpose:'Writing practice'}]};
+ const before=structuredClone(data.cbse);await assert.rejects(service('save-faculty',input,'outsider'),/Principal/);assert.deepEqual(data.cbse,before);
+ const {staffId}=await service('save-faculty',input,'principal');assert.match(staffId,/^support:/);assert.ok(await verifyPIN('029',data.cbse.staffAccess[staffId]));
+ assert.deepEqual(data.cbse.facultyDraft,faculty);assert.deepEqual(data.cbse.mission.conversations,history);assert.equal(data.cbse.mission.staffPhotos[staffId].data,input.photoData);
+ const access=structuredClone(data.cbse.staffAccess),assignments=structuredClone(data.cbse.mission.supportAssignments);
+ await service('save-faculty',{...input,staffId,name:'Updated Support Name',expectedMissionRevision:1},'principal');
+ assert.deepEqual(data.cbse.staffAccess,access);assert.deepEqual(data.cbse.mission.supportAssignments,assignments);assert.equal(data.cbse.mission.staff[staffId.slice(8)].name,'Updated Support Name');
+ const saved=structuredClone(data.cbse);await assert.rejects(service('save-faculty',{...input,staffId,expectedMissionRevision:1},'principal'),/changed/);assert.deepEqual(data.cbse,saved);
+ await assert.rejects(service('save-faculty',{...input,staffId,expectedMissionRevision:2,assignments:[{...input.assignments[0],subjectId:'missing'}]},'principal'),/valid class/);assert.deepEqual(data.cbse,saved);
+ await assert.rejects(service('save-faculty',{...input,staffId,expectedMissionRevision:2,email:'invalid'},'principal'),/email/);assert.deepEqual(data.cbse,saved);
+});

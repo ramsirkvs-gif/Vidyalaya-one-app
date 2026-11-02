@@ -1,9 +1,10 @@
 import {emptyFaculty,validateFaculty,clearTeacherRoles} from './cbse-faculty-model.js';
-import {emptyMission} from './cbse-mission-model.js';
+import {emptyMission,validateMission} from './cbse-mission-model.js';
 import {teacherIdentityIds} from './cbse-view-data.js';
 import {dialNumber} from './cbse-contact-model.js';
 const entries=x=>Object.entries(x||{}),check=(ok,msg)=>{if(!ok)throw Error(msg);},key=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(x)&&!['constructor','prototype','__proto__'].includes(x);
 export function planFacultySave(current,input,newId,now){
+ if(input.memberType==='support'||String(input.staffId||'').startsWith('support:'))return planSupportSave(current,input,newId,now);
  const next=structuredClone(current),f=next.facultyDraft||emptyFaculty(),m=next.mission||emptyMission(),d=next.draft;
  check(input.expectedFacultyRevision===(f.revision||0)&&input.expectedMissionRevision===(m.revision||0),'Faculty or assignments changed. Reload before saving.');
  const editing=String(input.staffId||''),[oldClass,oldId]=editing.split(':');check(!editing||['X','XII'].includes(oldClass)&&editing===oldClass+':'+oldId&&key(oldId)&&f.classes[oldClass]?.teachers?.[oldId],'Faculty member not found.');
@@ -21,4 +22,31 @@ export function planFacultySave(current,input,newId,now){
  const seen=new Set();for(const a of input.assignments){check(classes.includes(a.classId)&&key(a.sectionId)&&key(a.subjectId)&&d?.classes?.[a.classId]?.sections?.[a.sectionId]?.subjects?.[a.subjectId],'Choose a valid class, section and subject.');const k=`${a.classId}_${a.sectionId}_${a.subjectId}`;check(!seen.has(k),'Duplicate subject assignment.');seen.add(k);const conflict=Object.values(m.allocations).find(other=>other.classId===a.classId&&other.sectionId===a.sectionId&&other.subjectId===a.subjectId);check(!conflict||ids.has(conflict.staffId),'This subject already has a teacher. Change that assignment first.');m.allocations[k]={...previousAllocations.find(other=>other.classId===a.classId&&other.sectionId===a.sectionId&&other.subjectId===a.subjectId),classId:a.classId,sectionId:a.sectionId,subjectId:a.subjectId,staffId:targetFor(a.classId)};}
  for(const r of input.roles){check(classes.includes(r.classId)&&key(r.sectionId)&&d?.classes?.[r.classId]?.sections?.[r.sectionId]&&['classTeacher','coClassTeacher','other'].includes(r.role),'Choose a valid section responsibility.');const tid=targetFor(r.classId).split(':')[1],area=f.classes[r.classId];area.roles||={};const roles=area.roles[r.sectionId]||={classTeacher:'',coClassTeacher:''};if(r.role==='other'){check(typeof r.label==='string'&&r.label.trim()&&r.label.length<=60,'Enter the responsibility name.');roles.other||={};let index=0;while(roles.other['editor_'+index])index++;const id='editor_'+index;roles.other[id]={label:r.label.trim(),teacherId:tid};}else{check(!roles[r.role]||roles[r.role]===tid,'This section responsibility already belongs to another teacher. Change it first.');roles[r.role]=tid;}}
  validateFaculty(f);f.revision++;f.updatedAt=now;m.revision=(m.revision||0)+1;m.updatedAt=now;next.facultyDraft=f;next.mission=m;return {next,staffIds:[...ids],newStaffIds:[...ids].filter(id=>!aliases.includes(id)),staffId:targetFor(classes[0]),teacher:old};
+}
+
+function planSupportSave(current,input,newId,now){
+ const next=structuredClone(current),f=next.facultyDraft||emptyFaculty(),m=next.mission||emptyMission();
+ check(input.expectedFacultyRevision===(f.revision||0)&&input.expectedMissionRevision===(m.revision||0),'Faculty or assignments changed. Reload before saving.');
+ const editing=String(input.staffId||''),id=editing||'support:'+newId,tid=id.slice(8);
+ check(id.startsWith('support:')&&key(tid)&&(!editing||m.staff?.[tid]),'Support member not found.');
+ const name=String(input.name||'').trim(),kind=input.kind,status=input.status||'active',subjects=String(input.subjects||'').trim();
+ check(name&&name.length<=120&&['prt','counsellor','special_educator','support'].includes(kind)&&['active','inactive'].includes(status)&&subjects.length<=300,'Enter valid support member details.');
+ check(!Object.entries(m.staff||{}).some(([k,t])=>k!==tid&&t.name.trim().toUpperCase()===name.toUpperCase()&&t.kind===kind),'This support member already exists. Open Edit instead.');
+ m.staff||={};m.staff[tid]={...m.staff[tid],name,kind,status,subjects};
+ const email=String(input.email||'').trim(),mobile=String(input.mobile||'').trim(),whatsapp=String(input.whatsapp||'').trim();
+ check(!mobile||dialNumber(mobile),'Enter a valid mobile number.');check(!whatsapp||dialNumber(whatsapp),'Enter a valid WhatsApp number.');
+ m.staffContacts||={};m.staffContacts[id]={...m.staffContacts[id],mobile:dialNumber(mobile),whatsapp:dialNumber(whatsapp)};
+ m.staffEmails||={};if(email)m.staffEmails[id]={email,sourceVerified:m.staffEmails[id]?.email===email&&m.staffEmails[id]?.sourceVerified===true};else delete m.staffEmails[id];
+ if(Object.hasOwn(input,'photoData')){m.staffPhotos||={};if(input.photoData)m.staffPhotos[id]={data:input.photoData};else delete m.staffPhotos[id];}
+ check(Array.isArray(input.assignments)&&input.assignments.length<=150,'Invalid support responsibilities.');
+ check(status==='active'||!input.assignments.length,'Remove support responsibilities before marking the member inactive.');
+ m.supportAssignments||={};const previous=Object.entries(m.supportAssignments).filter(([,a])=>a.staffId===id);for(const[k]of previous)delete m.supportAssignments[k];
+ const seen=new Set();for(const a of input.assignments){
+  check(['X','XII'].includes(a.classId)&&key(a.sectionId)&&key(a.subjectId)&&next.draft?.classes?.[a.classId]?.sections?.[a.sectionId]?.subjects?.[a.subjectId]&&typeof a.purpose==='string'&&a.purpose.trim()&&a.purpose.length<=300,'Choose a valid class, section, subject and support responsibility.');
+  const scope=a.classId+':'+a.sectionId+':'+a.subjectId;check(!seen.has(scope),'Duplicate support responsibility.');seen.add(scope);
+  const prior=previous.find(([,v])=>v.classId===a.classId&&v.sectionId===a.sectionId&&v.subjectId===a.subjectId),k=prior?.[0]||'support_'+tid+'_'+seen.size;
+  check(!m.supportAssignments[k],'Support responsibility changed. Reload and retry.');m.supportAssignments[k]={...prior?.[1],staffId:id,classId:a.classId,sectionId:a.sectionId,subjectId:a.subjectId,role:kind,purpose:a.purpose.trim()};
+ }
+ m.revision=(m.revision||0)+1;m.updatedAt=now;validateMission(m,next.draft,f);next.mission=m;next.facultyDraft=f;
+ return {next,staffId:id,staffIds:[id],newStaffIds:editing?[]:[id]};
 }

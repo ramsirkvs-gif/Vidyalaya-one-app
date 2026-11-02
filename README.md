@@ -128,3 +128,15 @@ action controls, CT/subject teacher reviews across sections, verified staff
 remarks/replies, and direct Samagam Excel imports that skip existing results by
 default. Explicit Correction mode allows reviewed replacements. See
 MISSION_SETUP.md for contact permissions, exam-month/rule review and tests.
+
+The unified **Add / Edit Faculty** page includes **Co-opted / Support Members**.
+The Principal can add or edit PRTs, counsellors, special educators and other
+support members with private photo uploads, email/mobile/WhatsApp contacts and
+class/section/subject support responsibilities. New members receive an initial
+three-digit PIN through the protected server service. Existing support IDs,
+conversation history and PINs are retained on edit; **Open PIN setup** opens the
+existing secure PIN controls. Support records remain separate from subject-faculty
+CSV data. No database migration or rules change is required.
+
+Regression checks: `node --test tests/staff-service.test.mjs tests/cbse-conversation-model.test.mjs`
+and, with the repository served on port 8000, `python3 tests/cbse-support-editor-browser.py`.
