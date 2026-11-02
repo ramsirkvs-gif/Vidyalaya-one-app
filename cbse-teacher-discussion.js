@@ -3,7 +3,7 @@ import {renderConversation,addDiscussionPrint} from './cbse-discussion-view.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
 import {el,options} from './cbse-ui.js';
 export function renderTeacherDiscussion(parent,{teacherId,teacher,identities=[{id:teacherId,name:teacher.name}],mission,principal,onPrincipal,onStaff,onPrincipalLogin}){
- parent.id='teacher-remarks-section';parent.append(el('h2','Teacher comments & Principal review'));addDiscussionPrint(parent,teacher.name+' · Teacher progress conversation');
+ parent.id='teacher-remarks-section';parent.append(el('h2','Teacher comments & Principal review'));if(principal)addDiscussionPrint(parent,teacher.name+' · Teacher progress conversation');
  const conversation=teacherConversation(mission.records,identities.map(t=>t.id)),records=conversation.records;
  const grid=el('div',undefined,'comment-composers'),principalBox=el('section',undefined,'comment-composer principal-composer'),teacherBox=el('section',undefined,'comment-composer teacher-composer');principalBox.append(el('h3','Principal comment'));teacherBox.append(el('h3','Teacher comment · PIN to submit'));grid.append(principalBox,teacherBox);parent.append(grid);
  const composer=(box,asPrincipal)=>{
