@@ -140,3 +140,7 @@ CSV data. No database migration or rules change is required.
 
 Regression checks: `node --test tests/staff-service.test.mjs tests/cbse-conversation-model.test.mjs`
 and, with the repository served on port 8000, `python3 tests/cbse-support-editor-browser.py`.
+
+## MCQs महाअभियान — shared Class X A/B/C/D
+
+Open staff view or sign in as Principal, then choose **MCQs महाअभियान**. The three pages provide PIN-verified 10/20-question contributions, shared-bank paper creation with an answer-free A4 print/PDF and paper QR, and reviewed manual/photo-assisted bubble evaluation saved to academic performance. See [MCQ_SETUP.md](MCQ_SETUP.md) for local English/Hindi OCR, photo/crop steps, private storage, correction controls, backup boundaries and validation.

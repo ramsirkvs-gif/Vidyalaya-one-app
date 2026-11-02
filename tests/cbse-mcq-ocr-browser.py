@@ -1,0 +1,11 @@
+"""Real local English/Hindi OCR models read a synthetic uploaded photo, without remote OCR requests."""
+from pathlib import Path
+import base64
+exec(Path('tests/cbse-mcq-browser.py').read_text().split("\nwith fx['ns']['sync_playwright']() as p:")[0])
+with fx['ns']['sync_playwright']() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);ctx=b.new_context();page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.set_default_timeout(90000)
+ def network(route):
+  if route.request.url.startswith('https://www.gstatic.com/firebasejs/'):mcq_sdk(route)
+  else:route.abort()
+ ctx.route('https://**',lambda route:route.abort());ctx.route('https://www.gstatic.com/firebasejs/**',mcq_sdk);page.route('**/api/staff-access',lambda route:mcq_api(page,route));page.goto('http://127.0.0.1:8000/cbse-mission.html#tab=mcq&mcq=contribute');page.locator('.mcq-contribution-form').wait_for();form=page.locator('.mcq-contribution-form');form.locator('[name=mcq-ocr-language]').select_option('eng+hin');photo=page.evaluate("""()=>{const c=document.createElement('canvas');c.width=1400;c.height=300;const g=c.getContext('2d');g.fillStyle='white';g.fillRect(0,0,c.width,c.height);g.fillStyle='black';g.font='bold 60px Arial';g.fillText('SCIENCE QUESTION',45,95);g.font='50px Arial';g.fillText('1. WHAT IS TWO PLUS TWO?',45,180);return c.toDataURL('image/png').split(',')[1]}""");form.locator('[name=mcq-source-photo]').set_input_files({'name':'synthetic-ocr.png','mimeType':'image/png','buffer':base64.b64decode(photo)});page.get_by_role('button',name='Use cropped photo',exact=True).click();page.wait_for_function("document.querySelector('[name=mcq-notepad]').value.includes('SCIENCE')",timeout=90000);page.get_by_text('Photo text inserted.',exact=False).wait_for();assert form.locator('[name=mcq-notepad]').input_value().strip();assert form.locator('[name=mcq-verified]').is_checked()==False;assert form.get_by_role('button',name='Verify & submit contribution with PIN',exact=True).is_disabled();assert not root['mcq'];assert not errors,errors
+ print('PASS actual locally hosted English + Hindi OCR worker reads an uploaded photo and requires text/answer review before any bank deposit');b.close()

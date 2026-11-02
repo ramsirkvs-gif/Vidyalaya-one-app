@@ -7,3 +7,6 @@
 .env*
 *firebase-adminsdk*.json
 *service-account*.json
+
+# Generated local QR and OCR assets from locked npm packages
+/vendor/mcq/

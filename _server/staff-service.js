@@ -1,3 +1,4 @@
+import {contributeMCQ,createMCQPaper,evaluateMCQ,publicMCQBank} from '../cbse-mcq-model.js';
 import {planStudentContactUpdate} from '../cbse-contact-audit.js';
 import {planFacultySave} from '../cbse-faculty-editor-model.js';
 import {applyConversationOperation} from '../cbse-conversation-model.js';
@@ -42,12 +43,19 @@ export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=d
  const sharedView=createSharedView({db,context,now,defaultSecret:viewSecret});
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(['view-login','view-data','view-version','view-student-photo','view-student-photos','view-logout'].includes(action)){const result=await sharedView(action,{...input,ip},session.viewerToken||'');if(result?.error){const error=new AccessError(result.error,result.status);error.curtainRequired=result.curtainRequired;throw error;}return result;}
+  if(action==='mcq-read'){if(token)await principal(token);else{const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}return publicMCQBank(await read('cbse/mcq')||{},input);}
   if(action==='remember-view'){await principal(token);return sharedView('view-grant');}
   let pinIdentity;
   if(action==='pin-submit'){
    const id=String(input.staffId||'');if(!/^[a-zA-Z0-9_:-]{1,200}$/.test(id))throw new AccessError('Choose your name and enter your PIN.',401);const access=await read(`cbse/staffAccess/${id}`),person=(await directoryStaff())[id];if(!access?.enabled||person?.status!=='active')throw new AccessError('Choose your name and enter the correct PIN.',401);
    await verifySubmissionPIN(id,input.pin,access,ip);
-   action=String(input.operation||'comment');if(!['comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply'].includes(action))throw new AccessError('This operation requires Principal access.',403);pinIdentity={decoded:{staffId:id},access};
+   action=String(input.operation||'comment');if(!['comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply','mcq-contribute','mcq-paper','mcq-evaluate'].includes(action))throw new AccessError('This operation requires Principal access.',403);pinIdentity={decoded:{staffId:id},access};
+  }
+  if(['mcq-contribute','mcq-paper','mcq-evaluate'].includes(action)){
+   if(!pinIdentity)throw new AccessError('Choose a contributor and verify their PIN.',403);const id=pinIdentity.decoded.staffId,c=await context(),person=staffIndex(c.faculty,c.mission)[id],actor={id,name:person.name};let reason='',output={},result;
+   if(action==='mcq-evaluate'){if(input.correction&&!token)throw new AccessError('Only the Principal can correct an existing score.',403);const admin=input.correction?await principal(token):null;result=await db.ref('cbse').transaction(current=>{if(current===null)return null;try{if(!current.staffAccess?.[id]?.enabled||current.staffAccess[id].version!==pinIdentity.access.version){reason='Staff access changed. Verify your PIN again.';return;}const planned=evaluateMCQ(current,input,actor,now(),{principalUid:admin?.uid||''});output={score:planned.score,maximum:planned.maximum,evaluationId:planned.evaluationId};return planned.next;}catch(e){reason=e.message;return;}});}
+   else{result=await db.ref('cbse/mcq').transaction(current=>{try{const planned=action==='mcq-contribute'?contributeMCQ(current||{},input,actor,c.draft,now()):createMCQPaper(current||{},input,actor,now());output=action==='mcq-contribute'?{batchId:planned.batchId,questionIds:planned.questionIds}:{paperId:planned.paperId};return planned.next;}catch(e){reason=e.message;return;}});}
+   if(!result.committed||!result.snapshot?.val())throw new AccessError(reason||'The MCQ save could not be confirmed. Reload before trying again.',409);return {ok:true,...output};
   }
   if(action==='conversation-principal'||action==='conversation-start'||action==='conversation-reply'){
    const isPrincipal=action==='conversation-principal';if(isPrincipal)await principal(token);else if(!pinIdentity)throw new AccessError('Use your own PIN to submit conversation feedback.',403);
