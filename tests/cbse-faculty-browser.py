@@ -18,7 +18,7 @@ def synthetic_pdf():
     start=len(data);data+=b'xref\n0 6\n0000000000 65535 f \n'+b''.join(f'{offset:010} 00000 n \n'.encode() for offset in offsets[1:])+b'trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n'+str(start).encode()+b'\n%%EOF'
     return data
 APP='export function initializeApp(c){return c;} export function getApps(){return [];}'
-AUTH='''let listener;const user={uid:'principal-test',email:'principal@example.invalid'};export function getAuth(){return {}} export const browserLocalPersistence={}; export async function setPersistence(){} export function onAuthStateChanged(a,cb){listener=cb;cb(sessionStorage.getItem('facultySignedIn')?user:null);}export async function signOut(){sessionStorage.removeItem('facultySignedIn');listener(null);}'''
+AUTH='''let listener;const user={uid:'principal-test',email:'principal@example.invalid',getIdToken:async()=> 'principal-test-token'};export function getAuth(){return {}} export const browserLocalPersistence={}; export async function setPersistence(){} export function onAuthStateChanged(a,cb){listener=cb;cb(sessionStorage.getItem('facultySignedIn')?user:null);}export async function signOut(){sessionStorage.removeItem('facultySignedIn');listener(null);}'''
 DB='''let state=null,students=null;window.__facultyReads=[];const callbacks={};export function getDatabase(){return {}} export function ref(d,p){return p;}
 export async function get(path){window.__facultyReads.push(path);return {val:()=>sessionStorage.getItem('wrongFacultyRole')?'other':'principal-test'};}
 export function onValue(path,cb,error){window.__facultyReads.push(path);if(window.__denyFaculty&&path==='cbse/facultyDraft'){error({code:'PERMISSION_DENIED'});return ()=>{};} (callbacks[path]||=[]).push(cb);cb({val:()=>path==='cbse/facultyDraft'?state:students});return ()=>{callbacks[path]=callbacks[path].filter(c=>c!==cb)};}
@@ -34,6 +34,10 @@ try:
  with sync_playwright() as p:
     browser=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
     page=browser.new_page();page.route('https://www.gstatic.com/firebasejs/**',intercept)
+    pin_calls=[]
+    def pin_access(route):
+        body=route.request.post_data_json;assert body['action']=='generate-pins';assert route.request.headers.get('authorization')=='Bearer principal-test-token';pin_calls.append(body);route.fulfill(json={'created':[{'staffId':'X:synthetic','name':'Synthetic Faculty','pin':'047'}]})
+    page.route('**/api/staff-access',pin_access)
     page.goto('http://127.0.0.1:8000/cbse-faculty.html');page.locator('#faculty-locked').wait_for(state='visible')
     assert page.locator('#faculty-workspace').is_hidden();assert page.evaluate('window.__facultyReads.length')==0
     page.evaluate("sessionStorage.setItem('facultySignedIn','yes');sessionStorage.setItem('wrongFacultyRole','yes')")
@@ -55,7 +59,7 @@ try:
     assert 'facultyDraft' in page.locator('#faculty-rules-text').input_value()
     page.evaluate("sessionStorage.removeItem('denyFaculty')");page.reload();page.locator('#faculty-workspace').wait_for(state='visible');assert page.locator('#faculty-setup').is_hidden()
     print('PASS linear setup, clipboard copy/fallback and no repeated login on permission denial')
-    page.locator('#faculty-file').set_input_files(fixture.name);page.get_by_role('button',name='Import faculty privately').wait_for();assert '2 new faculty' in page.locator('#faculty-review-content').inner_text();page.get_by_role('button',name='Import faculty privately').click();page.locator('#faculty-review').wait_for(state='hidden');assert page.locator('#faculty-body tr').count()==2
+    page.locator('#faculty-file').set_input_files(fixture.name);page.get_by_role('button',name='Import faculty privately').wait_for();assert '2 new faculty' in page.locator('#faculty-review-content').inner_text();page.get_by_role('button',name='Import faculty privately').click();page.locator('#faculty-review').wait_for(state='hidden');assert page.locator('#faculty-body tr').count()==2;assert pin_calls;assert 'missing initial PIN(s) generated' in page.locator('#faculty-message').inner_text()
     # Download an editable CSV and upload a changed name using its stable ID.
     with page.expect_download() as download_event:page.locator('#faculty-export-csv').click()
     download=download_event.value

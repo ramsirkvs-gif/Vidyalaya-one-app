@@ -17,6 +17,16 @@ export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=d
  const read=async path=>(await db.ref(path).get()).val();
  async function context(){const [draft,faculty,mission]=await Promise.all([read('cbse/draft'),read('cbse/facultyDraft'),read('cbse/mission')]);return {draft,...resolvedViewingData(draft,faculty,mission||emptyMission())};}
  async function directoryStaff(){const[faculty,support]=await Promise.all([read('cbse/facultyDraft'),read('cbse/mission/staff')]);return staffIndex(faculty,{staff:support||{}});}
+ async function generateMissingPINs(staff){
+    const access=await read('cbse/staffAccess')||{},missing=entries(staff).filter(([id,p])=>p.status==='active'&&!access[id]?.hash);
+    if(missing.length>900)throw new AccessError('Generate PINs for fewer than 901 staff at a time.',400);
+    const used=new Set(),prepared=[];
+    for(const[id,p]of missing){let pin;do{pin=String(randomInt(100,1000));}while(used.has(pin));used.add(pin);prepared.push({id,name:p.name,pin,record:{...await hashPIN(pin),...encryptDisplayPIN(pin,id,displayKey),enabled:true,version:randomUUID(),updatedAt:now()}});}
+    let created=[];
+    const result=await db.ref('cbse/staffAccess').transaction(current=>{const next=current||{};created=[];for(const p of prepared)if(!next[p.id]?.hash){next[p.id]=p.record;created.push({staffId:p.id,name:p.name,pin:p.pin});}return next;});
+    if(!result.committed)throw new AccessError('PIN generation did not save. Try again.',409);
+    return {created,staff:Object.fromEntries(entries(staff).filter(([,t])=>t.status==='active'))};
+ }
  async function principal(token){const decoded=await auth.verifyIdToken(token,true),uid=await read('cbse/adminUid');if(decoded.uid!==uid)throw new AccessError('Principal access required.');return decoded;}
  async function staffUser(token){const decoded=await auth.verifyIdToken(token,true);if(decoded.missionStaff!==true||typeof decoded.staffId!=='string')throw new AccessError('Staff access required.');const access=await read(`cbse/staffAccess/${decoded.staffId}`);if(!access?.enabled||decoded.pinVersion!==access.version)throw new AccessError('Staff access has been disabled or reset. Sign in again.');return {decoded,access};}
  async function throttle(staffId,ip){const key=createHash('sha256').update(`${ip}|${staffId}`).digest('hex');for(const[scope,limit]of [[`ip|${ip}`,25],[`${ip}|${staffId}`,8],[`staff|${staffId}`,30]]){const bucket=createHash('sha256').update(scope).digest('hex');let denied=false;await db.ref(`cbse/staffAttempts/${bucket}`).transaction(current=>{const value=current&&now()-current.started<15*60_000?current:{started:now(),count:0};if(value.count>=limit){denied=true;return;}return {...value,count:value.count+1};});if(denied)throw new AccessError('Too many PIN attempts. Try again in 15 minutes.',429);}return key;}
@@ -45,7 +55,7 @@ export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=d
   }
   if(['list','set-pin','disable','generate-pins','import-pins','add-faculty-pin'].includes(action)){
    const inputPrincipal=await principal(token);const staff=await directoryStaff();
-   if(action==='list'){const access=await read('cbse/staffAccess');return {access:Object.fromEntries(entries(access).map(([id,a])=>[id,{enabled:!!a.enabled,pinSet:!!a.hash,updatedAt:a.updatedAt,pin:decryptDisplayPIN(a,id,displayKey)}]))};}
+   if(action==='list'){const {created}=input.generateMissing===true?await generateMissingPINs(staff):{created:[]};const access=await read('cbse/staffAccess');return {staff:Object.fromEntries(entries(staff).filter(([,t])=>t.status==='active')),created,access:Object.fromEntries(entries(access).map(([id,a])=>[id,{enabled:!!a.enabled,pinSet:!!a.hash,updatedAt:a.updatedAt,pin:decryptDisplayPIN(a,id,displayKey)}]))};}
    if(action==='add-faculty-pin'){
     const classId=String(input.classId||'');if(!['X','XII'].includes(classId))throw new AccessError('Choose Class X or XII.',400);
     if(typeof input.pin!=='string'||!/^\d{3}$/.test(input.pin))throw new AccessError('Enter exactly three digits for the initial PIN.',400);
@@ -68,16 +78,7 @@ export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=d
     if(!result.committed)throw new AccessError('PIN update did not save. Try again.',409);
     return {ok:true,updated:prepared.length,access:Object.fromEntries(prepared.map(p=>[p.id,{enabled:p.record.enabled,pinSet:true,updatedAt:p.record.updatedAt}]))};
    }
-   if(action==='generate-pins'){
-    const access=await read('cbse/staffAccess')||{},missing=entries(staff).filter(([id,p])=>p.status==='active'&&!access[id]?.hash);
-    if(missing.length>900)throw new AccessError('Generate PINs for fewer than 901 staff at a time.',400);
-    const used=new Set(),prepared=[];
-    for(const[id,p]of missing){let pin;do{pin=String(randomInt(100,1000));}while(used.has(pin));used.add(pin);prepared.push({id,name:p.name,pin,record:{...await hashPIN(pin),...encryptDisplayPIN(pin,id,displayKey),enabled:true,version:randomUUID(),updatedAt:now()}});}
-    let created=[];
-    const result=await db.ref('cbse/staffAccess').transaction(current=>{const next=current||{};created=[];for(const p of prepared)if(!next[p.id]?.hash){next[p.id]=p.record;created.push({staffId:p.id,name:p.name,pin:p.pin});}return next;});
-    if(!result.committed)throw new AccessError('PIN generation did not save. Try again.',409);
-    return {created};
-   }
+   if(action==='generate-pins')return generateMissingPINs(staff);
    const id=String(input.staffId||'');if(!staff[id])throw new AccessError('Staff member not found.',404);
    if(action==='set-pin'){if(staff[id].status!=='active')throw new AccessError('Enable this staff member first.',400);const hash=await hashPIN(input.pin);await revoke(id);await db.ref(`cbse/staffAccess/${id}`).set({...hash,...encryptDisplayPIN(input.pin,id,displayKey),enabled:true,version:randomUUID(),updatedAt:now()});}
    else{await revoke(id);await db.ref(`cbse/staffAccess/${id}`).update({enabled:false,version:randomUUID(),updatedAt:now()});}

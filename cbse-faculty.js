@@ -1,3 +1,4 @@
+import {readStaffResponse} from './cbse-service-response.js';
 import {clone,entries,uniqueKey,emptyDraft} from './cbse-model.js';
 import {emptyFaculty,validateFaculty,clearTeacherRoles,removeFaculty,mergeFacultyRoster,applyCapturedTeacherRoles} from './cbse-faculty-model.js';
 import {el,cell,options,stats} from './cbse-ui.js';
@@ -52,10 +53,13 @@ async function save(next,expected=data?.revision){
  if(busy)throw Error('Please wait for the current operation.');if(!data||!user)throw Error('Sign in again before saving.');
  // Removed student sections must not leave hidden assignments that block reuse.
  for(const cl of ['X','XII'])for(const sid of Object.keys(next.classes[cl].roles||{}))if(!classSections(cl)[sid])delete next.classes[cl].roles[sid];
+ const needsPINSync=entries(next.classes).some(([cl,c])=>entries(c.teachers).some(([id,t])=>t.status==='active'&&data.classes[cl]?.teachers?.[id]?.status!=='active'));
  validateFaculty(next);const token=generation;setBusy(true);message('Saving private faculty data…');
  try{
   const result=await api.runTransaction(api.ref(db,'cbse/facultyDraft'),current=>{const revision=current?.revision||0;if(revision!==expected)return;return {...next,revision:revision+1,updatedAt:Date.now()};},{applyLocally:false});
-  if(!result.committed)throw Error(conflict);if(token!==generation)return false;data=validateFaculty(result.snapshot.val());render();message('Faculty changes saved privately.','success');return true;
+  if(!result.committed)throw Error(conflict);if(token!==generation)return false;data=validateFaculty(result.snapshot.val());render();message('Faculty changes saved privately.','success');
+  if(needsPINSync){try{const response=await fetch('/api/staff-access',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${await user.getIdToken()}`},body:JSON.stringify({action:'generate-pins'})});const pins=await readStaffResponse(response);if(token!==generation)return true;message(`Faculty saved. ${pins.created?.length||0} missing initial PIN(s) generated. Open Mission → Faculty PIN settings → Show PIN list.`,'success');}catch(error){if(token===generation)message('Faculty saved, but PIN generation is pending. Open Mission → Faculty PIN settings to finish. '+error.message,'error');}}
+  return true;
  }finally{setBusy(false);}
 }
 function field(name,label,value='',max=120,required=true){const wrap=el('label',label),input=el('input');input.name=name;input.value=value;input.maxLength=max;input.required=required;wrap.append(input);$('faculty-editor-fields').append(wrap);return input;}

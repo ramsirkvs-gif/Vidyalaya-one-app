@@ -133,3 +133,14 @@ test('student conversation replies require a same-student general remark and ret
  await assert.rejects(service('pin-submit',{...input,studentKey:'X:b:two'},'','reply-ip'),/unavailable for reply/);
  data.cbse.mission.records.parent.visibility='restricted';await assert.rejects(service('pin-submit',input,'','reply-ip'),/unavailable for reply/);
 });
+
+test('Principal PIN list repairs newly added faculty from the current roster without resetting existing access',async()=>{
+ const{service,data}=fixture();await service('set-pin',{staffId:'X:one',pin:'029'},'principal');await service('disable',{staffId:'X:one'},'principal');const original=structuredClone(data.cbse.staffAccess['X:one']);
+ data.cbse.facultyDraft.classes.XII.teachers.new_chemistry={name:'Synthetic New Chemistry Teacher',designation:'PGT-Chemistry',subjects:'Chemistry',teachingSections:'A, B',status:'active'};
+ data.cbse.facultyDraft.classes.XII.teachers.vacant={name:'Vacant Post',designation:'PGT',subjects:'AI',teachingSections:'',status:'vacant'};
+ await assert.rejects(service('list',{generateMissing:true},'outsider'),/Principal/);assert.ok(!data.cbse.staffAccess['XII:new_chemistry']);
+ assert.equal((await service('list',{},'principal')).created.length,0);assert.ok(!data.cbse.staffAccess['XII:new_chemistry']);
+ const result=await service('list',{generateMissing:true},'principal');assert.equal(result.created.length,1);assert.equal(result.created[0].staffId,'XII:new_chemistry');assert.equal(result.staff['XII:new_chemistry'].name,'Synthetic New Chemistry Teacher');assert.match(result.access['XII:new_chemistry'].pin,/^\d{3}$/);assert.equal(result.access['XII:new_chemistry'].enabled,true);assert.ok(await verifyPIN(result.access['XII:new_chemistry'].pin,data.cbse.staffAccess['XII:new_chemistry']));assert.deepEqual(data.cbse.staffAccess['X:one'],original);assert.ok(!result.staff['XII:vacant']);
+ const reopened=await service('list',{generateMissing:true},'principal');assert.equal(reopened.created.length,0);assert.equal(reopened.access['XII:new_chemistry'].pin,result.access['XII:new_chemistry'].pin);
+ const directory=await service('directory');assert.deepEqual(directory.staff.map(t=>t.id),['XII:new_chemistry']);assert.ok(!JSON.stringify(directory).includes(result.access['XII:new_chemistry'].pin));
+});
