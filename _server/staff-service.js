@@ -1,3 +1,4 @@
+import {planFacultySave} from '../cbse-faculty-editor-model.js';
 import {applyConversationOperation} from '../cbse-conversation-model.js';
 import {teacherConversation} from '../cbse-teacher-conversation.js';
 import {resolvedViewingData,resolvedAllocations,teacherIdentityIds} from '../cbse-view-data.js';
@@ -53,6 +54,14 @@ export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=d
    try{applyConversationOperation(c.mission,c.draft,c.faculty,values,actor,ids);}catch(error){throw new AccessError(error.message,400);}let threadId='',reason='';
    const result=await db.ref('cbse/mission').transaction(current=>{if(current===null)return null;try{const r=applyConversationOperation(current,c.draft,c.faculty,values,actor,ids);threadId=r.threadId;return r.next;}catch(error){reason=error.message;return;}});
    if(!result.committed||!threadId||!result.snapshot.val()?.conversations?.[threadId])throw new AccessError(reason||'Conversation changed. Reload and retry.',409);return {ok:true,threadId};
+  }
+  if(action==='save-faculty'){
+   const admin=await principal(token),current=await read('cbse'),newId='faculty_'+randomUUID().replaceAll('-','');let prepared;
+   try{prepared=planFacultySave(current,input,newId,now());}catch(e){throw new AccessError(e.message,400);}
+   const pin=String(input.pin||'');if(!input.staffId&&!/^\d{3}$/.test(pin))throw new AccessError('Enter a three-digit initial PIN.',400);
+   const pins={};for(const id of prepared.newStaffIds){const source=input.staffId?current.staffAccess?.[input.staffId]:null;if(source?.hash){const visible=decryptDisplayPIN(source,input.staffId,displayKey);pins[id]={...source};delete pins[id].displayPIN;if(visible)Object.assign(pins[id],encryptDisplayPIN(visible,id,displayKey));}else{if(!/^\d{3}$/.test(pin))throw new AccessError('Enter an initial PIN for the new standard.',400);pins[id]={...await hashPIN(pin),...encryptDisplayPIN(pin,id,displayKey),enabled:true,version:randomUUID(),updatedAt:now()};}}
+   let reason='';const result=await db.ref('cbse').transaction(value=>{if(!value||value.adminUid!==admin.uid)return;try{const planned=planFacultySave(value,input,newId,now());planned.next.staffAccess||={};for(const id of planned.newStaffIds)if(!planned.next.staffAccess[id])planned.next.staffAccess[id]=pins[id];return planned.next;}catch(e){reason=e.message;return;}});
+   if(!result.committed)throw new AccessError(reason||'Faculty changed. Reload and retry.',409);return {ok:true,staffId:prepared.staffId};
   }
   if(action==='directory'){const staff=await directoryStaff(),access=await read('cbse/staffAccess');return {staff:entries(access).filter(([id,a])=>a.enabled&&staff[id]?.status==='active').map(([id])=>({id,name:staff[id].name,role:staff[id].classId?`Class ${staff[id].classId} faculty`:staff[id].kind}))};}
   if(action==='login'){
