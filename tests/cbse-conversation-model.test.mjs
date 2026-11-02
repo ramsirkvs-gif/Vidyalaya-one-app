@@ -58,3 +58,19 @@ test('concerned teachers follow enrolled subjects; historical deadlines and repl
  const id=mutate(x,{operation:'start',context,notes:'Old request',due:'2026-12-01'});const old=structuredClone(x.m.records);mutate(x,{operation:'reply',threadId:id,notes:'Information only',deliveryMode:'information'},principal,101);assert.equal(x.m.conversations[id].due,'2026-12-01');for(const [k,r] of Object.entries(old))assert.deepEqual(x.m.records[k],r);
  const allId=mutate(x,{operation:'start',context:{kind:'all',studentKeys:[]},notes:'School announcement',deliveryMode:'information'},principal,102);assert.equal(x.m.conversations[allId].participantIds.length,2);validateMission(x.m,x.d,x.f);
 });
+
+test('only Principal can delete a comment; original is privately audited and replies and closure remain',()=>{
+ const x=fixture(),id=mutate(x,{operation:'start',context,notes:'Unwanted original text'});mutate(x,{operation:'reply',threadId:id,notes:'Reply to retain'},one,101);
+ const original=structuredClone(x.m.records.record_100),reply=structuredClone(x.m.records.record_101);assert.throws(()=>mutate(x,{operation:'delete_comment',threadId:id,recordId:'record_100'},one,102),/Only the Principal/);
+ mutate(x,{operation:'close',threadId:id},principal,102);mutate(x,{operation:'delete_comment',threadId:id,recordId:'record_100'},principal,103);
+ assert.equal(x.m.records.record_100.notes,'Comment deleted by Principal.');assert.equal(x.m.records.record_100.deletedBy,'principal');assert.deepEqual(x.m.conversationAudit.record_103.record,original);assert.deepEqual(x.m.records.record_101,reply);assert.equal(x.m.conversations[id].status,'closed');assert.equal(conversationThreads(x.m,x.d,x.f)[0].messages.length,2);validateMission(x.m,x.d,x.f);
+ const before=structuredClone(x.m);assert.throws(()=>mutate(x,{operation:'delete_comment',threadId:id,recordId:'record_100'},principal,104),/already been deleted/);assert.deepEqual(x.m,before);
+ const other=mutate(x,{operation:'start',context,notes:'Different thread'},principal,105);assert.throws(()=>mutate(x,{operation:'delete_comment',threadId:other,recordId:'record_101'},principal,106),/inside this conversation/);
+});
+
+test('Principal edits only own comments with private versions and unchanged recipients and replies',()=>{
+ const x=fixture(),id=mutate(x,{operation:'start',context,notes:'Original Principal message'});mutate(x,{operation:'reply',threadId:id,notes:'Teacher response'},one,101);const old=structuredClone(x.m.records.record_100),recipients=structuredClone(x.m.conversations[id].participantIds),requests=structuredClone(x.m.conversations[id].requests),reply=structuredClone(x.m.records.record_101);
+ assert.throws(()=>mutate(x,{operation:'edit_comment',threadId:id,recordId:'record_100',notes:'Forged edit'},one,102),/Only the Principal/);assert.throws(()=>mutate(x,{operation:'edit_comment',threadId:id,recordId:'record_101',notes:'Edit teacher words'},principal,102),/only your own/);
+ mutate(x,{operation:'close',threadId:id},principal,102);mutate(x,{operation:'edit_comment',threadId:id,recordId:'record_100',notes:'Corrected Principal message'},principal,103);assert.equal(x.m.records.record_100.notes,'Corrected Principal message');assert.deepEqual(x.m.conversationAudit.record_103.record,old);assert.deepEqual(x.m.conversations[id].participantIds,recipients);assert.deepEqual(x.m.conversations[id].requests,requests);assert.deepEqual(x.m.records.record_101,reply);assert.equal(x.m.conversations[id].status,'closed');validateMission(x.m,x.d,x.f);
+ mutate(x,{operation:'delete_comment',threadId:id,recordId:'record_100'},principal,104);assert.throws(()=>mutate(x,{operation:'edit_comment',threadId:id,recordId:'record_100',notes:'Resurrect'},principal,105),/existing comment/);
+});

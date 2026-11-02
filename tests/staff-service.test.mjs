@@ -236,3 +236,17 @@ test('information broadcasts retain participant PIN protection and expose purpos
  await f.service('pin-submit',{operation:'conversation-reply',threadId,staffId:'X:one',pin:'123',notes:'Acknowledged',deliveryMode:'information'});
  const session=await f.service('view-login',{password:'synthetic-curtain'}),view=await f.service('view-data',{},'','ip',{viewerToken:session.viewerToken});const message=Object.values(view.mission.records).find(r=>r.notes==='Staff information');assert.equal(message.deliveryMode,'information');assert.deepEqual(message.recipientGroups,['all','team_x']);assert.ok(!JSON.stringify(view).includes('displayPIN'));
 });
+
+test('Principal comment deletion excludes the original and private audit from staff viewing',async()=>{
+ const f=fixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');const {threadId}=await f.service('conversation-principal',{operation:'start',context:{kind:'general',teacherId:'X:one',studentKeys:[]},notes:'PRIVATE_DELETED_ORIGINAL'},'principal');const root=f.data.cbse.mission.conversations[threadId].rootRecordId;
+ await assert.rejects(f.service('conversation-principal',{operation:'delete_comment',threadId,recordId:root},'outsider'),/Principal/);
+ await assert.rejects(f.service('pin-submit',{operation:'conversation-delete_comment',threadId,recordId:root,staffId:'X:one',pin:'123'}),/Principal/);
+ await f.service('conversation-principal',{operation:'delete_comment',threadId,recordId:root},'principal');assert.equal(Object.values(f.data.cbse.mission.conversationAudit)[0].record.notes,'PRIVATE_DELETED_ORIGINAL');
+ const session=await f.service('view-login',{password:'synthetic-curtain'}),view=await f.service('view-data',{},'','ip',{viewerToken:session.viewerToken});assert.ok(!JSON.stringify(view).includes('PRIVATE_DELETED_ORIGINAL'));assert.equal(view.mission.conversationAudit,undefined);assert.ok(view.mission.records[root].deletedAt);
+});
+
+test('Principal edits keep prior text in a private audit, not staff responses',async()=>{
+ const f=fixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');const {threadId}=await f.service('conversation-principal',{operation:'start',context:{kind:'general',teacherId:'X:one',studentKeys:[]},notes:'PRIVATE_OLD_VERSION'},'principal');const root=f.data.cbse.mission.conversations[threadId].rootRecordId;
+ await assert.rejects(f.service('pin-submit',{operation:'conversation-edit_comment',threadId,recordId:root,notes:'Forged edit',staffId:'X:one',pin:'123'}),/Principal/);
+ await f.service('conversation-principal',{operation:'edit_comment',threadId,recordId:root,notes:'Corrected message'},'principal');assert.equal(Object.values(f.data.cbse.mission.conversationAudit)[0].record.notes,'PRIVATE_OLD_VERSION');const session=await f.service('view-login',{password:'synthetic-curtain'}),view=await f.service('view-data',{},'','ip',{viewerToken:session.viewerToken});assert.ok(!JSON.stringify(view).includes('PRIVATE_OLD_VERSION'));assert.equal(view.mission.records[root].notes,'Corrected message');assert.ok(view.mission.records[root].editedAt);
+});
