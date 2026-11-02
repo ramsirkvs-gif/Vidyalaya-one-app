@@ -1,3 +1,4 @@
+import {planStudentContactUpdate} from '../cbse-contact-audit.js';
 import {planFacultySave} from '../cbse-faculty-editor-model.js';
 import {applyConversationOperation} from '../cbse-conversation-model.js';
 import {teacherConversation} from '../cbse-teacher-conversation.js';
@@ -120,14 +121,11 @@ export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=d
    const allowed=['mapLocation','location','numbers'];if(Object.keys(patch).some(k=>!allowed.includes(k)))throw new AccessError('Only phone numbers, address or map location can be updated.',400);
    if(!pinIdentity&&Object.keys(patch).some(k=>k!=='mapLocation')&&!staffCanView(id,key,c.mission,c.draft,c.faculty))throw new AccessError('Phone/address updates require an assigned student.',403);
    if(!Number.isInteger(input.expectedRevision)||input.expectedRevision<0)throw new AccessError('Reload the contact record before updating.',409);
-   let failed='';const result=await db.ref('cbse/mission').transaction(current=>{
-    failed='';const m=current||emptyMission();if(staffIndex(c.faculty,m)[id]?.status!=='active')return;
-    const old=m.students?.[key]||{gender:'unknown',guardian:'',phones:'',location:''};if((old.revision||0)!==input.expectedRevision){failed='Contact details changed. Reload this student before saving.';return;}
-    if(!pinIdentity&&Object.keys(patch).some(k=>k!=='mapLocation')&&!staffCanView(id,key,m,c.draft,c.faculty))return;
-    const next={...old,...patch,revision:(old.revision||0)+1,updatedBy:id,updatedByName:staffIndex(c.faculty,m)[id]?.name,updatedAt:now()};
-    try{if(patch.mapLocation!==undefined)next.mapLocation=mapLink(patch.mapLocation);if(patch.numbers!==undefined)next.phones=serializePhones(patch.numbers);if(typeof next.location!=='string'||next.location.length>500)throw Error('Home address is too long.');validateContact(next);}catch(error){failed=error.message;return;}
-    m.students||={};m.students[key]=next;m.revision=(m.revision||0)+1;m.updatedAt=now();return m;
-   });if(!result.committed)throw new AccessError(failed||'Assignment changed. Reload before updating.',failed?.includes('changed')?409:400);return {ok:true};
+   let failed='';const auditId='contact_'+randomUUID().replaceAll('-','');const changedAt=now();const result=await db.ref('cbse/mission').transaction(current=>{
+    if(current===null)return null;failed='';if(staffIndex(c.faculty,current)[id]?.status!=='active')return;
+    if(!pinIdentity&&Object.keys(patch).some(k=>k!=='mapLocation')&&!staffCanView(id,key,current,c.draft,c.faculty))return;
+    try{return planStudentContactUpdate(current,key,patch,{id,name:staffIndex(c.faculty,current)[id].name},input.expectedRevision,changedAt,auditId).next;}catch(error){failed=error.message;return;}
+   });const saved=result.snapshot?.val()?.students?.[key];if(!result.committed||!saved)throw new AccessError(failed||'Contact update could not be confirmed. Reload before updating.',failed?.includes('changed')?409:400);return {ok:true,studentKey:key,revision:saved.revision||0,contact:Object.fromEntries(['gender','guardian','phones','location','mapLocation','numbers','email','revision','updatedBy','updatedByName','updatedAt'].filter(k=>saved[k]!==undefined).map(k=>[k,saved[k]]))};
   }
   if(action==='comment'){
    const notes=String(input.notes||'').trim();if(!notes||notes.length>2000)throw new AccessError('Enter a progress comment of up to 2000 characters.',400);

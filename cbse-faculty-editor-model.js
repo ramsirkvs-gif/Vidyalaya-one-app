@@ -1,3 +1,4 @@
+import {recordContactChanges} from './cbse-contact-audit.js';
 import {emptyFaculty,validateFaculty,clearTeacherRoles} from './cbse-faculty-model.js';
 import {emptyMission,validateMission} from './cbse-mission-model.js';
 import {teacherIdentityIds} from './cbse-view-data.js';
@@ -21,7 +22,7 @@ export function planFacultySave(current,input,newId,now){
  m.allocations||={};const previousAllocations=Object.values(m.allocations).filter(a=>ids.has(a.staffId));for(const[k,a]of entries(m.allocations))if(ids.has(a.staffId))delete m.allocations[k];
  const seen=new Set();for(const a of input.assignments){check(classes.includes(a.classId)&&key(a.sectionId)&&key(a.subjectId)&&d?.classes?.[a.classId]?.sections?.[a.sectionId]?.subjects?.[a.subjectId],'Choose a valid class, section and subject.');const k=`${a.classId}_${a.sectionId}_${a.subjectId}`;check(!seen.has(k),'Duplicate subject assignment.');seen.add(k);const conflict=Object.values(m.allocations).find(other=>other.classId===a.classId&&other.sectionId===a.sectionId&&other.subjectId===a.subjectId);check(!conflict||ids.has(conflict.staffId),'This subject already has a teacher. Change that assignment first.');m.allocations[k]={...previousAllocations.find(other=>other.classId===a.classId&&other.sectionId===a.sectionId&&other.subjectId===a.subjectId),classId:a.classId,sectionId:a.sectionId,subjectId:a.subjectId,staffId:targetFor(a.classId)};}
  for(const r of input.roles){check(classes.includes(r.classId)&&key(r.sectionId)&&d?.classes?.[r.classId]?.sections?.[r.sectionId]&&['classTeacher','coClassTeacher','other'].includes(r.role),'Choose a valid section responsibility.');const tid=targetFor(r.classId).split(':')[1],area=f.classes[r.classId];area.roles||={};const roles=area.roles[r.sectionId]||={classTeacher:'',coClassTeacher:''};if(r.role==='other'){check(typeof r.label==='string'&&r.label.trim()&&r.label.length<=60,'Enter the responsibility name.');roles.other||={};let index=0;while(roles.other['editor_'+index])index++;const id='editor_'+index;roles.other[id]={label:r.label.trim(),teacherId:tid};}else{check(!roles[r.role]||roles[r.role]===tid,'This section responsibility already belongs to another teacher. Change it first.');roles[r.role]=tid;}}
- validateFaculty(f);f.revision++;f.updatedAt=now;m.revision=(m.revision||0)+1;m.updatedAt=now;next.facultyDraft=f;next.mission=m;return {next,staffIds:[...ids],newStaffIds:[...ids].filter(id=>!aliases.includes(id)),staffId:targetFor(classes[0]),teacher:old};
+ recordContactChanges(current.mission||{},m,{id:'principal',name:'Principal'},now,'faculty_contact_'+newId+'_'+(current.mission?.revision||0));validateFaculty(f);f.revision++;f.updatedAt=now;m.revision=(m.revision||0)+1;m.updatedAt=now;next.facultyDraft=f;next.mission=m;return {next,staffIds:[...ids],newStaffIds:[...ids].filter(id=>!aliases.includes(id)),staffId:targetFor(classes[0]),teacher:old};
 }
 
 function planSupportSave(current,input,newId,now){
@@ -48,6 +49,6 @@ function planSupportSave(current,input,newId,now){
   const prior=previous.find(([,v])=>v.classId===a.classId&&v.sectionId===a.sectionId&&v.subjectId===a.subjectId),k=prior?.[0]||'support_'+tid+'_'+seen.size;
   check(!m.supportAssignments[k],'Support responsibility changed. Reload and retry.');m.supportAssignments[k]={...prior?.[1],staffId:id,classId:a.classId,sectionId:a.sectionId,subjectId:a.subjectId,role:kind,purpose:a.purpose.trim()};
  }
- m.revision=(m.revision||0)+1;m.updatedAt=now;validateMission(m,next.draft,f);next.mission=m;next.facultyDraft=f;
+ recordContactChanges(current.mission||{},m,{id:'principal',name:'Principal'},now,'support_contact_'+newId+'_'+(current.mission?.revision||0));m.revision=(m.revision||0)+1;m.updatedAt=now;validateMission(m,next.draft,f);next.mission=m;next.facultyDraft=f;
  return {next,staffId:id,staffIds:[id],newStaffIds:editing?[]:[id]};
 }
