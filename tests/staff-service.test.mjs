@@ -226,3 +226,13 @@ test('separate AI and other support roles retain legacy identity, PIN, assignmen
  const list=await service('list',{},'principal');assert.ok(list.access[staffId].pinSet);assert.ok(await verifyPIN('029',data.cbse.staffAccess[staffId]));
  const saved=structuredClone(data.cbse);await assert.rejects(service('save-faculty',{...input,kind:'other_support',expectedMissionRevision:2},'principal'),/already exists/);assert.deepEqual(data.cbse,saved);
 });
+
+test('information broadcasts retain participant PIN protection and expose purpose without credentials',async()=>{
+ const f=fixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ const payload={operation:'start',context:{kind:'all',studentKeys:[]},notes:'Staff information',recipientGroups:['all','team_x'],mentionIds:['X:one'],deliveryMode:'information'};
+ await assert.rejects(f.service('conversation-principal',payload,'outsider'),/Principal/);
+ const {threadId}=await f.service('conversation-principal',payload,'principal'),t=f.data.cbse.mission.conversations[threadId];assert.deepEqual(t.requests,{});assert.deepEqual(t.participantIds,['X:one']);
+ await assert.rejects(f.service('pin-submit',{operation:'conversation-reply',threadId,staffId:'X:one',pin:'000',notes:'Unauthenticated'}),/does not match/);
+ await f.service('pin-submit',{operation:'conversation-reply',threadId,staffId:'X:one',pin:'123',notes:'Acknowledged',deliveryMode:'information'});
+ const session=await f.service('view-login',{password:'synthetic-curtain'}),view=await f.service('view-data',{},'','ip',{viewerToken:session.viewerToken});const message=Object.values(view.mission.records).find(r=>r.notes==='Staff information');assert.equal(message.deliveryMode,'information');assert.deepEqual(message.recipientGroups,['all','team_x']);assert.ok(!JSON.stringify(view).includes('displayPIN'));
+});

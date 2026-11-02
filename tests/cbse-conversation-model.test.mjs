@@ -35,3 +35,26 @@ test('Firebase-omitted empty conversation lists do not block support member save
  for(const bad of [{},'invalid',[null]]){t.participantIds=bad;assert.throws(()=>validateMission(persisted,x.d,x.f),/conversation metadata/);}
  delete t.participantIds;t.context.studentKeys={};assert.throws(()=>validateMission(persisted,x.d,x.f),/conversation metadata/);
 });
+
+test('team and All audiences deduplicate aliases and information does not request replies',async()=>{
+ const {conversationTeam,conversationShortcutRecipients,conversationInView}=await import('../cbse-conversation-targets.js');const x=fixture();
+ x.f.classes.XII.teachers.alias={...x.f.classes.X.teachers.one};x.f.classes.XII.teachers.senior={name:'Senior Teacher',designation:'PGT',status:'active',subjects:'Science',teachingSections:'A'};
+ x.m.allocations.senior={classId:'XII',sectionId:'a',subjectId:'science',staffId:'XII:senior'};
+ assert.deepEqual(conversationTeam('XII',x.f,x.m),['X:one','XII:senior']);
+ const id=mutate(x,{operation:'start',context:{kind:'team',classId:'XII',studentKeys:[]},notes:'For the senior team',recipientGroups:['team_xii','all'],mentionIds:['XII:alias','X:one'],deliveryMode:'information'});
+ let t=conversationThreads(x.m,x.d,x.f)[0];assert.deepEqual(t.requests,{});assert.equal(t.participantIds.length,3);assert.equal(new Set(t.participantIds).size,3);validateMission(x.m,x.d,x.f);
+ assert.equal(conversationInView(t,'team_x','principal',x.d,x.f,x.m),false);assert.equal(conversationInView(t,'team_xii','principal',x.d,x.f,x.m),true);assert.equal(conversationInView(t,'mine','principal',x.d,x.f,x.m),true);
+ mutate(x,{operation:'reply',threadId:id,notes:'Information received',deliveryMode:'information'},one,101);assert.deepEqual(conversationThreads(x.m,x.d,x.f)[0].requests,{});
+ mutate(x,{operation:'reply',threadId:id,notes:'Please respond',recipientGroups:['team_xii'],deliveryMode:'reply_requested'},principal,102);t=conversationThreads(x.m,x.d,x.f)[0];assert.deepEqual(new Set(t.progress.awaiting),new Set(['X:one','XII:senior']));
+ const members=conversationShortcutRecipients('class_team',context,x.d,x.f,x.m);assert.deepEqual(members,['X:one']);
+ const classThread={...t,context};assert.equal(conversationInView(classThread,'class_teams','X:one',x.d,x.f,x.m),true);assert.equal(conversationInView(classThread,'class_teams','X:two',x.d,x.f,x.m),false);
+ assert.throws(()=>validateConversationContext({kind:'team',classId:'XIII'},x.d,x.f,x.m),/Team X/);assert.throws(()=>validateConversationContext({kind:'all',teacherId:'X:one'},x.d,x.f,x.m),/without profile/);
+ assert.throws(()=>mutate(x,{operation:'reply',threadId:id,notes:'Invalid shortcut',recipientGroups:['invented']}),/shortcuts/);
+});
+
+test('concerned teachers follow enrolled subjects; historical deadlines and replies remain intact',async()=>{
+ const {conversationShortcutRecipients}=await import('../cbse-conversation-targets.js');const x=fixture();x.d.classes.X.sections.a.subjects.english={name:'English'};x.m.allocations.english={classId:'X',sectionId:'a',subjectId:'english',staffId:'X:two'};
+ const c={kind:'student',classId:'X',sectionId:'a',studentKeys:['X:a:one']};assert.deepEqual(conversationShortcutRecipients('concerned',c,x.d,x.f,x.m),['X:one']);assert.deepEqual(conversationShortcutRecipients('class_team',c,x.d,x.f,x.m),['X:one','X:two']);
+ const id=mutate(x,{operation:'start',context,notes:'Old request',due:'2026-12-01'});const old=structuredClone(x.m.records);mutate(x,{operation:'reply',threadId:id,notes:'Information only',deliveryMode:'information'},principal,101);assert.equal(x.m.conversations[id].due,'2026-12-01');for(const [k,r] of Object.entries(old))assert.deepEqual(x.m.records[k],r);
+ const allId=mutate(x,{operation:'start',context:{kind:'all',studentKeys:[]},notes:'School announcement',deliveryMode:'information'},principal,102);assert.equal(x.m.conversations[allId].participantIds.length,2);validateMission(x.m,x.d,x.f);
+});
