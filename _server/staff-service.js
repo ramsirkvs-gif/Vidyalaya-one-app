@@ -1,4 +1,4 @@
-import {contributeMCQ,createMCQPaper,evaluateMCQ,publicMCQBank} from '../cbse-mcq-model.js';
+import {contributeMCQ,createMCQPaper,evaluateMCQ,publicMCQBank,mcqContributors} from '../cbse-mcq-model.js';
 import {planStudentContactUpdate} from '../cbse-contact-audit.js';
 import {planFacultySave} from '../cbse-faculty-editor-model.js';
 import {applyConversationOperation} from '../cbse-conversation-model.js';
@@ -52,7 +52,7 @@ export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=d
    action=String(input.operation||'comment');if(!['comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply','mcq-contribute','mcq-paper','mcq-evaluate'].includes(action))throw new AccessError('This operation requires Principal access.',403);pinIdentity={decoded:{staffId:id},access};
   }
   if(['mcq-contribute','mcq-paper','mcq-evaluate'].includes(action)){
-   if(!pinIdentity)throw new AccessError('Choose a contributor and verify their PIN.',403);const id=pinIdentity.decoded.staffId,c=await context(),person=staffIndex(c.faculty,c.mission)[id],actor={id,name:person.name};let reason='',output={},result;
+   if(!pinIdentity)throw new AccessError('Choose a contributor and verify their PIN.',403);const id=pinIdentity.decoded.staffId,c=await context(),person=staffIndex(c.faculty,c.mission)[id],actor={id,name:person.name};const selectedClass=input.classId||'X';if(!mcqContributors(c.faculty,c.mission,selectedClass).some(t=>teacherIdentityIds(t.id,c.faculty,c.mission).includes(id)))throw new AccessError('Choose a subject teacher who teaches the selected Class '+selectedClass+'.',403);let reason='',output={},result;
    if(action==='mcq-evaluate'){if(input.correction&&!token)throw new AccessError('Only the Principal can correct an existing score.',403);const admin=input.correction?await principal(token):null;result=await db.ref('cbse').transaction(current=>{if(current===null)return null;try{if(!current.staffAccess?.[id]?.enabled||current.staffAccess[id].version!==pinIdentity.access.version){reason='Staff access changed. Verify your PIN again.';return;}const planned=evaluateMCQ(current,input,actor,now(),{principalUid:admin?.uid||''});output={score:planned.score,maximum:planned.maximum,evaluationId:planned.evaluationId};return planned.next;}catch(e){reason=e.message;return;}});}
    else{result=await db.ref('cbse/mcq').transaction(current=>{try{const planned=action==='mcq-contribute'?contributeMCQ(current||{},input,actor,c.draft,now()):createMCQPaper(current||{},input,actor,now());output=action==='mcq-contribute'?{batchId:planned.batchId,questionIds:planned.questionIds}:{paperId:planned.paperId};return planned.next;}catch(e){reason=e.message;return;}});}
    if(!result.committed||!result.snapshot?.val())throw new AccessError(reason||'The MCQ save could not be confirmed. Reload before trying again.',409);return {ok:true,...output};

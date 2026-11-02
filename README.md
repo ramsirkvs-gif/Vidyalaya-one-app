@@ -141,6 +141,6 @@ CSV data. No database migration or rules change is required.
 Regression checks: `node --test tests/staff-service.test.mjs tests/cbse-conversation-model.test.mjs`
 and, with the repository served on port 8000, `python3 tests/cbse-support-editor-browser.py`.
 
-## MCQs महाअभियान — shared Class X A/B/C/D
+## MCQs महाअभियान — Class X / Class XII
 
-Open staff view or sign in as Principal, then choose **MCQs महाअभियान**. The three pages provide PIN-verified 10/20-question contributions, shared-bank paper creation with an answer-free A4 print/PDF and paper QR, and reviewed manual/photo-assisted bubble evaluation saved to academic performance. See [MCQ_SETUP.md](MCQ_SETUP.md) for local English/Hindi OCR, photo/crop steps, private storage, correction controls, backup boundaries and validation.
+Choose the class first. Each class has its own subjects, eligible subject-teacher dropdown and shared question bank. Use the coloured Contribute button to paste 10/20 prepared MCQs or upload complete question photos, review and submit with a personal PIN. Any eligible teacher can reuse the bank for answer-free A4 papers and reviewed evaluation saved to academic performance. Current-session official chapter defaults remain pending source verification; Mixed, saved topics and Add new topic are available. See [MCQ_SETUP.md](MCQ_SETUP.md) for details, private storage and validation.

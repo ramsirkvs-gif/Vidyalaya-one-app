@@ -10,12 +10,9 @@
     "build": "node scripts/build-site.mjs"
   },
   "dependencies": {
-    "@tesseract.js-data/eng": "1.0.0",
-    "@tesseract.js-data/hin": "1.0.0",
     "exceljs": "4.4.0",
     "firebase-admin": "13.6.0",
     "jsqr": "1.4.0",
-    "qrcode-generator": "2.0.4",
-    "tesseract.js": "6.0.1"
+    "qrcode-generator": "2.0.4"
   }
 }
