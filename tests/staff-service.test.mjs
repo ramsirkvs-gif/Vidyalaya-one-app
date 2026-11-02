@@ -144,3 +144,15 @@ test('Principal PIN list repairs newly added faculty from the current roster wit
  const reopened=await service('list',{generateMissing:true},'principal');assert.equal(reopened.created.length,0);assert.equal(reopened.access['XII:new_chemistry'].pin,result.access['XII:new_chemistry'].pin);
  const directory=await service('directory');assert.deepEqual(directory.staff.map(t=>t.id),['XII:new_chemistry']);assert.ok(!JSON.stringify(directory).includes(result.access['XII:new_chemistry'].pin));
 });
+
+function uncachedMissionService(f){const base=f.db.ref;const db={ref:path=>{const ref=base(path);if(path!=='cbse/mission')return ref;return {...ref,transaction:async fn=>{const initial=fn(null);if(initial===undefined)return {committed:false,snapshot:{val:()=>null}};return ref.transaction(fn);}};}};return createStaffService({db,auth:f.auth,now:()=>1000000,displayKey:Buffer.alloc(32,7),viewSecret});}
+test('teacher reply survives Firebase first transaction callback with an empty local cache',async()=>{
+ const f=fixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');f.data.cbse.mission.records.review={kind:'faculty_comment',studentKey:'',staffId:'X:one',authorId:'principal',visibility:'general',notes:'Please focus on these students'};const service=uncachedMissionService(f);
+ await service('pin-submit',{operation:'teacher-comment',teacherId:'X:one',staffId:'X:one',pin:'123',notes:'Yes, priority is these students',replyToRecord:'review'});
+ const replies=Object.values(f.data.cbse.mission.records).filter(r=>r.replyToRecord==='review');assert.equal(replies.length,1);assert.equal(replies[0].authorId,'X:one');assert.equal(f.data.cbse.mission.records.review.notes,'Please focus on these students');
+ await assert.rejects(service('pin-submit',{operation:'teacher-comment',teacherId:'X:one',staffId:'X:one',pin:'123',notes:'Invalid reply',replyToRecord:'not-present'}),/not available/);
+});
+test('student conversation and requested-report replies survive an empty transaction cache',async()=>{
+ const f=fixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');f.data.cbse.facultyDraft.classes.X.roles.a={classTeacher:'one',coClassTeacher:''};f.data.cbse.mission.records.parent={kind:'faculty_comment',studentKey:'X:a:one',staffId:'',subjectId:'',authorId:'principal',visibility:'general',notes:'Check progress'};f.data.cbse.mission.reportRequests={request:{studentKey:'X:a:one',status:'open',targets:{ct:{staffId:'X:one',role:'class_teacher',subjectId:''}}}};const service=uncachedMissionService(f);
+ await service('pin-submit',{operation:'comment',studentKey:'X:a:one',staffId:'X:one',pin:'123',role:'class_teacher',notes:'Student progress checked',replyToRecord:'parent',requestId:'request',requestTargetId:'ct'});assert.equal(Object.values(f.data.cbse.mission.records).filter(r=>r.replyToRecord==='parent').length,1);
+});
