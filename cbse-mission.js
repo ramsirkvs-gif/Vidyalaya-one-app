@@ -94,7 +94,7 @@ function render(force=false){
  if(!active&&!principal&&curtainRequired){renderCurtain();return;}
  if(r.has('q')){renderSearch(r);return;}
  if(student){renderStudent(student);return;}if(staffId&&active){renderStaff(staffId);return;}
- if(tab&&active){if(!editable()&&!['teachers','academics','conversations'].includes(tab)){renderTeacherDirectory();return;}renderArea(tab);return;}
+ if(tab&&active){if(!editable()&&!['teachers','academics','conversations','mcq'].includes(tab)){renderTeacherDirectory();return;}renderArea(tab);return;}
  if(tab&&(MONITOR_AREAS[tab]||tab==='timetable')){const area=MONITOR_AREAS[tab]||{title:'Break / remedial timetable',description:'Teacher, class, time, room and purpose for planned support sessions.'},p=panel(area.title);p.append(el('p',area.description),el('p',user?'Your Principal session is active. Complete Mission activation to open private monitoring records.':'Principal access opens feeding and reviews. Staff PIN access opens authorised student support information.','muted'));p.append(Object.assign(el('a','Open Principal workspace','button'),{href:'cbse-admin.html'}),Object.assign(el('a','Faculty PIN access','button'),{href:'cbse-staff.html'}));if(tab==='teachers')renderMonitoringTiles();return;}
  if(!cl){
   const zone=r.get('zone'),heading=el('div',undefined,'mission-heading');heading.append(el('h2',zone==='teachers'?'Teacher-wise overview':zone==='students'?'Student-wise overview':'Overview'));view.append(heading);
