@@ -4,7 +4,7 @@ export const facultyName=value=>String(value||'').toUpperCase().replace(/\b(MRS|
 const designationKind=value=>{const s=String(value||'').toUpperCase();return s.match(/\b(PGT|TGT|PRT)\b/)?.[1]||(/COUNS/.test(s)?'COUNSELLOR':/SPECIAL/.test(s)?'SPECIAL':/COMP/.test(s)?'COMPUTER':s.replace(/[^A-Z]/g,''));};
 export const validFacultyEmail=value=>typeof value==='string'&&value.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 export const isAISubject=value=>['AI','ARTIFICIALINTELLIGENCE'].includes(String(value||'').toUpperCase().replace(/[^A-Z]/g,''));
-export const supportRoleLabel=kind=>({prt:'PRT (Co-opted)',counsellor:'Counsellor',special_educator:'Special Educator',support:'AI Support'}[kind]||kind||'Support');
+export const supportRoleLabel=kind=>({prt:'PRT (Co-opted)',counsellor:'Counsellor',special_educator:'Special Educator',support:'AI support',other_support:'Other support'}[kind]||kind||'Support');
 export function supportClasses(mission,draft,staffId){
  const sections=new Map();for(const a of supportDuties(mission,staffId)){const key=a.classId+':'+a.sectionId;sections.set(key,{classId:a.classId,sectionId:a.sectionId,name:draft.classes?.[a.classId]?.sections?.[a.sectionId]?.name||a.sectionId});}
  return [...sections.values()].sort((a,b)=>['X','XII'].indexOf(a.classId)-['X','XII'].indexOf(b.classId)||a.name.localeCompare(b.name,undefined,{numeric:true}));
@@ -50,7 +50,7 @@ export function importVCSetup(pkg,mission,draft,faculty){
  if(pkg?.format!=='mission-vc-support-v1'||!Array.isArray(pkg.members)||!Array.isArray(pkg.emails))throw Error('Use the prepared VC support setup file.');
  const next=clone(mission),issues=[];next.staff||={};next.staffEmails||={};next.supportAssignments||={};let added=0,updated=0,assignments=0,emails=0;
  for(const member of pkg.members){
-  if(!member.name||member.name.length>120||!['prt','counsellor','special_educator','support'].includes(member.kind)||!Array.isArray(member.scopes)||!member.purpose||member.purpose.length>300)throw Error('Invalid support member.');
+  if(!member.name||member.name.length>120||!['prt','counsellor','special_educator','support','other_support'].includes(member.kind)||!Array.isArray(member.scopes)||!member.purpose||member.purpose.length>300)throw Error('Invalid support member.');
   const candidates=entries(vcStaff(faculty,next)).filter(([id,t])=>facultyName(t.name)===facultyName(member.name)&&(id.startsWith('support:')||(t.designation||'').trim().toUpperCase()===(member.designation||'').trim().toUpperCase()||t.kind===member.kind));
   let staffId=candidates[0]?.[0];
   if(!staffId){const id=uniqueKey('vc_'+facultyName(member.name).toLowerCase(),next.staff);staffId='support:'+id;next.staff[id]={name:member.name,designation:member.designation,kind:member.kind,subjects:member.purpose,status:'active'};added++;}

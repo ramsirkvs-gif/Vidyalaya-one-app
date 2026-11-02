@@ -209,3 +209,20 @@ test('unified support save creates a PIN atomically and edits preserve identity,
  await assert.rejects(service('save-faculty',{...input,staffId,expectedMissionRevision:2,assignments:[{...input.assignments[0],subjectId:'missing'}]},'principal'),/valid class/);assert.deepEqual(data.cbse,saved);
  await assert.rejects(service('save-faculty',{...input,staffId,expectedMissionRevision:2,email:'invalid'},'principal'),/email/);assert.deepEqual(data.cbse,saved);
 });
+
+
+test('separate AI and other support roles retain legacy identity, PIN, assignments and history',async()=>{
+ const {service,data}=fixture();Object.assign(data.cbse.mission.records.restricted,{date:'2026-01-01',outcome:'',staffId:'',sectionKey:'',subjectId:''});
+ const input={memberType:'support',name:'Synthetic AI Member',designation:'TGT-Maths',kind:'support',subjects:'Co-opted member',status:'active',email:'support@example.test',mobile:'9876543210',whatsapp:'9876543211',photoData:'data:image/png;base64,AAAA',expectedFacultyRevision:0,expectedMissionRevision:0,pin:'029',assignments:[{classId:'X',sectionId:'a',subjectId:'english',purpose:'Co-opted member for Class X section A'}]};
+ const {staffId}=await service('save-faculty',input,'principal');
+ const access=structuredClone(data.cbse.staffAccess),faculty=structuredClone(data.cbse.facultyDraft),records=structuredClone(data.cbse.mission.records),assignments=structuredClone(data.cbse.mission.supportAssignments);
+ const {supportRoleLabel,supportTeam}=await import('../cbse-vc-model.js');
+ assert.equal(supportRoleLabel('support'),'AI support');assert.equal(supportRoleLabel('other_support'),'Other support');
+ await service('save-faculty',{...input,staffId,kind:'other_support',expectedMissionRevision:1},'principal');
+ assert.deepEqual(data.cbse.staffAccess,access);assert.deepEqual(data.cbse.facultyDraft,faculty);assert.deepEqual(data.cbse.mission.records,records);
+ assert.equal(data.cbse.mission.staff[staffId.slice(8)].designation,'TGT-Maths');
+ for(const [id,a] of Object.entries(assignments))assert.deepEqual(data.cbse.mission.supportAssignments[id],{...a,role:'other_support'});
+ const team=supportTeam(data.cbse.mission,data.cbse.facultyDraft,'X','a');assert.ok(team.some(p=>p.id===staffId&&p.supportRole==='other_support'));assert.equal(supportTeam(data.cbse.mission,data.cbse.facultyDraft,'X','b').some(p=>p.id===staffId),false);
+ const list=await service('list',{},'principal');assert.ok(list.access[staffId].pinSet);assert.ok(await verifyPIN('029',data.cbse.staffAccess[staffId]));
+ const saved=structuredClone(data.cbse);await assert.rejects(service('save-faculty',{...input,kind:'other_support',expectedMissionRevision:2},'principal'),/already exists/);assert.deepEqual(data.cbse,saved);
+});
