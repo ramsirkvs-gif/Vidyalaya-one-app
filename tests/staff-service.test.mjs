@@ -156,3 +156,8 @@ test('student conversation and requested-report replies survive an empty transac
  const f=fixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');f.data.cbse.facultyDraft.classes.X.roles.a={classTeacher:'one',coClassTeacher:''};f.data.cbse.mission.records.parent={kind:'faculty_comment',studentKey:'X:a:one',staffId:'',subjectId:'',authorId:'principal',visibility:'general',notes:'Check progress'};f.data.cbse.mission.reportRequests={request:{studentKey:'X:a:one',status:'open',targets:{ct:{staffId:'X:one',role:'class_teacher',subjectId:''}}}};const service=uncachedMissionService(f);
  await service('pin-submit',{operation:'comment',studentKey:'X:a:one',staffId:'X:one',pin:'123',role:'class_teacher',notes:'Student progress checked',replyToRecord:'parent',requestId:'request',requestTargetId:'ct'});assert.equal(Object.values(f.data.cbse.mission.records).filter(r=>r.replyToRecord==='parent').length,1);
 });
+
+test('direct teacher submission automatically links the current pending Principal comment',async()=>{
+ const f=fixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');f.data.cbse.mission.records.review={kind:'faculty_comment',studentKey:'',staffId:'X:one',authorId:'principal',visibility:'general',notes:'Priority students',updatedAt:100};const service=uncachedMissionService(f);
+ await service('pin-submit',{operation:'teacher-comment',teacherId:'X:one',staffId:'X:one',pin:'123',notes:'Yes, priority is these students'});const reply=Object.values(f.data.cbse.mission.records).find(r=>r.notes==='Yes, priority is these students');assert.equal(reply.replyToRecord,'review');
+});
