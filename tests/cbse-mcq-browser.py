@@ -10,9 +10,10 @@ def mcq_api(page,route):
  d=route.request.post_data_json;calls.append(d);action=d['action']
  if action=='mcq-read':
   r=page.evaluate("""async args=>{const {publicMCQBank}=await import('./cbse-mcq-model.js');return publicMCQBank(...args);}""",[root['mcq'],d]);route.fulfill(json=r);return
- if action=='pin-submit' and d.get('operation','').startswith('mcq-'):
-  if d.get('pin')!={'X:one':'123','X:two':'456'}.get(d.get('staffId')):route.fulfill(status=401,json={'error':'The PIN does not match this staff member.'});return
-  actor={'id':d['staffId'],'name':F['classes']['X']['teachers'][d['staffId'].split(':')[1]]['name']};clock[0]+=1000
+ if action in ['pin-submit','mcq-principal'] and d.get('operation','').startswith('mcq-'):
+  if action!='mcq-principal' and d.get('pin')!={'X:one':'123','X:two':'456'}.get(d.get('staffId')):route.fulfill(status=401,json={'error':'The PIN does not match this staff member.'});return
+  actor={'id':'principal','name':'Principal'} if action=='mcq-principal' else {'id':d['staffId'],'name':F['classes']['X']['teachers'][d['staffId'].split(':')[1]]['name']};clock[0]+=1000
+  if action=='mcq-principal':assert 'authorization' in route.request.headers and not d.get('pin')
   try:
    if d['operation']=='mcq-contribute':r=page.evaluate("""async args=>{const {contributeMCQ}=await import('./cbse-mcq-model.js');return contributeMCQ(...args);}""",[root['mcq'],d,actor,D,clock[0]]);root['mcq']=r.pop('next')
    elif d['operation']=='mcq-paper':r=page.evaluate("""async args=>{const {createMCQPaper}=await import('./cbse-mcq-model.js');return createMCQPaper(...args);}""",[root['mcq'],d,actor,clock[0]]);root['mcq']=r.pop('next')
@@ -23,7 +24,7 @@ def mcq_api(page,route):
  if action=='view-version':route.fulfill(json={'versions':[1,1,root['mission']['revision']]});return
  route.fulfill(json={'ok':True,'staff':[]})
 with fx['ns']['sync_playwright']() as p:
- b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);ctx=b.new_context(viewport={'width':1440,'height':1000});ctx.route('https://www.gstatic.com/firebasejs/**',mcq_sdk);page=ctx.new_page();page.on('dialog',lambda d:d.accept());errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.route('**/api/staff-access',lambda route:mcq_api(page,route));page.goto('http://127.0.0.1:8000/cbse-mission.html#tab=mcq&mcqClass=X&mcq=bank');page.get_by_role('button',name='Contribute 10 / 20 MCQs',exact=True).click();form=page.locator('.mcq-contribution-form');form.locator('[name=mcq-staff]').select_option('X:one');assert form.locator('[name=mcq-subject]').input_value()=='english'
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);ctx=b.new_context(viewport={'width':1440,'height':1000});ctx.add_init_script('window.__guest=true');ctx.route('https://www.gstatic.com/firebasejs/**',mcq_sdk);page=ctx.new_page();page.on('dialog',lambda d:d.accept());errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.route('**/api/staff-access',lambda route:mcq_api(page,route));page.goto('http://127.0.0.1:8000/cbse-mission.html#tab=mcq&mcqClass=X&mcq=bank');page.get_by_role('button',name='Contribute 10 / 20 MCQs',exact=True).click();form=page.locator('.mcq-contribution-form');form.locator('[name=mcq-staff]').select_option('X:one');assert form.locator('[name=mcq-subject]').input_value()=='english'
  source='\n'.join(f'{i}. Synthetic question {i}?\nA) One B) Two C) Three D) Four' for i in range(1,11));keys=', '.join(f'{i}-B' for i in range(1,11));form.locator('[name=mcq-notepad]').fill(source);
  for i in range(10):form.locator(f'[name=mcq-correct-{i}][value=B]').check()
  form.get_by_role('button',name='Process & arrange',exact=True).click();assert form.locator('.mcq-review-card').count()==10;assert form.locator('[name=mcq-stem-0]').count()==0;form.locator('[name=mcq-staff]').select_option('X:two');form.locator('[name=mcq-staff]').select_option('X:one');assert 'Synthetic question 1?' in form.locator('.mcq-review-card').first.inner_text();form.locator('[name=mcq-pin]').fill('000');form.get_by_role('button',name='Verify & submit contribution with PIN',exact=True).click();form.get_by_role('alert').wait_for(state='visible');assert 'PIN does not match' in form.get_by_role('alert').inner_text();assert not root['mcq']
