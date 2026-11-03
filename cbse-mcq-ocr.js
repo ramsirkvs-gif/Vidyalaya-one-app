@@ -1,11 +1,15 @@
 import {parseMCQAnswers} from './cbse-mcq-model.js';
 import {loadMCQScript} from './cbse-mcq-scan.js';
+export function mcqOCRLanguage(subjectName){return /hindi|हिन्दी|हिंदी/i.test(subjectName)?'hin':/english|अंग्रेज/i.test(subjectName)?'eng':'eng+hin';}
+export function prepareMCQOCRCanvas(source){
+ const scale=Math.min(3,Math.max(1,1600/source.width)),border=24,canvas=document.createElement('canvas');canvas.width=Math.ceil(source.width*scale)+border*2;canvas.height=Math.ceil(source.height*scale)+border*2;const c=canvas.getContext('2d',{willReadFrequently:true});c.fillStyle='white';c.fillRect(0,0,canvas.width,canvas.height);c.imageSmoothingEnabled=true;c.imageSmoothingQuality='high';c.drawImage(source,border,border,canvas.width-border*2,canvas.height-border*2);const pixels=c.getImageData(0,0,canvas.width,canvas.height),data=pixels.data;for(let i=0;i<data.length;i+=4){const gray=Math.round(data[i]*.299+data[i+1]*.587+data[i+2]*.114);data[i]=data[i+1]=data[i+2]=gray;}c.putImageData(pixels,0,0);return canvas;
+}
 // Photos are recognised in this browser; no image/text is sent to an OCR service.
 export async function extractMCQPhotoText(canvas,language='eng',onProgress=()=>{}){
  if(!['eng','hin','eng+hin'].includes(language))throw Error('Choose English, Hindi or English + Hindi.');
  await loadMCQScript('tesseract.min.js');const base=new URL('./vendor/mcq/',import.meta.url).href;
  let fail;const failed=new Promise((_,reject)=>{fail=reject;});const setup=globalThis.Tesseract.createWorker(language,1,{workerPath:base+'worker.min.js',corePath:base+'tesseract-core-lstm.wasm.js',langPath:base+'lang/',workerBlobURL:false,cacheMethod:'none',logger:onProgress,errorHandler:error=>fail(Error(typeof error==='string'?error:error?.message||'The photo text tools could not load.'))});const worker=await Promise.race([setup,failed]);
- try{await worker.setParameters({preserve_interword_spaces:'1'});const result=await worker.recognize(canvas);const text=result.data.text.trim();if(!text)throw Error('No readable text found. Crop more closely or take a clearer photo.');return text;}finally{await worker.terminate();}
+ try{await worker.setParameters({preserve_interword_spaces:'1'});const result=await worker.recognize(prepareMCQOCRCanvas(canvas));const text=result.data.text.trim();if(!text)throw Error('No readable text found. Crop more closely or take a clearer photo.');return text;}finally{await worker.terminate();}
 }
 const questionStarts=text=>[...text.matchAll(/^[ \t]*(?:(?:प्रश्न|Question|Ques|Q)\s*[.:-]?\s*)?(\d{1,3})\s*(?:[.):：\-–—]|(?=\s))\s*/gmi)];
 export function appendMCQPhotoText(existing,recognised){

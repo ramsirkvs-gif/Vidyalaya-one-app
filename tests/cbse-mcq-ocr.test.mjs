@@ -1,3 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {appendMCQPhotoText} from '../cbse-mcq-ocr.js';
+import {appendMCQPhotoText,mcqOCRLanguage} from '../cbse-mcq-ocr.js';
 test('recognised book questions append with distinct numbering and preserve options, symbols and Hindi',()=>{const first=appendMCQPhotoText('', 'Q12. What is x²?\n(A) One (B) Two (C) Three (D) Four');assert.match(first,/^1\. What is x²/);const next=appendMCQPhotoText(first,'101. प्रकाश क्या है?\nA) A B) B C) C D) D\n\n102. Diagram?\nA) A B) B C) C D) D');assert.match(next,/\n\n2\. प्रकाश/);assert.match(next,/\n3\. Diagram/);assert.match(appendMCQPhotoText(first,'Unnumbered book question\nA) A B) B C) C D) D'),/\n\n2\. Unnumbered/);assert.throws(()=>appendMCQPhotoText(first,' '),/readable text/);assert.throws(()=>appendMCQPhotoText('a'.repeat(120000),'More text'),/120000/);});
+
+test('OCR defaults follow Hindi or English subject and keep mixed language for others',()=>{for(const s of ['Hindi Course A','हिन्दी','हिंदी'])assert.equal(mcqOCRLanguage(s),'hin');assert.equal(mcqOCRLanguage('English Language'),'eng');assert.equal(mcqOCRLanguage('Mathematics'),'eng+hin');});
