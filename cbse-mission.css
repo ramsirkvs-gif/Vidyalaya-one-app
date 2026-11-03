@@ -128,3 +128,5 @@
 .mcq-import-mode-choice{display:grid;grid-template-columns:1fr 1fr;margin:14px 0}.mcq-import-mode-choice button{background:#167255;color:white;font-weight:700}.mcq-import-mode-choice button+button{background:#245fa6}.mcq-import-choices{grid-template-columns:1fr}.mcq-import-canvas{cursor:pointer}@media(max-width:600px){.mcq-import-mode-choice{grid-template-columns:1fr}}
 
 .mcq-screenshot-paste{white-space:normal;overflow-wrap:anywhere;min-width:0;box-sizing:border-box;max-width:100%}
+
+@font-face{font-family:'Noto Sans Math';src:url('./vendor/math-fonts/NotoSansMath-Regular.ttf') format('truetype');font-style:normal;font-weight:400;font-display:swap}.mcq-question,.mcq-contribution-form textarea[name=mcq-notepad]{font-family:'Noto Sans Math','Cambria Math',Arial,sans-serif}.mcq-math-guidance{border-left:4px solid #c79325;background:#fff8df;color:#604909;padding:10px;font-size:13px;line-height:1.5}

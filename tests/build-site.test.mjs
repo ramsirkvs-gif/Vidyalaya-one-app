@@ -17,6 +17,6 @@ test('static build is repeatable, includes working app assets, and excludes priv
  }
  for(const excluded of ['AGENTS.md','CBSE_SETUP.md','README.md','firebase.json','.firebaserc','tests','cbse-private','faculty.pdf','firebase-applications.json','api','_server','package.json','package-lock.json','MISSION_SETUP.md'])assert.ok(!names.includes(excluded),excluded);
  assert.ok(names.includes('database.rules.json'));await fs.access(path.join(root,'public/vendor/pdfjs/pdf.worker.min.mjs'));
- for(const file of ['cbse-mcq-import.js','cbse-mcq-pdf.js','vendor/mcq/pdf/pdf.mjs','vendor/mcq/pdf/pdf.worker.mjs','vendor/mcq/pdf/standard_fonts/LiberationSans-Regular.ttf','vendor/mcq/pdf/wasm/openjpeg.wasm'])await fs.access(path.join(root,'public',file));
+ for(const file of ['cbse-mcq-import.js','cbse-mcq-pdf.js','cbse-mcq-math.js','vendor/math-fonts/NotoSansMath-Regular.ttf','vendor/math-fonts/OFL.txt','vendor/mcq/pdf/pdf.mjs','vendor/mcq/pdf/pdf.worker.mjs','vendor/mcq/pdf/standard_fonts/LiberationSans-Regular.ttf','vendor/mcq/pdf/wasm/openjpeg.wasm'])await fs.access(path.join(root,'public',file));
  const vercel=JSON.parse(await fs.readFile(path.join(root,'vercel.json'),'utf8'));assert.equal(vercel.buildCommand,'node scripts/build-site.mjs');assert.equal(vercel.outputDirectory,'public');
 });
