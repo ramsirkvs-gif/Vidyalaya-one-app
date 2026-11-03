@@ -48,7 +48,7 @@ function vcApplyNextBatch(){
  try{
   if(Calendar.CalendarList.get('primary').id.toLowerCase()!==VC_PLAN.hostEmail.toLowerCase())throw Error('Use the school account '+VC_PLAN.hostEmail+'.');
   const book=vcBook(),sheet=book.getSheetByName('VC update'),byLink={},work=VC_PLAN.students;let pageToken;
-  do{const result=Calendar.Events.list('primary',{maxResults:2500,showDeleted:false,...(pageToken?{pageToken}:{})});for(const event of result.items||[]){const link=vcLink(event);if(link)(byLink[link]||=[]).push(event);}pageToken=result.nextPageToken;}while(pageToken);
+  do{const result=Calendar.Events.list('primary',{maxResults:2500,showDeleted:false,...(pageToken?{pageToken}:{})});for(const event of result.items||[]){const link=vcLink(event);if(link){if(!byLink[link])byLink[link]=[];byLink[link].push(event);}}pageToken=result.nextPageToken;}while(pageToken);
   const saved=sheet.getDataRange().getDisplayValues().slice(1);
   if(saved.length!==work.length||saved.some((r,i)=>r[0]!=='Individual'||r[1]!==work[i].classId||r[2]!==work[i].section||r[3]!==work[i].name||r[4]!==work[i].meetingLink||r[5]!==work[i].emails.join('; ')))throw Error('Sheet does not match this export. Rerun vcPrepareUpdate and review current guests.');
   let processed=0;
@@ -57,7 +57,7 @@ function vcApplyNextBatch(){
    if(row.readyForSync!==true){status('Review required — incomplete student/team data');continue;}
    if(work.filter(other=>other.meetingLink===row.meetingLink).length!==1){status('Shared student meeting link; review manually');continue;}
    const matches=byLink[row.meetingLink]||[];if(matches.length!==1){status(matches.length?'Multiple Calendar events use this link; review manually':'Existing Meet link not found in school Calendar; review manually');continue;}const event=matches[0];
-   if(event.status==='cancelled'){status('Event cancelled; review manually');continue;}if(String(event.organizer?.email||'').toLowerCase()!==VC_PLAN.hostEmail.toLowerCase()){status('School account is not the organizer; review manually');continue;}
+   if(event.status==='cancelled'){status('Event cancelled; review manually');continue;}if(String((event.organizer&&event.organizer.email)||'').toLowerCase()!==VC_PLAN.hostEmail.toLowerCase()){status('School account is not the organizer; review manually');continue;}
    if(!row.studentEmail||!(event.attendees||[]).some(g=>String(g.email||'').toLowerCase()===row.studentEmail.toLowerCase())){status('Student identity not confirmed on existing event; review manually');continue;}
    const host=VC_PLAN.hostEmail.toLowerCase(),allowed=new Set(row.emails.map(email=>email.toLowerCase()).filter(email=>email!==host)),old=event.attendees||[],seen=new Set(),attendees=[];
    for(const guest of old){const email=String(guest.email||'').toLowerCase();if((allowed.has(email)||email===host)&&!seen.has(email)){attendees.push(guest);seen.add(email);}}

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
+import {parse} from 'acorn';
 import {createHash} from 'node:crypto';
 import {calendarVCScript} from '../cbse-vc-calendar.js';
 class Sheet{
@@ -24,3 +25,5 @@ test('individual-only script preserves links, removes unrelated guests, skips in
  // A stale extra guest added outside the portal is removed on the next reviewed sync.
  events.get('old0').attendees.push({email:'outsider@example.org'});context.vcApplyNextBatch();assert.equal(patches,55);assert.ok(!events.get('old0').attendees.some(a=>a.email==='outsider@example.org'));events.get('old0').attendees=events.get('old0').attendees.filter(a=>a.email!=='student0@example.org');context.vcApplyNextBatch();assert.equal(patches,55);assert.equal(sheets['VC update'].rows[1][6],'Student identity not confirmed on existing event; review manually');events.get('old1').organizer.email='other-organizer@example.org';context.vcApplyNextBatch();assert.equal(patches,55);assert.equal(sheets['VC update'].rows[2][6],'School account is not the organizer; review manually');account='wrong@example.org';assert.throws(()=>context.vcApplyNextBatch(),/Use the school account/);
 });
+
+test('downloaded Apps Script parses as ES2019 without logical assignment or optional chaining',()=>{const plan={hostEmail:'school@example.org',students:[{classId:'X',section:'A',name:'Synthetic विद्यार्थी',studentEmail:'student@example.org',meetingLink:'https://meet.google.com/abc-defg-hij',emails:['student@example.org'],readyForSync:true}],classes:[],issues:[],unverifiedFaculty:0};assert.doesNotThrow(()=>parse(calendarVCScript(plan),{ecmaVersion:2019,sourceType:'script'}));});
