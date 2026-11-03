@@ -1,3 +1,4 @@
+import {calendarVCRepairScript} from './cbse-vc-repair.js';
 import {subjectStudentGroups,classXMathGroups} from './cbse-subject-students.js';
 import {renderMCQPage} from './cbse-mcq-view.js';
 import {recordContactChanges,planStudentContactUpdate} from './cbse-contact-audit.js';
@@ -471,3 +472,5 @@ async function conversationAction(values){if(!canBrowse()||busy)throw Error('Wai
 async function submitMCQ(operation,values){if(!canBrowse()||busy)throw Error('Open staff view and wait for the current save.');const token=generation;busy=true;document.documentElement.dataset.portalBusy='true';try{const headers={'Content-Type':'application/json'};if(editable())headers.Authorization='Bearer '+await user.getIdToken();const response=await fetch('/api/staff-access',{method:'POST',credentials:'same-origin',headers,body:JSON.stringify({action:editable()?'mcq-principal':'pin-submit',operation,...values})});const result=await readStaffResponse(response);if(result?.ok!==true)throw Error('The MCQ save was not confirmed. Reload the bank before trying again.');if(token!==generation)throw Error('Your session changed. Reload to check the saved record.');if(operation==='mcq-evaluate'&&!editable())await loadSharedView(true);return result;}finally{busy=false;document.documentElement.dataset.portalBusy='false';}}
 
 $('mission-mcq').onclick=$('mission-mcq-entry').onclick=()=>go({tab:'mcq'});
+
+$('mission-vc-fix').onclick=()=>{if(editable())downloadPrivate('VCResumeFix.gs',calendarVCRepairScript());};

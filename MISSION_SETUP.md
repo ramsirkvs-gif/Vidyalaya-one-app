@@ -717,3 +717,12 @@ reviews and academic lists beside keyed student names. Student comment icons rem
 exclude the photo collection. The existing staff-view cookie gates the
 view-student-photo and view-student-photos actions, which return one photo or at most 20 requested photos with no-store
 headers. Direct Firebase reads/writes remain Principal-only under existing rules.
+
+
+## Repeated individual VC batches (resume repair)
+
+Do not add successive "Updated 50" messages to infer unique completed events. The earlier completion check required `guestsCanModify === false`, even though Calendar can omit this default-false value. This could repeatedly patch the first batch. The v3 sync accepts an omitted default for this field, re-reads each patched event, and reports actual verified completion, pending and review counts. It records the attempted desired signature plus returned Calendar version in private user properties; an unchanged event that still fails verification is held for manual review rather than patched indefinitely. External changes with a new Calendar version can be reviewed/synced again. Meet admission/co-hosts remain a separate unverified state.
+
+For a project already containing the private `VC_PLAN`, Principal controls → **Download VC resume fix** provides a data-free `VCResumeFix.gs` add-on. Add it as a separate file; keep the existing `VCUpdate.gs` and original meeting-generation file. Run **vcCheckIndividualProgress** first. That path reads Calendar, the review sheet and private properties but writes none of them. It logs aggregate reasons and row counts without student names/emails. Review the log before using **vcApplyNextBatchFixed**. Never continue using the older batch function after adding the repair.
+
+A fresh full export already includes the repaired engine. If replacing `VCUpdate.gs` with that full export later, remove the separate repair add-on to avoid duplicate helper definitions. Do not run `vcPrepareUpdate` merely to install the add-on: it can use the existing reviewed sheet and its original private plan.

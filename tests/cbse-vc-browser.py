@@ -38,6 +38,9 @@ with ns['sync_playwright']() as p:
  page.locator('#mission-tools').evaluate('(node)=>node.open=true');page.locator('#mission-export-vc').click();page.get_by_role('heading',name='Review Calendar VC update',exact=True).wait_for()
  with page.expect_download() as d:page.locator('#mission-save').click()
  download=d.value;assert download.suggested_filename=='School_VC_Calendar_Update.txt';text=Path(download.path()).read_text();assert 'teacher@example.org' in text;assert 'vcApplyNextBatch' in text;assert 'sendUpdates' in text
+ page.locator('#mission-tools').evaluate('(node)=>node.open=true')
+ with page.expect_download() as repair:page.locator('#mission-vc-fix').click()
+ fix=repair.value;assert fix.suggested_filename=='VCResumeFix.gs';repair_text=Path(fix.path()).read_text();assert 'function vcCheckIndividualProgress()' in repair_text;assert 'function vcApplyNextBatchFixed()' in repair_text;assert 'teacher@example.org' not in repair_text;assert 'const VC_PLAN=' not in repair_text
  for width in [360,768,1440]:page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
  assert not errors,errors
  print('PASS reviewed support/email setup, duties in all three profiles, scoped teacher students, preserved legacy Class VC data without active Class VC controls, individual title, private Calendar export and mobile layout')
