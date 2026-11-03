@@ -3,7 +3,16 @@ export const STRIP={width:1000,height:420,markers:[[20,20],[980,20],[20,400],[98
 export function bubblePoint(index,option){return {x:180+(index>=10?500:0)+option*60,y:64+(index%10)*32};}
 const scripts=new Map();
 export function loadMCQScript(name){if(!scripts.has(name))scripts.set(name,new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=new URL('./vendor/mcq/'+name,import.meta.url);s.onload=resolve;s.onerror=()=>{scripts.delete(name);s.remove();reject(Error('The local MCQ tools are unavailable. Refresh after the latest build.'));};document.head.append(s);}));return scripts.get(name);}
-export async function readQR(canvas){await loadMCQScript('jsQR.js');const data=canvas.getContext('2d',{willReadFrequently:true}).getImageData(0,0,canvas.width,canvas.height),result=globalThis.jsQR(data.data,data.width,data.height);if(!result)throw Error('No paper QR code found. Take a closer photo or enter the printed test number.');return result.data;}
+export async function readQR(canvas){
+ await loadMCQScript('jsQR.js');
+ const scan=source=>{const pixels=source.getContext('2d',{willReadFrequently:true}).getImageData(0,0,source.width,source.height);return globalThis.jsQR(pixels.data,pixels.width,pixels.height,{inversionAttempts:'attemptBoth'})?.data;};
+ // The portal prints the QR at the top right. Isolating it helps when a full-page photo contains lots of text.
+ const w=canvas.width,h=canvas.height,regions=[[w*.45,0,w*.55,h*.3],[0,0,w,h]];
+ for(const [x,y,width,height]of regions){const source=document.createElement('canvas');source.width=Math.max(1,Math.round(width));source.height=Math.max(1,Math.round(height));source.getContext('2d').drawImage(canvas,x,y,width,height,0,0,source.width,source.height);let result=scan(source);if(result)return result;
+  if(Math.max(source.width,source.height)<1400){const enlarged=document.createElement('canvas'),scale=Math.min(3,1400/Math.max(source.width,source.height));enlarged.width=Math.round(source.width*scale);enlarged.height=Math.round(source.height*scale);const c=enlarged.getContext('2d');c.imageSmoothingEnabled=false;c.drawImage(source,0,0,enlarged.width,enlarged.height);result=scan(enlarged);if(result)return result;}
+ }
+ throw Error('QR not readable in this photo. Crop closely around the QR, keeping its white border, or enter the printed QP test number.');
+}
 function homography(points){const from=STRIP.markers,a=[],b=[];for(let i=0;i<4;i++){const[x,y]=from[i],{x:u,y:v}=points[i];a.push([x,y,1,0,0,0,-u*x,-u*y]);b.push(u);a.push([0,0,0,x,y,1,-v*x,-v*y]);b.push(v);}for(let c=0;c<8;c++){let p=c;for(let i=c+1;i<8;i++)if(Math.abs(a[i][c])>Math.abs(a[p][c]))p=i;[a[p],a[c]]=[a[c],a[p]];[b[p],b[c]]=[b[c],b[p]];if(Math.abs(a[c][c])<1e-8)throw Error('The strip corners are unclear. Retake the photo.');const n=a[c][c];for(let j=c;j<8;j++)a[c][j]/=n;b[c]/=n;for(let i=0;i<8;i++)if(i!==c){const n=a[i][c];for(let j=c;j<8;j++)a[i][j]-=n*a[c][j];b[i]-=n*b[c];}}return (x,y)=>{const d=b[6]*x+b[7]*y+1;return {x:(b[0]*x+b[1]*y+b[2])/d,y:(b[3]*x+b[4]*y+b[5])/d};};}
 export function scanResponseStrip({data,width,height},count){
  if(![10,20].includes(count))throw Error('Load a 10/20-question paper first.');const black=new Uint8Array(width*height);for(let i=0;i<black.length;i++)black[i]=(data[i*4]*.299+data[i*4+1]*.587+data[i*4+2]*.114)<115?1:0;const seen=new Uint8Array(black.length),candidates=[];
