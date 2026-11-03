@@ -9,4 +9,5 @@ test('answer keys reject missing, duplicate or unexpected data',()=>{for(const k
 test('processing preserves mathematical superscripts',()=>{const q=parseMCQContribution(hindi.replace('सही वाक्य चुनिए','x² + y³ = ?'),'ABCDABCDAB',10);assert.equal(q[0].stem,'x² + y³ = ?');});
 
 test('pasted option brackets, spacing and invisible characters are recognised',()=>{const raw=hindi.replaceAll('(क)','（ क ）').replaceAll('(ख)','[ख]').replaceAll('(ग)','(ग\u200b)').replaceAll('(घ)','घ.');assert.equal(parseMCQContribution(raw,'ABCDABCDAB',10).length,10);});
-test('bad option labels identify the affected question rather than guessing',()=>{assert.throws(()=>parseMCQContribution(hindi.replace('(ख)','(क)'),'ABCDABCDAB',10),/Question 1: detected A, A, C, D/);});
+test('four mislabelled options keep their original order and require visible review',()=>{const q=parseMCQContribution(hindi.replace('(ख)','(घ)'),'ABCDABCDAB',10);assert.deepEqual(q[0].options,['पहला विकल्प','दूसरा विकल्प','तीसरा विकल्प','चौथा विकल्प']);assert.match(q[0].processingWarning,/A, D, C, D/);assert.equal(q[0].answer,'A');});
+test('missing options still block processing',()=>{assert.throws(()=>parseMCQContribution(hindi.replace('(ख)',''),'ABCDABCDAB',10),/Question 1: detected A, C, D/);});
