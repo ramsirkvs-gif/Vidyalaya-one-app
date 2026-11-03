@@ -6,3 +6,13 @@ export function subjectStudentGroups(draft,classId='XII'){
  for(const[sectionId,section]of sections)for(const[subjectId,subject]of Object.entries(section.subjects||{})){const name=normal(subject.name);if(!name)continue;const known=codes.get(name),code=normal(subject.code)||(known?.size===1?[...known][0]:''),key=code?'code:'+code:'name:'+name;if(!catalog.has(key))catalog.set(key,{key,name:subject.name.trim(),code,studentKeys:new Set()});const group=catalog.get(key);for(const[id,student]of Object.entries(section.students||{}))if(student.subjects?.[subjectId])group.studentKeys.add(classId+':'+sectionId+':'+id);}
  return [...catalog.values()].map(g=>({...g,studentKeys:[...g.studentKeys]})).sort((a,b)=>a.name.localeCompare(b.name));
 }
+
+export function classXMathGroups(draft){
+ const groups=[{key:'code:241',name:'Maths Basic',code:'241',studentKeys:new Set()},{key:'code:041',name:'Maths Standard',code:'041',studentKeys:new Set()}];
+ for(const[sid,section]of Object.entries(draft?.classes?.X?.sections||{}))for(const[id,subject]of Object.entries(section.subjects||{})){
+  const code=String(subject.code||'').trim().padStart(3,'0'),name=String(subject.name||'').toLowerCase();
+  const group=code==='241'?groups[0]:code==='041'?groups[1]:!String(subject.code||'').trim()&&/math/.test(name)?(/basic/.test(name)?groups[0]:/standard/.test(name)?groups[1]:null):null;
+  if(group)for(const[studentId,student]of Object.entries(section.students||{}))if(student.subjects?.[id])group.studentKeys.add('X:'+sid+':'+studentId);
+ }
+ return groups.map(g=>({...g,studentKeys:[...g.studentKeys]}));
+}
