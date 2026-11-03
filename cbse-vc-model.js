@@ -95,25 +95,21 @@ export function importClassMeetings(rows,mission,draft){
  if(!matched)throw Error('No Class VC rows.');return {next,matched,changed};
 }
 export function calendarVCPlan(draft,faculty,mission){
- const staff=vcStaff(faculty,mission),issues=[],emailFor=(ids,label)=>{
-  const emails=[];for(const id of new Set(ids.filter(Boolean))){const t=staff[id];if(!t||t.status!=='active')continue;if(validFacultyEmail(t.email))emails.push(t.email);else issues.push(`${label}: faculty email missing for ${t.name}.`);}return [...new Set(emails.map(e=>e.toLowerCase()))];
- },students=[],classes=[];
+ const staff=vcStaff(faculty,mission),issues=[],students=[],emailFor=(ids,label)=>{const emails=[];for(const id of new Set(ids.filter(Boolean))){const t=staff[id];if(!t||t.status!=='active'){issues.push(label+': assigned staff member unavailable.');continue;}if(validFacultyEmail(t.email))emails.push(t.email.toLowerCase());else issues.push(label+': faculty email missing for '+t.name+'.');}return [...new Set(emails)];};
+ const links=new Map(),emails=new Map();for(const[key,p]of entries(mission.students)){if(p.meetingLink){const link=String(p.meetingLink).replace(/\/$/,'');links.set(link,[...(links.get(link)||[]),key]);}if(validFacultyEmail(p.email)){const email=p.email.toLowerCase();emails.set(email,[...(emails.get(email)||[]),key]);}}
  for(const[cl,c]of entries(draft.classes))for(const[sid,s]of entries(c.sections)){
-  const roles=faculty?.classes?.[cl]?.roles?.[sid]||{},leads=[roles.classTeacher&&cl+':'+roles.classTeacher,roles.coClassTeacher&&cl+':'+roles.coClassTeacher];
-  for(const[field,label]of [['classTeacher','CT'],['coClassTeacher','Co-CT']])if(!roles[field])issues.push(`${cl}-${s.name}: ${label} not assigned.`);
-  const universal=supportTeam(mission,faculty,cl,sid).filter(t=>['counsellor','special_educator'].includes(t.supportRole)),classStudents=[];
-  for(const role of ['counsellor','special_educator'])if(!universal.some(t=>t.supportRole===role))issues.push(`${cl}-${s.name}: ${role.replace('_',' ')} not assigned.`);
+  const start=issues.length,roles=faculty?.classes?.[cl]?.roles?.[sid]||{},leads=[roles.classTeacher&&cl+':'+roles.classTeacher,roles.coClassTeacher&&cl+':'+roles.coClassTeacher];
+  for(const[field,label]of [['classTeacher','CT'],['coClassTeacher','Co-CT']])if(!roles[field])issues.push(cl+'-'+s.name+': '+label+' not assigned.');
+  const universal=supportTeam(mission,faculty,cl,sid).filter(t=>['counsellor','special_educator'].includes(t.supportRole));for(const role of ['counsellor','special_educator'])if(!universal.some(t=>t.supportRole===role))issues.push(cl+'-'+s.name+': '+role.replace('_',' ')+' not assigned.');const sectionIncomplete=issues.length>start;
   for(const[id,p]of entries(s.students)){
-   const key=`${cl}:${sid}:${id}`,contact=mission.students?.[key]||{},email=validFacultyEmail(contact.email)?contact.email:'';
-   if(!email)issues.push(`${cl}-${s.name} · ${p.name}: student email missing.`);else classStudents.push(email.toLowerCase());
-   const teachers=entries(mission.allocations).map(([,a])=>a).filter(a=>a.classId===cl&&a.sectionId===sid&&p.subjects?.[a.subjectId]).map(a=>a.staffId);
-   for(const[subId]of entries(p.subjects))if(!entries(mission.allocations).some(([,a])=>a.classId===cl&&a.sectionId===sid&&a.subjectId===subId))issues.push(`${cl}-${s.name}: subject teacher not assigned for ${s.subjects?.[subId]?.name||subId}.`);
-   const support=supportTeam(mission,faculty,cl,sid,Object.keys(p.subjects||{})).map(t=>t.id);
-   const guests=emailFor([...leads,...teachers,...support],`${cl}-${s.name}`);
-   if(contact.meetingLink)students.push({classId:cl,section:s.name,name:p.name,meetingLink:meetingLink(contact.meetingLink),emails:[...new Set([email.toLowerCase(),...guests].filter(Boolean))]});else issues.push(`${cl}-${s.name} · ${p.name}: individual meeting link missing.`);
+   const before=issues.length,key=cl+':'+sid+':'+id,contact=mission.students?.[key]||{},email=validFacultyEmail(contact.email)?contact.email.toLowerCase():'',label=cl+'-'+s.name+' · '+p.name;
+   if(!email)issues.push(label+': student email missing.');else if(emails.get(email)?.length>1)issues.push(label+': student email is shared with another student; review identities.');
+   const subjectIds=entries(p.subjects).filter(([,enrolled])=>enrolled).map(([id])=>id),teachers=entries(mission.allocations).map(([,a])=>a).filter(a=>a.classId===cl&&a.sectionId===sid&&subjectIds.includes(a.subjectId)).map(a=>a.staffId);
+   for(const subId of subjectIds)if(!entries(mission.allocations).some(([,a])=>a.classId===cl&&a.sectionId===sid&&a.subjectId===subId))issues.push(label+': subject teacher not assigned for '+(s.subjects?.[subId]?.name||subId)+'.');
+   const support=supportTeam(mission,faculty,cl,sid,subjectIds).map(t=>t.id),teacherEmails=emailFor([...leads,...teachers,...support],label);if(teacherEmails.some(email=>emails.has(email)))issues.push(label+': a faculty email matches a student account; review identities.');let link='';try{link=meetingLink(contact.meetingLink||'');}catch{issues.push(label+': individual meeting link format needs correction.');}
+   if(!link){issues.push(label+': individual meeting link missing.');continue;}if(links.get(link)?.length>1)issues.push(label+': meeting link is shared with another student.');if(entries(mission.classMeetings).some(([,m])=>m.meetingLink?.replace(/\/$/,'')===link))issues.push(label+': individual link is also saved as a Class VC link.');
+   students.push({classId:cl,section:s.name,name:p.name,meetingLink:link,studentEmail:email,teacherEmails,emails:[...new Set([email,...teacherEmails].filter(Boolean))],readyForSync:!sectionIncomplete&&issues.length===before});
   }
-  const teachers=emailFor([...leads,...universal.map(t=>t.id)],`${cl}-${s.name}`);
-  classes.push({classId:cl,section:s.name,meetingLink:mission.classMeetings?.[cl+':'+sid]?.meetingLink||'',emails:[...new Set([...classStudents,...teachers])]});
  }
- return {format:'mission-calendar-vc-v1',hostEmail:'naharlagunkv1@gmail.com',students,classes,issues:[...new Set(issues)],unverifiedFaculty:entries(mission.staffEmails).filter(([,r])=>!r.sourceVerified).length};
+ return {format:'mission-calendar-individual-v2',scope:'individual-only',admissionVerified:false,hostEmail:'naharlagunkv1@gmail.com',students,classes:[],issues:[...new Set(issues)],unverifiedFaculty:entries(mission.staffEmails).filter(([,r])=>!r.sourceVerified).length};
 }

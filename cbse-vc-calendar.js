@@ -1,28 +1,24 @@
 // This module contains no school records. The Principal downloads a private copy
 // with the current portal's participants inserted locally in their browser.
-export function calendarVCScript(plan){return `/* School account: ${plan.hostEmail}
-Add this as a NEW Apps Script file (VCUpdate.gs) in your existing project.
-Keep the Calendar advanced service enabled. Do not replace your earlier code.
-1. Run vcPrepareUpdate; it refreshes the existing private sheet from this export.
-   Open its URL from the log and review the current guests and Issues tab.
-2. Run vcApplyNextBatch until every row is Ready (50 events per run).
-3. Run vcExportClassCSV; click the direct CSV download URL from the log.
-4. Portal > Principal controls > Import VC setup / Class VC links > select CSV > Save.
-This adds guests to existing individual events without replacing their Meet links,
-and creates nine separate Class VC links. No recurring appointments are created.
-Calendar updates request sendUpdates:none. Guest calendars may not sync until
-you send an invitation from Calendar. This does NOT configure Meet admission.
-Check Restricted access / host controls in Google Meet. Personal Gmail limitations apply.
-Review the Issues tab: missing/ambiguous teachers or emails are not guessed.
-Email source verification is not proof of mailbox ownership. Keep this file private.
+export function calendarVCScript(plan){const individual={...plan,scope:'individual-only',classes:[]};return `/* School account: ${plan.hostEmail}
+INDIVIDUAL VC ONLY. Class VC is paused. Existing Meet links are retained.
+Replace only the earlier VCUpdate.gs update file, or add it if absent. Keep the original meeting-generation script and Calendar advanced service.
+1. Run vcPrepareUpdate; review the Guests column and Issues tab in the private sheet.
+2. Run vcApplyNextBatch to update at most 50 EXISTING individual events per run.
+   This sets the exact saved student/concerned-team guest list, removing other guests.
+   Incomplete enrolment/team/email records are skipped, not guessed.
+No meetings are created. No invitation emails are requested (sendUpdates:none).
+Calendar guests do NOT configure Meet admission or co-hosts. Status only confirms guests.
+The school organizer must verify Restricted access, uninvited-join/request controls,
+and eligible teacher co-hosts in Meet. Account/licence restrictions may require the organizer
+present. Never share the school password. These settings cannot be verified by this script.
+Review missing/ambiguous assignments and emails before applying. Keep this file private.
 */
-const VC_PLAN=${JSON.stringify(plan,null,2)};
+const VC_PLAN=${JSON.stringify(individual,null,2)};
 ${vcBook.toString()}
 ${vcPrepareUpdate.toString()}
 ${vcLink.toString()}
-${vcEventId.toString()}
 ${vcApplyNextBatch.toString()}
-${vcExportClassCSV.toString()}
 `;}
 function vcBook(){const id=PropertiesService.getUserProperties().getProperty('vcUpdateBook');if(!id)throw Error('Run vcPrepareUpdate first.');return SpreadsheetApp.openById(id);}
 function vcPrepareUpdate(){
@@ -30,57 +26,46 @@ function vcPrepareUpdate(){
  try{
  const account=Calendar.CalendarList.get('primary').id;if(account.toLowerCase()!==VC_PLAN.hostEmail.toLowerCase())throw Error('Use the school account '+VC_PLAN.hostEmail+'.');
  const props=PropertiesService.getUserProperties(),existing=props.getProperty('vcUpdateBook');
- const book=existing?SpreadsheetApp.openById(existing):SpreadsheetApp.create('Private VC update · students and classes'),sheet=existing?book.getSheetByName('VC update'):book.getSheets()[0];
+ const book=existing?SpreadsheetApp.openById(existing):SpreadsheetApp.create('Private individual VC update'),sheet=existing?book.getSheetByName('VC update'):book.getSheets()[0];
  if(!sheet)throw Error('The saved update workbook is missing its VC update tab.');if(!existing)sheet.setName('VC update');
  const key=row=>JSON.stringify(row.slice(0,4)),old=new Map((existing?sheet.getDataRange().getDisplayValues().slice(1):[]).map(row=>[key(row),row]));
  const guests=value=>[...new Set(String(value||'').split(';').map(s=>s.trim().toLowerCase()).filter(Boolean))].sort().join(';');
- const rows=[...VC_PLAN.students.map(s=>['Individual',s.classId,s.section,s.name,s.meetingLink,s.emails.join('; '),'Pending']),...VC_PLAN.classes.map(c=>['Class',c.classId,c.section,'Class VC',c.meetingLink,c.emails.join('; '),'Pending'])];
- for(const row of rows){const previous=old.get(key(row));if(!previous)continue;
-  if(row[0]==='Class'&&!row[4]&&/^https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/.test(previous[4]))row[4]=previous[4];
-  if(previous[6]==='Ready'&&previous[4]===row[4]&&guests(previous[5])===guests(row[5]))row[6]='Ready';
- }
+ const rows=VC_PLAN.students.map(s=>['Individual',s.classId,s.section,s.name,s.meetingLink,s.emails.join('; '),s.readyForSync===true?'Pending':'Review required — incomplete student/team data']);
+ for(const row of rows){const previous=old.get(key(row));if(previous&&row[6]==='Pending'&&previous[6]==='Guests updated; Meet access unverified'&&previous[4]===row[4]&&guests(previous[5])===guests(row[5]))row[6]=previous[6];}
  sheet.clearContents();
  sheet.getRange(1,1,1,7).setValues([['Type','Class','Section','StudentName','MeetingLink','Guests','Status']]);
  if(rows.length)sheet.getRange(2,1,rows.length,7).setNumberFormat('@').setValues(rows);sheet.setFrozenRows(1);
  const issues=book.getSheetByName('Issues')||book.insertSheet('Issues');issues.clearContents();issues.getRange(1,1).setValue('Current export: review before Calendar updates');
  const notes=[...VC_PLAN.issues,VC_PLAN.unverifiedFaculty+' faculty email records are marked Not Verified in the uploaded source.'];issues.getRange(2,1,notes.length,1).setNumberFormat('@').setValues(notes.map(s=>[s]));
- if(!book.getSheetByName('Class VC upload'))book.insertSheet('Class VC upload');props.setProperty('vcUpdateBook',book.getId());
+ props.setProperty('vcUpdateBook',book.getId());
  console.log((existing?'Refreshed':'Private')+' update sheet: '+book.getUrl());
- console.log('Current export: '+VC_PLAN.students.length+' individual meetings; '+VC_PLAN.classes.length+' classes; '+VC_PLAN.issues.length+' review items; '+rows.filter(r=>r[6]!=='Ready').length+' pending updates. Existing links are preserved.');
+ console.log('Current export: '+VC_PLAN.students.length+' individual meetings; '+VC_PLAN.issues.length+' review items; '+rows.filter(r=>r[6]==='Pending').length+' pending updates. Existing links are preserved.');
  }finally{lock.releaseLock();}
 }
 function vcLink(event){return event.hangoutLink||((event.conferenceData||{}).entryPoints||[]).filter(p=>p.entryPointType==='video').map(p=>p.uri)[0]||'';}
-function vcEventId(c){return 'c'+Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256,VC_PLAN.hostEmail+'|class-vc|'+c.classId+'|'+c.section,Utilities.Charset.UTF_8).map(b=>((b+256)%256).toString(16).padStart(2,'0')).join('');}
 function vcApplyNextBatch(){
  const lock=LockService.getUserLock();lock.waitLock(10000);
  try{
   if(Calendar.CalendarList.get('primary').id.toLowerCase()!==VC_PLAN.hostEmail.toLowerCase())throw Error('Use the school account '+VC_PLAN.hostEmail+'.');
-  const book=vcBook(),sheet=book.getSheetByName('VC update'),byLink={};let pageToken;
-  do{const result=Calendar.Events.list('primary',{maxResults:2500,showDeleted:false,...(pageToken?{pageToken}:{})});for(const event of result.items||[]){const link=vcLink(event);if(link)byLink[link]=event;}pageToken=result.nextPageToken;}while(pageToken);
-  const work=[...VC_PLAN.students.map(s=>({...s,type:'Individual'})),...VC_PLAN.classes.map(s=>({...s,type:'Class'}))];let processed=0;
+  const book=vcBook(),sheet=book.getSheetByName('VC update'),byLink={},work=VC_PLAN.students;let pageToken;
+  do{const result=Calendar.Events.list('primary',{maxResults:2500,showDeleted:false,...(pageToken?{pageToken}:{})});for(const event of result.items||[]){const link=vcLink(event);if(link)(byLink[link]||=[]).push(event);}pageToken=result.nextPageToken;}while(pageToken);
   const saved=sheet.getDataRange().getDisplayValues().slice(1);
-  if(saved.length!==work.length||saved.some((r,i)=>r[0]!==work[i].type||r[1]!==work[i].classId||r[2]!==work[i].section||(work[i].type==='Individual'&&r[3]!==work[i].name)))throw Error('Sheet does not match the current portal export. Clear only the vcUpdateBook user property and rerun vcPrepareUpdate.');
+  if(saved.length!==work.length||saved.some((r,i)=>r[0]!=='Individual'||r[1]!==work[i].classId||r[2]!==work[i].section||r[3]!==work[i].name||r[4]!==work[i].meetingLink||r[5]!==work[i].emails.join('; ')))throw Error('Sheet does not match this export. Rerun vcPrepareUpdate and review current guests.');
+  let processed=0;
   for(let i=0;i<work.length&&processed<50;i++){
-   const row=work[i],title=(row.type==='Class'?'Class VC':'Online home visit / One to one VC')+' · '+row.classId+'-'+row.section+(row.name?' · '+row.name:'');
-   let event=byLink[row.meetingLink||saved[i][4]];
-   if(saved[i][6]==='Ready'&&event&&event.summary===title&&row.emails.every(email=>(event.attendees||[]).some(a=>a.email.toLowerCase()===email.toLowerCase())||email.toLowerCase()===VC_PLAN.hostEmail.toLowerCase()))continue;
-   if(!event&&row.type==='Individual'){sheet.getRange(i+2,7).setValue('Existing Meet link not found in school Calendar; review manually');continue;}
-   try{
-    if(!event){try{event=Calendar.Events.get('primary',vcEventId(row));}catch(error){if(!/not found|404/i.test(String(error)))throw error;}}
-    if(event?.status==='cancelled'){sheet.getRange(i+2,7).setValue('Event cancelled; review manually');continue;}
-    const attendees=[...(event?.attendees||[])],seen=new Set(attendees.map(a=>a.email.toLowerCase()));
-    for(const email of row.emails)if(email.toLowerCase()!==VC_PLAN.hostEmail.toLowerCase()&&!seen.has(email.toLowerCase())){attendees.push({email});seen.add(email.toLowerCase());}
-    if(event){event=Calendar.Events.patch({summary:title,attendees,guestsCanInviteOthers:false,guestsCanModify:false,guestsCanSeeOtherGuests:false},'primary',event.id,{sendUpdates:'none'});}
-    else{const start=new Date(Date.now()+7*86400000);event=Calendar.Events.insert({id:vcEventId(row),summary:title,description:'Reusable Class VC link. Date is provisional; school informs families of the actual meeting time.',visibility:'private',transparency:'transparent',start:{dateTime:start.toISOString(),timeZone:'Asia/Kolkata'},end:{dateTime:new Date(start.getTime()+600000).toISOString(),timeZone:'Asia/Kolkata'},attendees,guestsCanInviteOthers:false,guestsCanModify:false,guestsCanSeeOtherGuests:false,reminders:{useDefault:false},conferenceData:{createRequest:{requestId:vcEventId(row),conferenceSolutionKey:{type:'hangoutsMeet'}}}},'primary',{conferenceDataVersion:1,sendUpdates:'none'});}
-    const link=vcLink(event);sheet.getRange(i+2,5).setValue(link||row.meetingLink||'');sheet.getRange(i+2,7).setValue(link?'Ready':'Conference pending; run again');processed++;
-   }catch(error){sheet.getRange(i+2,7).setValue('Stopped: '+String(error));throw error;}
+   const row=work[i],status=message=>sheet.getRange(i+2,7).setValue(message),title='Online home visit / One to one VC · '+row.classId+'-'+row.section+' · '+row.name;
+   if(row.readyForSync!==true){status('Review required — incomplete student/team data');continue;}
+   if(work.filter(other=>other.meetingLink===row.meetingLink).length!==1){status('Shared student meeting link; review manually');continue;}
+   const matches=byLink[row.meetingLink]||[];if(matches.length!==1){status(matches.length?'Multiple Calendar events use this link; review manually':'Existing Meet link not found in school Calendar; review manually');continue;}const event=matches[0];
+   if(event.status==='cancelled'){status('Event cancelled; review manually');continue;}if(String(event.organizer?.email||'').toLowerCase()!==VC_PLAN.hostEmail.toLowerCase()){status('School account is not the organizer; review manually');continue;}
+   if(!row.studentEmail||!(event.attendees||[]).some(g=>String(g.email||'').toLowerCase()===row.studentEmail.toLowerCase())){status('Student identity not confirmed on existing event; review manually');continue;}
+   const host=VC_PLAN.hostEmail.toLowerCase(),allowed=new Set(row.emails.map(email=>email.toLowerCase()).filter(email=>email!==host)),old=event.attendees||[],seen=new Set(),attendees=[];
+   for(const guest of old){const email=String(guest.email||'').toLowerCase();if((allowed.has(email)||email===host)&&!seen.has(email)){attendees.push(guest);seen.add(email);}}
+   for(const email of allowed)if(!seen.has(email)){attendees.push({email});seen.add(email);}
+   const exact=old.length===attendees.length&&old.every(g=>allowed.has(String(g.email||'').toLowerCase())||String(g.email||'').toLowerCase()===host)&&[...allowed].every(email=>old.some(g=>String(g.email||'').toLowerCase()===email));
+   if(exact&&event.summary===title&&event.visibility==='private'&&event.guestsCanInviteOthers===false&&event.guestsCanModify===false&&event.guestsCanSeeOtherGuests===false){status('Guests updated; Meet access unverified');continue;}
+   try{Calendar.Events.patch({summary:title,attendees,visibility:'private',guestsCanInviteOthers:false,guestsCanModify:false,guestsCanSeeOtherGuests:false},'primary',event.id,{sendUpdates:'none'});status('Guests updated; Meet access unverified');processed++;}catch(error){status('Stopped: '+String(error));throw error;}
   }
-  console.log('Processed '+processed+' events. Review remaining rows in '+book.getUrl());
+  console.log('Updated '+processed+' existing individual events. No meetings created or invitation emails requested. Meet admission/co-hosts remain unverified. Review '+book.getUrl());
  }finally{lock.releaseLock();}
-}
-function vcExportClassCSV(){
- const book=vcBook(),rows=book.getSheetByName('VC update').getDataRange().getDisplayValues().slice(1).filter(r=>r[0]==='Class'&&r[6]==='Ready'&&/^https:\/\/meet\.google\.com\/[a-z]{3}-[a-z]{4}-[a-z]{3}$/.test(r[4]));
- if(rows.length!==VC_PLAN.classes.length)throw Error('All '+VC_PLAN.classes.length+' Class VC links must be ready before export.');
- const out=book.getSheetByName('Class VC upload');out.clearContents();out.getRange(1,1,1,3).setValues([['Class','Section','MeetingLink']]);out.getRange(2,1,rows.length,3).setNumberFormat('@').setValues(rows.map(r=>[r[1],r[2],r[4]]));book.setActiveSheet(out);
- console.log('Download Class VC CSV: https://docs.google.com/spreadsheets/d/'+book.getId()+'/export?format=csv&gid='+out.getSheetId());console.log('Individual Meet links have been kept; only Class VC links need portal import.');
 }

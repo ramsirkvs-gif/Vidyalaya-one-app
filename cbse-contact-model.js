@@ -6,7 +6,7 @@ export function meetingLink(value){
 }
 export function contactNumbers(contact={}){
  if(contact.numbers&&Object.keys(contact.numbers).length)return Object.entries(contact.numbers).map(([id,n])=>({id,...n}));
- return String(contact.phones||'').split(';').map((text,i)=>{const m=text.trim().match(/^([^:]+):\s*(.+)$/);return {id:'legacy_'+i,label:m?m[1].trim():'Other',phone:m?m[2].trim():text.trim()};}).filter(n=>n.phone);
+ return String(contact.phones||'').split(/[;,\n/]+/).map((text,i)=>{const m=text.trim().match(/^([^:]+):\s*(.+)$/);return {id:'legacy_'+i,label:m?m[1].trim():'Other',phone:m?m[2].trim():text.trim()};}).filter(n=>n.phone);
 }
 export function dialNumber(value){if(!/^[+\d\s().-]+$/.test(String(value||'')))return '';const clean=String(value||'').replace(/[^\d+]/g,'');return /^\+?\d{7,15}$/.test(clean)?clean:'';}
 export function mapLink(value){

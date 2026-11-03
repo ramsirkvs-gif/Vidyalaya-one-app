@@ -674,7 +674,7 @@ Validation: performance formatting unit test, cohort/percentage browser test,
 existing academic, meeting, Principal/staff and static-build checks.
 # VC support teams and Calendar setup
 
-The Principal can use **Import VC setup / Class VC links** to review a private
+The Principal can use **Import individual VC setup** to review a private
 `mission-vc-support-v1` TXT/JSON package or its readable CSV version. It reuses matching staff, adds only the
 listed support members, and imports email addresses only for relevant roster
 matches. Existing CT/Co-CT, subject allocations, student contacts, marks,
@@ -689,23 +689,17 @@ enrolled AI students; counsellor and special educator cover all sections.
 Responsibilities appear in staff, section and student profiles. New support staff
 use the existing Faculty PIN settings flow when they need to submit updates.
 
-After saving setup, **Download Calendar VC script** produces a private Apps Script
-file using the current saved roster, CT/Co-CT, subject teachers, support team,
-emails and individual links. Missing matches are listed for review. In the school
-Google account, add it as a new script file alongside the original meeting script;
-keep the Calendar advanced service enabled. Run `vcPrepareUpdate` to create or refresh the same private update workbook from the latest export; existing Class VC links are preserved and changed guest lists return to Pending. Review its
-private sheet, then run `vcApplyNextBatch` until rows are Ready. The script adds
-guests to existing individual events without changing their links and creates one
-distinct Class VC per section. Existing guest lists are preserved; no recurring
-appointments are created. Calendar requests use `sendUpdates:none`; this is not
-an email delivery guarantee or a Meet admission policy. Review Meet controls and
-mailbox ownership in Google. No Google account access is supplied by the portal.
+After saving setup, **Download individual VC update** produces a private Apps Script from the current saved student/teacher assignments, emails and existing individual links. Class VC is paused: its existing records are retained, but section/student Class VC controls are hidden and new exports have no Class VC work.
 
-Run `vcExportClassCSV` and use the logged direct download URL. Import that CSV
-(`Class,Section,MeetingLink`) in the same VC import control, review, and Save.
-Class VC buttons appear on section and student profiles. Individual buttons are
-labelled **Online home visit / One to one VC**. Private setup, exported scripts,
-guest lists and meeting links must not be committed or added to public assets.
+For each student the plan includes their saved email, CT/Co-CT, assigned subject teachers (including saved temporary/cross-class teaching coverage), and subject-scoped support members. Active valid emails are deduplicated. Missing roles, teacher assignments/emails, student emails, shared student mailboxes or meeting links, and individual/Class VC link reuse are flagged. Rows with incomplete identities/team data are not eligible for automatic guest synchronization. No participants are guessed and no replacement meetings are created.
+
+In the school Google account, replace only the earlier **VCUpdate.gs** update file (or add it if absent); retain the original meeting-generation code and Calendar advanced service. Run `vcPrepareUpdate` to refresh the existing private workbook; review the planned Guests column and Issues tab. Then run `vcApplyNextBatch` for batches of up to 50 existing individual events. It requires a unique matching event organized by the school account and the saved student email already present on that event; missing/ambiguous events and unmatched identities are skipped for manual review. It preserves the Meet link and retained guests’ response metadata, adds concerned saved teachers/support, removes guests outside that exact student/team list, makes the Calendar event private and disables guest modifications, invitations and guest-list visibility. Requests use `sendUpdates:none`. The downloaded script is not run by the portal or by a GitHub deployment. Exporting does not send invitations or change Calendar.
+
+The resulting status is **Guests updated; Meet access unverified**. Calendar guests are not proof of Meet admission restrictions or co-host privileges. The organizer must configure and verify Restricted access, disable uninvited joining/requests where supported, and add eligible concerned teachers as co-hosts to let them start meetings. If the account/licence does not support that, the organizer must start and supervise admission. Never share the school password. The portal has no authenticated Calendar/Meet connection to perform or verify these settings, and cannot guarantee outsiders are blocked merely because a link is private in the portal.
+
+Each private student profile has a compact coloured **Important contacts · One-to-one VC** plate: every saved mobile gets Call, WhatsApp and a VC-sharing draft link; Maps uses saved coordinates/link or a search for the saved address. A join button opens only that student’s saved individual link. **Share / copy VC link** opens the device share sheet or copies only that student’s link/context. WhatsApp sharing opens a draft; the user chooses whether to send it. Missing VC links remain visibly missing. Contact edits retain Principal or staff PIN verification and the existing private audit.
+
+Private setup, exported scripts, guest lists and meeting links must not be committed or added to public assets.
 
 Reviewed TemporaryTeaching CSV rows may reference an existing faculty ID in another standard (for example X:faculty_id for a XII assignment). This reuses the existing identity and PIN instead of duplicating the teacher. Temporary coverage is labelled in profiles and subject tables. Only missing or vacant assignments are filled; active saved choices are retained.
 

@@ -6,3 +6,4 @@ test('saved meetings accept only direct Google Meet codes',async()=>{
  for(const bad of ['javascript:alert(1)','https://meet.google.com.evil/abc-defg-hij','https://meet.google.com/abc-defg-hij?x=1','https://user@meet.google.com/abc-defg-hij',4])assert.throws(()=>meetingLink(bad));
  assert.throws(()=>validateContact({meetingLink:'https://example.org'}));
 });
+test('legacy phone lists expose all comma, semicolon, newline and slash-separated numbers',()=>{const rows=contactNumbers({phones:'Father: 9770000001, Mother: 9770000002;Guardian: 9770000003\nOther: 9770000004/9770000005'});assert.equal(rows.length,5);assert.ok(rows.every(n=>dialNumber(n.phone)));});
