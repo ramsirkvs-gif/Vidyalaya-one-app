@@ -15,18 +15,40 @@ const classOf=value=>value.classId||'X',classPrefix=classId=>classId==='XII'?'12
 const normalizeMCQText=value=>String(value).replace(/[०-९]/g,c=>String(c.charCodeAt(0)-2406));
 const optionLetter=value=>({'क':'A','ख':'B','ग':'C','घ':'D'})[value]||value.toUpperCase();
 export function parseMCQAnswers(value,numbers){
- const source=normalizeMCQText(value).trim().replace(/^(?:answer\s*key|answers?|उत्तरमाला|उत्तर)\s*[:：-]?\s*/i,'');
- const numbered=[...source.matchAll(/(\d{1,3})\s*[-:.)=–—]?\s*[(（]?\s*([ABCDकखगघ])\s*[)）]?/gi)],keys=new Map();
- if(numbered.length){const rest=source.replace(/(\d{1,3})\s*[-:.)=–—]?\s*[(（]?\s*([ABCDकखगघ])\s*[)）]?/gi,'').replace(/[\s,;|।]+/g,'');check(!rest,'Use only question numbers and correct answer letters in the answer key.');for(const m of numbered){const n=Number(m[1]);check(!keys.has(n),'An answer number is repeated.');keys.set(n,optionLetter(m[2]));}check(keys.size===numbers.length&&numbers.every(n=>keys.has(n)),'Supply one answer A–D or क–घ for every question number.');return numbers.map(n=>keys.get(n));}
- const letters=source.replace(/[\s,;|()।]+/g,'');check(letters.length===numbers.length&&/^[ABCDकखगघ]+$/i.test(letters),'Paste exactly '+numbers.length+' answers: A B C D or 1-A, 2-B, … (क ख ग घ also accepted).');return [...letters].map(optionLetter);
+ let source=normalizeMCQText(value).replace(/\u00a0/g,' ').replace(/[\u200b\uFEFF]/g,'').replace(/\*{1,2}/g,'').trim().replace(/^(?:correct\s*answers?|answer\s*key|answers?|उत्तर\s*कुंजी|उत्तरमाला|सही\s*उत्तर|उत्तर)\s*[:：\-–—]?\s*/i,'');
+ source=source.replace(/^\s*\|?\s*(?:question(?:\s*(?:no\.?|number))?|q\.?\s*no\.?|प्रश्न(?:\s*संख्या)?)\s*\|?\s*(?:answers?|उत्तर)\s*\|?\s*$/gmi,'').replace(/^\s*\|?[-: ]+\|[-:| ]*$/gm,'');
+ const pair=/(?:Q\.?\s*)?(\d{1,3})\s*(?:[-:.)=–—]\s*)?(?:(?:answer|ans\.?|उत्तर)\s*[:：=]?\s*)?[(（\[]?\s*([ABCDकखगघ]|iv|iii|ii|i|[1-4])\s*[)）\]]?(?=$|[\s,;|।])/gi;
+ // Numeric-only unnumbered keys are handled as option positions, not question-answer pairs.
+ const numbered=/\d\s*[-:.)=–—]|\d\s*[(（\[]|\d\s+[ABCDकखगघ]|\d\s*\|/i.test(source);
+ const keys=new Map();if(numbered){source=source.replace(/(\d)\s*\|\s*(?=[(（\[]?[ABCDकखगघ1-4])/gi,'$1:');const matches=[...source.matchAll(pair)];const rest=source.replace(pair,'').replace(/[\s,;|।]+/g,'');check(!rest,'Could not read part of the answer key. Paste only question numbers and answer choices; remove explanations.');for(const m of matches){const n=Number(m[1]);check(!keys.has(n),'An answer number is repeated: '+n+'.');keys.set(n,optionToken(m[2]));}check(keys.size===numbers.length&&numbers.every(n=>keys.has(n)),'Detected '+keys.size+' numbered answers; need '+numbers.length+'. Missing question numbers: '+numbers.filter(n=>!keys.has(n)).join(', ')+'.');return numbers.map(n=>keys.get(n));}
+ source=source.replace(/[()（）」\[\]]/g,' ');let tokens=source.split(/[\s,;|।]+/).filter(Boolean);if(tokens.length===1&&/^[ABCDकखगघ]+$/i.test(tokens[0]))tokens=[...tokens[0]];
+ check(tokens.length===numbers.length&&tokens.every(t=>/^(?:[ABCDकखगघ1-4]|iv|iii|ii|i)$/i.test(t)),'Detected '+tokens.length+' answer entries; need '+numbers.length+'. Paste A B C D… or 1-A, 2-B…; क–घ, 1–4 and i–iv are also accepted.');return tokens.map(optionToken);
+}
+const cleanMCQText=value=>value.replace(/\r\n?/g,'\n').replace(/\u00a0/g,' ').replace(/\u200b|\uFEFF/g,'').replace(/^[ \t]*\*{1,2}(.*)\*{1,2}[ \t]*$/gm,'$1').trim();
+const optionToken=value=>['i','ii','iii','iv'].includes(value.toLowerCase())?'ABCD'[['i','ii','iii','iv'].indexOf(value.toLowerCase())]:/^[1-4]$/.test(value)?'ABCD'[Number(value)-1]:optionLetter(value);
+function mcqOptionMatches(block){
+ const pattern=/(?:[(（\[]\s*(ABCDTOKEN)\s*[)）\]]|(?:^|[\s*])(LETTERTOKEN)[.)।:：])\s*/gi;
+ const re=new RegExp(pattern.source.replace('ABCDTOKEN','[ABCDकखगघ1-4]|iv|iii|ii|i').replace('LETTERTOKEN','[ABCDकखगघ]|iv|iii|ii|i'),'gi');
+ const all=[...block.matchAll(re)];
+ // Prefer full option lines when prose contains incidental parenthesised letters or numbers.
+ const lines=all.filter(m=>!block.slice(block.lastIndexOf('\n',m.index-1)+1,m.index).trim());
+ return lines.length===4?lines:all;
 }
 export function parseMCQContribution(raw,answerText,count){
  check([10,20].includes(count),'Choose a contribution of 10 or 20 questions.');check(typeof raw==='string'&&raw.length<=120000,'Paste up to 120000 characters.');
- check(!/(?:^|\n)\s*(?:answer|correct answer|उत्तर)\s*[:.-]/i.test(raw),'Remove inline answer labels from the questions and use the separate answer box.');
- const source=normalizeMCQText(raw).replace(/[\u200B-\u200D\uFEFF]/g,'').replace(/\r\n?/g,'\n'),starts=[...source.matchAll(/^[ \t]*(?:(?:प्रश्न|Question|Q)\s*[.:-]?\s*)?(\d{1,3})\s*[.):：-]\s*/gmi)];
+ let source=cleanMCQText(normalizeMCQText(raw)),embeddedKey=null;
+ const keyStart=source.match(/^(?:answer\s*key|answers|उत्तरमाला)\s*[:：-]?\s*/im);
+ if(keyStart){embeddedKey=source.slice(keyStart.index+keyStart[0].length);source=source.slice(0,keyStart.index).trim();}
+ const starts=[...source.matchAll(/^[ \t]*(?:\*{1,2})?(?:(?:प्रश्न|Question|Ques|Q)\s*[.:-]?\s*)?(\d{1,3})\s*(?:[.):：\-–—]|\*{1,2}|(?=\s))\s*(?:\*{1,2})?\s*/gmi)];
  check(starts.length===count,'Found '+starts.length+' questions; expected '+count+'. Use numbered questions such as 1., Q1. or प्रश्न 1: on separate lines.');
- const numbers=starts.map(m=>Number(m[1]));check(new Set(numbers).size===count,'Question numbers must not repeat.');const answers=answerText===null?numbers.map(()=> ''):parseMCQAnswers(answerText,numbers);
- return starts.map((m,i)=>{const block=source.slice(m.index+m[0].length,starts[i+1]?.index??source.length).trim(),matches=[...block.matchAll(/(?:[(（\[]\s*([ABCDकखगघ])\s*[)）\]]|(?:^|[\s*])([ABCDकखगघ])[.)।:：])\s*/gi)];const labels=matches.map(v=>optionLetter(v[1]||v[2]));check(matches.length===4,'Question '+numbers[i]+': detected '+(labels.join(', ')||'no option labels')+'. Expected four options in A, B, C, D order. Check this question for missing, repeated or unrecognised option labels.');const stem=block.slice(0,matches[0].index).trim(),options=matches.map((v,j)=>block.slice(v.index+v[0].length,matches[j+1]?.index??block.length).trim());check(stem&&options.every(Boolean),'Question '+numbers[i]+': question text or an option is empty.');return {stem,options,answer:answers[i],image:'',sourceNumber:numbers[i],...(labels.join('')!=='ABCD'?{processingWarning:'Original labels read '+labels.join(', ')+'. Options were relabelled A, B, C, D in their original order. Verify the correct answer by option position.'}:{})};});
+ const numbers=starts.map(m=>Number(m[1]));check(new Set(numbers).size===count,'Question numbers must not repeat.');
+ const explicit=answerText!==null?parseMCQAnswers(answerText,numbers):null,embedded=embeddedKey!==null?parseMCQAnswers(embeddedKey,numbers):null;
+ return starts.map((m,i)=>{let block=source.slice(m.index+m[0].length,starts[i+1]?.index??source.length).trim();const inline=[...block.matchAll(/^(?:correct\s*answer|answer|ans\.?|सही\s*उत्तर|उत्तर)\s*[:：=\-]\s*[(（]?\s*([ABCDकखगघ1-4]|iv|iii|ii|i)\s*[)）]?\s*$/gmi)];check(inline.length<=1,'Question '+numbers[i]+': multiple answer lines found.');const inlineAnswer=inline.length?optionToken(inline[0][1]):'';if(inline.length)block=block.slice(0,inline[0].index)+block.slice(inline[0].index+inline[0][0].length);
+ const matches=mcqOptionMatches(block),labels=matches.map(v=>optionToken(v[1]||v[2]));check(matches.length===4,'Question '+numbers[i]+': detected '+(labels.join(', ')||'no option labels')+'. Need four options with clear labels. Accepted: A–D, क–घ, (1)–(4), or (i)–(iv).');
+ const stem=cleanMCQText(block.slice(0,matches[0].index)),options=matches.map((v,j)=>cleanMCQText(block.slice(v.index+v[0].length,matches[j+1]?.index??block.length)));check(stem&&options.every(Boolean),'Question '+numbers[i]+': question text or an option is empty.');
+ const candidates=[explicit?.[i],embedded?.[i],inlineAnswer].filter(Boolean);check(new Set(candidates).size<=1,'Question '+numbers[i]+': pasted answer keys disagree. Correct the answer before processing.');
+ const warnings=[];if(labels.join('')!=='ABCD')warnings.push('Original labels read '+labels.join(', ')+'. Options were relabelled A, B, C, D in their original order. Verify the correct answer by option position.');if(inlineAnswer||embedded)warnings.push('Answer extracted from pasted text and removed from the question. Verify the answer key.');
+ return {stem,options,answer:candidates[0]||'',image:'',sourceNumber:numbers[i],...(warnings.length?{processingWarning:warnings.join(' ')}:{})};});
 }
 export function validateMCQQuestion(q){if(q?.imageOnly===true){check(typeof q.image==='string'&&q.image.length<=45000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(q.image),'Upload a complete question photo with all four options.');check(MCQ_ANSWERS.includes(q.answer),'Choose a correct answer A–D.');return {stem:'Question photo',options:['A','B','C','D'],answer:q.answer,image:q.image,imageOnly:true,version:1};}const stem=text(q?.stem,2500,'the question'),options=q?.options;check(Array.isArray(options)&&options.length===4,'Every question needs four options.');const clean=options.map(v=>text(v,600,'each option'));check(![stem,...clean].some(v=>/(?:^|\n)\s*(?:answer|correct answer|उत्तर)\s*[:.-]/i.test(v)),'Keep answer labels out of question text and options.');check(MCQ_ANSWERS.includes(q.answer),'Choose a correct answer A–D.');const image=q.image||'';check(typeof image==='string'&&(!image||image.length<=45000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(image)),'Upload a resized JPG, PNG or WebP question image.');return {stem,options:clean,answer:q.answer,image,version:1};}
 export function contributeMCQ(bank,input,actor,draft,now){
