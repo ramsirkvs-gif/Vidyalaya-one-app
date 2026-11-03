@@ -16,6 +16,7 @@ def mcq_api(page,route):
   if action=='mcq-principal':assert 'authorization' in route.request.headers and not d.get('pin')
   try:
    if d['operation']=='mcq-contribute':r=page.evaluate("""async args=>{const {contributeMCQ}=await import('./cbse-mcq-model.js');return contributeMCQ(...args);}""",[root['mcq'],d,actor,D,clock[0]]);root['mcq']=r.pop('next')
+   elif d['operation']=='mcq-import-csv':r=page.evaluate("""async args=>{const {importMCQCSV}=await import('./cbse-mcq-model.js');return importMCQCSV(...args);}""",[root['mcq'],d,actor,D,clock[0]]);root['mcq']=r.pop('next')
    elif d['operation']=='mcq-paper':r=page.evaluate("""async args=>{const {createMCQPaper}=await import('./cbse-mcq-model.js');return createMCQPaper(...args);}""",[root['mcq'],d,actor,clock[0]]);root['mcq']=r.pop('next')
    else:r=page.evaluate("""async args=>{const {evaluateMCQ}=await import('./cbse-mcq-model.js');return evaluateMCQ(...args);}""",[root,d,actor,clock[0],{'principalUid':'principal-test' if d.get('correction') and 'authorization' in route.request.headers else ''}]);updated=r.pop('next');root.clear();root.update(updated);page.evaluate('(m)=>window.__mcqEmit(m)',root['mission'])
   except Exception as e:route.fulfill(status=409,json={'error':str(e)});return
