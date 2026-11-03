@@ -1,0 +1,54 @@
+/* Shared screen theme: system fonts, CSS colours and no additional scripts or image downloads. */
+@media screen {
+ .mission-app{--navy:#18466a;--blue:#1976b6;--ink:#1d354b;--muted:#586f82;--line:#dce6f1;--bg:#f4f8fe;background:linear-gradient(135deg,#f3f8ff 0%,#faf7ff 52%,#effbf6 100%);color:var(--ink)}
+ .mission-app .mission-header{background:#fff;border-bottom:1px solid #e0e9f4;padding:15px 0}
+ .mission-app .brand-mark{background:linear-gradient(145deg,#2269c0,#118d80);box-shadow:0 4px 12px #276dc526}
+ .mission-app .mission-brand strong{color:#1d4264}.mission-app .mission-header-actions .button,.mission-app .mission-header-actions button{border-color:#d9e5f1;background:#f7faff;color:#274e73}
+ .mission-app #mission-mcq-shortcut{background:linear-gradient(110deg,#5c57b7,#2f6eb0);color:#fff;border:0;box-shadow:0 4px 12px #5f58ac20}
+ .mission-app .mission-hero{background:linear-gradient(112deg,#e2efff 0%,#e2f8f0 68%,#fff4dc 100%);color:#183e64;box-shadow:0 8px 28px #2d619c12;border:1px solid #c8deee;border-radius:24px}
+ .mission-app .hero-kicker{color:#35617a}.mission-app .mission-hero h1{color:#153f67}.mission-app .mission-hero h1>span{color:#098063}.mission-app .mission-hero p{color:#415f75}
+ .mission-app .hero-links #mission-view-all{color:#205c85;background:#fff;border:1px solid #c0d8e9;padding:8px 12px;border-radius:10px}
+ .mission-app .mission-logo{filter:none}.mission-app .hero-links{color:#49677b}.mission-app .hero-links>span{color:#49677b}.mission-app .hero-links button{color:#155a81;background:#fff;border-color:#b8d2e6}.mission-app .hero-links #mission-mcq-entry{background:#6652ad;color:white;border-color:#6652ad}
+ .mission-app #mission-global-search{border:1px solid #c2d8ec;box-shadow:0 3px 12px #3867980a}.mission-app #mission-global-search input{color:#244b6b}.mission-app .search-submit{background:#1a79b6;color:#fff}
+ .mission-app button,.mission-app .button{border:1px solid #d5e2ef;background:#fff;color:#2c526c;font-weight:650;border-radius:11px}
+ .mission-app button:hover:not(:disabled),.mission-app .button:hover{border-color:#91b6d9;box-shadow:0 3px 10px #35649713}
+ .mission-app button.primary,.mission-app .button.primary{background:linear-gradient(110deg,#147f69,#176ea3);border-color:transparent;color:#fff;box-shadow:0 4px 10px #137d6a18}
+ .mission-app button.danger,.mission-app .button.danger{color:#a03b38;border-color:#efc7c2;background:#fff5f2}
+ .mission-app :is(button,a,input,select,textarea,summary):focus-visible{outline:3px solid #df9e25;outline-offset:3px}
+ .mission-app :is(input,select,textarea){border-color:#c6d7e8;border-radius:9px;background:#fff;color:#213e56}.mission-app :is(input,select,textarea):focus{border-color:#4f91c5}.mission-app label{color:#31566f;font-size:13px;font-weight:650}
+ .mission-app #mission-nav{gap:7px;padding:10px;background:#ffffffc9;border:1px solid #dbe6f1;border-radius:15px}
+ .mission-app #mission-nav button{font-size:13px;padding:9px 13px;min-height:40px;background:#f4f8fd;border-color:transparent;color:#42627d}
+ .mission-app #mission-nav button[aria-current=page]{color:white;background:#2878b7;box-shadow:0 3px 9px #2676b425}
+ .mission-app .panel{--panel-accent:#337fc0;background:#fff;border-color:#dce6f1;border-radius:17px;box-shadow:0 4px 18px #294d7910}
+ .mission-app .panel>h2:first-child{color:#24496a;border-left:4px solid var(--panel-accent);padding-left:11px;line-height:1.4;font-size:19px;letter-spacing:-.3px}
+ .mission-app .student-identity-card{--panel-accent:#267cc1}.mission-app .student-contact-card{--panel-accent:#15916f;background:linear-gradient(140deg,#f0fbf4,#f0f8ff)}
+ .mission-app #student-academic-section{--panel-accent:#7862b5}.mission-app #student-conversations-section{--panel-accent:#ce9141}
+ .mission-app .profile-detail-label{color:#526e80}.mission-app .profile-detail-value{color:#21445d}
+ .mission-app .mission-summary{gap:12px}.mission-app .mission-summary>div{border:1px solid #dbe7f1;border-top:3px solid #4d8cc2;border-radius:13px;background:#fff;box-shadow:0 3px 12px #335e8b0a}
+ .mission-app .mission-summary>div:nth-child(2){border-top-color:#2b9b80}.mission-app .mission-summary>div:nth-child(3){border-top-color:#9673c3}.mission-app .mission-summary>div:nth-child(4){border-top-color:#db9c43}
+ .mission-app .overview-choice{border:1px solid #bed9ee;background:linear-gradient(120deg,#e6f2ff,#f5faff);border-radius:19px;color:#205c8d}
+ .mission-app .overview-choice:nth-child(2){border-color:#b6ddcb;background:linear-gradient(120deg,#e2f7ec,#f5fcf7);color:#176c51}
+ .mission-app .overview-choice strong{font-size:21px}.mission-app .overview-choice span{color:#466b83}
+ .mission-app .zone-card.class-x{background:linear-gradient(125deg,#1d70aa,#167e78);border:0;color:white}.mission-app .zone-card.class-xii{background:linear-gradient(125deg,#7053a8,#3f6da6);border:0;color:white}
+ .mission-app .zone-card :is(p,small,.zone-label,.zone-description){color:#f0f7ff}.mission-app .zone-card .zone-arrow{background:#ffffff24;color:white}
+ .mission-app .student-card{background:#fff;border-color:#d8e5ef;border-radius:13px;box-shadow:0 2px 8px #325d8107}.mission-app .student-card:hover{background:#f6faff}
+ .mission-app .student-avatar{color:#2c65a4;background:linear-gradient(135deg,#dcecff,#e6e1fb)}.mission-app .student-card-copy>strong{color:#254c69}.mission-app .student-card-copy>small{color:#597185}
+ .mission-app .monitor-tile{border-color:#d7e4ef;border-radius:15px;background:#f6faff}.mission-app .monitor-tile:nth-child(3n+2){background:#f0fbf4}.mission-app .monitor-tile:nth-child(3n){background:#faf5ff}.mission-app .monitor-icon{background:#deedfc;color:#3676af}
+ .mission-app .principal-controls{background:#faf8ff;border-color:#dcd2ee}.mission-app .principal-controls>summary{color:#674d8b}
+ .mission-app table{border-color:#dbe5ef}.mission-app th{background:#edf4fd;color:#365879}.mission-app tbody tr:nth-child(even){background:#f8fbff}
+ .mission-app .notice:not(.error):not(.success){background:#edf5ff;border-color:#d3e4f7;color:#315d82}.mission-app .notice.success{background:#e6f6ed;color:#236c50}.mission-app .notice.error{background:#fff0ed;color:#a13d36}
+ .mission-app .conversation-card,.mission-app .discussion-card{border-color:#d9e5f0;border-radius:13px}.mission-app .conversation-toolbar{padding:12px;border-radius:12px;background:#f1f6fd}
+ .mission-app details>summary{color:#335d7b}.mission-app details[open]>summary{margin-bottom:10px}
+ .mission-app dialog{border:1px solid #d8e5f1;border-radius:17px;box-shadow:0 18px 55px #24425f2b}.mission-app dialog::backdrop{background:#172e4a55}
+ .mission-app [data-mcq-workspace]>h2{font-size:26px;letter-spacing:-.6px;color:#425f96;border:0;padding:0}
+ .mission-app .mcq-tabs{padding:8px;border-radius:13px;background:#f0f5ff}.mission-app .mcq-tabs button{flex:1;color:#356a9b;background:#fff}.mission-app .mcq-tabs button[aria-current=page]{background:#397bb7;color:white}
+ .mission-app .mcq-entry-form{border:1px solid #c5dbed;box-shadow:0 5px 16px #4169990a}.mission-app .mcq-entry-actions{gap:14px}.mission-app .mcq-entry-action{box-shadow:0 5px 13px #304a741b}
+ .mission-app .mcq-contribute-button{background:linear-gradient(120deg,#18875b,#26a383);color:white;border-color:transparent}
+ .mission-app .mcq-single-form{background:#fcfdff;border:1px solid #dce6f1;padding:16px;border-radius:13px}.mission-app .mcq-single-answer{background:#f0ebfc;border-color:#ccbee7}.mission-app .mcq-single-answer legend{color:#66508e}.mission-app .mcq-single-answer select{border-color:#b8a7d7;color:#624a8b}
+ .mission-app .mcq-selection-bar{background:#eaf3ff;border-color:#bdd6ee;box-shadow:0 3px 10px #3567980e}.mission-app .mcq-question-header{padding:6px 0}.mission-app .mcq-bank-card{border-color:#dae5f1;border-radius:12px;background:#fff}.mission-app .mcq-topic-badge{color:#69528f;background:#f0eafb}
+ .mission-app .mcq-evaluation-form{padding:14px;border:1px solid #e0d8ef;border-radius:12px;background:#fdfbff}.mission-app .mcq-response-cell{background:#f7f4fe;border-color:#e3dcef}
+ .mission-app .mission-footer{color:#47677c;background:#eaf2fa;border-top:1px solid #d2e1ee}.mission-app .mission-footer small{color:#4e677a}.mission-app .mobile-mission-nav{border-top-color:#d5e2ef;background:#fff}.mission-app .mobile-mission-nav button[aria-current=page]{color:#1f75ad;background:#eaf4ff;border-radius:9px}
+ @media(min-width:1000px){.mission-app #mission-nav{flex-wrap:wrap;overflow:visible;white-space:normal}}
+ @media(max-width:700px){.mission-app .mission-hero{padding:25px 22px;border-radius:19px}.mission-app .panel{border-radius:14px}.mission-app .mcq-single-form{padding:11px}.mission-app .overview-choice strong{font-size:19px}}
+ @media(prefers-reduced-motion:reduce){.mission-app button,.mission-app .button{transition:none;transform:none}}
+}
