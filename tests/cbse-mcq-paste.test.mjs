@@ -7,3 +7,6 @@ test('Devanagari numbers and compact pasted keys work',()=>{const q=parseMCQCont
 test('answer keys reject missing, duplicate or unexpected data',()=>{for(const key of ['1-A 1-B','1-A 2-B extra','A'])assert.throws(()=>parseMCQAnswers(key,[1,2]));assert.deepEqual(parseMCQAnswers('2-(ख), 1-(क)',[1,2]),['A','B']);});
 
 test('processing preserves mathematical superscripts',()=>{const q=parseMCQContribution(hindi.replace('सही वाक्य चुनिए','x² + y³ = ?'),'ABCDABCDAB',10);assert.equal(q[0].stem,'x² + y³ = ?');});
+
+test('pasted option brackets, spacing and invisible characters are recognised',()=>{const raw=hindi.replaceAll('(क)','（ क ）').replaceAll('(ख)','[ख]').replaceAll('(ग)','(ग\u200b)').replaceAll('(घ)','घ.');assert.equal(parseMCQContribution(raw,'ABCDABCDAB',10).length,10);});
+test('bad option labels identify the affected question rather than guessing',()=>{assert.throws(()=>parseMCQContribution(hindi.replace('(ख)','(क)'),'ABCDABCDAB',10),/Question 1: detected A, A, C, D/);});

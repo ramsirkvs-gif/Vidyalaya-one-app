@@ -118,3 +118,5 @@
 .vc-recipient-dialog{width:min(420px,calc(100vw - 32px));box-sizing:border-box}.vc-recipient-list{display:grid;gap:10px;margin:16px 0}.vc-recipient-list .whatsapp-link{justify-content:flex-start;white-space:normal;overflow-wrap:anywhere}
 
 .mcq-touch-answers textarea{width:100%;min-height:150px;box-sizing:border-box;font-size:15px}.mcq-touch-answers details{margin-top:12px}.mcq-touch-answers summary{cursor:pointer;font-size:12px;font-weight:700}
+
+.mcq-question-id{display:block;font-size:11px;color:#607671;margin:2px 0 5px}
