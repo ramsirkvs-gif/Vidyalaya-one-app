@@ -26,7 +26,7 @@ import {requestTargets,requestProgress} from './cbse-report-requests.js';
 import {percentage,markPercentage,outOf,renderPerformanceCriteria,renderCountStatistics,renderGenderStatistics,subjectCareLines} from './cbse-performance-display.js';
 import {sectionTeam,sectionTeamText,renderSectionTeam,renderSectionTeams} from './cbse-section-team.js';
 import {contactNumbers,meetingLink,mapLink,validateContact,serializePhones} from './cbse-contact-model.js';
-import {renderContactActions} from './cbse-contact-view.js';
+import {renderContactActions,profileDetail} from './cbse-contact-view.js';
 import {renderTeacherMeeting,teacherResponsibilities} from './cbse-teacher-review.js';
 import {readSamagamExcel,parseSamagamGrid} from './cbse-samagam.js';
 import {importAcademicHistory,recordedProgressRange} from './cbse-academic-model.js';
@@ -149,11 +149,11 @@ function renderStudent(key,review={}){
  const reviewTeacher=review.teacherId||route().get('reviewStaff'),reviewSubjects=String(review.subjects??route().get('subject')??'').split(',').filter(id=>s.subjects?.[id]),reviewSubject=reviewSubjects[0],reviewPerson=reviewSubjects.length?{...s,subjects:Object.fromEntries(reviewSubjects.map(id=>[id,true]))}:s;if(reviewSubjects.length){p.append(el('p',`Subject-teacher review: ${reviewSubjects.map(id=>s.subjectCatalog[id]?.name||id).join(', ')} · Only these subjects and relevant teacher remarks are shown.`,'scope-notice'),button('Open full student profile',()=>review.parent?review.openFull?.():go({student:key})));if(reviewTeacher&&!review.parent)p.append(button('Back to teacher page',()=>go({staff:reviewTeacher})));}
  const progress=studentProgress(key,mission,draft,'',reviewSubjects),contact=mission.students?.[key]||{gender:'unknown',guardian:'',phones:'',location:''};
  p.append(badge(progress.academic));for(const line of attendanceLines(key,mission,progress))p.append(el('p',line,'attendance-summary'));
- const controls=el('div',undefined,'actions');if(editable())controls.append(button('Edit basic/contact details',()=>editContact(key)),button('Record marks',()=>editMark(key)),button('Record attendance',()=>editAttendance(key)),button('Print meeting summary',()=>window.print()));else controls.append(button('Print meeting summary',()=>window.print()));if(editable())controls.append(button(contact.meetingLink?'Change meeting link':'Set meeting link',()=>editMeeting(key)));p.append(controls);renderAttendanceDetails(p,key,mission);
- const contacts=studentPanel('Important contacts · One-to-one VC',overview);contacts.classList.add('student-contact-card','important-contact-plate');contacts.id='student-contact-section';if(contact.email)contacts.append(el('p',`Email: ${contact.email}`));contacts.append(el('p',`Gender: ${contact.gender==='unknown'?'Not recorded':contact.gender} · Guardian: ${contact.guardian||'Not recorded'}`),el('p',`Home location: ${contact.location||'Not recorded'}`));
+ const controls=el('div',undefined,'actions');if(editable())controls.append(button('Edit basic details / address',()=>editContact(key)),button('Record marks',()=>editMark(key)),button('Record attendance',()=>editAttendance(key)),button('Print meeting summary',()=>window.print()));else controls.append(button('Print meeting summary',()=>window.print()));if(editable())controls.append(button(contact.meetingLink?'Change meeting link':'Set meeting link',()=>editMeeting(key)));p.append(controls);renderAttendanceDetails(p,key,mission);
+ const contacts=studentPanel('Important contacts · One-to-one VC',overview);contacts.classList.add('student-contact-card','important-contact-plate');contacts.id='student-contact-section';profileDetail(contacts,'Gender',({boy:'Boy',girl:'Girl',unknown:'Not recorded'})[contact.gender]||'Not recorded');profileDetail(contacts,'Parent / Guardian',contact.guardian);profileDetail(contacts,'Address',contact.location);if(contact.email)profileDetail(contacts,'Email',contact.email);
  const teamDetails=el('details',undefined,'student-mentor-details');teamDetails.append(el('summary','Prime mentors & support team'));renderSectionTeam(teamDetails,sectionTeam(faculty,s.classId,s.sectionId,s.section,mission,reviewSubjects.length?reviewSubjects:Object.keys(s.subjects||{})),{onTeacher:openTeacherProfile,heading:false});contacts.append(teamDetails);
  if(contact.updatedAt)contacts.append(el('small','Updated by '+(contact.updatedByName||(contact.updatedBy==='principal'?'Principal':'Contributor'))+' · '+date(contact.updatedAt),'contact-update-stamp'));
- renderContactActions(contacts,contact,{student:s,onEdit:()=>editable()?editContact(key):openPINContact({person:s,contact,staff:staff(),pinStaff:pinDirectory,onSubmit:submitPINUpdate}),onLog:()=>document.getElementById('student-conversations-section')?.scrollIntoView({behavior:'smooth'})});
+ renderContactActions(contacts,contact,{student:s,principal:!!editable(),onEdit:scope=>openPINContact({person:s,contact,staff:staff(),pinStaff:pinDirectory,scope,principal:!!editable(),onSubmit:editable()?savePrincipalContact:submitPINUpdate})});
  const academic=studentPanel();academic.id='student-academic-section';renderStudentAcademics(academic,reviewPerson,mission,{showCriteria:!review.parent,staff:staff(),supportFor:(person,subject)=>supportTeam(mission,faculty,person.classId,person.sectionId,[subject]),onTeacher:openTeacherProfile,onAssignTeacher:editable()?editAllocation:undefined,onEditMark:editable()?editMark:undefined});
 
 
@@ -214,7 +214,7 @@ function editMeeting(key){
 }
 
 function editContact(key){
- const contact=mission.students?.[key]||{gender:'unknown',guardian:'',phones:'',location:''};openPINContact({person:people()[key],contact,staff:staff(),principal:true,onSubmit:savePrincipalContact});
+ const contact=mission.students?.[key]||{gender:'unknown',guardian:'',phones:'',location:''};openPINContact({person:people()[key],contact,staff:staff(),principal:true,scope:'profile',onSubmit:savePrincipalContact});
 }
 async function savePrincipalContact(values){
  if(!editable()||busy)throw Error('Sign in as Principal and wait for the current save.');const token=generation,changedAt=Date.now(),auditId=uid('contact');busy=true;document.documentElement.dataset.portalBusy='true';let failure='';
