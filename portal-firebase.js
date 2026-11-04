@@ -25,7 +25,7 @@ function renderApplications(value) {
   const entries = value && typeof value === "object" ? Object.values(value) : [];
   if (!entries.length) { grid.innerHTML = fallback; return; }
   const fragment = document.createDocumentFragment();
-  // These ten tiles use the supplied, reviewed reference images and destinations.
+  // These reference tiles use the supplied, reviewed reference images and destinations.
   // Older remote catalogues must not restore PIS or replace them with generic icons.
   referenceCards.forEach(card => fragment.append(card.cloneNode(true)));
   const seenURLs = new Set(referenceURLs);
