@@ -2,6 +2,7 @@ import {el} from './cbse-ui.js';
 export function renderMCQStoreCoverage(parent,coverage){
  parent.classList.add('mcq-store-coverage');const used=coverage.groups.filter(g=>g.evaluated.length);
  parent.append(el('strong',used.length?'Used: '+used.map(g=>g.classId+'-'+g.section+' ('+g.evaluated.length+')').join(' · '):'Not evaluated yet','mcq-used-summary'));
+ const sectionCounts=el('div',undefined,'mcq-store-section-counts');for(const group of coverage.groups){const badge=el('span',group.classId+'-'+group.section+': '+group.evaluated.length+' evaluated · '+group.remaining.length+' remaining');sectionCounts.append(badge);}parent.append(sectionCounts,el('small',coverage.eligible===0?'No current eligible students.':coverage.remaining===0?'All current eligible students evaluated — consider a new QP.':'Can be reused for the remaining students.','mcq-store-reuse-hint'));
  const details=el('details',undefined,'mcq-store-students');details.append(el('summary',coverage.evaluated+' evaluated · '+coverage.remaining+' remaining — view students'));parent.append(details);let ready=false;
  details.ontoggle=()=>{if(!details.open||ready)return;ready=true;
   if(!coverage.groups.length){details.append(el('p','No eligible students in the current subject roster.','muted'));return;}
@@ -10,7 +11,7 @@ export function renderMCQStoreCoverage(parent,coverage){
     const list=el('details',undefined,'mcq-coverage-list');list.dataset.coverageList=attended?'evaluated':'remaining';list.append(el('summary',label+' ('+rows.length+')'));let loaded=false;
     list.ontoggle=()=>{if(!list.open||loaded)return;loaded=true;if(!rows.length){list.append(el('p',attended?'No saved evaluations.':group.eligible?'All eligible students have been evaluated.':'No current eligible students in this section.','muted'));return;}
      const names=el('ul');for(const student of rows){const item=el('li');if(student.former)item.append(el('span','Former student'));else{const profile=el('a',student.name+(student.roll?' · '+student.roll:''));profile.href='#student='+encodeURIComponent(student.key);item.append(profile);}
-      if(attended)item.append(el('small',student.score+' / '+student.maximum+(student.evaluatedByName?' · '+student.evaluatedByName:'')));names.append(item);}list.append(names);
+      if(attended)item.append(el('small',student.score+' / '+student.maximum+(student.evaluatedByName?' · '+student.evaluatedByName:'')+(student.evaluatedAt?' · '+new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',dateStyle:'medium'}).format(new Date(student.evaluatedAt)):'')));names.append(item);}list.append(names);
     };section.append(list);
    }details.append(section);
   }
