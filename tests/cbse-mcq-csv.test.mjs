@@ -25,3 +25,13 @@ test('large CSV parses over 100 rows and Principal can assign secure contributio
  for(const id of ['missing','inactive','__proto__'])assert.throws(()=>importMCQCSV({},input(source,{creditContributorId:id}),actor,draft(),1,staff),/active teacher/);
  assert.throws(()=>importMCQCSV({},values,{id:'X:teacher',name:'Teacher'},draft(),1,staff),/Only the Principal/);
 });
+
+test('duplicates across topics, spacing and repeat CSV files never create extra questions',()=>{
+ const first=importMCQCSV({},input(csv([['Hindi','Poetry',question,'B'],['Hindi','Other topic',question.replaceAll('\n','   '),'B']])),actor,draft(),1);
+ assert.equal(first.addedCount,1);assert.equal(first.skippedCount,1);
+ const repeated=importMCQCSV(first.next,input(csv([['Hindi','New topic',question,'B']]),{requestId:'same_csv_again'}),actor,draft(),2);
+ assert.equal(repeated.addedCount,0);assert.equal(repeated.skippedCount,1);assert.equal(Object.keys(repeated.next.questions).length,1);assert.equal(repeated.next.questions.QH001.topic,'Poetry');
+ assert.throws(()=>importMCQCSV(first.next,input(csv([['Hindi','Other topic',question,'A']]),{requestId:'conflict_again'}),actor,draft(),3),/different answer/);
+ const legacy={questions:{old:{id:'old',classId:'X',subjectId:'hindi',stem:'Choose',options:['One','Two','Three','Four'],answer:'A',topic:'Old'}}};
+ const same=importMCQCSV(legacy,input(csv([['Hindi','New','Choose A) One B) Two C) Three D) Four','A']])),actor,draft(),4);assert.equal(same.addedCount,0);assert.equal(same.skippedCount,1);
+});

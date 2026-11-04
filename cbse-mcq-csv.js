@@ -3,7 +3,7 @@ export const MCQ_CSV_MAX_ROWS=999,MCQ_CSV_MAX_BYTES=2*1024*1024;
 export const MCQ_CSV_COLUMNS=['Subject','Topic','Question','CorrectAnswer'];
 const sample='Replace this with your complete question.\nA) First option\nB) Second option\nC) Third option\nD) Fourth option';
 const norm=value=>String(value||'').normalize('NFC').trim().replace(/\s+/g,' ').toLocaleLowerCase();
-export const mcqCSVRowKey=row=>String(row.topic).normalize('NFC').trim().replace(/\s+/g,' ')+'\u0000'+String(row.stem).normalize('NFC').trim().replace(/\s+/g,' ');
+export const mcqCSVRowKey=row=>String(row.stem+(row.verbatim!==true&&row.options?.length?' '+row.options.map((option,i)=>'ABCD'[i]+') '+option).join(' '):'')).normalize('NFC').trim().replace(/\s+/g,' ');
 export function mcqCSVTemplate(subjectName){const quote=value=>'"'+String(value).replaceAll('"','""')+'"';return '\uFEFF'+MCQ_CSV_COLUMNS.join(',')+'\r\n'+[subjectName,'Mixed',sample,'A'].map(quote).join(',')+'\r\n';}
 export function parseMCQCSV(source,{subjectId,subjectName}){
  if(typeof source!=='string'||new TextEncoder().encode(source).length>MCQ_CSV_MAX_BYTES)throw Error('Choose a CSV up to 2 MB.');if(!subjectId||!subjectName)throw Error('Select the subject before uploading questions.');
