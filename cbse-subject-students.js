@@ -16,3 +16,8 @@ export function classXMathGroups(draft){
  }
  return groups.map(g=>({...g,studentKeys:[...g.studentKeys]}));
 }
+
+export function classXMathSectionSummary(draft){
+ const groups=classXMathGroups(draft),basic=new Set(groups[0].studentKeys),standard=new Set(groups[1].studentKeys);
+ return Object.entries(draft?.classes?.X?.sections||{}).map(([sectionId,section])=>{const keys=Object.keys(section.students||{}).map(id=>'X:'+sectionId+':'+id);return {sectionId,section:section.name||sectionId,total:keys.length,basic:keys.filter(key=>basic.has(key)).length,standard:keys.filter(key=>standard.has(key)).length,both:keys.filter(key=>basic.has(key)&&standard.has(key)).length,unassigned:keys.filter(key=>!basic.has(key)&&!standard.has(key)).length};}).sort((a,b)=>a.section.localeCompare(b.section,undefined,{numeric:true}));
+}
