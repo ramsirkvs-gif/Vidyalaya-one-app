@@ -63,3 +63,11 @@
  .mission-app .mcq-single-form .mcq-submit-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:end}.mission-app .mcq-single-form .mcq-submit-actions input{width:100%}.mission-app .mcq-single-form .mcq-submit-actions button:first-child{grid-column:1/-1}
  .mission-app .mcq-single-answer select{font-size:13px;padding:7px 16px 7px 6px}
 }
+@media screen and (max-width:700px){
+ .mcq-ready-papers .table-scroll>table,.mcq-ready-papers tbody{display:block;width:100%}.mcq-ready-papers thead{position:absolute;width:1px;height:1px;clip:rect(0,0,0,0);overflow:hidden}
+ .mcq-ready-papers tbody>tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:11px;margin:9px 0;border:1px solid #cddfd9;border-radius:11px;background:#fff!important}
+ .mcq-ready-papers tbody>tr>td{display:block;min-width:0!important;padding:0;border:0;font-size:12px;overflow-wrap:break-word}.mcq-ready-papers tbody>tr>td::before{content:attr(data-label);display:block;font-size:10px;color:#647b85;margin-bottom:3px}
+ .mcq-ready-papers tbody>tr>td:first-child,.mcq-ready-papers tbody>tr>td:nth-child(2),.mcq-ready-papers tbody>tr>td:last-child{grid-column:1/-1}.mcq-ready-papers tbody>tr>td:first-child{font-size:16px;font-weight:750;color:#246b7b}.mcq-ready-papers tbody>tr>td:first-child::before,.mcq-ready-papers tbody>tr>td:nth-child(2)::before,.mcq-ready-papers tbody>tr>td:last-child::before{display:none}
+}
+.mcq-store-coverage{min-width:210px}.mcq-used-summary{display:block;color:#266a59;font-size:12px}.mcq-store-students{margin:6px 0;font-size:12px}.mcq-store-students>summary,.mcq-coverage-list>summary{cursor:pointer;color:#326d87}.mcq-coverage-section{padding:8px 0;border-top:1px solid #dde8e6}.mcq-coverage-section h4{font-size:12px;margin:4px 0}.mcq-coverage-list{margin:6px 0}.mcq-coverage-list ul{padding-left:16px;margin:7px 0}.mcq-coverage-list li{margin:6px 0}.mcq-coverage-list small{display:block;font-size:10px;color:#5c7380}
+.mcq-store-tools{margin:9px 0;font-size:12px}.mcq-store-tools>summary{cursor:pointer;color:#326d87}.mcq-store-tools[open]{padding:9px;background:#f3f8fc;border-radius:8px}.mcq-ready-papers>p{font-size:11px;color:#5e7581}

@@ -9,3 +9,22 @@ export function mcqPaperUsage(mission,draft,paperId){
  const index=mcqAttendanceIndex(mission),groups=new Map();for(const [key,tests]of index){const mark=tests.get(paperId);if(!mark)continue;const [classId,sectionId,id]=key.split(':'),section=draft.classes?.[classId]?.sections?.[sectionId],student=section?.students?.[id];if(!student)continue;const groupKey=classId+':'+sectionId;if(!groups.has(groupKey))groups.set(groupKey,{classId,sectionId,section:section.name,students:[],criticalCount:0});const group=groups.get(groupKey),academic=studentProgress(key,mission,draft).academic;group.students.push({key,name:student.name,roll:student.roll,academic,testsAttended:tests.size,score:mark.score,maximum:mark.maximum,evaluatedBy:mark.evaluatedBy||'',evaluatedByName:mark.evaluatedByName||'',evaluatedAt:mark.updatedAt||0});if(academic==='critical')group.criticalCount++;}
  return [...groups.values()].map(g=>({...g,students:g.students.sort((a,b)=>String(a.roll).localeCompare(String(b.roll),undefined,{numeric:true})||a.name.localeCompare(b.name))})).sort((a,b)=>a.classId.localeCompare(b.classId)||String(a.section).localeCompare(String(b.section),undefined,{numeric:true}));
 }
+
+// Coverage uses saved evaluations, including zero scores, rather than views/prints.
+// Remaining is limited to the current subject roster and this paper's saved scope.
+export function mcqPaperCoverage(mission,draft,paper,index=mcqAttendanceIndex(mission)){
+ const classId=paper.classId||'X',sections=draft?.classes?.[classId]?.sections||{},groups=new Map();
+ const groupFor=sectionId=>{if(!groups.has(sectionId))groups.set(sectionId,{classId,sectionId,section:sections[sectionId]?.name||sectionId,evaluated:[],remaining:[],eligible:0});return groups.get(sectionId);};
+ const evaluated=new Map();for(const [key,tests]of index){const mark=tests.get(paper.id);if(!mark||key.split(':')[0]!==classId)continue;evaluated.set(key,mark);}
+ for(const [sectionId,section]of Object.entries(sections)){
+  if(paper.targetSections?.length&&!paper.targetSections.includes(sectionId))continue;
+  for(const [id,student]of Object.entries(section.students||{})){
+   if(!student.subjects?.[paper.subjectId])continue;const key=classId+':'+sectionId+':'+id,group=groupFor(sectionId);group.eligible++;
+   if(!evaluated.has(key))group.remaining.push({key,name:student.name,roll:student.roll});
+  }
+ }
+ for(const [key,mark]of evaluated){const [,sectionId,id]=key.split(':'),student=sections[sectionId]?.students?.[id];groupFor(sectionId).evaluated.push({key,name:student?.name||'Former student',roll:student?.roll||'',former:!student,score:mark.score,maximum:mark.maximum,evaluatedByName:mark.evaluatedByName||'',evaluatedAt:mark.updatedAt||0});}
+ const sort=(a,b)=>String(a.roll||'').localeCompare(String(b.roll||''),undefined,{numeric:true})||a.name.localeCompare(b.name);
+ const result=[...groups.values()].map(group=>({...group,evaluated:group.evaluated.sort(sort),remaining:group.remaining.sort(sort)})).sort((a,b)=>String(a.section).localeCompare(String(b.section),undefined,{numeric:true}));
+ return {groups:result,evaluated:result.reduce((n,g)=>n+g.evaluated.length,0),remaining:result.reduce((n,g)=>n+g.remaining.length,0),eligible:result.reduce((n,g)=>n+g.eligible,0)};
+}
