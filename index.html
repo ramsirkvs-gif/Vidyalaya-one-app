@@ -580,6 +580,9 @@ footer {
 .portal-entry-card .status{font-size:9px;padding:6px 8px}
 .vems-original-brand{display:flex;align-items:center;justify-content:center;gap:8px;background:#fff;padding:10px}.vems-original-brand img{width:calc(50% - 4px);height:auto;max-height:140px;object-fit:contain}
 .original-kvs-brand{background:#fff;padding:10px;object-fit:contain}
+
+/* Application previews supplied in the launch-page reference PDF. */
+.launch-reference-card{display:flex;flex-direction:column;gap:0;overflow:hidden;padding:18px;min-height:0}.launch-reference-card .launch-tile-image{display:block;width:calc(100% + 36px);max-width:none;height:180px;object-fit:contain;object-position:center;background:#fff;border-radius:0;margin:-18px -18px 16px;flex:none}.launch-reference-card:has(img[src*="prashast"]) .launch-tile-image{padding:15px}.launch-reference-card .card-top{display:flex;justify-content:flex-end}.launch-reference-card h3{margin:10px 0 8px}.launch-reference-card p{margin-bottom:12px}.launch-reference-card .card-action{margin-top:auto;padding-top:12px}.launch-reference-card .mission-entry-logo{grid-column:auto;grid-row:auto;align-self:auto}@media(max-width:600px){.launch-reference-card{padding:16px}.launch-reference-card .launch-tile-image{width:calc(100% + 32px);height:155px;margin:-16px -16px 12px}.launch-reference-card h3{font-size:16px}.launch-reference-card p{font-size:12px;line-height:1.5}}
 </style>
 </head>
 
@@ -624,14 +627,12 @@ footer {
 
     <div class="grid">
 
-      <a class="app-card portal-entry-card"
+      <a class="app-card launch-reference-card"
          href="https://samagam.kvs.gov.in/"
          target="_blank"
          rel="noopener noreferrer">
-        <div class="card-top">
-          <img class="portal-entry-logo original-kvs-brand" src="portal-original-kvs-logo.png" width="168" height="168" alt="Kendriya Vidyalaya Sangathan logo">
-          <span class="status">READY-MADE</span>
-        </div>
+        <img class="launch-tile-image" src="portal-tile-samagam.jpg" width="1331" height="562" loading="lazy" decoding="async" alt="KVS Samagam platform">
+        <div class="card-top"><span class="status">READY-MADE</span></div>
         <h3>KVS SAMAGAM</h3>
         <p>Official KVS portal and departmental resources.</p>
         <div class="card-action">
@@ -639,14 +640,12 @@ footer {
         </div>
       </a>
 
-      <a class="app-card"
+      <a class="app-card launch-reference-card"
          href="https://kvstimetable-rouge.vercel.app/"
          target="_blank"
          rel="noopener noreferrer">
-        <div class="card-top">
-          <div class="app-icon" aria-hidden="true">▦</div>
-          <span class="status">READY-MADE</span>
-        </div>
+        <img class="launch-tile-image" src="portal-tile-timetable.png" width="1346" height="617" loading="lazy" decoding="async" alt="School timetable and duty arrangements">
+        <div class="card-top"><span class="status">READY-MADE</span></div>
         <h3>TIMETABLE &amp; SCHOOL DUTY HUB</h3>
         <p>
           Timetable · Morning SOP · Lunch Duty · Dispersal Duty ·
@@ -657,11 +656,9 @@ footer {
         </div>
       </a>
 
-      <a class="app-card mission-entry-card portal-entry-card" href="cbse-mission.html">
-        <div class="card-top">
-          <img class="mission-entry-logo portal-entry-logo" src="mission-perfect-100-logo.png" width="104" height="104" alt="Mission Perfect 100% team logo">
-          <span class="status">STUDENTS &amp; TEACHERS</span>
-        </div>
+      <a class="app-card launch-reference-card mission-entry-card" href="cbse-mission.html">
+        <img class="launch-tile-image mission-entry-logo" src="portal-tile-mission.jpg" width="1313" height="461" loading="lazy" decoding="async" alt="Mission Perfect 100 school portal">
+        <div class="card-top"><span class="status">STUDENTS &amp; TEACHERS</span></div>
         <h3>Mission Perfect 100</h3>
         <p>
           Monitoring of Classes X &amp; XII board-examination preparation,
@@ -673,16 +670,13 @@ footer {
         </div>
       </a>
 
-      <a class="app-card portal-entry-card"
+      <a class="app-card launch-reference-card"
          href="https://vems-new-portal-with-firebase.vercel.app/"
          target="_blank"
          rel="noopener noreferrer">
-        <div class="card-top">
-          <!-- Original assets from ramsirkvs-gif/vems-new-portal-with-firebase-/main/assets -->
-          <div class="portal-entry-logo vems-original-brand"><img src="portal-original-kvs-logo.png" width="80" height="110" alt="KVS logo"><img src="portal-original-pm-shri-logo.png" width="80" height="110" alt="PM SHRI logo"></div>
-          <span class="status">APPLICATION AVAILABLE</span>
-        </div>
-        <h3>EXAMINATION MANAGEMENT CENTRE</h3>
+        <img class="launch-tile-image" src="portal-tile-vems.png" width="1317" height="619" loading="lazy" decoding="async" alt="Vidyalaya Examination Management System">
+        <div class="card-top"><span class="status">APPLICATION AVAILABLE</span></div>
+        <h3>VIDYALAYA EXAMINATION MANAGEMENT SYSTEM (VEMS)</h3>
         <p>
           Examination planning, seating arrangements and duty,
           pre-board planning, mock admit cards, examination data-drive
@@ -690,18 +684,16 @@ footer {
           evaluation tracking and return.
         </p>
         <div class="card-action">
-          Open Examination Management Centre <span aria-hidden="true">↗</span>
+          Open VEMS <span aria-hidden="true">↗</span>
         </div>
       </a>
 
-      <a class="app-card"
+      <a class="app-card launch-reference-card"
          href="https://epay.unionbankofindia.bank.in/kvsfcs/kvlogin.aspx"
          target="_blank"
          rel="noopener noreferrer">
-        <div class="card-top">
-          <div class="app-icon" aria-hidden="true">₹</div>
-          <span class="status">OFFICIAL PORTAL</span>
-        </div>
+        <img class="launch-tile-image" src="portal-tile-fees.png" width="1243" height="630" loading="lazy" decoding="async" alt="KVS Union Bank fee collection portal">
+        <div class="card-top"><span class="status">OFFICIAL PORTAL</span></div>
         <h3>UBI KVS FEE PORTAL</h3>
         <p>
           Union Bank of India’s Kendriya Vidyalaya Fee Collection System
@@ -712,14 +704,12 @@ footer {
         </div>
       </a>
 
-      <a class="app-card"
+      <a class="app-card launch-reference-card"
          href="https://udiseplus.gov.in/#/en/page/oldlink/192"
          target="_blank"
          rel="noopener noreferrer">
-        <div class="card-top">
-          <div class="app-icon" aria-hidden="true">▤</div>
-          <span class="status">OFFICIAL PORTAL</span>
-        </div>
+        <img class="launch-tile-image" src="portal-tile-udise.png" width="1331" height="622" loading="lazy" decoding="async" alt="UDISE+ school data portal">
+        <div class="card-top"><span class="status">OFFICIAL PORTAL</span></div>
         <h3>UDISE+ SCHOOL DATA PORTAL</h3>
         <p>
           School data management, profile and infrastructure details,
@@ -730,14 +720,12 @@ footer {
         </div>
       </a>
 
-      <a class="app-card"
+      <a class="app-card launch-reference-card"
          href="https://play.google.com/store/apps/details?id=com.dscs.app"
          target="_blank"
          rel="noopener noreferrer">
-        <div class="card-top">
-          <div class="app-icon" aria-hidden="true">✓</div>
-          <span class="status">OFFICIAL APP</span>
-        </div>
+        <img class="launch-tile-image" src="portal-tile-prashast.jpg" width="377" height="298" loading="lazy" decoding="async" alt="PRASHAST inclusive education app logo">
+        <div class="card-top"><span class="status">OFFICIAL APP</span></div>
         <h3>PRASHAST APP</h3>
         <p>
           School-level screening support to help identify children who may
@@ -748,31 +736,27 @@ footer {
         </div>
       </a>
 
-      <a class="app-card"
+      <a class="app-card launch-reference-card"
          href="https://medha.cograd.in/"
          target="_blank"
          rel="noopener noreferrer">
-        <div class="card-top">
-          <div class="app-icon" aria-hidden="true">▤</div>
-          <span class="status">APPLICATION AVAILABLE</span>
-        </div>
-        <h3>MEDHA APP</h3>
+        <img class="launch-tile-image" src="portal-tile-medha.png" width="1356" height="611" loading="lazy" decoding="async" alt="Medha AI for Indian teachers">
+        <div class="card-top"><span class="status">APPLICATION AVAILABLE</span></div>
+        <h3>MEDHA AI</h3>
         <p>
-          Access the MEDHA application and its online services.
+          AI support for lesson plans, quizzes and classroom resources.
         </p>
         <div class="card-action">
-          Open MEDHA App <span aria-hidden="true">↗</span>
+          Open Medha AI <span aria-hidden="true">↗</span>
         </div>
       </a>
 
-      <a class="app-card portal-entry-card"
+      <a class="app-card launch-reference-card"
          href="https://kvsonlinetransfer.kvs.gov.in/school/#/"
          target="_blank"
          rel="noopener noreferrer">
-        <div class="card-top">
-          <img class="portal-entry-logo original-kvs-brand" src="portal-original-kvs-logo.png" width="168" height="168" alt="Kendriya Vidyalaya Sangathan logo">
-          <span class="status">OFFICIAL PORTAL</span>
-        </div>
+        <img class="launch-tile-image" src="portal-tile-transfer.png" width="1338" height="613" loading="lazy" decoding="async" alt="KVS employee and transfer portal">
+        <div class="card-top"><span class="status">OFFICIAL PORTAL</span></div>
         <h3>KVS ONLINE TRANSFER PORTAL</h3>
         <p>
           Official KVS portal for online transfer-related processes and
@@ -783,22 +767,12 @@ footer {
         </div>
       </a>
 
-      <a class="app-card portal-entry-card"
-         href="https://pis.kvs.gov.in/"
-         target="_blank"
-         rel="noopener noreferrer">
-        <div class="card-top">
-          <img class="portal-entry-logo original-kvs-brand" src="portal-original-kvs-logo.png" width="168" height="168" alt="Kendriya Vidyalaya Sangathan logo">
-          <span class="status">OFFICIAL PORTAL</span>
-        </div>
-        <h3>KVS PERSONNEL INFORMATION SYSTEM (PIS)</h3>
-        <p>
-          KVS Personnel Information System for authorized personnel-related
-          information and services.
-        </p>
-        <div class="card-action">
-          Open KVS PIS Portal <span aria-hidden="true">↗</span>
-        </div>
+      <a class="app-card launch-reference-card" href="https://samvida-sathi.kvs.gov.in/" target="_blank" rel="noopener noreferrer">
+        <img class="launch-tile-image" src="portal-tile-samvida.png" width="1352" height="573" loading="lazy" decoding="async" alt="Samvida Sathi portal for contractual staff engagement">
+        <div class="card-top"><span class="status">OFFICIAL PORTAL</span></div>
+        <h3>SAMVIDA SATHI</h3>
+        <p>KVS portal for contractual staff engagement.</p>
+        <div class="card-action">Open Samvida Sathi <span aria-hidden="true">↗</span></div>
       </a>
 
       <a class="app-card"
@@ -896,9 +870,9 @@ footer {
     <div class="notice">
       <strong>Setup note:</strong>
       KVS SAMAGAM, Timetable &amp; School Duty Hub, UBI KVS Fee Portal,
-      UDISE+, PRASHAST App, MEDHA App, KVS Online Transfer Portal, KVS PIS,
+      UDISE+, PRASHAST App, Medha AI, KVS Online Transfer Portal, Samvida Sathi,
       CBSE Website, iGOT Karmayogi, NCERT, DIKSHA and NISHTHA links are active. CBSE Students Basic Data provides public search and a separate Principal feeding workspace.
-      The Examination Management Centre is linked to the VEMS application. General portal links are public.
+      Vidyalaya Examination Management System (VEMS) is linked above. General portal links are public.
       CBSE feeding requires the configured Principal account; only approved student fields are published.
     </div>
   </section>

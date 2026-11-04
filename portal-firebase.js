@@ -13,10 +13,22 @@ const app = initializeApp({
 });
 const grid = document.querySelector(".grid");
 const fallback = grid.innerHTML;
+const bundledCards = [...grid.querySelectorAll('.app-card')];
+const referenceCards = bundledCards.filter(card => card.classList.contains('launch-reference-card'));
+const referenceURLs = new Set(referenceCards.map(card => card.href));
+const referenceTitles = new Set(referenceCards.map(card => card.querySelector('h3').textContent.trim().toUpperCase()));
+for (const title of ['CBSE BOARD EXAMINATION — PROGRESS MONITORING','EXAMINATION MANAGEMENT CENTRE','MEDHA APP']) referenceTitles.add(title);
+const catalogueURL = url => { try { return new URL(url, location.href).href; } catch { return url; } };
+const removedPersonnel = /\b(?:pis|pims)\b|personnel information system/i;
 
 function renderApplications(value) {
   const entries = value && typeof value === "object" ? Object.values(value) : [];
+  if (!entries.length) { grid.innerHTML = fallback; return; }
   const fragment = document.createDocumentFragment();
+  // These ten tiles use the supplied, reviewed reference images and destinations.
+  // Older remote catalogues must not restore PIS or replace them with generic icons.
+  referenceCards.forEach(card => fragment.append(card.cloneNode(true)));
+  const seenURLs = new Set(referenceURLs);
   for (let entry of entries) {
     if (!entry || typeof entry.title !== "string" || !entry.title.trim() ||
         typeof entry.note !== "string" || typeof entry.url !== "string") continue;
@@ -26,6 +38,8 @@ function renderApplications(value) {
       entry = {...entry, title: "Mission Perfect 100", url: new URL("cbse-mission.html", location.href).href,
         status: "STUDENTS & TEACHERS", action: "Open Mission Perfect 100"};
     }
+    if (removedPersonnel.test(entry.title) || /^https:\/\/pis\.kvs\.gov\.in(?:\/|$)/i.test(entry.url) || referenceTitles.has(entry.title.trim().toUpperCase()) || referenceURLs.has(catalogueURL(entry.url))) continue;
+    if (seenURLs.has(catalogueURL(entry.url)) && entry.url !== '#') continue;
     const placeholder = entry.url === "#";
     if (!placeholder) {
       try { if (new URL(entry.url).protocol !== "https:") continue; }
@@ -53,6 +67,10 @@ function renderApplications(value) {
     action.append(arrow);
     card.append(top, title, note, action);
     fragment.append(card);
+    if (!placeholder) seenURLs.add(card.href);
+  }
+  for (const card of bundledCards.filter(card => !card.classList.contains('launch-reference-card'))) {
+    if (!seenURLs.has(card.href)) { fragment.append(card.cloneNode(true)); seenURLs.add(card.href); }
   }
   if (fragment.childNodes.length) grid.replaceChildren(fragment);
   else grid.innerHTML = fallback;
