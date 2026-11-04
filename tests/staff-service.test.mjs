@@ -371,3 +371,10 @@ test('130-question batch deletion and contributor correction retry a cold Fireba
  const fresh=await service('mcq-principal',{...base,historyId,operation:'mcq-manage-preview'},'principal'),deleted=await service('mcq-principal',{...base,historyId,operation:'mcq-contribution-delete',expectedRevision:fresh.revision,questionIds:uploaded.questionIds,requestId:'cold_delete_request'},'principal');assert.equal(deleted.ok,true);assert.equal(deleted.changedCount,130);assert.equal((await service('mcq-read',base,'principal')).total,0);assert.equal(data.cbse.mcq.papers[paper.paperId].questions.length,1);assert.equal(data.cbse.mcq.questionCodeCounters.E,130);
  const history=await service('mcq-principal',{...base,operation:'mcq-contribution-history'},'principal');assert.equal(history.uploads[0].activeCount,0);assert.equal(history.uploads[0].deletedCount,130);
 });
+test('Principal all-subject cleanup confirms totals, retries cold cache, protects score dependencies and resets safely',async()=>{
+ const {service,data}=fixture({coldMCQ:true});data.cbse.draft.classes.X.sections.a.subjects.hindi={name:'Hindi'};
+ for(const subjectId of ['english','hindi'])await service('mcq-principal',{classId:'X',subjectId,operation:'mcq-import-csv',verified:true,csvText:'Subject,Topic,Question,CorrectAnswer\n,Mixed,Question '+subjectId+',A',requestId:'reset_seed_'+subjectId},'principal');
+ const preview=await service('mcq-principal',{operation:'mcq-clear-banks-preview'},'principal');assert.equal(preview.ok,true);assert.equal(preview.total,2);assert.equal(preview.subjects.length,2);
+ await assert.rejects(service('mcq-principal',{operation:'mcq-clear-banks-preview'},'outsider'),/Principal/);
+ const result=await service('mcq-principal',{operation:'mcq-clear-banks',confirmation:'CLEAR ALL',restartIds:true,expectedRevision:preview.revision,requestId:'clear_all_subjects'},'principal');assert.equal(result.ok,true);assert.equal(result.changedCount,2);assert.equal(result.idsRestarted,true);assert.equal((await service('mcq-read',{},'principal')).total,0);assert.equal((await service('mcq-read',{classId:'XII'},'principal')).total,0);
+});

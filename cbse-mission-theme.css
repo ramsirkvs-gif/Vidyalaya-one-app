@@ -66,7 +66,7 @@
 .mission-app.mission-detail-view .mcq-simple-heading strong{font-size:18px;color:#245a52}
 .mission-app.mission-detail-view .mcq-simple-heading button,.mission-app.mission-detail-view .mcq-simple-links button{min-height:32px;padding:4px 8px;border:0;background:transparent;color:#286b8b;font-size:13px;text-decoration:underline;border-radius:4px}
 .mcq-simple-links{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;margin:0 0 12px}
-.mcq-more-tools{font-size:13px;align-self:center;position:relative}.mcq-more-tools>summary{cursor:pointer;color:#526c75}.mcq-more-tools[open]>button{position:absolute;right:0;top:28px;z-index:2;white-space:nowrap;box-shadow:0 3px 12px #25454b22}
+.mcq-more-tools{font-size:13px;align-self:center;position:relative}.mcq-more-tools>summary{cursor:pointer;color:#526c75}.mcq-more-tools[open]>.mcq-more-menu{position:absolute;right:0;top:28px;z-index:3;display:grid;gap:6px;padding:8px;background:white;border:1px solid #cbdce7;border-radius:10px;box-shadow:0 3px 12px #25454b22}.mcq-more-menu>button{position:static;white-space:nowrap}
 .mcq-bank-tools{align-items:center;margin:8px 0;gap:16px}.mcq-bank-count{position:static!important;box-shadow:none!important;border:0!important;padding:4px 0!important;background:transparent!important;font-size:13px}.mcq-bank-count .mcq-selection-topics{font-size:12px}
 .mission-app.mission-detail-view .mcq-filters label{min-width:0}.mcq-inline-contribution{margin:12px 0;padding:10px}.mcq-inline-contribution>summary{font-size:15px}
 
