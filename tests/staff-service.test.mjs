@@ -6,7 +6,7 @@ import {createStaffService,hashPIN,verifyPIN} from '../_server/staff-service.js'
 import {emptyDraft} from '../cbse-model.js';
 import {emptyFaculty} from '../cbse-faculty-model.js';
 import {emptyMission} from '../cbse-mission-model.js';
-function fixture(){
+function fixture({coldMCQ=false}={}){
  const draft=emptyDraft(),faculty=emptyFaculty(),mission=emptyMission();
  draft.classes.X.sections.a.subjects={english:{name:'English',code:''}};draft.classes.X.sections.a.students={one:{name:'Synthetic Student',roll:'001',subjects:{english:true}}};draft.classes.X.sections.b.students={two:{name:'Other Synthetic Student',roll:'002',subjects:{}}};
  faculty.classes.X.teachers.one={name:'Synthetic Teacher',designation:'TGT',subjects:'English',teachingSections:'A',status:'active'};
@@ -16,7 +16,7 @@ function fixture(){
  const copy=v=>v===undefined?null:structuredClone(v);
  const at=path=>path.split('/').reduce((value,key)=>value?.[key],data);
  const put=(path,value)=>{const keys=path.split('/');let parent=data;for(const key of keys.slice(0,-1))parent=parent[key]||={};if(value===null)delete parent[keys.at(-1)];else parent[keys.at(-1)]=copy(value);};
- const db={ref:path=>({get:async()=>({val:()=>copy(at(path))}),set:async v=>put(path,v),update:async v=>put(path,{...at(path),...v}),remove:async()=>put(path,null),transaction:async fn=>{const next=fn(copy(at(path)));if(next===undefined)return {committed:false};put(path,next);return {committed:true,snapshot:{val:()=>copy(next)}};}})};
+ const db={ref:path=>({get:async()=>({val:()=>copy(at(path))}),set:async v=>put(path,v),update:async v=>put(path,{...at(path),...v}),remove:async()=>put(path,null),transaction:async fn=>{if(coldMCQ&&path==='cbse/mcq'){const initial=fn(null);if(initial===undefined)return {committed:false};}const next=fn(copy(at(path)));if(next===undefined)return {committed:false};put(path,next);return {committed:true,snapshot:{val:()=>copy(next)}};}})};
  const auth={verifyIdToken:async token=>token==='principal'?{uid:'principal-uid'}:token==='outsider'?{uid:'not-principal'}:JSON.parse(token),createCustomToken:async(uid,claims)=>JSON.stringify({uid,...claims}),revokeRefreshTokens:async()=>{}};
  return {data,db,auth,service:createStaffService({db,auth,now:()=>1000000,displayKey:Buffer.alloc(32,7),viewSecret})};
 }
@@ -360,4 +360,14 @@ test('upload history separates same-day uploads and groups CSV topics for safe s
  await assert.rejects(service('mcq-principal',{...scoped,subjectId:'science',operation:'mcq-manage-preview'},'principal'),/not in the selected class and subject/);
  await service('mcq-principal',{...scoped,operation:'mcq-contribution-credit',creditContributorId:'X:one',questionIds:first.questionIds,expectedRevision:review.revision,requestId:'history_credit_request'},'principal');assert.equal(data.cbse.mcq.questions[second.questionIds[0]].contributorId,'principal');
  const recheck=await service('mcq-principal',{...scoped,operation:'mcq-manage-preview'},'principal');await service('mcq-principal',{...scoped,operation:'mcq-contribution-delete',questionIds:first.questionIds,expectedRevision:recheck.revision,requestId:'history_delete_request'},'principal');const after=await service('mcq-principal',{...base,operation:'mcq-contribution-history'},'principal');const deleted=after.uploads.find(row=>row.id===entry.id);assert.equal(deleted.activeCount,0);assert.equal(deleted.deletedCount,2);assert.equal(data.cbse.mcq.questions[second.questionIds[0]].deleted,undefined);
+});
+
+test('130-question batch deletion and contributor correction retry a cold Firebase transaction',async()=>{
+ const {service,data}=fixture({coldMCQ:true}),base={classId:'X',subjectId:'english'},rows=Array.from({length:130},(_,i)=>'English,Grammar,Cold-cache question '+i+',A').join('\n');
+ const uploaded=await service('mcq-principal',{...base,operation:'mcq-import-csv',verified:true,csvText:'Subject,Topic,Question,CorrectAnswer\n'+rows,requestId:'cold_bulk_upload'},'principal');assert.equal(uploaded.addedCount,130);
+ const historyId='request:cold_bulk_upload',preview=await service('mcq-principal',{...base,historyId,operation:'mcq-manage-preview'},'principal');
+ await service('mcq-principal',{...base,historyId,operation:'mcq-contribution-credit',creditContributorId:'X:one',expectedRevision:preview.revision,questionIds:uploaded.questionIds,requestId:'cold_credit_request'},'principal');assert.equal(data.cbse.mcq.questions[uploaded.questionIds[0]].contributorId,'X:one');
+ const paper=await service('mcq-principal',{...base,operation:'mcq-paper',questionIds:[uploaded.questionIds[0]],requestId:'cold_paper_request'},'principal');
+ const fresh=await service('mcq-principal',{...base,historyId,operation:'mcq-manage-preview'},'principal'),deleted=await service('mcq-principal',{...base,historyId,operation:'mcq-contribution-delete',expectedRevision:fresh.revision,questionIds:uploaded.questionIds,requestId:'cold_delete_request'},'principal');assert.equal(deleted.ok,true);assert.equal(deleted.changedCount,130);assert.equal((await service('mcq-read',base,'principal')).total,0);assert.equal(data.cbse.mcq.papers[paper.paperId].questions.length,1);assert.equal(data.cbse.mcq.questionCodeCounters.E,130);
+ const history=await service('mcq-principal',{...base,operation:'mcq-contribution-history'},'principal');assert.equal(history.uploads[0].activeCount,0);assert.equal(history.uploads[0].deletedCount,130);
 });
