@@ -13,7 +13,7 @@ import {el,options} from './cbse-ui.js';
 import {mcqSubjects,mcqTopicChoices,MCQ_ANSWERS,mcqPaperId,mcqContributors} from './cbse-mcq-model.js';
 import {vcStaff} from './cbse-vc-model.js';
 import {teacherIdentityIds} from './cbse-view-data.js';
-import {questionNode,printMCQPaper,writtenAnswersNode} from './cbse-mcq-print.js';
+import {questionNode,printMCQPaper,writtenAnswersNode,mcqTopicCounts} from './cbse-mcq-print.js';
 import {scanResponsePhoto} from './cbse-mcq-scan.js';
 import {compressedPhoto,imageCanvas} from './cbse-mcq-image.js';
 const button=(label,fn)=>{const b=el('button',label);b.type='button';b.onclick=fn;return b;};
@@ -94,14 +94,15 @@ function evaluate(parent,ctx){
  let paper,form,draw,reviewed,section,student,blockSelect,take,pick,camera,upload,save,usageHost;
  let participationMission=ctx.mission,responses=[],flags=[],photo='',method='manual',version=0,reading=false,saving=false;
  function showError(e){error.textContent=e.message;error.hidden=false;}
+ test.addEventListener('input',()=>{version++;paper=null;workspace.replaceChildren();error.hidden=true;status.textContent='Open the QP and check its details before evaluation.';});
  function scanEnabled(){if(take)take.disabled=pick.disabled=reading||saving||!student?.value;}
  function resetAnswers(){form.querySelectorAll('.notice.success').forEach(node=>node.remove());form.querySelectorAll('[role=alert]').forEach(node=>node.hidden=true);responses=Array(paper.count).fill('');flags=Array(paper.count).fill('');photo='';method='manual';reviewed.checked=false;status.textContent='';draw();scanEnabled();}
  async function openPaper(){
-  if(reading||saving)return;error.hidden=true;const token=++version,id=mcqPaperId(test.value),data=await ctx.read({paperId:id});
+  if(reading||saving)return;error.hidden=true;const token=++version;workspace.replaceChildren();paper=null;const id=mcqPaperId(test.value),data=await ctx.read({paperId:id});
   if(token!==version||!parent.isConnected)return;if(!data.paper)throw Error('Paper not found. Check its code.');
   if(data.paper.classId!==ctx.classId||ctx.state.subjectId&&data.paper.subjectId!==ctx.state.subjectId)throw Error('Use a QP for the selected class and subject.');
   paper=data.paper;ctx.state.questionBankEpoch=data.questionBankEpoch||0;ctx.state.paperId=paper.id;test.value=paper.id;responses=Array(paper.count).fill('');flags=Array(paper.count).fill('');photo='';method='manual';
-  workspace.replaceChildren(el('p',paper.id+' · '+paper.subjectName+' · '+paper.count+' marks','mcq-paper-credit'));
+  const details=el('section',undefined,'mcq-loaded-paper-details');details.setAttribute('aria-label','Loaded QP details');details.append(el('h4','Check QP details before evaluation'));const info=el('dl',undefined,'mcq-paper-details-grid');for(const [label,value]of [['QP code',paper.id],['Developed by',paper.createdByName||'Not recorded'],['Class','Class '+paper.classId],['Subject',paper.subjectName],['Questions / marks',paper.count+' / '+paper.count],['Sections',paper.targetSectionNames?.length?paper.targetSectionNames.join(', '):'All sections'],['Topics',mcqTopicCounts(paper.questions).map(t=>t.topic+' ('+t.count+')').join(' · ')]]){const row=el('div');row.append(el('dt',label),el('dd',value));info.append(row);}details.append(info,el('p','Match these details with the printed QP. If different, correct the QP code above and open it again.','muted'));workspace.replaceChildren(details);
   form=el('form',undefined,'mcq-evaluation-form');form.dataset.portalTrackDirty='true';workspace.append(form);
   const row=el('div',undefined,'mcq-compact-details');section=field(row,'2 · Section','mcq-section','select');student=field(row,'3 · Student','mcq-student','select');section.required=student.required=true;
   options(section,[['','Select section'],...Object.entries(ctx.draft.classes[ctx.classId].sections).filter(([id])=>!paper.targetSections?.length||paper.targetSections.includes(id)).map(([id,s])=>[id,s.name])]);
@@ -111,7 +112,7 @@ function evaluate(parent,ctx){
   camera=el('input');upload=el('input');camera.type=upload.type='file';camera.name='mcq-evaluation-photo';upload.name='mcq-evaluation-upload';camera.accept=upload.accept='image/*';camera.setAttribute('capture','environment');camera.hidden=upload.hidden=true;
   take=button('Scan answer area',()=>camera.click());pick=button('Upload answer area',()=>upload.click());const scanActions=el('div',undefined,'actions');scanActions.append(take,pick);scan.append(scanActions,camera,upload);form.append(scan);
   const review=el('details',undefined,'mcq-answer-review');review.append(el('summary','Check detected answers / correct if needed'));const responseBox=el('div',undefined,'mcq-response-grid');review.append(responseBox);form.append(review);
-  reviewed=field(form,'Answers checked','mcq-responses-reviewed');reviewed.type='checkbox';reviewed.required=true;
+  reviewed=field(form,'QP details, student and answers checked','mcq-responses-reviewed');reviewed.type='checkbox';reviewed.required=true;
   draw=()=>{responseBox.replaceChildren();responses.forEach((answer,i)=>{const cell=el('div',undefined,'mcq-response-cell'),select=field(cell,'Q.'+(i+1),'mcq-response-'+i,'select');options(select,[['','Blank'],['?','Check'],...MCQ_ANSWERS.map(letter=>[letter,letter])],answer);if(flags[i])cell.append(el('small',flags[i],answer==='?'?'notice error':'muted'));select.onchange=()=>{responses[i]=select.value;reviewed.checked=false;form.dataset.portalDirty='true';};responseBox.append(cell);});};draw();scanEnabled();
   section.onchange=()=>{fill();resetAnswers();};student.onchange=resetAnswers;blockSelect.onchange=()=>{reviewed.checked=false;};
   const final=el('section',undefined,'mcq-evaluation-save');final.append(el('h4','5 · Save score'));const who=identity(final,ctx);let correction=null;
