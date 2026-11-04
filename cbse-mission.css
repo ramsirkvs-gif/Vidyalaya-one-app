@@ -159,3 +159,5 @@
 .mcq-workflow .mcq-ready-library-link{grid-column:1/-1;background:#fff8e7;color:#775416;border:1px solid #e5ca81;min-height:42px;font-weight:750}.mcq-ready-papers:has(>summary[hidden]){border:0;padding:0}.mcq-ready-papers td:last-child{min-width:180px}.mcq-ready-papers td:last-child button{margin:3px;min-height:36px}
 
 .mcq-saved-banner{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:24px 12px;margin:12px 0;color:#126b58;background:linear-gradient(110deg,#e3f7ed,#eaf3ff);border:1px solid #bbdfd5;border-radius:14px;overflow-wrap:anywhere}.mcq-saved-banner strong{font-size:clamp(22px,3vw,34px);line-height:1.25}.mcq-saved-banner>span{font-size:22px;font-weight:700}
+
+.mcq-question .mcq-written-answer{text-align:right;font-size:13px;margin:6px 0 2px;line-height:1.7}

@@ -1,5 +1,5 @@
 import {el,options} from './cbse-ui.js';
-import {vcStaff} from './cbse-vc-model.js';
+import {mcqContributors,mcqSubjects} from './cbse-mcq-model.js';
 import {questionNode} from './cbse-mcq-print.js';
 export function manageContributions(ctx,refresh,question=null){
  if(!ctx.principal)return;
@@ -7,9 +7,9 @@ export function manageContributions(ctx,refresh,question=null){
  const button=(label,fn)=>{const b=el('button',label);b.type='button';b.onclick=fn;return b;};
  const field=(label,name,tag='input')=>{const l=el('label',label),n=el(tag);n.name=name;l.append(n);filters.append(l);return n;};
  const source=field('Current contributor','manage-contributor','select'),date=field('Contribution date (India)','manage-date');date.type='date';
- const directory=Object.entries(vcStaff(ctx.faculty,ctx.mission)),staff=directory.filter(([,t])=>t.status==='active');options(source,[['','All contributors'],['principal','Principal'],...directory.map(([id,t])=>[id,t.name+(t.status==='active'?'':' (inactive)')])]);
+ const subjectId=question?.subjectId||ctx.state.subjectId||'',staff=mcqContributors(ctx.faculty,ctx.mission,ctx.classId,subjectId,mcqSubjects(ctx.draft,ctx.classId)[subjectId]);options(source,[['','All contributors'],['principal','Principal'],...staff.map(t=>[t.id,t.name])]);
  const code=field('Question code (optional)','manage-question');code.value=question?.id||'';if(question){code.readOnly=true;source.closest('label').hidden=date.closest('label').hidden=true;}
- const target=field('Credit contribution to','manage-credit','select');options(target,[['principal','My contribution (Principal)'],...staff.map(([id,t])=>[id,t.name+(t.classId?' · Class '+t.classId:' · Team')])]);
+ const target=field('Credit contribution to','manage-credit','select');options(target,[['principal','My contribution (Principal)'],...staff.map(t=>[t.id,t.name])]);
  const filterValues=()=>({subjectId:question?.subjectId||ctx.state.subjectId||'',contributorId:source.value,contributionDate:date.value,questionId:code.value.trim().toUpperCase()});let reviewed=null;
  function invalidate(){reviewed=null;preview.replaceChildren();save.disabled=remove.disabled=true;}
  for(const field of [source,date,code])field.addEventListener('input',invalidate);
