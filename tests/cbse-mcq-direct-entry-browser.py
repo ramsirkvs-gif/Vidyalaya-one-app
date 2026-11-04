@@ -17,10 +17,10 @@ with fx['ns']['sync_playwright']() as p:
  assert page.locator('#mission-mcq-shortcut').get_attribute('href')=='#tab=mcq';page.locator('#mission-mcq-shortcut').click();page.locator('[data-mcq-loading]').wait_for();assert page.get_by_role('heading',name='Overview',exact=True).count()==0;assert page.locator('.mission-hero').is_hidden();assert page.locator('.mcq-entry-form').count()==0
  page.clock.fast_forward(13000);assert 'MCQ workspace' in page.locator('#mission-message').inner_text();assert page.locator('[data-mcq-loading]').is_visible();assert '?feedback=1#tab=mcq' in page.url
  page.evaluate('window.__releaseData()');entry=page.locator('.mcq-entry-form');entry.wait_for();assert not page.evaluate('window.__overviewFlashed');assert page.evaluate('window.__marker')=='same-document';assert page.evaluate('window.__authStarts')==1;assert len(documents)==1
- assert entry.get_by_role('button',name='Open question bank',exact=True).count()==1;assert entry.locator('.mcq-bank-tile').count()==0
+ assert entry.get_by_role('button',name='1 · See question bank',exact=True).count()==1;assert entry.locator('.mcq-bank-tile').count()==0
  for width in [360,768,1440]:
   page.set_viewport_size({'width':width,'height':1000});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
- entry.locator('[name=mcq-entry-class]').select_option('X');entry.locator('[name=mcq-entry-subject]').select_option('english');page.get_by_role('heading',name='Question bank · Class X',exact=True).wait_for();assert page.locator('.mcq-workflow-step').count()==0;assert page.get_by_role('button',name='Ready-made QPs',exact=True).is_visible();assert page.get_by_role('button',name='Create QP PDF',exact=True).is_disabled();assert page.locator('#mission-nav').is_hidden()
+ entry.locator('[name=mcq-entry-class]').select_option('X');entry.locator('[name=mcq-entry-subject]').select_option('english');entry.get_by_role('button',name='1 · See question bank',exact=True).click();page.get_by_role('heading',name='Question bank · Class X',exact=True).wait_for();assert page.locator('.mcq-workflow-step').count()==0;assert page.get_by_role('button',name='Create QP PDF',exact=True).count()==0;assert page.locator('.mcq-paper-form').count()==0;assert page.locator('#mission-nav').is_hidden()
  # An existing staff-view session also goes directly from loading to entry.
  guest=b.new_context();guest.add_init_script('window.__guest=true');guest.route('https://www.gstatic.com/firebasejs/**',mcq_sdk);gp=guest.new_page();held=[]
  def api(route):
