@@ -1,4 +1,4 @@
-import {distinctMCQTopics,canonicalMCQTopic,mcqKnownTopicAliases} from './cbse-mcq-topics.js';
+import {distinctMCQTopics} from './cbse-mcq-topics.js';
 // Public PDF copies were read and reviewed; direct verification against the official host remains pending.
 export const MCQ_SYLLABUS={
  "session": "2026–27",
@@ -153,5 +153,5 @@ export const MCQ_SYLLABUS={
 MCQ_SYLLABUS.additionalTopics={X:{science:['Periodic Classification of Elements (formative only)','Evolution (formative only)','Electric Motor, Electromagnetic Induction and Generator (formative only)']}};
 const subjectKey=value=>{const name=String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/ \d{3}$/,'');if(/^(maths?|mathematics)( standard| basic| core)?( \d+)?$/.test(name))return 'mathematics';return name.trim();};
 export function syllabusTopicSource(classId,subjectName){return MCQ_SYLLABUS.sources[classId]?.[subjectKey(subjectName)]||null;}
-export function fixedMCQTopics(classId,subjectName){return classId==='X'&&subjectKey(subjectName)==='science'?[...MCQ_SYLLABUS.topics.X.science]:null;}
-export function syllabusTopics(classId,subjectName,saved=[]){const fixed=fixedMCQTopics(classId,subjectName);if(fixed)return fixed;const key=subjectKey(subjectName),reviewed=syllabusTopicSource(classId,subjectName)?MCQ_SYLLABUS.topics[classId]?.[key]||[]:[];return distinctMCQTopics(['Mixed',...reviewed,...saved.map(name=>canonicalMCQTopic(name,mcqKnownTopicAliases(classId,subjectName)))]);}
+// Topics are established by contributions, never by built-in syllabus presets.
+export function syllabusTopics(classId,subjectName,saved=[]){return distinctMCQTopics(saved);}
