@@ -9,3 +9,21 @@ test('Standard-only enrolment carries Basic scores, absence, IDs and source rule
 test('native Standard result wins for the same exam, including an explicit absent result',()=>{const m=fixture();for(const absent of [false,true]){m.marks.native={...m.marks.old,subjectId:'standard',score:absent?null:0,absent};const rows=effectiveStudentMarks(person,m.marks);assert.equal(rows.old,undefined);assert.equal(rows.native.score,absent?null:0);assert.equal(Object.keys(rows).length,2);}});
 test('Basic, both, unspecified and XII enrolments do not receive a carry-over',()=>{for(const p of [{...person,subjects:{basic:true}},{...person,subjects:{basic:true,standard:true}},{...person,subjects:{}},{...person,classId:'XII'},{...person,subjectCatalog:{basic:{name:'Maths',code:'999'},standard:{name:'Maths',code:'041'}}}])assert.deepEqual(effectiveStudentMarks(p,fixture().marks),fixture().marks);});
 test('snapshots, filtered progress and validation accept carried historical marks; enrolment edits are reflected immediately',()=>{const m=fixture(),draft={classes:{X:{sections:{a:{name:'A',subjects:person.subjectCatalog,students:{one:{name:'Synthetic pupil',subjects:person.subjects}}}}}}};const snap=academicSnapshot(person,m,'2026-09');assert.equal(snap.expected,1);assert.equal(snap.total,17);assert.equal(snap.maximum,40);assert.equal(snap.subjects.find(s=>s.id==='standard').band,'yellow');const progress=studentProgress(person.key,m,draft,'e',['standard']);assert.equal(progress.subjects[0].latest.score,17);assert.equal(progress.subjects[0].history[0].id,'old');validateMission(m,draft,{classes:{}});draft.classes.X.sections.a.students.one.subjects={basic:true};assert.equal(studentProgress(person.key,m,draft,'e').subjects[0].id,'basic');assert.equal(studentProgress(person.key,m,draft,'e').subjects[0].latest.score,17);});
+
+test('Basic-only enrolment carries Standard history unchanged; current Basic results take priority',()=>{
+ const p={...person,key:'X:c:one',subjects:{basic:true,standard:false}},m=fixture();
+ for(const mark of Object.values(m.marks)){mark.studentKey=p.key;mark.subjectId='standard';}
+ const original=structuredClone(m),rows=effectiveStudentMarks(p,m.marks);
+ assert.deepEqual(rows.old,{...m.marks.old,subjectId:'basic',sourceSubjectId:'standard'});
+ assert.equal(rows.ab.absent,true);assert.equal(rows.ab.score,null);assert.deepEqual(m,original);
+ assert.deepEqual(effectiveStudentMarks(p,rows),rows);
+ const draft={classes:{X:{sections:{c:{name:'C',subjects:p.subjectCatalog,students:{one:{name:'Synthetic pupil',subjects:p.subjects}}}}}}};
+ assert.equal(academicSnapshot(p,m,'2026-09').total,17);
+ assert.equal(studentProgress(p.key,m,draft,'e',['basic']).subjects[0].latest.score,17);
+ validateMission(m,draft,{classes:{}});
+ for(const absent of [false,true]){
+  m.marks.native={...m.marks.old,subjectId:'basic',score:absent?null:0,absent};
+  const projected=effectiveStudentMarks(p,m.marks);
+  assert.equal(projected.old,undefined);assert.equal(projected.native.score,absent?null:0);
+ }
+});

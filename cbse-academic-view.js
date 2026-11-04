@@ -27,7 +27,8 @@ export function academicGraph(periods,values,title){
 }
 export function renderStudentAcademics(parent,person,mission,ctx={}){
  mission={...mission,marks:effectiveStudentMarks(person,mission.marks)};
- if(Object.values(mission.marks).some(mark=>mark.sourceSubjectId))parent.append(el('p','Previous Maths Basic marks carried forward unchanged to your current Maths Standard subject.','muted'));
+ const carried=Object.values(mission.marks).find(mark=>mark.sourceSubjectId);
+ if(carried){const source=person.subjectCatalog?.[carried.sourceSubjectId]?.name||'Maths',target=person.subjectCatalog?.[carried.subjectId]?.name||'Maths';parent.append(el('p',`Previous ${source} marks carried forward unchanged to your current ${target} subject.`,'muted'));}
  parent.append(el('h2','Academic history and current status'));
  const periods=periodRange(academicPeriods(mission).filter(period=>entries(mission.marks).some(([,m])=>m.studentKey===person.key&&mission.exams?.[m.examId]?.date.startsWith(period))));
  if(!periods.length){parent.append(el('p','No academic results recorded yet. Import academic history or enter marks.','muted'));return;}
