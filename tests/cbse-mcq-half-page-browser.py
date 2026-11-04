@@ -1,0 +1,16 @@
+"""Half/three-quarter targets and the thin branded PDF strip use real measurement."""
+from pathlib import Path
+exec(Path('tests/cbse-mcq-browser.py').read_text().split("\nwith fx['ns']['sync_playwright']() as p:")[0])
+with fx['ns']['sync_playwright']() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);ctx=b.new_context(viewport={'width':1280,'height':1000});ctx.add_init_script('window.__guest=true');ctx.route('https://www.gstatic.com/firebasejs/**',mcq_sdk);page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.route('**/api/staff-access',lambda route:mcq_api(page,route))
+ page.goto('http://127.0.0.1:8000/cbse-mission.html#tab=mcq&mcqClass=X&mcq=paper');page.get_by_text('0 questions · page 1',exact=True).wait_for()
+ root['mcq']=page.evaluate("""async draft=>{const {contributeMCQ}=await import('./cbse-mcq-model.js');return contributeMCQ({},{subjectId:'english',topic:'Mixed',single:true,verified:true,requestId:'half_page_question',questions:[{verbatim:true,stem:'Choose the correct option. A) 1 B) 2 C) 3 D) 4',answer:'B'}]},{id:'X:one',name:'Teacher'},draft,1).next;}""",D)
+ page.locator('[name=mcq-subject]').select_option('english');page.locator('[name=mcq-select-QE001]').check();setup=page.locator('.mcq-page-setup');setup.locator('summary').click();target=page.locator('[name=mcq-page-target]');assert {'0.5','0.75','1','1.25','1.5','1.75','2'}.issubset(set(target.locator('option').evaluate_all('(nodes)=>nodes.map(n=>n.value)')))
+ for value in ['0.5','0.75']:
+  target.select_option(value);page.get_by_role('button',name='Update A4 preview',exact=True).click();page.locator('.mcq-layout-status').filter(has_text='A4 usage ≈ 0.5 page').wait_for();assert 'PDF: 1 A4 sheet' in page.locator('.mcq-layout-status').inner_text();assert target.input_value()==value
+ frame=page.locator('.mcq-a4-preview iframe').element_handle().content_frame();frame.locator('.paper-brand').wait_for();assert frame.locator('.paper-brand').inner_text()=='PM SHRI KV 1 Itanagar · Mission Perfect 100 · MCQ महाअभियान';assert frame.locator('.paper-brand').evaluate('(n)=>n.getBoundingClientRect().height')<25
+ setup.screenshot(path='/tmp/mcq-half-page-controls.png');html=frame.locator('html').evaluate('(n)=>n.outerHTML');pdf=ctx.new_page();pdf.goto('http://127.0.0.1:8000/cbse-mcq-page-settings.js');pdf.set_content(html);pdf.evaluate('document.fonts.ready');pdf.pdf(path='/tmp/MCQ_half_page_preview.pdf',prefer_css_page_size=True,print_background=True);pdf.close()
+ for width in [360,768,1440]:
+  page.set_viewport_size({'width':width,'height':1000});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ assert not errors,errors;b.close()
+print('PASS 0.5/0.75 page choices, sub-page A4 usage, whole-sheet PDF, thin branded header and responsive controls')
