@@ -1,3 +1,4 @@
+import {effectiveStudentMarks} from './cbse-maths-carryover.js';
 import {markStudentPhoto} from './cbse-student-photo.js';
 import {supportRoleLabel} from './cbse-vc-model.js';
 import {sectionStream} from './cbse-stream-model.js';
@@ -25,6 +26,8 @@ export function academicGraph(periods,values,title){
  periods.forEach((p,i)=>{svg.append(make('text',{x:x(i),y:245,'text-anchor':'middle','font-size':11},monthLabel(p)));const value=values[i];if(!Number.isFinite(value)){svg.append(make('text',{x:x(i),y:228,'text-anchor':'middle','font-size':10},'No result'));return;}svg.append(make('circle',{cx:x(i),cy:y(value),r:5,fill:'#17775a'}),make('text',{x:x(i),y:y(value)-11,'text-anchor':'middle','font-size':12},value.toFixed(1)));});box.append(svg);return box;
 }
 export function renderStudentAcademics(parent,person,mission,ctx={}){
+ mission={...mission,marks:effectiveStudentMarks(person,mission.marks)};
+ if(Object.values(mission.marks).some(mark=>mark.sourceSubjectId))parent.append(el('p','Previous Maths Basic marks carried forward unchanged to your current Maths Standard subject.','muted'));
  parent.append(el('h2','Academic history and current status'));
  const periods=periodRange(academicPeriods(mission).filter(period=>entries(mission.marks).some(([,m])=>m.studentKey===person.key&&mission.exams?.[m.examId]?.date.startsWith(period))));
  if(!periods.length){parent.append(el('p','No academic results recorded yet. Import academic history or enter marks.','muted'));return;}

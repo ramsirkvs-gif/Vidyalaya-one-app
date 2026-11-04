@@ -1,3 +1,4 @@
+import {effectiveStudentMarks,currentMarkSubject} from './cbse-maths-carryover.js';
 import {validateConversations} from './cbse-conversation-model.js';
 import {validateStudentPhotos} from './cbse-student-photo.js';
 import {vcStaff,supportDuties,validFacultyEmail} from './cbse-vc-model.js';
@@ -37,7 +38,7 @@ export function validateMission(m,draft,faculty){
  for(const[,e]of entries(m.exams))assert(text(e.name,100,true)&&['X','XII'].includes(e.classId)&&(e.datePrecision==='month'?validMonth(e.date):date(e.date))&&['test','PB-1','PB-2','weekly','mock','monthly'].includes(e.type),'Enter a valid test name, class, type and date.');
  for(const[,v]of entries(m.marks)){
   assert(text(v.studentKey,300,true)&&text(v.subjectId,100,true)&&m.exams?.[v.examId],'Choose a valid student, subject and examination.');
-  const p=students[v.studentKey];if(p){assert(m.exams[v.examId].classId===p.classId&&p.subjects?.[v.subjectId],'The test/subject does not match the student.');}
+  const p=students[v.studentKey];if(p){assert(m.exams[v.examId].classId===p.classId&&p.subjects?.[currentMarkSubject(p,v.subjectId)],'The test/subject does not match the student.');}
   if(v.importSource==='monthly_workbook_v1')assert([v.passFrom,v.secureFrom,v.criticalBelow].every(Number.isFinite)&&v.criticalBelow>=0&&v.criticalBelow<=v.passFrom&&v.passFrom<v.secureFrom&&v.secureFrom<=v.maximum&&(!v.absent||v.score===null||v.score===undefined)&&typeof v.inferredAbsent==='boolean'&&(!v.inferredAbsent||v.absent),'Invalid imported monitoring rules.');
   assert(typeof v.absent==='boolean'&&Number.isFinite(v.maximum)&&v.maximum>0&&v.maximum<=1000&&(v.absent||Number.isFinite(v.score)&&v.score>=0&&v.score<=v.maximum),'Marks must be between zero and the maximum, or marked Absent.');
  }
@@ -64,9 +65,9 @@ export function band(value,red,green){return value===null||!Number.isFinite(valu
 export function gradeThresholds(m,classId,subjectId,examId){const matched=entries(m.gradingRules).map(([,r])=>r).filter(r=>r.classId===classId&&(!r.subjectId||r.subjectId===subjectId)&&(!r.examId||r.examId===examId)).sort((a,b)=>(b.subjectId?2:0)+(b.examId?1:0)-(a.subjectId?2:0)-(a.examId?1:0));return matched[0]||{redBelow:m.settings.redBelow,greenFrom:m.settings.greenFrom};}
 export function studentProgress(key,m,draft,examId="",subjectScope=[]){
  const person=studentIndex(draft)[key],latest={},history={};
- for(const[id,mark]of entries(m.marks))if(mark.studentKey===key&&(!examId||mark.examId===examId)){const item={...mark,id,exam:m.exams?.[mark.examId]};if(!item.exam)continue;(history[mark.subjectId]||=[]).push(item);}
+ for(const[id,mark]of entries(effectiveStudentMarks(person,m.marks)))if(mark.studentKey===key&&(!examId||mark.examId===examId)){const item={...mark,id,exam:m.exams?.[mark.examId]};if(!item.exam)continue;(history[mark.subjectId]||=[]).push(item);}
  for(const[id,list]of entries(history)){list.sort((a,b)=>a.exam.date.localeCompare(b.exam.date)||(a.updatedAt||0)-(b.updatedAt||0));latest[id]=list.at(-1);}
- const subjects=entries(person?.subjects).filter(([id])=>!subjectScope.length||subjectScope.includes(id)).map(([id])=>{const v=latest[id],percentage=v&&!v.absent?v.score/v.maximum*100:null,thresholds=gradeThresholds(m,person.classId,id,v?.examId||examId);return {id,name:person.subjectCatalog[id]?.name||id,latest:v,percentage,band:academicMarkBand(v,thresholds.redBelow,thresholds.greenFrom),history:history[id]||[]};});
+ const subjects=entries(person?.subjects).filter(([id,on])=>on&&(!subjectScope.length||subjectScope.includes(id))).map(([id])=>{const v=latest[id],percentage=v&&!v.absent?v.score/v.maximum*100:null,thresholds=gradeThresholds(m,person.classId,id,v?.examId||examId);return {id,name:person.subjectCatalog[id]?.name||id,latest:v,percentage,band:academicMarkBand(v,thresholds.redBelow,thresholds.greenFrom),history:history[id]||[]};});
  const bands=subjects.map(s=>s.band);
  const school=entries(m.attendance).map(([,a])=>a).filter(a=>a.studentKey===key&&a.session==='school'),percentage=school.length?school.filter(a=>a.status==='present').length/school.length*100:null;
  const register=latestAttendanceRegister(key,m),attendance=register?register.total.present/register.total.working*100:percentage;
