@@ -335,3 +335,20 @@ test('Principal credits the chosen teacher on bulk and single contributions, wit
  await assert.rejects(service('pin-submit',{...single,operation:'mcq-contribute',staffId:'X:one',pin:'654321',requestId:'spoofed_credit_request'},'','credit-ip'),/Only the Principal/);
  const publicBank=await service('mcq-read',{classId:'X',subjectId:'english'},'principal');assert.ok(!JSON.stringify(publicBank).includes('uploadedBy'));assert.equal(publicBank.questions.find(q=>q.id===added.questionIds[0]).contributorName,'Synthetic Teacher');
 });
+test('Principal previews, recredits and archives only the reviewed contribution selection',async()=>{
+ const {service,data}=fixture(),base={classId:'X',subjectId:'english'};
+ const upload=await service('mcq-principal',{...base,operation:'mcq-import-csv',verified:true,csvText:'Subject,Topic,Question,CorrectAnswer\nEnglish,Grammar,First question,A\nEnglish,Grammar,Second question,B',requestId:'manage_upload_request'},'principal');
+ const made=await service('mcq-principal',{...base,operation:'mcq-paper',questionIds:upload.questionIds,requestId:'manage_paper_request'},'principal');
+ const filters={...base,contributorId:'principal',contributionDate:'1970-01-01'},review=await service('mcq-principal',{...filters,operation:'mcq-manage-preview'},'principal');assert.equal(review.questions.length,2);
+ const change={...filters,operation:'mcq-contribution-credit',creditContributorId:'X:one',expectedRevision:review.revision,questionIds:review.questions.map(q=>q.id),requestId:'manage_credit_request'};
+ await assert.rejects(service('mcq-principal',change,'outsider'),/Principal/);
+ await service('set-pin',{staffId:'X:one',pin:'654321'},'principal');await assert.rejects(service('pin-submit',{...change,staffId:'X:one',pin:'654321'},'','manage-ip'),/Principal access/);
+ await assert.rejects(service('mcq-principal',{...change,questionIds:[upload.questionIds[0]]},'principal'),/selection changed/);
+ const changed=await service('mcq-principal',change,'principal');assert.equal(changed.changedCount,2);assert.equal(data.cbse.mcq.questions[upload.questionIds[0]].contributorName,'Synthetic Teacher');assert.equal(data.cbse.mcq.questions[upload.questionIds[0]].uploadedBy,'principal');
+ assert.equal((await service('mcq-principal',change,'principal')).changedCount,2);assert.equal(data.cbse.mcq.papers[made.paperId].questions[0].contributorName,'Principal');
+ await assert.rejects(service('mcq-principal',{...change,requestId:'stale_manage_request'},'principal'),/bank changed/);
+ const deletionFilters={...base,contributorId:'X:one',contributionDate:'1970-01-01'},remove=await service('mcq-principal',{...deletionFilters,operation:'mcq-manage-preview'},'principal');
+ const deletion={...deletionFilters,operation:'mcq-contribution-delete',expectedRevision:remove.revision,questionIds:remove.questions.map(q=>q.id),requestId:'manage_delete_request'};
+ await service('mcq-principal',deletion,'principal');assert.equal((await service('mcq-read',base,'principal')).total,0);assert.equal(data.cbse.mcq.questions[upload.questionIds[0]].deleted,true);assert.equal(data.cbse.mcq.papers[made.paperId].questions.length,2);assert.equal(data.cbse.mcq.questionCodeCounters.E,2);
+ assert.equal((await service('mcq-principal',deletion,'principal')).changedCount,2);
+});
