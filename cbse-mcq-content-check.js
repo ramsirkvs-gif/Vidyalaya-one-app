@@ -1,0 +1,2 @@
+// Multiple complete option sets usually indicate two questions or section instructions in one CSV cell.
+export function hasMultipleMCQOptionSets(value){const matches=[...String(value||'').matchAll(/^[ \t]*(?:\(([A-Da-dकखगघ])\)|([A-Da-dकखगघ])[).:])[ \t]+/gm)],letters=matches.map(match=>({'क':'A','ख':'B','ग':'C','घ':'D'})[match[1]||match[2]]||(match[1]||match[2]).toUpperCase()).join('');return (letters.match(/ABCD/g)||[]).length>1;}
