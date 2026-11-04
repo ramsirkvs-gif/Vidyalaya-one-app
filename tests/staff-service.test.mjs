@@ -321,3 +321,17 @@ test('saved MCQ scores feed student, teacher, class snapshots and attendance fro
  assert.equal(mcqPaperUsage(mission,draft,paper.paperId)[0].students[0].score,1);
  assert.equal(studentMCQParticipation(mission,key)[0].score,1);
 });
+test('Principal credits the chosen teacher on bulk and single contributions, without delegation of authentication',async()=>{
+ const {service,data}=fixture(),common={classId:'X',subjectId:'english',verified:true,creditContributorId:'X:one',creditContributorName:'Untrusted name'};
+ const bulk={...common,operation:'mcq-import-csv',csvText:'Subject,Topic,Question,CorrectAnswer\nEnglish,Grammar,A complete question,A',requestId:'credited_csv_request'};
+ await assert.rejects(service('mcq-principal',bulk,'outsider'),/Principal/);
+ await service('mcq-principal',bulk,'principal');
+ let q=Object.values(data.cbse.mcq.questions)[0];assert.equal(q.contributorName,'Synthetic Teacher');assert.equal(q.contributorId,'X:one');assert.equal(q.uploadedBy,'principal');
+ const single={...common,operation:'mcq-contribute',single:true,topic:'Grammar',questions:[{verbatim:true,stem:'Second question',images:[],answer:'B'}],requestId:'credited_single_request'};
+ const added=await service('mcq-principal',single,'principal');assert.equal(data.cbse.mcq.questions[added.questionIds[0]].contributorName,'Synthetic Teacher');
+ await assert.rejects(service('mcq-principal',{...single,creditContributorId:'principal'},'principal'),/already saved/);
+ const own=await service('mcq-principal',{...single,creditContributorId:'principal',requestId:'own_single_request'},'principal');assert.equal(data.cbse.mcq.questions[own.questionIds[0]].contributorName,'Principal');
+ await service('set-pin',{staffId:'X:one',pin:'654321'},'principal');
+ await assert.rejects(service('pin-submit',{...single,operation:'mcq-contribute',staffId:'X:one',pin:'654321',requestId:'spoofed_credit_request'},'','credit-ip'),/Only the Principal/);
+ const publicBank=await service('mcq-read',{classId:'X',subjectId:'english'},'principal');assert.ok(!JSON.stringify(publicBank).includes('uploadedBy'));assert.equal(publicBank.questions.find(q=>q.id===added.questionIds[0]).contributorName,'Synthetic Teacher');
+});

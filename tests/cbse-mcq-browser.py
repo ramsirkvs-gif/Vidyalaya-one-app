@@ -15,8 +15,8 @@ def mcq_api(page,route):
   actor={'id':'principal','name':'Principal'} if action=='mcq-principal' else {'id':d['staffId'],'name':F['classes']['X']['teachers'][d['staffId'].split(':')[1]]['name']};clock[0]+=1000
   if action=='mcq-principal':assert 'authorization' in route.request.headers and not d.get('pin')
   try:
-   if d['operation']=='mcq-contribute':r=page.evaluate("""async args=>{const {contributeMCQ}=await import('./cbse-mcq-model.js');return contributeMCQ(...args);}""",[root['mcq'],d,actor,D,clock[0]]);root['mcq']=r.pop('next')
-   elif d['operation']=='mcq-import-csv':r=page.evaluate("""async args=>{const {importMCQCSV}=await import('./cbse-mcq-model.js');return importMCQCSV(...args);}""",[root['mcq'],d,actor,D,clock[0]]);root['mcq']=r.pop('next')
+   if d['operation']=='mcq-contribute':r=page.evaluate("""async args=>{const {contributeMCQ}=await import('./cbse-mcq-model.js');return contributeMCQ(...args);}""",[root['mcq'],d,actor,D,clock[0],{cl+':'+id:t for cl,c in F['classes'].items() for id,t in c.get('teachers',{}).items()}]);root['mcq']=r.pop('next')
+   elif d['operation']=='mcq-import-csv':r=page.evaluate("""async args=>{const {importMCQCSV}=await import('./cbse-mcq-model.js');return importMCQCSV(...args);}""",[root['mcq'],d,actor,D,clock[0],{cl+':'+id:t for cl,c in F['classes'].items() for id,t in c.get('teachers',{}).items()}]);root['mcq']=r.pop('next')
    elif d['operation'] in ['mcq-question-edit','mcq-question-delete']:r=page.evaluate("""async args=>{const {changeMCQQuestion}=await import('./cbse-mcq-model.js');return changeMCQQuestion(...args);}""",[root['mcq'],d,actor,clock[0]]);root['mcq']=r.pop('next')
    elif d['operation']=='mcq-paper-delete':r=page.evaluate("""async args=>{const {deleteMCQPaper}=await import('./cbse-mcq-model.js');return deleteMCQPaper(...args);}""",[root['mcq'],d,actor,clock[0]]);root['mcq']=r.pop('next')
    elif d['operation']=='mcq-paper':r=page.evaluate("""async args=>{const {createMCQPaper}=await import('./cbse-mcq-model.js');return createMCQPaper(...args);}""",[root['mcq'],d,actor,clock[0],D]);root['mcq']=r.pop('next')
