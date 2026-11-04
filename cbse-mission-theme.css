@@ -52,3 +52,10 @@
  @media(max-width:700px){.mission-app.mission-detail-view .mission-hero{padding:25px 22px;border-radius:19px}.mission-app.mission-detail-view .panel{border-radius:14px}.mission-app.mission-detail-view .mcq-single-form{padding:11px}.mission-app.mission-detail-view .overview-choice strong{font-size:19px}}
  @media(prefers-reduced-motion:reduce){.mission-app.mission-detail-view button,.mission-app.mission-detail-view .button{transition:none;transform:none}}
 }
+
+/* Focused MCQ workflow, separate from the shared white action-button theme. */
+.mission-app.mission-detail-view .mcq-workflow-step{color:#fff;border-color:transparent;font-weight:750}
+.mission-app.mission-detail-view .mcq-step-bank{background:#167a64}
+.mission-app.mission-detail-view .mcq-step-paper{background:#286da8}
+.mission-app.mission-detail-view .mcq-step-evaluate{background:#7951a9}
+.mission-app.mission-detail-view .mcq-ready-library-link{background:#fff8e7;color:#775416;border-color:#e5ca81}

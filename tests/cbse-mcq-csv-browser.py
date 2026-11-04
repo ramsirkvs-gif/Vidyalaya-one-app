@@ -27,7 +27,7 @@ with fx['ns']['sync_playwright']() as p:
  page.get_by_role('button',name='Bulk upload CSV',exact=True).click();form=page.locator('.mcq-csv-form')
  form.locator('[name=mcq-csv-file]').set_input_files(upload(rows));form.get_by_role('status').filter(has_text='3 rows ready').wait_for();form.locator('[name=mcq-pin]').fill('123');form.get_by_role('button',name='Import questions with PIN',exact=True).click()
  page.get_by_text('CSV imported · 0 questions added · 3 duplicates skipped.',exact=True).wait_for()
- page.get_by_role('button',name='2 · Prepare QP',exact=True).click();page.locator('[name=mcq-select-QE001]').check()
+ page.get_by_role('button',name='2 · Create QP PDF',exact=True).click();page.locator('[name=mcq-select-QE001]').check()
  assert page.locator('[data-question-id=QE001]').get_attribute('data-selected')=='true'
  page.locator('[name=mcq-search]').fill('bright');page.locator('[name=mcq-select-QE001]').wait_for(state='detached');page.locator('[name=mcq-select-QE002]').check()
  details=page.locator('.mcq-selected-details');details.locator('summary').click();details.get_by_role('button',name='Remove QE001 from paper',exact=True).click()
