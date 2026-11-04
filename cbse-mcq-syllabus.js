@@ -1,3 +1,4 @@
+import {distinctMCQTopics} from './cbse-mcq-topics.js';
 // Public PDF copies were read and reviewed; direct verification against the official host remains pending.
 export const MCQ_SYLLABUS={
  "session": "2026–27",
@@ -154,4 +155,4 @@ export const MCQ_SYLLABUS={
 };
 const subjectKey=value=>{const name=String(value||'').trim().toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().replace(/ \d{3}$/,'');if(/^(maths?|mathematics)( standard| basic| core)?( \d+)?$/.test(name))return 'mathematics';return name.trim();};
 export function syllabusTopicSource(classId,subjectName){return MCQ_SYLLABUS.sources[classId]?.[subjectKey(subjectName)]||null;}
-export function syllabusTopics(classId,subjectName,saved=[]){const key=subjectKey(subjectName),reviewed=syllabusTopicSource(classId,subjectName)?MCQ_SYLLABUS.topics[classId]?.[key]||[]:[];return [...new Set(['Mixed',...reviewed,...saved])];}
+export function syllabusTopics(classId,subjectName,saved=[]){const key=subjectKey(subjectName),reviewed=syllabusTopicSource(classId,subjectName)?MCQ_SYLLABUS.topics[classId]?.[key]||[]:[];return distinctMCQTopics(['Mixed',...reviewed,...saved]);}
