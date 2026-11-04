@@ -83,7 +83,7 @@ with fx['ns']['sync_playwright']() as p:
  auth=page.locator('.mcq-paper-form')
  auth.locator('[name=mcq-staff]').select_option('X:two')
  auth.locator('[name=mcq-pin]').fill('456')
- auth.get_by_role('button',name='Save QP & preview',exact=True).click()
+ auth.get_by_role('button',name='2 · Save and view',exact=True).click()
  preview=page.locator('.mcq-paper-preview')
  preview.get_by_text('Created QPE001',exact=False).wait_for()
  assert root['mcq']['papers']['QPE001']['count']==3
@@ -132,7 +132,7 @@ with fx['ns']['sync_playwright']() as p:
  admin.locator('[name=mcq-select-QH001]').check()
  pa=admin.locator('.mcq-paper-form')
  assert pa.locator('[name=mcq-pin]').count()==0
- pa.get_by_role('button',name='Save QP & preview',exact=True).click()
+ pa.get_by_role('button',name='2 · Save and view',exact=True).click()
  admin.get_by_text('Created QPH001',exact=False).wait_for()
  assert root['mcq']['papers']['QPH001']['count']==1
  assert not errors,errors
