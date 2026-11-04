@@ -15,7 +15,8 @@ def mcq_api(page,route):
   actor={'id':'principal','name':'Principal'} if action=='mcq-principal' else {'id':d['staffId'],'name':F['classes']['X']['teachers'][d['staffId'].split(':')[1]]['name']};clock[0]+=1000
   if action=='mcq-principal':assert 'authorization' in route.request.headers and not d.get('pin')
   try:
-   if d['operation']=='mcq-manage-preview':r=page.evaluate("""async args=>{const {previewMCQContributions}=await import('./cbse-mcq-model.js');return previewMCQContributions(...args);}""",[root['mcq'],d])
+   if d['operation']=='mcq-contribution-history':r=page.evaluate("""async args=>{const {mcqContributionHistory}=await import('./cbse-mcq-model.js');return mcqContributionHistory(...args);}""",[root['mcq'],d])
+   elif d['operation']=='mcq-manage-preview':r=page.evaluate("""async args=>{const {previewMCQContributions}=await import('./cbse-mcq-model.js');return previewMCQContributions(...args);}""",[root['mcq'],d])
    elif d['operation'] in ['mcq-contribution-credit','mcq-contribution-delete']:r=page.evaluate("""async args=>{const {manageMCQContributions}=await import('./cbse-mcq-model.js');return manageMCQContributions(...args);}""",[root['mcq'],d,actor,{cl+':'+id:t for cl,c in F['classes'].items() for id,t in c.get('teachers',{}).items()},clock[0]]);root['mcq']=r.pop('next')
    elif d['operation']=='mcq-contribute':r=page.evaluate("""async args=>{const {contributeMCQ}=await import('./cbse-mcq-model.js');return contributeMCQ(...args);}""",[root['mcq'],d,actor,D,clock[0],{cl+':'+id:t for cl,c in F['classes'].items() for id,t in c.get('teachers',{}).items()}]);root['mcq']=r.pop('next')
    elif d['operation']=='mcq-import-csv':r=page.evaluate("""async args=>{const {importMCQCSV}=await import('./cbse-mcq-model.js');return importMCQCSV(...args);}""",[root['mcq'],d,actor,D,clock[0],{cl+':'+id:t for cl,c in F['classes'].items() for id,t in c.get('teachers',{}).items()}]);root['mcq']=r.pop('next')

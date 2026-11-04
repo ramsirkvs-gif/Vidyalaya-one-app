@@ -35,3 +35,8 @@ test('duplicates across topics, spacing and repeat CSV files never create extra 
  const legacy={questions:{old:{id:'old',classId:'X',subjectId:'hindi',stem:'Choose',options:['One','Two','Three','Four'],answer:'A',topic:'Old'}}};
  const same=importMCQCSV(legacy,input(csv([['Hindi','New','Choose A) One B) Two C) Three D) Four','A']])),actor,draft(),4);assert.equal(same.addedCount,0);assert.equal(same.skippedCount,1);
 });
+test('one or several contributor filters preserve subject metadata and selected questions',()=>{
+ const source=csv([['Hindi','Mixed','One teacher question','A']]),first=importMCQCSV({},input(source),actor,draft(),1),second=importMCQCSV(first.next,input(csv([['Hindi','Grammar','Another teacher question','B']]),{requestId:'other_teacher_upload'}),{id:'X:teacher',name:'Teacher'},draft(),2);
+ const mine=publicMCQBank(second.next,{subjectId:'hindi',contributorIds:['principal'],selectionIds:['QH002']});assert.equal(mine.total,1);assert.equal(mine.questions[0].id,'QH001');assert.equal(mine.selectedQuestions[0].id,'QH002');assert.equal(mine.contributors.length,2);
+ assert.equal(publicMCQBank(second.next,{subjectId:'hindi',contributorIds:['principal','X:teacher']}).total,2);assert.equal(publicMCQBank(second.next,{subjectId:'hindi',contributorIds:['missing']}).total,0);assert.throws(()=>publicMCQBank(second.next,{contributorIds:'principal'}),/Choose contributors/);
+});
