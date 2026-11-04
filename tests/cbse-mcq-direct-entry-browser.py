@@ -20,7 +20,7 @@ with fx['ns']['sync_playwright']() as p:
  assert entry.get_by_role('button',name='Open question bank',exact=True).count()==1;assert entry.locator('.mcq-bank-tile').count()==0
  for width in [360,768,1440]:
   page.set_viewport_size({'width':width,'height':1000});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
- entry.locator('[name=mcq-entry-class]').select_option('X');entry.locator('[name=mcq-entry-subject]').select_option('english');page.get_by_role('heading',name='Question bank · Class X',exact=True).wait_for();assert page.locator('.mcq-workflow-step').all_text_contents()==['1 · Question bank','2 · Create QP PDF','3 · Evaluation'];assert page.locator('.mcq-step-bank').get_attribute('aria-current')=='page';page.get_by_role('button',name='2 · Create QP PDF',exact=True).click();page.get_by_role('heading',name='Prepare a question paper',exact=True).wait_for()
+ entry.locator('[name=mcq-entry-class]').select_option('X');entry.locator('[name=mcq-entry-subject]').select_option('english');page.get_by_role('heading',name='Question bank · Class X',exact=True).wait_for();assert page.locator('.mcq-workflow-step').count()==0;assert page.get_by_role('button',name='Ready-made QPs',exact=True).is_visible();assert page.get_by_role('button',name='Create QP PDF',exact=True).is_disabled();assert page.locator('#mission-nav').is_hidden()
  # An existing staff-view session also goes directly from loading to entry.
  guest=b.new_context();guest.add_init_script('window.__guest=true');guest.route('https://www.gstatic.com/firebasejs/**',mcq_sdk);gp=guest.new_page();held=[]
  def api(route):
@@ -34,4 +34,4 @@ with fx['ns']['sync_playwright']() as p:
  boot=b.new_context();boot.route('https://www.gstatic.com/firebasejs/**',mcq_sdk);bp=boot.new_page();modules=[];bp.route('**/cbse-mission.js',lambda r:modules.append(r));bp.route('**/api/staff-access',lambda r:mcq_api(bp,r));bp.goto('http://127.0.0.1:8000/cbse-mission.html#tab=mcq',wait_until='commit');bp.locator('.mcq-bootstrap').wait_for();assert bp.locator('.mission-hero').is_hidden();assert bp.locator('.overview-choice').count()==0;assert modules
  modules.pop().fulfill(content_type='application/javascript',body=Path('cbse-mission.js').read_text());bp.locator('.mcq-entry-form').wait_for();assert bp.locator('.mcq-bootstrap').count()==0
  assert not errors,errors;b.close()
-print('PASS no Overview flash/reload, slow connection and existing-session entry, large bank + 3 coloured actions, responsive layout and access gate')
+print('PASS no Overview flash/reload, slow connection and existing-session entry, minimal bank and compact secondary links, responsive layout and access gate')

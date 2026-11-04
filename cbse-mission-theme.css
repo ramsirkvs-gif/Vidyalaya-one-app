@@ -59,3 +59,15 @@
 .mission-app.mission-detail-view .mcq-step-paper{background:#286da8}
 .mission-app.mission-detail-view .mcq-step-evaluate{background:#7951a9}
 .mission-app.mission-detail-view .mcq-ready-library-link{background:#fff8e7;color:#775416;border-color:#e5ca81}
+
+/* MCQ is one focused working area, without the portal's repeated navigation tiles. */
+.mission-app.mission-mcq-view #mission-nav{display:none}
+.mission-app.mission-detail-view .mcq-simple-heading{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:5px 0}
+.mission-app.mission-detail-view .mcq-simple-heading strong{font-size:18px;color:#245a52}
+.mission-app.mission-detail-view .mcq-simple-heading button,.mission-app.mission-detail-view .mcq-simple-links button{min-height:32px;padding:4px 8px;border:0;background:transparent;color:#286b8b;font-size:13px;text-decoration:underline;border-radius:4px}
+.mcq-simple-links{display:flex;gap:12px;flex-wrap:wrap;justify-content:flex-end;margin:0 0 12px}
+.mcq-more-tools{font-size:13px;align-self:center;position:relative}.mcq-more-tools>summary{cursor:pointer;color:#526c75}.mcq-more-tools[open]>button{position:absolute;right:0;top:28px;z-index:2;white-space:nowrap;box-shadow:0 3px 12px #25454b22}
+.mcq-bank-tools{align-items:center;margin:8px 0;gap:16px}.mcq-bank-count{position:static!important;box-shadow:none!important;border:0!important;padding:4px 0!important;background:transparent!important;font-size:13px}.mcq-bank-count .mcq-selection-topics{font-size:12px}
+.mission-app.mission-detail-view .mcq-filters label{min-width:0}.mcq-inline-contribution{margin:12px 0;padding:10px}.mcq-inline-contribution>summary{font-size:15px}
+
+.mcq-bank-tools>.mcq-bank-count{margin:0 auto 0 0!important;flex:1;min-width:0;gap:8px}.mission-app.mission-detail-view .mcq-filters>button{align-self:end;min-height:40px;padding:5px 12px;font-size:21px}.mission-app.mission-detail-view .mcq-question-actions button{border:0;background:transparent;box-shadow:none;text-decoration:underline;font-size:12px;min-height:30px;padding:4px 7px}

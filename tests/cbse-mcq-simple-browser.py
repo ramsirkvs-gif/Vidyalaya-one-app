@@ -65,7 +65,7 @@ with fx['ns']['sync_playwright']() as p:
   assert form.locator('[name=mcq-correct]').is_visible()
  page.set_viewport_size({'width':1280,'height':1000})
  form.screenshot(path='/tmp/mcq-one-question-form.png')
- page.get_by_role('button',name='2 · Create QP PDF',exact=True).click()
+ page.get_by_role('button',name='Create QP PDF',exact=True).click()
  page.get_by_role('heading',name='Prepare a question paper',exact=True).wait_for()
  page.locator('[name=mcq-subject]').select_option('english')
  page.locator('[name=mcq-select-QE001]').check()
@@ -126,7 +126,7 @@ with fx['ns']['sync_playwright']() as p:
  pf.get_by_role('button',name='Save question',exact=True).click()
  pf.get_by_role('status').filter(has_text='Saved QH001').wait_for()
  assert root['mcq']['questions']['QH001']['contributorId']=='principal'
- admin.get_by_role('button',name='2 · Create QP PDF',exact=True).click()
+ admin.get_by_role('button',name='Create QP PDF',exact=True).click()
  admin.locator('[name=mcq-subject]').select_option('hindi')
  admin.locator('[name=mcq-filter-topic]').select_option('व्याकरण')
  admin.locator('[name=mcq-select-QH001]').check()
