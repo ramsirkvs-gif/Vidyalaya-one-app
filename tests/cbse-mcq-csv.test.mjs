@@ -40,3 +40,5 @@ test('one or several contributor filters preserve subject metadata and selected 
  const mine=publicMCQBank(second.next,{subjectId:'hindi',contributorIds:['principal'],selectionIds:['QH002']});assert.equal(mine.total,1);assert.equal(mine.questions[0].id,'QH001');assert.equal(mine.selectedQuestions[0].id,'QH002');assert.equal(mine.contributors.length,2);
  assert.equal(publicMCQBank(second.next,{subjectId:'hindi',contributorIds:['principal','X:teacher']}).total,2);assert.equal(publicMCQBank(second.next,{subjectId:'hindi',contributorIds:['missing']}).total,0);assert.throws(()=>publicMCQBank(second.next,{contributorIds:'principal'}),/Choose contributors/);
 });
+
+test('bank text search finds the credited contributor name within the selected subject',()=>{const first=importMCQCSV({},input(csv([['Hindi','Mixed','Contributor search question','A']])),{id:'X:teacher',name:'Vandana Teacher'},draft(),1);assert.equal(publicMCQBank(first.next,{subjectId:'hindi',search:'VANDANA'}).total,1);assert.equal(publicMCQBank(first.next,{subjectId:'other',search:'Vandana'}).total,0);assert.equal(publicMCQBank(first.next,{subjectId:'hindi',search:'Other teacher'}).total,0);});
