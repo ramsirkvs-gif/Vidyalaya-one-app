@@ -1,73 +1,10 @@
-/* Shared mobile density. Native text inputs retain 16px to avoid focus zoom. */
-@media screen and (max-width:700px){
- html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
- body{font-size:14px;line-height:1.4}
- h1{font-size:24px;line-height:1.2}h2{font-size:18px;line-height:1.3}h3{font-size:16px;line-height:1.3}h4{font-size:14px;line-height:1.3}
- p{margin:7px 0}small,.muted{font-size:11px;line-height:1.4}
- label{font-size:12px;line-height:1.35}input,textarea{font-size:16px;max-width:100%;box-sizing:border-box}select{font-size:14px;max-width:100%;box-sizing:border-box}
- button,.button{font-size:13px;min-height:40px;padding:8px 10px;white-space:normal;line-height:1.3}
- .wrap{width:calc(100% - 20px)}.panel{padding:12px;margin:10px 0;border-radius:12px}
- .actions{gap:7px;flex-wrap:wrap}.actions>*{max-width:100%;min-width:0}
- .table-scroll{max-width:100%;overflow:auto}th,td{font-size:12px;padding:7px 6px;overflow-wrap:normal}
- .stats{gap:7px;grid-template-columns:repeat(2,minmax(0,1fr))}.stat{padding:9px}.stat strong{font-size:24px}.stat span{font-size:11px}.stat small{font-size:10px}
- dialog{max-width:calc(100vw - 20px);max-height:90vh;padding:12px;box-sizing:border-box}
- .mission-app{font-size:14px;padding-bottom:62px}.mission-app main{padding-top:10px}.mission-app .wrap{width:calc(100% - 20px)}
- .mission-app.mission-detail-view .panel{padding:12px;margin:10px 0;border-radius:12px}
- .mission-app.mission-detail-view .panel>h2:first-child{font-size:18px;line-height:1.3;margin:0 0 10px;padding-left:7px;border-left-width:3px}
- .mission-app.mission-detail-view h3{font-size:16px;margin:10px 0 7px}.mission-app.mission-detail-view h4{font-size:14px;margin:8px 0}
- .mission-app.mission-detail-view label{font-size:12px;font-weight:600;gap:4px}
- .mission-app.mission-detail-view input{min-height:40px;padding:8px;font-size:16px}
- .mission-app.mission-detail-view select{min-height:40px;padding:7px 25px 7px 8px;font-size:14px}
- .mission-app.mission-detail-view button,.mission-app.mission-detail-view .button{min-height:40px;padding:8px 10px;font-size:13px;line-height:1.3}
- .mission-app.mission-detail-view #mission-nav{gap:5px;padding:7px;margin:8px 0}
- .mission-app.mission-detail-view #mission-nav button{font-size:11px;min-height:34px;padding:6px 8px;overflow-wrap:anywhere}.mission-app.mission-detail-view:not(.mission-home-view):not(.mission-mcq-view) #mission-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));align-items:stretch}
- .mission-app.mission-home-view #mission-nav{padding:7px}.mission-app.mission-home-view #mission-nav button{min-height:38px;padding:7px 12px}
- .mission-app.mission-detail-view .mission-status-row{font-size:10px;min-height:18px;padding:0 2px;line-height:1.35}
- .mission-app.mission-detail-view .mission-footer{padding:12px 0;margin-top:12px}.mission-footer span{font-size:10px}.mission-footer small{font-size:10px}
- .mission-app .mobile-mission-nav{padding:5px 8px max(5px,env(safe-area-inset-bottom));gap:5px}.mission-app .mobile-mission-nav button{min-height:44px;padding:4px;font-size:10px}.mission-app .mobile-mission-nav button>span{font-size:16px}
- .mission-app .result-filters,.mission-app .mcq-compact-details{gap:8px}.mission-app .teacher-directory-search select,.mission-app select[name=teacher-directory-staff],.mission-app select[name=mcq-staff],.mission-app select[name=comment-staff],.mission-app select[name=news-staff]{font-size:13px}
- .mission-app .student-card,.mission-app .teacher-card{padding:10px;gap:9px;min-height:76px}.mission-app .student-card strong,.mission-app .teacher-card strong{font-size:15px;line-height:1.3;overflow-wrap:anywhere}.mission-app .student-card small,.mission-app .teacher-card small{font-size:11px}
- .mission-app .zone-card{min-height:100px;padding:12px}.mission-app .zone-card strong{font-size:24px}.mission-app .zone-card p{font-size:12px;margin:5px 0}.mission-app .zone-description{font-size:10px}
- .mission-app .performance-counts.large-statistics{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.mission-app .performance-counts.large-statistics .stat{padding:10px;border-top-width:3px}.mission-app .performance-counts.large-statistics .stat strong{font-size:26px;margin-bottom:4px}.mission-app .large-statistics .stat span{font-size:12px}.mission-app .large-statistics .stat small{font-size:10px;margin-top:4px}
- .mission-app.mission-teacher-profile #mission-nav,.mission-app.mission-teacher-profile .mission-hero{display:none!important}.mission-app .teacher-profile-back{font-size:11px!important;min-height:28px!important;padding:4px 6px!important;margin-top:5px}.mission-app .teacher-profile-header{display:block}.mission-app .teacher-profile-identity h2{font-size:18px;line-height:1.3;margin:0 0 6px;overflow-wrap:anywhere}.mission-app .teacher-profile-identity p{font-size:12px;margin:5px 0}.mission-app .teacher-profile-identity .faculty-portrait{width:64px;height:64px;flex-shrink:0}
- .teacher-notification-strips{gap:7px!important}.mission-app.mission-detail-view .profile-notification-strip{padding:9px 11px;min-height:54px}.profile-notification-strip strong{font-size:14px}.profile-notification-strip small{font-size:11px}
- .mission-app .teacher-roles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.mission-app .teacher-scope-tile{padding:9px;min-width:0}.mission-app .teacher-scope-tile strong{font-size:13px}.mission-app .teacher-scope-tile small{font-size:10px}
- .mission-app .scope-notice,.mission-app .pending-report-notice{font-size:11px;padding:8px 10px}.mission-app .teacher-section-list{margin-top:10px}.mission-app .teacher-student-scroll{max-height:360px}.mission-app .section-team h3{font-size:13px}.mission-app .compact-teams{display:grid;grid-template-columns:1fr;overflow:visible;gap:6px}
- .mission-app .mcq-entry-form{padding:11px;border-radius:12px}.mission-app .mcq-entry-form>p{font-size:12px;margin:6px 0 10px}.mcq-entry-fields.mcq-class-subject-only{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
- .mcq-start-choices{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:12px}.mission-app.mission-detail-view .mcq-start-choices button{min-height:64px;padding:10px;font-size:14px;line-height:1.35}
- .mission-app.mission-detail-view .mcq-simple-heading strong{font-size:14px}.mission-app.mission-detail-view .mcq-simple-links{margin:0 0 6px;gap:9px}.mission-app.mission-detail-view .mcq-simple-links button{font-size:12px;min-height:28px;padding:3px 5px}
- .mission-app .mcq-filters{display:grid;grid-template-columns:minmax(0,1fr) 40px;gap:7px;align-items:end}.mission-app .mcq-filters>label{grid-column:1/-1;margin:0;min-width:0}.mission-app .mcq-filters>label:has([name=mcq-search]){grid-column:1}.mission-app.mission-detail-view .mcq-filters>button{grid-column:2;padding:5px;min-height:40px;font-size:19px}
- .mission-app.mission-detail-view .mcq-inline-contribution{padding:10px;margin:10px 0}.mission-app.mission-detail-view .mcq-inline-contribution>summary{font-size:14px;min-height:26px;line-height:1.35}.mission-app .mcq-inline-contribution>section{margin-top:9px}
- .mission-app .mcq-single-form{padding:8px!important;gap:8px}.mission-app .mcq-single-workspace{grid-template-columns:minmax(0,1fr) 78px;gap:8px}.mission-app .mcq-single-answer{padding:7px}.mission-app .mcq-single-answer legend{font-size:11px}.mission-app .mcq-single-answer select{font-size:14px;min-height:40px}.mission-app .mcq-contribution-form textarea[name=mcq-notepad]{min-height:160px;font-size:15px;line-height:1.5}.mission-app .mcq-contribution-form small{font-size:10px}
- .mission-app .mcq-bank-card{padding:10px;margin:9px 0;border-radius:10px}.mission-app .mcq-question p{font-size:14px;line-height:1.5!important}.mission-app .mcq-question-header strong{font-size:12px!important}.mission-app .mcq-topic-badge{font-size:10px;padding:3px 6px}.mission-app .mcq-question-credit{font-size:10px;line-height:1.35}.mission-app .mcq-question-header input[type=checkbox]{width:22px;height:22px}
- .mission-app .mcq-paper-form.mcq-compact-details{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.mission-app .mcq-paper-form>button{grid-column:1/-1}.mission-app .mcq-selection-bar{padding:8px;gap:6px}.mission-app .mcq-selection-belt{padding:8px;gap:7px;margin:7px 0;font-size:12px}.mission-app .mcq-selection-belt strong{font-size:12px}.mission-app .mcq-topic-count{font-size:10px;padding:4px 7px}.mission-app .mcq-save-scope{padding:8px;gap:7px}.mission-app .mcq-page-setup{padding:9px;font-size:12px}.mission-app .mcq-page-setup>summary{font-size:13px}.mission-app .mcq-page-setup label{font-size:11px}
- .mission-app .mcq-evaluation-loader{padding:8px;gap:7px;min-height:0}.mission-app .mcq-evaluation-loader>label{min-width:140px}.mission-app .mcq-evaluation-form{padding:9px!important;gap:8px}.mission-app .mcq-evaluation-scan,.mission-app .mcq-evaluation-save{padding:9px}.mission-app .mcq-evaluation-scan>p{font-size:11px}.mission-app .mcq-response-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.mission-app .mcq-response-cell{padding:6px}.mission-app .mcq-response-cell label{font-size:10px}
- .mission-app .news-create-panel,.mission-app .news-compose,.mission-app .news-card{padding:10px}.mission-app .news-card .news-body{font-size:13px;line-height:1.5}.mission-app .news-identity-fields{gap:7px}.mission-app .news-compose textarea{font-size:15px;min-height:100px}.mission-app .news-compose label{font-size:12px}
- .grid{gap:10px}.app-card{padding:11px;min-width:0}.app-card h2,.app-card h3{font-size:15px}.app-card p{font-size:12px}.hero h1{font-size:27px}.hero p{font-size:13px}
-}
-@media screen and (max-width:700px){
- .mission-app .teacher-student-scroll table,.mission-app .teacher-student-scroll tbody{display:block;width:100%;min-width:0}
- .mission-app .teacher-student-scroll thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
- .mission-app .teacher-student-scroll tbody tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px 10px;margin:8px 0;padding:10px;border:1px solid #d3e1e7;border-radius:10px;background:#fff}
- .mission-app .teacher-student-scroll td{display:block;min-width:0;padding:0;border:0;white-space:normal;overflow-wrap:break-word;font-size:12px}
- .mission-app .teacher-student-scroll td::before{content:attr(data-label);display:block;color:#617885;font-size:10px;margin-bottom:3px}
- .mission-app .teacher-student-scroll td:first-child,.mission-app .teacher-student-scroll td:nth-child(2),.mission-app .teacher-student-scroll td:last-child{grid-column:1/-1}
- .mission-app .teacher-student-scroll td:first-child{font-size:14px;font-weight:700}.mission-app .teacher-student-scroll td:first-child::before,.mission-app .teacher-student-scroll td:last-child::before{display:none}
- .mission-app .teacher-student-scroll td button{font-size:12px;min-height:34px;white-space:normal}.mission-app .teacher-student-scroll .band{font-size:10px;white-space:normal;word-break:normal}
- .mission-app .compact-teams{max-height:none;overflow:visible}.teacher-reference-panel{margin-top:12px;font-size:12px}.teacher-reference-panel>summary{cursor:pointer;color:#3e6a7e;font-weight:650}
-}
-@media screen and (min-width:360px) and (max-width:700px){.mission-app .teacher-report-content .performance-counts.large-statistics{grid-template-columns:repeat(3,minmax(0,1fr))}.mission-app .teacher-report-content .large-statistics .stat span{font-size:11px}.mission-app .teacher-report-content .large-statistics .stat small{font-size:9px}}
-
-@media screen and (max-width:700px){.mission-app.mission-detail-view .mcq-start-choices button:nth-child(1){background:#edf7ff}.mission-app.mission-detail-view .mcq-start-choices button:nth-child(2){background:#edf9f1}.mission-app.mission-detail-view .mcq-start-choices button:nth-child(3){background:#f4effc}.mission-app.mission-detail-view .mcq-start-choices button:nth-child(4){background:#fff6e5}}
-@media screen and (max-width:700px){
- .mission-app .mcq-single-form .mcq-submit-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;align-items:end}.mission-app .mcq-single-form .mcq-submit-actions input{width:100%}.mission-app .mcq-single-form .mcq-submit-actions button:first-child{grid-column:1/-1}
- .mission-app .mcq-single-answer select{font-size:13px;padding:7px 16px 7px 6px}
-}
-@media screen and (max-width:700px){
- .mcq-ready-papers .table-scroll>table,.mcq-ready-papers tbody{display:block;width:100%}.mcq-ready-papers thead{position:absolute;width:1px;height:1px;clip:rect(0,0,0,0);overflow:hidden}
- .mcq-ready-papers tbody>tr{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding:11px;margin:9px 0;border:1px solid #cddfd9;border-radius:11px;background:#fff!important}
- .mcq-ready-papers tbody>tr>td{display:block;min-width:0!important;padding:0;border:0;font-size:12px;overflow-wrap:break-word}.mcq-ready-papers tbody>tr>td::before{content:attr(data-label);display:block;font-size:10px;color:#647b85;margin-bottom:3px}
- .mcq-ready-papers tbody>tr>td:first-child,.mcq-ready-papers tbody>tr>td:nth-child(2),.mcq-ready-papers tbody>tr>td:last-child{grid-column:1/-1}.mcq-ready-papers tbody>tr>td:first-child{font-size:16px;font-weight:750;color:#246b7b}.mcq-ready-papers tbody>tr>td:first-child::before,.mcq-ready-papers tbody>tr>td:nth-child(2)::before,.mcq-ready-papers tbody>tr>td:last-child::before{display:none}
-}
+/* Preserve feature-specific QP reporting; use the original portal sizes and spacing. */
 .mcq-store-coverage{min-width:210px}.mcq-used-summary{display:block;color:#266a59;font-size:12px}.mcq-store-students{margin:6px 0;font-size:12px}.mcq-store-students>summary,.mcq-coverage-list>summary{cursor:pointer;color:#326d87}.mcq-coverage-section{padding:8px 0;border-top:1px solid #dde8e6}.mcq-coverage-section h4{font-size:12px;margin:4px 0}.mcq-coverage-list{margin:6px 0}.mcq-coverage-list ul{padding-left:16px;margin:7px 0}.mcq-coverage-list li{margin:6px 0}.mcq-coverage-list small{display:block;font-size:10px;color:#5c7380}
 .mcq-store-tools{margin:9px 0;font-size:12px}.mcq-store-tools>summary{cursor:pointer;color:#326d87}.mcq-store-tools[open]{padding:9px;background:#f3f8fc;border-radius:8px}.mcq-ready-papers>p{font-size:11px;color:#5e7581}
+
+/* Restore the original scrolling navigation instead of shrinking/wrapping its labels. */
+@media screen and (max-width:900px){
+ .mission-app.mission-detail-view:not(.mission-home-view):not(.mission-mcq-view) #mission-nav{display:flex;flex-wrap:nowrap;overflow-x:auto;overflow-y:hidden;white-space:nowrap;align-items:center;gap:7px}
+ .mission-app.mission-detail-view:not(.mission-home-view):not(.mission-mcq-view) #mission-nav button{flex:0 0 auto;width:auto;min-width:max-content;white-space:nowrap;word-break:normal;overflow-wrap:normal;height:auto}
+ .table-scroll{max-width:100%;overflow:auto}.teacher-student-scroll table{min-width:520px}
+}
