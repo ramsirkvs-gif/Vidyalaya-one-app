@@ -307,3 +307,17 @@ test('ready QPs filter by subject; PIN deletion hides the library entry while pr
  const revision=f.data.cbse.mcq.revision;await f.service('pin-submit',{...input,pin:'123'});assert.equal(f.data.cbse.mcq.revision,revision);
  await assert.rejects(f.service('pin-submit',{...input,pin:'123',requestId:'repeat_another_request'}),/already removed/);
 });
+
+test('saved MCQ scores feed student, teacher, class snapshots and attendance from the same authoritative marks',async()=>{
+ const f=fixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ const made=await f.service('mcq-principal',{operation:'mcq-contribute',single:true,verified:true,subjectId:'english',requestId:'progress_source_question',topic:'Mixed',questions:[{verbatim:true,stem:'Question A) 1 B) 2 C) 3 D) 4',answer:'B'}]},'principal');
+ const paper=await f.service('mcq-principal',{operation:'mcq-paper',subjectId:'english',requestId:'progress_source_paper',questionIds:made.questionIds},'principal');
+ const result=await f.service('pin-submit',{operation:'mcq-evaluate',classId:'X',subjectId:'english',paperId:paper.paperId,studentKey:'X:a:one',responses:['B'],reviewed:true,staffId:'X:one',pin:'123',method:'photo-assisted'});
+ const {studentIndex,studentProgress,staffProfileView}=await import('../cbse-mission-model.js'),{latestAcademicSnapshot}=await import('../cbse-academic-model.js'),{mcqPaperUsage,studentMCQParticipation}=await import('../cbse-mcq-participation.js');
+ const {draft,mission,facultyDraft}=f.data.cbse,key='X:a:one',p=studentIndex(draft)[key];assert.equal(result.score,1);
+ assert.equal(studentProgress(key,mission,draft).subjects[0].latest.score,1);
+ assert.equal(staffProfileView('X:one',key,mission,draft,facultyDraft).progress.subjects[0].latest.score,1);
+ assert.equal(latestAcademicSnapshot(p,mission).subjects[0].mark.score,1);
+ assert.equal(mcqPaperUsage(mission,draft,paper.paperId)[0].students[0].score,1);
+ assert.equal(studentMCQParticipation(mission,key)[0].score,1);
+});
