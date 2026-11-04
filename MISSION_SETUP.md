@@ -855,3 +855,7 @@ Question bank is browse/add only: topic/search filters and the coloured Add new 
 Staff names are visible selectable fields at contribution, paper save and evaluation, even if a previous identity was remembered; PINs are requested and cleared by the existing save workflow. Browsing requires neither a selected contributor nor a PIN. Signed-in Principal authorization is unchanged. Selecting a contributor does not reset an explicitly selected subject/new topic.
 
 Validation: full Node suite and browser checks for all three paths, browse-only/add-only separation, visible identity fields at write time, successful question deposit, independent paper creation, whole-photo QR/OMR evaluation, selection recovery via Back/start, new topic preservation, Principal-only CSV, ready-made QP revision/deletion and responsive layout.
+
+
+## Fourth start choice: ready-made QP store
+The class/subject start screen now includes a fourth choice, Ready-made question papers, opening the existing subject-filtered saved-paper store directly. Its soft-copy preview, PDF/print, PIN-protected revision/deletion and Back behavior are retained. CSV upload and bulk controls remain inside the question bank under More, visible only to the authenticated Principal; neither staff nor the starting screen shows them. Validation uses the ready-paper workflow browser check (including four start choices) and the Principal-only CSV browser check.
