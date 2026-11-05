@@ -1,0 +1,9 @@
+import {el,options} from './cbse-ui.js';
+import {printAcademicSubjectReport} from './cbse-academic-report.js';
+export function renderAcademicReportControls(parent,people,mission,{classId='XII',subjectName='Physics'}={}){
+ const box=el('section',undefined,'academic-report-controls'),filters=el('div',undefined,'result-filters');box.append(el('h3','Download academic reports'),filters);
+ const select=(label,items,value)=>{const wrap=el('label',label),input=el('select');input.setAttribute('aria-label',label);options(input,items,value);wrap.append(input);filters.append(wrap);return input;};
+ const cl=select('Report class',[['X','Class X'],['XII','Class XII']],classId),subject=select('Report subject',[],subjectName),note=el('p','Brief PDF: monthly totals, latest status and remedial priorities. All subjects gives a separate summary for each subject in the selected class. Choose Save as PDF in the print window.','muted');
+ const fill=(preferred=subject.value)=>{const names=[...new Set(Object.values(people||{}).filter(p=>p.classId===cl.value).flatMap(p=>Object.entries(p.subjects||{}).filter(([,on])=>on).map(([id])=>p.subjectCatalog?.[id]?.name||id)))].sort();options(subject,[['','All subjects'],...names.map(name=>[name,name])],preferred);brief.disabled=full.disabled=!names.length;};
+ const button=(text,briefMode)=>{const b=el('button',text);b.type='button';b.onclick=async()=>{brief.disabled=full.disabled=true;try{await printAcademicSubjectReport(people,mission,{classId:cl.value,subjectName:subject.value,brief:briefMode});}catch(e){note.textContent=e.message;}finally{fill();}};return b;},brief=button('Brief summary PDF',true),full=button('Full history PDF',false);filters.append(brief,full);box.append(note);cl.onchange=()=>{subject.value='';fill();};fill(subjectName);parent.append(box);return {cl,subject};
+}
