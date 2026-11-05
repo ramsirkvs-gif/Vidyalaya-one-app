@@ -193,3 +193,7 @@
 .mcq-student-targets{margin-top:12px;border:1px solid #b8d6ce;border-radius:10px;padding:10px}.mcq-student-targets>div{max-height:320px;overflow:auto}.mcq-student-targets label{display:flex!important;align-items:center;gap:8px;padding:5px;font-size:14px}.mcq-student-targets input[type=checkbox]{width:20px!important;min-height:20px;flex:none}.mcq-student-targets button{margin:4px}.mcq-evaluation-result>button{margin-top:12px}
 
 .mcq-direct-evaluation{padding:16px;border:1px solid #a8d0c3;background:#edf8f2;border-radius:12px;margin:12px 0}.mcq-direct-evaluation button{min-height:50px;width:100%;font-size:17px;font-weight:700}.mcq-direct-evaluation p{line-height:1.4}
+
+.mcq-target-shortcuts{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.mcq-target-shortcuts button{flex:1 1 145px;min-height:42px;font-size:13px;padding:8px}
+
+.mcq-student-targets>div{max-height:none;overflow:visible}.mcq-target-roster{max-height:320px;overflow:auto;margin-top:8px}
