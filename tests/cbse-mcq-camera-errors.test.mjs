@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {mcqCameraError} from '../cbse-mcq-live-scan.js';
+test('camera errors distinguish permissions, missing hardware and busy cameras',()=>{assert.match(mcqCameraError({name:'NotAllowedError'}),/permission is blocked/);assert.match(mcqCameraError({name:'NotReadableError'}),/camera is busy/);assert.match(mcqCameraError({name:'NotFoundError'}),/No camera was found/);});
