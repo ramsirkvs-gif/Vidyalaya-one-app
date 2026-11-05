@@ -183,3 +183,5 @@
 .mcq-history-visibility{display:flex!important;align-items:center;gap:7px;font-size:12px;margin:8px 0}.mcq-history-visibility input{width:18px;min-height:18px}
 
 .mcq-live-scan{width:min(680px,94vw);max-height:94vh;overflow:auto;border:1px solid #b8d6ce;border-radius:14px;padding:16px}.mcq-live-view{position:relative;background:#111;border-radius:10px;overflow:hidden}.mcq-live-view video{display:block;width:100%;max-height:55vh;object-fit:contain}.mcq-live-guide{position:absolute;inset:8%;border:3px dashed #ffe38c;border-radius:8px;pointer-events:none}.mcq-live-scan button{margin:6px}.mcq-evaluation-scan>.actions{display:flex;flex-wrap:wrap;gap:8px}
+
+.mcq-evaluation-result{margin:16px 0;padding:22px 16px;text-align:center;background:#e6f8ee;border:2px solid #258164;border-radius:16px;color:#12553e}.mcq-evaluation-result[hidden]{display:none}.mcq-evaluation-result>small{display:block;font-size:16px;font-weight:700}.mcq-evaluation-result>strong{display:block;font-size:clamp(44px,10vw,76px);font-weight:900;line-height:1.2;margin:8px 0}.mcq-evaluation-result>p{font-size:16px;margin:6px 0;overflow-wrap:anywhere}
