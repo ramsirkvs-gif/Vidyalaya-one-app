@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {quickMCQResponses} from '../cbse-mcq-quick-evaluation.js';
+test('quick entry preserves blanks and rejects wrong counts and ambiguous letters',()=>{assert.deepEqual(quickMCQResponses('a, B c D -',5),['A','B','C','D','']);assert.throws(()=>quickMCQResponses('AB',3),/exactly 3/);assert.throws(()=>quickMCQResponses('AB?',3),/Use A/);});

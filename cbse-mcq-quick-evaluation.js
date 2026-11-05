@@ -1,0 +1,1 @@
+export function quickMCQResponses(value,count){const text=String(value||'').toUpperCase().replace(/[\s,;|]/g,'');if(!/^[ABCD-]*$/.test(text))throw Error('Use A, B, C, D and - for a blank answer.');if(text.length!==count)throw Error('Enter exactly '+count+' answers; use - for each blank.');return [...text].map(letter=>letter==='-'?'':letter);}
