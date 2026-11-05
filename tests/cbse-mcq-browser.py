@@ -15,7 +15,9 @@ def mcq_api(page,route):
   actor={'id':'principal','name':'Principal'} if action=='mcq-principal' else {'id':d['staffId'],'name':F['classes']['X']['teachers'][d['staffId'].split(':')[1]]['name']};clock[0]+=1000
   if action=='mcq-principal':assert 'authorization' in route.request.headers and not d.get('pin')
   try:
-   if d['operation']=='mcq-reset-all-preview':r=page.evaluate("""async root=>{const {previewResetAllMCQ}=await import('./cbse-mcq-reset.js');return previewResetAllMCQ(root);}""",root)
+   if d['operation']=='mcq-answer-key':r=page.evaluate("""async args=>{const {readMCQAnswerKey}=await import('./cbse-mcq-answer-key.js');return readMCQAnswerKey(...args);}""",[root['mcq'],d])
+   elif d['operation']=='mcq-report-publish':r=page.evaluate("""async args=>{const {publishMCQReport}=await import('./cbse-mcq-evaluation-reports.js');return publishMCQReport(...args);}""",[root['mcq'],D,d,actor,clock[0]]);root['mcq']=r.pop('next')
+   elif d['operation']=='mcq-reset-all-preview':r=page.evaluate("""async root=>{const {previewResetAllMCQ}=await import('./cbse-mcq-reset.js');return previewResetAllMCQ(root);}""",root)
    elif d['operation']=='mcq-reset-all':r=page.evaluate("""async args=>{const {resetAllMCQ}=await import('./cbse-mcq-reset.js');return resetAllMCQ(...args);}""",[root,d,actor,clock[0]]);updated=r.pop('next');root.clear();root.update(updated);page.evaluate('(m)=>window.__mcqEmit(m)',root['mission'])
    elif d['operation']=='mcq-clear-banks-preview':r=page.evaluate("""async args=>{const {previewClearMCQBanks}=await import('./cbse-mcq-reset.js');return previewClearMCQBanks(...args);}""",[root['mcq'],root['mission']])
    elif d['operation']=='mcq-clear-banks':r=page.evaluate("""async args=>{const {clearMCQBanks}=await import('./cbse-mcq-reset.js');return clearMCQBanks(...args);}""",[root['mcq'],d,actor,clock[0],root['mission']]);root['mcq']=r.pop('next')

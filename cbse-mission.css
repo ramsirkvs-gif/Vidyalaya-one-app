@@ -197,3 +197,5 @@
 .mcq-target-shortcuts{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.mcq-target-shortcuts button{flex:1 1 145px;min-height:42px;font-size:13px;padding:8px}
 
 .mcq-student-targets>div{max-height:none;overflow:visible}.mcq-target-roster{max-height:320px;overflow:auto;margin-top:8px}
+
+.mcq-result-student{font-size:clamp(19px,5vw,27px);font-weight:800;line-height:1.35;margin:10px 0;overflow-wrap:anywhere}.mcq-manage-dialog form{display:grid;gap:10px}.mcq-manage-dialog form label{display:grid;gap:5px}.mcq-manage-dialog section>details{padding:9px;border-bottom:1px solid #d3e0da}
