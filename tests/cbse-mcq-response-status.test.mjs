@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {mcqResponseLabel} from '../cbse-mcq-response-status.js';
+test('not attempted, dual answers and uncertain scans have distinct review labels',()=>{assert.equal(mcqResponseLabel('','Not attempted'),'Not attempted');assert.equal(mcqResponseLabel('?','Dual answers: B, D'),'Dual answers');assert.equal(mcqResponseLabel('?','Scan failed'),'Needs review');assert.equal(mcqResponseLabel('C'),'C');});
