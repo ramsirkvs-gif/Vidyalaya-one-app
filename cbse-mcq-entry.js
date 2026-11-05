@@ -2,6 +2,8 @@ import {el,options} from './cbse-ui.js';
 import {mcqSubjects} from './cbse-mcq-model.js';
 function field(parent,label,name){const l=el('label',label),s=el('select');s.name=name;s.required=true;l.append(s);parent.append(l);return s;}
 export function renderMCQEntry(parent,ctx){
+ if(ctx.scanStudentPaper){const direct=el('section',undefined,'mcq-direct-evaluation'),take=el('button','Scan student QR paper'),file=el('input'),status=el('p','No class, subject, QP code or student selection needed. Photograph the student QR and answer circles together.','muted');take.type='button';take.className='primary';file.type='file';file.name='mcq-direct-qr-photo';file.accept='image/*';file.setAttribute('capture','environment');file.hidden=true;take.onclick=()=>file.click();file.onchange=async()=>{const photo=file.files[0];file.value='';if(!photo||take.disabled)return;take.disabled=true;status.setAttribute('role','status');status.textContent='Reading QR · identifying student, class and QP…';try{await ctx.scanStudentPaper(photo);}catch(e){status.setAttribute('role','alert');status.textContent=e.message;}finally{take.disabled=false;}};direct.append(el('h3','Quick evaluation · scan directly'),take,file,status);parent.append(direct);}
+
  const form=el('form',undefined,'mcq-entry-form');form.append(el('h3','Class & subject'),el('p','Choose your class, subject and activity.'));
  const row=el('div',undefined,'mcq-entry-fields mcq-class-subject-only');form.append(row);const saved=ctx.entryState||{},cl=field(row,'Class','mcq-entry-class'),subject=field(row,'Subject','mcq-entry-subject');
  options(cl,[['','Select class'],['X','Class X'],['XII','Class XII']],ctx.classId||saved.classId||'');
