@@ -13,6 +13,7 @@ export function remedialConflicts(mission,plan,faculty={},excludeId=''){const te
 export const remedialConflictSignature=conflicts=>JSON.stringify(conflicts.map(c=>[c.kind,c.id,c.start,c.end,c.dates,c.studentCount,[...(c.studentKeys||[])].sort()]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))));
 const planFingerprint=p=>JSON.stringify([...['teacherId','start','end','schedule','dates','studentKeys','purpose'].map(key=>p[key]),[...(p.scopes||[[p.classId,p.sectionId,p.subjectId].join('|')])].sort()]);
 export function applyRemedialPlan(mission,draft,faculty,input,actor,now){
+ if(['observe','complete','verify'].includes(input.operation))return applyRemedialSession(mission,faculty,input,actor,now);
  const teacherId=input.teacherId,aliases=teacherIdentityIds(actor.id,faculty,mission),editing=input.operation==='edit';let old;
  if(editing||input.operation==='cancel'){
   check(typeof input.planId==='string'&&Object.hasOwn(mission.remedialPlans||{},input.planId),'This plan is no longer available.');old=mission.remedialPlans[input.planId];check(actor.id==='principal'||aliases.includes(old.teacherId),'Use the planned teacher’s own PIN.');
@@ -21,7 +22,7 @@ export function applyRemedialPlan(mission,draft,faculty,input,actor,now){
    if(input.expectedRevision!==undefined)check(input.expectedRevision===(old.revision||0),'This plan changed. Refresh the board and review it again.');
    const next=structuredClone(mission);next.remedialPlans[input.planId]={...old,status:'cancelled',revision:(old.revision||0)+1,cancelledAt:now,cancelledBy:actor.id,cancelledByName:actor.name};next.revision=(next.revision||0)+1;return {next,planId:input.planId};
   }
-  check(old.status!=='cancelled','This class was cancelled. Create a new plan instead.');
+  check(old.status!=='cancelled','This class was cancelled. Create a new plan instead.');check(!Object.keys(old.sessions||{}).length,'This plan has class records. Keep it for history and create a new plan for changes.');
  }
  check(actor.id==='principal'||aliases.includes(teacherId),'Use your own name and PIN to save a plan.');
  const teacher=staffIndex(faculty,mission)[teacherId],available=remedialTeacherScopes(draft,faculty,mission,teacherId),scope=available.find(s=>[s.classId,s.sectionId,s.subjectId].join('|')===input.scope);check(scope,'Choose an assigned class, section and subject.');
@@ -37,5 +38,24 @@ export function applyRemedialPlan(mission,draft,faculty,input,actor,now){
   for(const [id,p]of Object.entries(mission.remedialPlans||{}))if(p.status!=='cancelled'&&planFingerprint(p)===fingerprint)return {next:structuredClone(mission),planId:id};
  }
  const conflicts=remedialConflicts(mission,plan,faculty,editing?id:''),signature=remedialConflictSignature(conflicts);if(conflicts.length&&input.conflictSignature!==signature)return {needsCoordination:true,conflicts,signature};
- const next=structuredClone(mission);next.remedialPlans||={};next.remedialPlans[id]={...plan,id,revision:editing?(old.revision||0)+1:0,createdBy:editing?old.createdBy:actor.id,createdByName:editing?old.createdByName:actor.name,createdAt:editing?old.createdAt:now,...(editing?{updatedAt:now,updatedBy:actor.id,updatedByName:actor.name,lastRequestId:input.requestId}:{}),...(conflicts.length?{coordinationConfirmedAt:now,coordinationWith:conflicts.map(c=>c.kind+':'+c.id)}: {})};next.revision=(next.revision||0)+1;return {next,planId:id};
+ const next=structuredClone(mission);next.remedialPlans||={};next.remedialPlans[id]={...(editing&&old.sessions?{sessions:old.sessions}:{}),...plan,id,revision:editing?(old.revision||0)+1:0,createdBy:editing?old.createdBy:actor.id,createdByName:editing?old.createdByName:actor.name,createdAt:editing?old.createdAt:now,...(editing?{updatedAt:now,updatedBy:actor.id,updatedByName:actor.name,lastRequestId:input.requestId}:{}),...(conflicts.length?{coordinationConfirmedAt:now,coordinationWith:conflicts.map(c=>c.kind+':'+c.id)}: {})};next.revision=(next.revision||0)+1;return {next,planId:id};
+}
+export function applyRemedialSession(mission,faculty,input,actor,now){
+ const old=mission.remedialPlans?.[input.planId];check(old&&Object.hasOwn(mission.remedialPlans,input.planId),'This plan is no longer available.');
+ check(actor.id==='principal'||teacherIdentityIds(actor.id,faculty,mission).includes(old.teacherId),'Use the planned teacher’s own PIN.');check(old.status!=='cancelled','This class was cancelled.');
+ check(old.dates.includes(input.date),'Choose a scheduled class date.');check(input.date<=remedialToday(now),'Record the class on its scheduled day or afterwards.');
+ const prior=old.sessions?.[input.date]||{};check((prior.revision||0)===(input.sessionRevision||0),'This class record changed. Reopen it before saving.');
+ let session={...prior,revision:(prior.revision||0)+1};
+ if(input.operation==='observe'){
+  check(!prior.submittedAt,'This class was already submitted.');session={...session,observationRequestedAt:now,observationRequestedBy:actor.id,observationRequestedByName:actor.name};
+ }else if(input.operation==='complete'){
+  check(!prior.submittedAt,'This class was already submitted.');
+  check(Array.isArray(input.presentKeys)&&new Set(input.presentKeys).size===input.presentKeys.length&&input.presentKeys.every(k=>old.studentKeys.includes(k)),'Tick attendance from this class’s targeted students.');
+  const e=input.evidence;check(e&&typeof e.ref==='string'&&/^[a-zA-Z0-9_-]{8,100}$/.test(e.ref)&&Number.isFinite(e.capturedAt)&&e.capturedAt<=now+60000&&now-e.capturedAt<6*3600000&&remedialToday(e.capturedAt)===input.date,'Take a fresh class photo on the selected class date.');
+  check(Number.isFinite(e.latitude)&&Math.abs(e.latitude)<=90&&Number.isFinite(e.longitude)&&Math.abs(e.longitude)<=180&&Number.isFinite(e.accuracy)&&e.accuracy>=0,'Allow location access for the class photo.');
+  session={...session,status:'submitted',presentKeys:[...input.presentKeys],absentKeys:old.studentKeys.filter(k=>!input.presentKeys.includes(k)),evidence:{ref:e.ref,capturedAt:e.capturedAt,latitude:e.latitude,longitude:e.longitude,accuracy:e.accuracy},submittedAt:now,submittedBy:actor.id,submittedByName:actor.name};
+ }else if(input.operation==='verify'){
+  check(actor.id==='principal','Principal access required.');check(prior.submittedAt,'Submit the completed class first.');session={...session,status:'verified',verifiedAt:now,verifiedBy:actor.id};
+ }else throw Error('Choose a valid class action.');
+ const next=structuredClone(mission);next.remedialPlans[input.planId]={...old,sessions:{...old.sessions,[input.date]:session},revision:(old.revision||0)+1};next.revision=(next.revision||0)+1;return {next,planId:input.planId};
 }
