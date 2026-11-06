@@ -196,3 +196,7 @@ Linked questions use a separate CSV type in **Bulk upload CSV → CSV type → L
 **MCQ → Contributors · Class X / XII** shows separate whole-class current-bank summaries across all subjects, credited by contributor, with question and subject-wise counts. Each class has Print / save PDF and Copy summary (text download fallback). Deleted questions are excluded; no student details or answer keys are exported. Personalised QPs print student names and classes in bold 12 pt in the header and bold 11 pt beside the answer area; long names wrap within their field.
 
 The protected staff question-bank page shows a **Correct answer: A/B/C/D** badge on every question. This explicit bank read exposes only the current question answer letter; QP selection, normal reads and printed/saved QP views retain their answer-free data. Saved QP answer keys keep their existing PIN protection.
+
+The launch page includes **Direct Scan for student specific QP**, opening a dedicated student QR photo scanner without class/subject selection. Existing staff access and review/save checks still apply; ordinary MCQ entry remains available.
+
+Launch-page Mission quick access uses compact, wrapping buttons for Overview, Teacher-wise overview, Student-wise overview, Conversations, Team News, MCQs and Direct Scan. The Mission home navigation has the same compact layout and direct scan shortcut.

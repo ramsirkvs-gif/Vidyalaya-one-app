@@ -18,7 +18,9 @@ with sync_playwright() as p:
  assert page.locator('a[href="https://samvida-sathi.kvs.gov.in/"]').count()==1
  for url in ['https://www.cbse.gov.in/','https://igotkarmayogi.gov.in/#/','https://ncert.nic.in/?ln=en','https://diksha.gov.in/index.html','https://ciet.ncert.gov.in/nishtha']:
   assert page.locator('a[href="'+url+'"] .launch-tile-image').count()==1
- assert page.locator('a[href="cbse-mission.html"]').count()==1
+ assert page.locator('.launch-reference-card[href="cbse-mission.html"]').count()==1
+ assert page.get_by_role('link',name='Direct Scan for student specific QP',exact=True).count()==1
+ assert page.locator('.mission-shortcut-grid a').count()==7
  for img in page.locator('.launch-tile-image').all():img.scroll_into_view_if_needed();img.evaluate('(n)=>n.loading="eager"')
  page.wait_for_function('[...document.querySelectorAll(".launch-tile-image")].every(n=>n.complete&&n.naturalWidth>0)')
  for width in [360,768,1440]:
