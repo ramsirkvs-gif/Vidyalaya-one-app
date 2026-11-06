@@ -10,3 +10,5 @@
 }
 
 .mcq-store-section-counts{display:grid;gap:4px;margin:6px 0}.mcq-store-section-counts span{font-size:11px;color:#365d6f;background:#eef6fb;border-radius:6px;padding:4px 6px}.mcq-store-reuse-hint{display:block;color:#576c5b;font-size:11px;line-height:1.4}
+
+@media(max-width:760px){body.mission-app.mission-detail-view:not(.mission-home-view):not(.mission-mcq-view) #mission-nav button{width:100%;max-width:100%;min-width:0;white-space:normal;overflow-wrap:anywhere}}

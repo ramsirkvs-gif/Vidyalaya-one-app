@@ -23,7 +23,7 @@ export function validateMission(m,draft,faculty){
  assert(m&&m.schemaVersion===1&&Number.isInteger(m.revision)&&m.revision>=0,'Invalid Mission data.');
  const students=studentIndex(draft),staff=staffIndex(faculty,m),s=m.settings;
  assert(s&&[s.redBelow,s.greenFrom,s.attendanceRedBelow,s.attendanceGreenFrom].every(v=>Number.isFinite(v)&&v>=0&&v<=100)&&s.redBelow<s.greenFrom&&s.attendanceRedBelow<s.attendanceGreenFrom,'Colour thresholds must be ordered percentages between 0 and 100.');
- for(const field of ['students','exams','marks','attendance','records','tasks','timetable','staff','allocations','gradingRules','academicAttendance','attendanceRegisters','reportRequests','conversations','staffEmails','staffContacts','staffPhotos','facultyProfiles','supportAssignments','classMeetings','studentPhotos'])assert(!m[field]||safeKeys(m[field]),`Invalid ${field} data.`);
+ for(const field of ['students','exams','marks','attendance','records','tasks','timetable','staff','allocations','gradingRules','academicAttendance','attendanceRegisters','reportRequests','conversations','staffEmails','staffContacts','staffPhotos','facultyProfiles','supportAssignments','classMeetings','studentPhotos','remedialPlans'])assert(!m[field]||safeKeys(m[field]),`Invalid ${field} data.`);
  validateConversations(m);
  if(m.studentPhotos)validateStudentPhotos(m.studentPhotos);
  for(const[,p]of entries(m.students)){assert(['girl','boy','unknown'].includes(p.gender),'Choose a gender or Not recorded.');assert(text(p.guardian,120)&&text(p.phones,1000)&&text(p.location,500),'Contact details are too long.');validateContact(p);}
@@ -52,6 +52,7 @@ export function validateMission(m,draft,faculty){
   assert(!r.evidenceUrl||/^https:\/\//.test(r.evidenceUrl)&&text(r.evidenceUrl,1000),'Evidence links must use HTTPS.');
  }
  for(const[,t]of entries(m.tasks))assert(text(t.title,200,true)&&text(t.studentKey,300)&&text(t.sectionKey,200)&&text(t.staffId,300,true)&&text(t.category,60,true)&&date(t.due)&&['open','in_progress','done','cancelled'].includes(t.status)&&text(t.outcome,2000),'Enter task, assignee, due date and status.');
+ for(const p of Object.values(m.remedialPlans||{}))assert(text(p.teacherId,300,true)&&['X','XII'].includes(p.classId)&&Array.isArray(p.dates)&&p.dates.length>0&&p.dates.length<=366&&p.dates.every(date)&&Array.isArray(p.studentKeys)&&p.studentKeys.length>0&&['planned','cancelled'].includes(p.status),'Invalid remedial plan.');
  const slots=[];
  for(const[,t]of entries(m.timetable)){
   assert(['X','XII'].includes(t.classId)&&text(t.sectionId,100,true)&&text(t.staffId,300,true)&&Number.isInteger(t.weekday)&&t.weekday>=1&&t.weekday<=7&&/^([01]\d|2[0-3]):[0-5]\d$/.test(t.start)&&/^([01]\d|2[0-3]):[0-5]\d$/.test(t.end)&&t.start<t.end&&text(t.room,100)&&text(t.purpose,200,true),'Enter a valid break/remedial timetable slot.');
