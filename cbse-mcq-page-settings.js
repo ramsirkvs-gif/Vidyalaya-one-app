@@ -5,7 +5,9 @@ export function mcqPageSettings(value={}){if(!value||typeof value!=='object'||Ar
 export function mcqResponseBlocks(count){if(!Number.isSafeInteger(count)||count<1)throw Error('Choose a positive number of questions.');return Array.from({length:Math.ceil(count/20)},(_,i)=>({offset:i*20,count:Math.min(20,count-i*20)}));}
 export function mcqSheetQR(value){const raw=String(value||'').trim(),match=raw.match(/^VOA\|MCQ\|([^|]+)(?:\|OMR\|(\d+))?$/i);if(!match)return {paperId:raw,offset:null};const offset=match[2]===undefined?null:Number(match[2]);if(offset!==null&&(!Number.isSafeInteger(offset)||offset<0||offset%20))throw Error('Invalid answer-block QR.');return {paperId:match[1],offset};}
 
-export function mcqUsageEstimate(sheetCount,lastFraction){return Math.max(.5,Math.ceil((sheetCount-1+lastFraction)*4)/4);}
+export function mcqUsageEstimate(sheetCount,lastFraction){return Math.max(.25,Math.ceil((sheetCount-1+lastFraction)*4)/4);}
 
 // Map older saved layouts to the new limits without rewriting saved QP content.
 export function mcqSavedPageSettings(value={}){const target=Number(value?.target),limit=MCQ_ALLOWED_PAGES.includes(target)?target:target>0&&target<=1?1:target>1&&target<=2?2:4;return mcqPageSettings({...value,target:limit});}
+
+export function mcqUsageLabel(usedPages,sheetCount){const remaining=Math.ceil(usedPages)-usedPages;return 'A4 used ≈ '+usedPages+' '+(usedPages===1?'page':'pages')+' · '+(remaining?'≈ '+remaining+' page free on current sheet':'Current sheet nearly full')+' · PDF: '+sheetCount+' '+(sheetCount===1?'page':'pages');}

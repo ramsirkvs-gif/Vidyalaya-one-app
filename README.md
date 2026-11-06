@@ -204,3 +204,5 @@ The Vidyalaya One launch page retains its original application cards. After open
 The main Mission search searches across all classes and sections, clearing inherited profile/class/section filters. The result-page Class and Section dropdowns still apply explicit filters. Internal profiles and global results use the same saved student record, current academic status and graph.
 
 Question-paper PDF setup offers only **Maximum PDF pages: 1, 2 or 4** (default 4). Fractional A4 usage remains informational. Layout fitting keeps the existing readable font floor; oversized papers must have questions removed or use the next allowed limit. Natural three-page layouts add a fourth rough-work sheet, so individual QP PDFs use only 1, 2 or 4 pages. Personalised combined PDFs apply the limit separately to each student copy. Old saved layout limits are mapped for display without rewriting their question/answer snapshots.
+
+The QP preview shows fractional **A4 used** (0.25, 0.5, 0.75, 1, 1.25…) and estimated free space on the current sheet above the 1/2/4-page limit selector. This automatic usage line updates as questions change; PDF page choices remain whole pages.
