@@ -197,6 +197,6 @@ Linked questions use a separate CSV type in **Bulk upload CSV → CSV type → L
 
 The protected staff question-bank page shows a **Correct answer: A/B/C/D** badge on every question. This explicit bank read exposes only the current question answer letter; QP selection, normal reads and printed/saved QP views retain their answer-free data. Saved QP answer keys keep their existing PIN protection.
 
-The launch page includes **Direct Scan for student specific QP**, opening a dedicated student QR photo scanner without class/subject selection. Existing staff access and review/save checks still apply; ordinary MCQ entry remains available.
+After opening Mission Perfect 100, **Direct Scan for student specific QP** opens a dedicated student QR photo scanner without class/subject selection. Existing staff access and review/save checks still apply; ordinary MCQ entry remains available.
 
-Launch-page Mission quick access uses compact, wrapping buttons for Overview, Teacher-wise overview, Student-wise overview, Conversations, Team News, MCQs and Direct Scan. The Mission home navigation has the same compact layout and direct scan shortcut.
+The Vidyalaya One launch page retains its original application cards. After opening Mission Perfect 100, its home navigation uses compact, wrapping buttons for Overview, Teacher-wise overview, Student-wise overview, Conversations, Team News, MCQs and Direct Scan.
