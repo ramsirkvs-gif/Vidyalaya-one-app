@@ -112,3 +112,8 @@
 }
 
 @media screen and (max-width:600px){body.mission-app:is(.mission-home-view,.mission-detail-view) .mission-hero{padding:24px 20px}}
+/* Workspaces keep navigation compact; the full tile grid belongs to Home. */
+body.mission-app:is(.mission-detail-view,.mission-mcq-view) #mission-nav.mission-compact-nav{display:flex!important;flex-wrap:wrap;align-items:flex-start;gap:8px;overflow:visible}
+body.mission-app.mission-detail-view #mission-nav.mission-compact-nav>button{width:auto!important;flex:0 0 auto;min-height:42px;padding:10px 14px}
+body.mission-app #mission-nav .mission-switch-menu:not([open])>button{display:none}
+body.mission-app #mission-nav .mission-switch-menu[open]>button{display:block;width:100%;margin:5px 0}
