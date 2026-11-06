@@ -200,3 +200,5 @@ The protected staff question-bank page shows a **Correct answer: A/B/C/D** badge
 After opening Mission Perfect 100, **Direct Scan for student specific QP** opens a dedicated student QR photo scanner without class/subject selection. Existing staff access and review/save checks still apply; ordinary MCQ entry remains available.
 
 The Vidyalaya One launch page retains its original application cards. After opening Mission Perfect 100, its home navigation uses compact, wrapping buttons for Overview, Teacher-wise overview, Student-wise overview, Conversations, Team News, MCQs and Direct Scan.
+
+The main Mission search searches across all classes and sections, clearing inherited profile/class/section filters. The result-page Class and Section dropdowns still apply explicit filters. Internal profiles and global results use the same saved student record, current academic status and graph.

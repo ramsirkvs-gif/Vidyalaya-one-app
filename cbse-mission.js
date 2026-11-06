@@ -300,10 +300,8 @@ function renderSearch(r){const q=r.get('q')||'',cl=r.get('class')||'',sec=r.get(
  if(canBrowse()&&q){const staffFound=entries(staff()).filter(([id,s])=>s.status==='active'&&teacherIdentityIds(id,faculty,mission)[0]===id&&(!cl||staffStandards(id).includes(cl))&&matches(`${s.name} ${s.designation||s.kind} ${s.subjects} ${s.teachingSections||''}`,q));if(staffFound.length){const panelStaff=panel('Faculty & support team'),cards=el('div',undefined,'student-cards');for(const[id,s]of staffFound){const card=button('',()=>go({staff:id}));card.className='student-card';const text=el('span',undefined,'student-card-copy');text.append(el('strong',s.name),el('small',`${s.designation||s.kind}${s.classId?' · Class '+s.classId:''}`));card.append(text,el('span','›','student-arrow'));cards.append(card);}panelStaff.append(cards);}
  summary.textContent=`${outOf(found.length,scopeTotal)} · ${staffFound.length} staff`;if(!found.length&&staffFound.length)list.hidden=true;}
 }
-function searchRoute(query){
- const r=route(),person=r.get('student')&&people()[r.get('student')],standards=r.get('staff')&&canBrowse()?staffStandards(r.get('staff')):[],cl=r.get('class')||person?.classId||(standards.length===1?standards[0]:''),section=r.has('q')?r.get('section'):classSections(cl).find(([id])=>id===r.get('section'))?.[1]?.name;
- return {q:query,...(cl?{class:cl}:{}),...(section?{section}:{}),...(r.get('zone')?{zone:r.get('zone')}:{})};
-}
+// The header is a school-wide search. Result-page dropdowns apply explicit filters.
+function searchRoute(query){return {q:query};}
 $('mission-global-search').onsubmit=e=>{e.preventDefault();clearTimeout(searchTimer);$('mission-search-input').blur();go(searchRoute($('mission-search-input').value.trim()));requestAnimationFrame(scrollToResults);};
 $('mission-search-input').oninput=()=>{clearTimeout(searchTimer);searchTimer=setTimeout(()=>go(searchRoute($('mission-search-input').value.trim())),180);};
 $('mission-view-all').onclick=()=>{clearTimeout(searchTimer);$('mission-search-input').value='';go({q:''});requestAnimationFrame(scrollToResults);};
