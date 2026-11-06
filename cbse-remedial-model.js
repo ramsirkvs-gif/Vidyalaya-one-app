@@ -14,6 +14,9 @@ export const remedialConflictSignature=conflicts=>JSON.stringify(conflicts.map(c
 const planFingerprint=p=>JSON.stringify([...['teacherId','start','end','schedule','dates','studentKeys','purpose'].map(key=>p[key]),[...(p.scopes||[[p.classId,p.sectionId,p.subjectId].join('|')])].sort()]);
 export function applyRemedialPlan(mission,draft,faculty,input,actor,now){
  if(['observe','complete','verify'].includes(input.operation))return applyRemedialSession(mission,faculty,input,actor,now);
+ if(input.operation==='delete'){
+  check(actor.id==='principal','Only the Principal can permanently delete a class.');check(typeof input.planId==='string'&&Object.hasOwn(mission.remedialPlans||{},input.planId),'This plan is no longer available.');const old=mission.remedialPlans[input.planId];check(old.status==='cancelled','Cancel the plan before permanently deleting it.');check(input.confirmDelete===true,'Confirm permanent deletion.');check(input.expectedRevision===(old.revision||0),'This plan changed. Refresh the calendar before deleting.');const next=structuredClone(mission);delete next.remedialPlans[input.planId];next.revision=(next.revision||0)+1;return {next,planId:input.planId};
+ }
  const teacherId=input.teacherId,aliases=teacherIdentityIds(actor.id,faculty,mission),editing=input.operation==='edit';let old;
  if(editing||input.operation==='cancel'){
   check(typeof input.planId==='string'&&Object.hasOwn(mission.remedialPlans||{},input.planId),'This plan is no longer available.');old=mission.remedialPlans[input.planId];check(actor.id==='principal'||aliases.includes(old.teacherId),'Use the planned teacher’s own PIN.');
