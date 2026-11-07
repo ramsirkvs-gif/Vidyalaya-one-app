@@ -43,8 +43,8 @@ export function applyRollCall(current,input,actor,staff,now=Date.now(),id=''){co
   }
  }else if(op==='clear'){
   const o=next.objections[input.objectionId];if(!o||o.status!=='open'||actor.id!=='principal'&&o.createdBy!==actor.id)throw Error('Only the reporting IC or Principal can clear this objection.');o.status='cleared';o.clearedBy=actor.id;o.clearedAt=now;
- }else if(op==='approve'){
-  if(actor.id!=='principal')throw Error('Principal approval required.');const r=next.reports[input.reportId];if(!r||r.date!==day||!(r.period==='afternoon'&&r.status==='pending'||r.period==='morning'&&r.status==='review'))throw Error('Choose today’s pending roll call for review.');if(r.period==='afternoon'&&Object.values(next.objections).some(o=>o.staffId===r.staffId&&o.status==='open'))throw Error('Clear pending-task objections first.');r.status='approved';r.approvedBy=actor.id;r.approvedAt=now;r.requiresReview=false;
+ }else if(op==='approve'||op==='reject'){
+  if(actor.id!=='principal')throw Error('Principal approval required.');const r=next.reports[input.reportId];if(!r||r.date!==day||!(r.period==='afternoon'&&r.status==='pending'||r.period==='morning'&&r.status==='review'))throw Error('Choose today’s pending roll call for review.');if(op==='approve'&&r.period==='afternoon'&&Object.values(next.objections).some(o=>o.staffId===r.staffId&&o.status==='open'))throw Error('Clear pending-task objections first.');r.updatedAt=now;r.requiresReview=false;if(op==='approve'){r.status='approved';r.approvedBy=actor.id;r.approvedAt=now;}else{r.status='not-approved';r.rejectedBy=actor.id;r.rejectedAt=now;delete r.approvedAt;delete r.approvedBy;}
  }else throw Error('Unknown roll-call operation.');
  next.revision=(next.revision||0)+1;return next;
 }

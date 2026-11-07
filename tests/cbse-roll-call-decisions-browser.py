@@ -1,0 +1,12 @@
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);page=b.new_page(viewport={'width':390,'height':844});page.goto('http://127.0.0.1:8000/cbse-roll-call-status.js');page.set_content('<link rel="stylesheet" href="/cbse-roll-call.css"><main class="roll-workspace" id="root"></main>')
+ page.evaluate('''async()=>{const {renderRollCallStatus}=await import('./cbse-roll-call-status.js');window.data={serverDate:'2026-11-09',staff:{a:{name:'MR. ABHISHEK SINGH',wing:'secondary'}},rollCall:{reports:{test:{staffId:'a',date:'2026-11-09',wing:'secondary',period:'afternoon',status:'pending',submittedAt:Date.parse('2026-11-09T08:00:00Z')}}}};window.render=(principal)=>{document.querySelector('#root').replaceChildren();renderRollCallStatus(document.querySelector('#root'),window.data,'secondary',principal,(id,decision='approve')=>window.decision={id,decision});};window.render(true);}''')
+ row=page.locator('.roll-staff-row[data-staff-id=a]');assert row.get_by_text('Awaiting Principal approval',exact=True).is_visible();assert row.locator('.roll-rc-exit-reminder').count()==0
+ row.get_by_role('button',name='Not approved — discuss with Principal',exact=True).click();assert page.evaluate('window.decision')=={'id':'test','decision':'reject'}
+ page.evaluate("window.data.rollCall.reports.test.status='not-approved';window.render(false)");assert page.get_by_text('Not approved — please discuss with the Principal',exact=True).is_visible();assert page.locator('.roll-rc-exit-reminder').count()==0;assert page.get_by_role('button',name='Approve afternoon roll call',exact=True).count()==0
+ page.evaluate("window.data.rollCall.reports.test.status='approved';window.render(false)");assert page.get_by_text('Afternoon roll call — APPROVED',exact=True).is_visible();assert 'biometric sign-out' in page.locator('.roll-rc-exit-reminder').inner_text();assert 'sign the staff attendance register' in page.locator('.roll-rc-exit-reminder').inner_text()
+ for width in [320,390,768,1440]:
+  page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ b.close()
+print('PASS pending/approved/not-approved states, Principal decision controls and post-approval biometric/register reminder')
