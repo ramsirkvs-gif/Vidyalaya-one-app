@@ -40,6 +40,7 @@ export function applyRemedialPlan(mission,draft,faculty,input,actor,now){
   if(prior){check(planFingerprint(prior)===fingerprint&&prior.createdBy===actor.id,'This request was already used for another plan.');return {next:structuredClone(mission),planId:id};}
   for(const [id,p]of Object.entries(mission.remedialPlans||{}))if(p.status!=='cancelled'&&planFingerprint(p)===fingerprint)return {next:structuredClone(mission),planId:id};
  }
+ const today=remedialToday(now);if(!(editing&&input.keepDates===true)){check(dates.every(d=>d>=today)&&(input.schedule==='holiday'||input.from>=today),'Classes can only be planned for today or future dates (India time).');}
  const conflicts=remedialConflicts(mission,plan,faculty,editing?id:''),signature=remedialConflictSignature(conflicts);if(conflicts.length&&input.conflictSignature!==signature)return {needsCoordination:true,conflicts,signature};
  const next=structuredClone(mission);next.remedialPlans||={};next.remedialPlans[id]={...(editing&&old.sessions?{sessions:old.sessions}:{}),...plan,id,revision:editing?(old.revision||0)+1:0,createdBy:editing?old.createdBy:actor.id,createdByName:editing?old.createdByName:actor.name,createdAt:editing?old.createdAt:now,...(editing?{updatedAt:now,updatedBy:actor.id,updatedByName:actor.name,lastRequestId:input.requestId}:{}),...(conflicts.length?{coordinationConfirmedAt:now,coordinationWith:conflicts.map(c=>c.kind+':'+c.id)}: {})};next.revision=(next.revision||0)+1;return {next,planId:id};
 }
