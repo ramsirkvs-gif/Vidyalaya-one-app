@@ -133,3 +133,16 @@ export const REMEDIAL_HOLIDAYS=Object.freeze([
   "type": "GH"
  }
 ]);
+
+// Weekly closure dates are calculated, separately from the uploaded named holidays.
+// Only generate years represented by the supplied source; do not invent next year's GH/RH dates.
+export function remedialHolidayCalendar(){
+ const days=new Map(),add=(date,name,type)=>{let day=days.get(date);if(!day){day={date,day:new Date(date+'T12:00:00Z').toLocaleDateString('en-GB',{timeZone:'UTC',weekday:'long'}),names:[],types:[]};days.set(date,day);}if(!day.names.includes(name))day.names.push(name);if(!day.types.includes(type))day.types.push(type);};
+ for(const h of REMEDIAL_HOLIDAYS)add(h.date,h.name,h.type);
+ for(const year of new Set(REMEDIAL_HOLIDAYS.map(h=>Number(h.date.slice(0,4)))))for(let month=0;month<12;month++){
+  for(let day=1;day<=31;day++){const d=new Date(Date.UTC(year,month,day));if(d.getUTCMonth()!==month)break;const date=d.toISOString().slice(0,10);if(d.getUTCDay()===0)add(date,'Sunday','SUNDAY');if(d.getUTCDay()===6&&day>=8&&day<=14)add(date,'Second Saturday','SECOND_SATURDAY');}
+ }
+ const label={SUNDAY:'Sunday',SECOND_SATURDAY:'Second Saturday'};
+ return [...days.values()].sort((a,b)=>a.date.localeCompare(b.date)).map(day=>({...day,name:day.names.join(' · '),type:day.types.map(t=>label[t]||t).join(' + ')}));
+}
+export const REMEDIAL_CALENDAR=Object.freeze(remedialHolidayCalendar());
