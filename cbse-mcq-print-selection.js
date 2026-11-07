@@ -1,0 +1,2 @@
+export function mcqRemainingPrintKeys(eligibleKeys,absentKeys=[]){const absent=new Set(absentKeys);return [...new Set(eligibleKeys)].filter(key=>!absent.has(key));}
+export function mcqPaperWithoutAbsentCopies(paper,absentKeys=[]){const included=new Set(mcqRemainingPrintKeys((paper.copyAssignments||[]).map(copy=>copy.studentKey),absentKeys));return {...paper,copyAssignments:(paper.copyAssignments||[]).filter(copy=>included.has(copy.studentKey))};}
