@@ -1,3 +1,5 @@
+import {planRollRosterProfiles} from '../cbse-roll-call-setup.js';
+import {rollReportingStaff} from '../cbse-roll-call-roster.js';
 import {applyRollCall,rollWing,rollToday} from '../cbse-roll-call-model.js';
 import {applyRemedialPlan} from '../cbse-remedial-model.js';
 import {publishMCQReport} from '../cbse-mcq-evaluation-reports.js';
@@ -24,15 +26,15 @@ export class AccessError extends Error{constructor(message,status=403){super(mes
 export async function hashPIN(pin,salt=randomBytes(16).toString('hex')){if(!/^(?:\d{3}|\d{6,12})$/.test(String(pin)))throw new AccessError('Use a three-digit PIN (existing 6–12 digit PINs remain supported).',400);return {salt,hash:(await scrypt(String(pin),salt,64)).toString('hex')};}
 export async function verifyPIN(pin,record){if(!/^(?:\d{3}|\d{6,12})$/.test(String(pin))||!record?.hash||!record.salt)return false;const expected=Buffer.from(record.hash,'hex'),actual=await scrypt(String(pin),record.salt,64);return expected.length===actual.length&&timingSafeEqual(expected,actual);}
 const entries=value=>Object.entries(value||{});
-const rollPublicReport=r=>Object.fromEntries(['staffId','name','wing','date','period','reported','status','requiresReview','leaveType','halfDay','from','to','updatedAt','submittedAt','approvedAt','rejectedAt'].filter(k=>r[k]!==undefined).map(k=>[k,r[k]]));
+const rollPublicReport=r=>({...Object.fromEntries(['staffId','name','wing','date','period','reported','status','hasNoAnswers','requiresReview','leaveType','halfDay','from','to','updatedAt','submittedAt','approvedAt','rejectedAt'].filter(k=>r[k]!==undefined).map(k=>[k,r[k]])),hasNoAnswers:!!r.hasNoAnswers||r.reported==='no'||Object.values(r.answers||{}).includes('no')});
 export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=defaultViewSecret}){
  const read=async path=>(await db.ref(path).get()).val();
  async function context(){const [draft,faculty,mission]=await Promise.all([read('cbse/draft'),read('cbse/facultyDraft'),read('cbse/mission')]);return {draft,...resolvedViewingData(draft,faculty,mission||emptyMission())};}
- async function directoryStaff(){const[faculty,support]=await Promise.all([read('cbse/facultyDraft'),read('cbse/mission/staff')]);return staffIndex(faculty,{staff:support||{}});}
+ async function directoryStaff(){const[faculty,support]=await Promise.all([read('cbse/facultyDraft'),read('cbse/mission/staff')]);return Object.fromEntries(entries(staffIndex(faculty,{staff:support||{}})).map(([id,p])=>{const roles=Object.values(faculty?.classes?.[p.classId]?.roles||{}),tid=id.slice(String(p.classId||'').length+1);return [id,{...p,classTeacher:roles.some(r=>r.classTeacher===tid),coClassTeacher:roles.some(r=>r.coClassTeacher===tid)}];}));}
  async function generateMissingPINs(staff){
-    const access=await read('cbse/staffAccess')||{},missing=entries(staff).filter(([id,p])=>p.status==='active'&&!access[id]?.hash);
+    const access=await read('cbse/staffAccess')||{},missing=entries(staff).filter(([id,p])=>p.status==='active'&&!access[id]?.hash&&access[id]?.enabled!==false);
     if(missing.length>900)throw new AccessError('Generate PINs for fewer than 901 staff at a time.',400);
-    const used=new Set(),prepared=[];
+    const used=new Set(entries(access).map(([id,a])=>decryptDisplayPIN(a,id,displayKey)).filter(pin=>/^[1-9][0-9]{2}$/.test(pin))),prepared=[];if(missing.length+used.size>900)throw new AccessError('No unused three-digit PINs remain. Contact the Principal for PIN setup.',400);
     for(const[id,p]of missing){let pin;do{pin=String(randomInt(100,1000));}while(used.has(pin));used.add(pin);prepared.push({id,name:p.name,pin,record:{...await hashPIN(pin),...encryptDisplayPIN(pin,id,displayKey),enabled:true,version:randomUUID(),updatedAt:now()}});}
     let created=[];
     const result=await db.ref('cbse/staffAccess').transaction(current=>{const next=current||{};created=[];for(const p of prepared)if(!next[p.id]?.hash){next[p.id]=p.record;created.push({staffId:p.id,name:p.name,pin:p.pin});}return next;});
@@ -51,9 +53,17 @@ export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=d
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(['view-login','view-data','view-version','view-student-photo','view-student-photos','view-logout'].includes(action)){const result=await sharedView(action,{...input,ip},session.viewerToken||'');if(result?.error){const error=new AccessError(result.error,result.status);error.curtainRequired=result.curtainRequired;throw error;}return result;}
   if(action==='mcq-read'||action==='news-read'){if(token)await principal(token);else{const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}if(action==='news-read'){const output=value=>{try{return readTeamNews(value,input);}catch(e){throw new AccessError(e.message,400);}};if(input.photoId){if(typeof input.photoId!=='string'||!/^news_[A-Za-z0-9_-]{8,80}$/.test(input.photoId))throw new AccessError('Choose a News photo.',400);const [post,photo]=await Promise.all([read('cbse/teamNews/posts/'+input.photoId),read('cbse/teamNews/photos/'+input.photoId)]);return output({posts:post?{[input.photoId]:post}:{},photos:{[input.photoId]:photo}});}const [posts,revision]=await Promise.all([read('cbse/teamNews/posts'),read('cbse/teamNews/revision')]);return output({posts:posts||{},revision:revision||0});}return publicMCQBank(await read('cbse/mcq')||{},input);}
+  if(action==='roll-call-setup'){
+   const admin=await principal(token);let created=0;const result=await db.ref('cbse').transaction(current=>{if(current===null)return null;if(current.adminUid!==admin.uid)return;const plan=planRollRosterProfiles(current.mission,current.facultyDraft||emptyFaculty(),now());created=plan.created.length;return {...current,mission:plan.next};});
+   if(!result.committed||!result.snapshot.val()?.mission)throw new AccessError('Staff setup could not be saved. Retry.',409);
+   const eligible=Object.fromEntries(entries(await directoryStaff()).filter(([,p])=>rollReportingStaff(p)));const pins=await generateMissingPINs(eligible);return {ok:true,createdStaff:created,createdPins:pins.created.length};
+  }
+  if(action==='roll-call-context'){
+   await principal(token);const [draft,faculty,mission]=await Promise.all([read('cbse/draft'),read('cbse/facultyDraft'),read('cbse/mission')]);return {draft:{...draft,classes:Object.fromEntries(entries(draft?.classes).map(([cl,c])=>[cl,{...c,sections:Object.fromEntries(entries(c.sections).map(([sid,s])=>[sid,{...s,students:{}}]))}]))},faculty:faculty||emptyFaculty(),mission:Object.fromEntries(['revision','staff','staffEmails','staffContacts','staffPhotos','facultyProfiles','allocations','supportAssignments'].map(k=>[k,mission?.[k]??(k==='revision'?0:{})]))};
+  }
   if(action==='roll-call-read'){
    const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error){const e=new AccessError(access.error,access.status);e.curtainRequired=access.curtainRequired;throw e;}
-   const staff=await directoryStaff(),value=await read('cbse/rollCall')||{};return {ok:true,serverDate:rollToday(now()),serverTime:now(),staff:Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active').map(([id,p])=>[id,{name:p.name,designation:p.designation||'',wing:rollWing(p)}])),rollCall:{reports:Object.fromEntries(entries(value.reports).map(([id,r])=>[id,rollPublicReport(r)])),objections:Object.fromEntries(entries(value.objections).filter(([,o])=>input.staffId&&(o.staffId===input.staffId||o.createdBy===input.staffId)))}};
+   const staff=await directoryStaff(),value=await read('cbse/rollCall')||{};return {ok:true,serverDate:rollToday(now()),serverTime:now(),staff:Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active').map(([id,p])=>[id,{name:p.name,designation:p.designation||'',wing:rollWing(p),classTeacher:!!p.classTeacher,coClassTeacher:!!p.coClassTeacher}])),rollCall:{reports:Object.fromEntries(entries(value.reports).map(([id,r])=>[id,rollPublicReport(r)])),objections:Object.fromEntries(entries(value.objections).filter(([,o])=>input.staffId&&(o.staffId===input.staffId||o.createdBy===input.staffId)))}};
   }
   if(action==='remember-view'){await principal(token);return sharedView('view-grant');}
   let pinIdentity,mcqPrincipal;
@@ -67,7 +77,7 @@ export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=d
   if(action==='roll-call'||action==='roll-call-principal'){
    const admin=action==='roll-call-principal';if(admin)await principal(token);else if(!pinIdentity)throw new AccessError('Verify your personal PIN.',403);if(!admin){const access=await read('cbse/staffAccess/'+pinIdentity.decoded.staffId);if(!access?.enabled||access.version!==pinIdentity.access.version)throw new AccessError('Staff access changed. Verify your PIN again.',403);}
    const staff=await directoryStaff(),actor=admin?{id:'principal',name:'Principal'}:{id:pinIdentity.decoded.staffId,name:staff[pinIdentity.decoded.staffId]?.name||'Staff'};
-   const output=value=>({ok:true,serverDate:rollToday(now()),serverTime:now(),principal:admin,actor,staff:Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active').map(([id,p])=>[id,{name:p.name,designation:p.designation||'',wing:rollWing(p)}])),rollCall:admin?value:{...value,reports:Object.fromEntries(entries(value.reports).map(([id,r])=>[id,r.staffId===actor.id?r:rollPublicReport(r)])),objections:Object.fromEntries(entries(value.objections).filter(([,o])=>o.staffId===actor.id||o.createdBy===actor.id))}});
+   const output=value=>({ok:true,serverDate:rollToday(now()),serverTime:now(),principal:admin,actor,staff:Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active').map(([id,p])=>[id,{name:p.name,designation:p.designation||'',wing:rollWing(p),classTeacher:!!p.classTeacher,coClassTeacher:!!p.coClassTeacher}])),rollCall:admin?value:{...value,reports:Object.fromEntries(entries(value.reports).map(([id,r])=>[id,r.staffId===actor.id?r:rollPublicReport(r)])),objections:Object.fromEntries(entries(value.objections).filter(([,o])=>o.staffId===actor.id||o.createdBy===actor.id))}});
    if(input.rollOperation==='read')return output(await read('cbse/rollCall')||{});
    let reason='';const newId='objection_'+randomUUID().replaceAll('-','');const result=await db.ref('cbse/rollCall').transaction(current=>{try{return applyRollCall(current,input,actor,staff,now(),newId);}catch(e){reason=e.message;return;}});
    if(!result.committed)throw new AccessError(reason||'Roll call changed. Retry.',409);return output(result.snapshot.val());

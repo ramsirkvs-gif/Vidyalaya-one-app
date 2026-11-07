@@ -6,5 +6,7 @@ function renderChamber(){
 }
 window.addEventListener('hashchange',renderChamber);renderChamber();
 
-let rollOpened=false;
-document.getElementById('open-roll-call').addEventListener('click',async event=>{event.preventDefault();const host=document.getElementById('roll-call-workspace');host.hidden=false;if(!rollOpened){rollOpened=true;try{const {renderRollCall}=await import('./cbse-roll-call-view.js');renderRollCall(host);}catch(e){rollOpened=false;host.textContent='Could not open Roll Call. Please try again.';}}host.scrollIntoView({block:'start',behavior:'smooth'});});
+let rollController,rollLoading;
+async function openRollWorkspace(){const host=document.getElementById('roll-call-workspace');host.hidden=false;if(!rollController){rollLoading||=import('./cbse-roll-call-view.js').then(({renderRollCall})=>{rollController=renderRollCall(host);return rollController;}).catch(error=>{rollLoading=null;host.textContent='Could not open Roll Call. Please try again.';throw error;});await rollLoading;}return rollController;}
+document.getElementById('open-roll-call').addEventListener('click',async event=>{event.preventDefault();await openRollWorkspace();document.getElementById('roll-call-workspace').scrollIntoView({block:'start',behavior:'smooth'});});
+document.getElementById('chamber-principal-login').addEventListener('click',async()=>{const controller=await openRollWorkspace();await controller.openPrincipal();document.getElementById('roll-call-workspace').scrollIntoView({block:'start',behavior:'smooth'});});

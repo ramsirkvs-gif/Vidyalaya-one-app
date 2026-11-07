@@ -1,0 +1,48 @@
+from pathlib import Path
+from playwright.sync_api import sync_playwright, expect
+from datetime import datetime,timezone,timedelta
+import json
+AUTH="""export async function signInWithEmailAndPassword(auth,email,password){if(password!=='synthetic-password'){const e=Error('bad');e.code='auth/invalid-credential';throw e;}window.__principalEmail=email;auth.currentUser={uid:'principal-test',getIdToken:async()=> 'principal-token'};for(const fn of window.__authListeners||[])fn(auth.currentUser);return {user:auth.currentUser};}export function onAuthStateChanged(auth,fn){window.__authListeners||=[];window.__authListeners.push(fn);fn(auth.currentUser);return ()=>window.__authListeners=window.__authListeners.filter(x=>x!==fn);}export async function signOut(auth){auth.currentUser=null;for(const fn of [...window.__authListeners||[]])fn(null);}"""
+with sync_playwright() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);page=b.new_page(viewport={'width':390,'height':844});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+ page.route('**/portal-firebase.js',lambda r:r.fulfill(content_type='application/javascript',body=''))
+ page.route('**/firebase-client.js',lambda r:r.fulfill(content_type='application/javascript',body='export const auth=window.__auth={currentUser:null,authStateReady:async()=>{}};'))
+ page.route('https://www.gstatic.com/firebasejs/**/firebase-auth.js',lambda r:r.fulfill(content_type='application/javascript',body=AUTH))
+ page.goto('http://127.0.0.1:8000/cbse-roll-call-model.js');state=page.evaluate('''async()=>{const {emptyDraft}=await import('./cbse-model.js'),{emptyFaculty}=await import('./cbse-faculty-model.js'),{emptyMission}=await import('./cbse-mission-model.js');const draft=emptyDraft(),faculty=emptyFaculty(),mission=emptyMission();faculty.classes.X.teachers.a={name:'MR. ABHISHEK SINGH',designation:'TGT-English',subjects:'',teachingSections:'',status:'active'};mission.staff.b={name:'Synthetic Primary',designation:'PRT',kind:'prt',status:'active',subjects:''};return {draft,facultyDraft:faculty,mission};}''')
+ day=(datetime.now(timezone.utc)+timedelta(hours=5,minutes=30)).strftime('%Y-%m-%d');now=int(datetime.now(timezone.utc).timestamp()*1000);reports={'a':{'staffId':'X:a','name':'MR. ABHISHEK SINGH','date':day,'wing':'secondary','period':'morning','status':'review','hasNoAnswers':True,'noReason':'Emergency duty delayed biometric attendance.','answers':{'biometric':'no'},'submittedAt':now},'b':{'staffId':'support:b','name':'Synthetic Primary','date':day,'wing':'primary','period':'morning','status':'pending','hasNoAnswers':False,'answers':{'biometric':'yes'},'submittedAt':now}}
+ access={'X:a':{'enabled':True,'pinSet':True,'pin':'123'},'support:b':{'enabled':True,'pinSet':True,'pin':'456'}};calls=[]
+ def staff():
+  out={}
+  for cl,c in state['facultyDraft']['classes'].items():
+   for tid,t in c['teachers'].items():out[cl+':'+tid]={**t,'wing':'secondary','classId':cl}
+  for sid,t in state['mission']['staff'].items():out['support:'+sid]={**t,'wing':t.get('wing','primary' if t['kind']=='prt' else 'secondary')}
+  return out
+ def api(route):
+  v=route.request.post_data_json;action=v['action'];calls.append(v.copy());protected=action in ['roll-call-principal','roll-call-setup','roll-call-context','list','set-pin','disable','save-faculty']
+  if protected and route.request.headers.get('authorization')!='Bearer principal-token':route.fulfill(status=403,json={'error':'Principal required'});return
+  if action=='roll-call-setup':route.fulfill(json={'ok':True,'createdStaff':0,'createdPins':0});return
+  if action=='roll-call-context':route.fulfill(json={'draft':state['draft'],'faculty':state['facultyDraft'],'mission':state['mission']});return
+  if action=='list':route.fulfill(json={'staff':staff(),'access':access});return
+  if action=='set-pin':access[v['staffId']]={'enabled':True,'pinSet':True,'pin':v['pin']};route.fulfill(json={'ok':True});return
+  if action=='disable':access[v['staffId']]['enabled']=False;route.fulfill(json={'ok':True});return
+  if action=='save-faculty':
+   result=page.evaluate("async args=>{const {planFacultySave}=await import('./cbse-faculty-editor-model.js');return planFacultySave(...args);}",[state,v,'new_synthetic',now]);state.update(result['next']);
+   for sid in result['newStaffIds']:access[sid]={'enabled':True,'pinSet':True,'pin':v['pin']}
+   route.fulfill(json={'ok':True,'staffId':result['staffId']});return
+  if action=='roll-call-principal' and v.get('rollOperation') in ['approve','reject']:reports[v['reportId']]['status']='approved' if v['rollOperation']=='approve' else 'not-approved'
+  route.fulfill(json={'ok':True,'serverDate':day,'serverTime':now,'staff':staff(),'rollCall':{'reports':reports,'objections':{}}})
+ page.route('**/api/staff-access',api);page.goto('http://127.0.0.1:8000/index.html#principal-chamber')
+ assert page.locator('.roll-principal-dashboard').count()==0;page.get_by_role('button',name='Principal Sign-in / Dashboard',exact=True).click();page.locator('[name=inline-principal-password]').fill('wrong-password');page.get_by_role('button',name='Sign in here',exact=True).click();page.get_by_text('Principal password is incorrect.',exact=True).wait_for();assert page.locator('.roll-principal-dashboard').count()==0
+ page.locator('[name=inline-principal-password]').fill('synthetic-password');page.get_by_role('button',name='Sign in here',exact=True).click();page.locator('.roll-principal-dashboard').wait_for();assert page.evaluate('window.__principalEmail')=='ramsirkvs@gmail.com';assert page.locator('[name=roll-reporting-wing]').count()==0;assert len([c for c in calls if c['action']=='roll-call-setup'])==1
+ assert page.get_by_role('button',name='Pending approvals (2)',exact=True).is_visible();page.locator('.roll-approval-list .roll-status-card').first.get_by_role('button',name='Approve RC',exact=True).click();page.get_by_role('button',name='Pending approvals (1)',exact=True).wait_for();page.get_by_role('button',name='Approved (1)',exact=True).click();assert 'MR. ABHISHEK SINGH' in page.locator('.roll-approval-list').inner_text();page.get_by_role('button',name='Pending approvals (1)',exact=True).click();page.get_by_role('button',name='Not approved — discuss',exact=True).click();page.get_by_role('button',name='Not approved (1)',exact=True).click();assert 'Synthetic Primary' in page.locator('.roll-approval-list').inner_text()
+ page.get_by_role('button',name='PIN list',exact=True).click();code=page.locator('[name=principal-pin-0]');code.wait_for();assert code.input_value()=='123' and code.get_attribute('type')=='password';page.get_by_role('button',name='Save / replace PIN',exact=True).first.click();page.get_by_text('PIN unchanged.',exact=True).wait_for();assert not [c for c in calls if c['action']=='set-pin'];page.get_by_role('button',name='Generate missing staff / PINs',exact=True).click();page.locator('[name=principal-pin-0]').wait_for();assert access['X:a']['pin']=='123' and access['support:b']['pin']=='456';assert not [c for c in calls if c['action']=='set-pin']
+ for width in [320,390,768,1440]:
+  page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ page.set_viewport_size({'width':390,'height':844});page.screenshot(path='/tmp/chamber-principal-dashboard.png',full_page=True)
+ page.get_by_role('button',name='Staff list · both wings',exact=True).click();page.get_by_role('button',name='Add new Primary / support staff',exact=True).wait_for();page.get_by_role('button',name='Add new Primary / support staff',exact=True).click();form=page.locator('.faculty-unified-form');form.wait_for();form.locator('[name=name]').fill('New Synthetic PRT');form.locator('[name=designation]').fill('PRT');form.locator('[name=reporting-wing]').select_option('primary');form.get_by_role('button',name='Save faculty & all assignments',exact=True).click();page.get_by_role('button',name='Add new Primary / support staff',exact=True).wait_for();assert state['mission']['staff']['new_synthetic']['wing']=='primary';assert access['X:a']['pin']=='123'
+ page.get_by_role('button',name='PIN list',exact=True).click();page.locator('[name=principal-pin-0]').wait_for();page.get_by_role('button',name='Close Principal view',exact=True).click();page.locator('.roll-principal-dashboard').wait_for(state='detached');assert page.locator('[name^=principal-pin-]').count()==0
+ page.get_by_role('button',name='Principal Sign-in / Dashboard',exact=True).click();page.locator('.roll-principal-dashboard').wait_for();assert page.locator('[name=inline-principal-password]').count()==0;page.get_by_role('button',name='Sign out',exact=True).click();page.locator('.roll-principal-dashboard').wait_for(state='detached');page.wait_for_function('window.__auth.currentUser===null');assert page.locator('[name^=principal-pin-]').count()==0
+ for width in [320,390,768,1440]:
+  page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ assert not errors,errors;b.close()
+print('PASS header password-only Principal login, shared-session reuse, pending/approved/refused queues, preserved Mission PINs, inline staff add and private-data clearing on sign-out')
