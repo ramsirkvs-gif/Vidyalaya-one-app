@@ -1,0 +1,1 @@
+export function activeRollLongLeave(reports,ids,date){const wanted=new Set(ids);return Object.entries(reports||{}).filter(([,r])=>wanted.has(r.staffId)&&r.leaveType==='long'&&r.from&&r.to&&r.from<=date&&date<=r.to).map(([id,r])=>({id,...r})).sort((a,b)=>Number(b.updatedAt||b.submittedAt||0)-Number(a.updatedAt||a.submittedAt||0))[0]||null;}

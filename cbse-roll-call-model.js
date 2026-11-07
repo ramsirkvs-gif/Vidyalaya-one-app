@@ -1,6 +1,7 @@
-import {secondaryStaffEntry} from './cbse-roll-call-roster.js';
+import {activeRollLongLeave} from './cbse-roll-call-leave.js';
+import {secondaryStaffEntry,rollStaffIdentityIds} from './cbse-roll-call-roster.js';
 export const ROLL_CHECKS=[
- ['biometric','Biometric attendance completed?'],['register','Staff attendance register signed?'],['sop','Checked and proceeding for SOP duty?','No SOP duty today'],['assembly','Aware and bringing your class to MP Hall for assembly?','I am not CT / Co-CT'],['attendance','Ensuring timely Samagam student attendance?','I am not CT / Co-CT'],['timetable','Checking timetable / arrangements in the Vidyalaya App for every period?'],['lunch','Checked and ensuring lunch duty?','No lunch duty today'],['dispersal','Checked and ensuring dispersal duty?','No dispersal duty today'],['samagam','Checked today’s Samagam data-updating action plan?'],['messages','Read and noted today’s Vidyalaya WhatsApp group messages?']];
+ ['biometric','Biometric attendance completed?'],['register','Staff attendance register signed?'],['sop','Checked and proceeding for SOP duty?','No SOP duty today'],['assembly','Aware and bringing your class to MP Hall for assembly?','I am not CT / Co-CT'],['attendance','Ensuring timely Samagam student attendance?','I am not CT / Co-CT'],['timetable','Checking timetable / arrangements in the Vidyalaya App for every period?'],['lunch','Checked and ensuring lunch duty?','No lunch duty today'],['dispersal','Checked and ensuring dispersal duty?','No dispersal duty today'],['samagam','Have you planned to log in to Samagam at least once today and update all required data?'],['messages','Have you carefully read all Vidyalaya WhatsApp group messages up to now and noted the instructions for compliance?']];
 export const LEAVE_CHECKS=[['informed','Informed the group of your leave type?'],['cover','Informed Co-CT / colleague about Samagam student attendance?'],['exam','Arranged any due exam QP submission, bundle collection or checking?','No exam / duty assigned'],['data','Ensured Samagam data updates for all your roles?','Under progress']];
 export const rollToday=(now=Date.now())=>new Date(now+19800000).toISOString().slice(0,10);
 export function rollWing(p){if(['primary','secondary'].includes(p?.wing))return p.wing;if(secondaryStaffEntry(p))return 'secondary';if(p?.wing==='primary'||p?.kind==='prt'||/\bPRT\b/i.test(p?.designation||''))return 'primary';if(p?.wing==='secondary'||p?.kind==='faculty'||/\b(?:TGT|PGT)\b/i.test(p?.designation||''))return 'secondary';return '';}
@@ -9,6 +10,7 @@ const validDate=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Da
 export function rollNoAnswers(input){const labels=new Map([...ROLL_CHECKS,...LEAVE_CHECKS].map(([k,label])=>[k,label]));const out=[];if(input.reported==='no')out.push('Reported in Vidyalaya: No');for(const[k,v]of Object.entries(input.answers||{}))if(v==='no'&&labels.has(k))out.push(labels.get(k));return out;}
 export function applyRollCall(current,input,actor,staff,now=Date.now(),id=''){const next=structuredClone(current||{});next.reports||={};next.objections||={};const day=rollToday(now),op=input.rollOperation;
  if(op==='report'){
+  if(activeRollLongLeave(next.reports,rollStaffIdentityIds(staff,actor.id),day))throw Error('You are on recorded long leave. Morning and afternoon roll calls are not required during this period.');
   if(input.date!==undefined&&input.date!==day)throw Error('Roll calls can be submitted only for today. Past and future reporting is not allowed.');
   if(!staff[actor.id]||staff[actor.id].status!=='active')throw Error('Choose an active staff member.');
   const wing=input.wing;if(!['primary','secondary'].includes(wing)||rollWing(staff[actor.id])&&wing!==rollWing(staff[actor.id]))throw Error('Choose your assigned wing.');
@@ -16,6 +18,7 @@ export function applyRollCall(current,input,actor,staff,now=Date.now(),id=''){co
   const key=day+'_'+input.period+'_'+actor.id,old=next.reports[key];if(old?.status==='approved')throw Error('This roll call is already approved.');
   const r={staffId:actor.id,name:actor.name,wing,date:day,period:input.period,submittedAt:now,updatedAt:now,status:input.period==='afternoon'?'pending':'submitted'};
   const leave=input.leaveType||'none';if(!['none','today','long','half'].includes(leave))throw Error('Choose the leave period.');
+  if(leave==='long'&&(input.period!=='morning'||input.reported!=='no'))throw Error('Record long-leave details as not reported in the morning leave form.');
   if(leave!=='none'){r.leaveType=leave;if(leave==='half'){if(!['first','second'].includes(input.halfDay))throw Error('Choose first half or second half.');r.halfDay=input.halfDay;if(input.halfDay==='first'&&input.period!=='afternoon')throw Error('First-half leave permits afternoon roll call only.');}if(leave==='long'){if(!validDate(input.from)||!validDate(input.to)||input.from>day||input.to<day||input.to<input.from)throw Error('Leave dates must include today.');r.from=input.from;r.to=input.to;}}
   const firstHalf=leave==='half'&&input.halfDay==='first';
   if(input.period==='morning'||firstHalf){
