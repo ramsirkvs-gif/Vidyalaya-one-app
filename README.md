@@ -238,3 +238,5 @@ Morning reporting conditionally presents the ten duty confirmations or leave che
 Wing assignment uses existing PRT / primary designations and faculty / TGT / PGT secondary records. Staff whose wing cannot be determined choose it while reporting; they cannot appear in a wing-specific objection roster until their directory wing/designation is configured. This release does not add a department-appointment registry or verify an entered IC title against an appointment list.
 
 Roll Call begins with an explicit Primary / Secondary wing selection. Teacher names, report forms, status lists and objection targets are restricted to that wing. Switching wings clears the previous personal identity/PIN and reloads the protected board; no mixed-wing teacher dropdown is shown.
+
+Roll-call review controls and the status board sit below the reporting form. The reporting date and submission timestamp come from the server (displayed in IST); users cannot choose a reporting date. The server rejects a supplied date other than today, including a form left open across midnight. Long-leave date ranges describe the leave period only. Saved reports show their server submission time.

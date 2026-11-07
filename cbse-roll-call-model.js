@@ -7,11 +7,12 @@ const text=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.length<=max;
 const validDate=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
 export function applyRollCall(current,input,actor,staff,now=Date.now(),id=''){const next=structuredClone(current||{});next.reports||={};next.objections||={};const day=rollToday(now),op=input.rollOperation;
  if(op==='report'){
+  if(input.date!==undefined&&input.date!==day)throw Error('Roll calls can be submitted only for today. Past and future reporting is not allowed.');
   if(!staff[actor.id]||staff[actor.id].status!=='active')throw Error('Choose an active staff member.');
   const wing=input.wing;if(!['primary','secondary'].includes(wing)||rollWing(staff[actor.id])&&wing!==rollWing(staff[actor.id]))throw Error('Choose your assigned wing.');
   if(!['morning','afternoon'].includes(input.period))throw Error('Choose morning or afternoon.');
   const key=day+'_'+input.period+'_'+actor.id,old=next.reports[key];if(old?.status==='approved')throw Error('This roll call is already approved.');
-  const r={staffId:actor.id,name:actor.name,wing,date:day,period:input.period,updatedAt:now,status:input.period==='afternoon'?'pending':'submitted'};
+  const r={staffId:actor.id,name:actor.name,wing,date:day,period:input.period,submittedAt:now,updatedAt:now,status:input.period==='afternoon'?'pending':'submitted'};
   if(input.period==='morning'){
    if(!['yes','no'].includes(input.reported))throw Error('Choose whether you reported today.');r.reported=input.reported;r.answers={};
    for(const[k,,na]of input.reported==='yes'?ROLL_CHECKS:LEAVE_CHECKS){const v=input.answers?.[k];if(!['yes','no',...(na?['na']:[])].includes(v))throw Error('Complete each checklist item.');r.answers[k]=v;}
