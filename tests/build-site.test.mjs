@@ -21,7 +21,8 @@ test('static build is repeatable, includes working app assets, and excludes priv
  for(const asset of ['cbse-mission.js','cbse-mission.css','cbse-mission-theme.css'])assert.ok(missionPage.includes(`${asset}?v=${first.version}`));
  assert.equal((missionPage.match(/id="mission-mcq-shortcut"/g)||[]).length,1);
  assert.ok(!missionPage.includes('id="mission-mcq-entry"'));
- const missionScript=await fs.readFile(path.join(root,'public/cbse-mission.js'),'utf8');assert.ok(!missionScript.includes("button('MCQs महाअभियान'"));
+ const targetsScript=await fs.readFile(path.join(root,'public/cbse-mcq-student-targets-view.js'),'utf8');assert.ok(targetsScript.includes('Print all except absent students'));assert.ok(targetsScript.includes('./cbse-mcq-print-selection.js?v='+first.version));
+ const missionScript=await fs.readFile(path.join(root,'public/cbse-mission.js'),'utf8');assert.ok(!missionScript.includes("button('MCQs महाअभियान'"));assert.ok(missionScript.includes('./cbse-mcq-view.js?v='+first.version));
  for(const file of ['cbse-mcq-import.js','cbse-mcq-pdf.js','cbse-mcq-math.js','vendor/math-fonts/NotoSansMath-Regular.ttf','vendor/math-fonts/OFL.txt','vendor/mcq/pdf/pdf.mjs','vendor/mcq/pdf/pdf.worker.mjs','vendor/mcq/pdf/standard_fonts/LiberationSans-Regular.ttf','vendor/mcq/pdf/wasm/openjpeg.wasm'])await fs.access(path.join(root,'public',file));
  const vercel=JSON.parse(await fs.readFile(path.join(root,'vercel.json'),'utf8'));assert.equal(vercel.buildCommand,'node scripts/build-site.mjs');assert.equal(vercel.outputDirectory,'public');
 });
