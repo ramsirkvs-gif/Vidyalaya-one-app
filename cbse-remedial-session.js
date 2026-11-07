@@ -1,3 +1,4 @@
+import {remedialPriorityAbsentees,remedialAbsenceReminderText} from './cbse-remedial-absence-reminder.js';
 import {el,options} from './cbse-ui.js';
 import {remedialToday} from './cbse-remedial-model.js';
 const button=(label,fn)=>{const b=el('button',label);b.type='button';b.onclick=fn;return b;};
@@ -32,10 +33,10 @@ export function openRemedialClass(plan,ctx,credentials,refresh,initialDate){
     if(session.status!=='verified')actions.append(button('Approve · class done',()=>send('verify')));
    }return;
   }
-  const attendance=el('div',undefined,'remedial-session-attendance'),checks=[],count=el('p');
+  const attendance=el('div',undefined,'remedial-session-attendance'),checks=[],count=el('p');let remindedAbsent='';const remindAbsences=()=>{const absent=remedialPriorityAbsentees(ctx.draft,ctx.currentMission?.()||ctx.mission,plan,checks.filter(c=>c.checked).map(c=>c.value)),signature=JSON.stringify(absent.map(p=>[p.key,p.band]));if(!absent.length){remindedAbsent='';return;}if(signature===remindedAbsent)return;remindedAbsent=signature;window.alert(remedialAbsenceReminderText(absent));};
   const updateCount=()=>{count.textContent=checks.filter(c=>c.checked).length+' present · '+checks.filter(c=>!c.checked).length+' absent';};
-  body.append(el('h4','1. Mark attendance'),el('p','Tick present students. Unticked students are absent.'),button('Mark all present',()=>{checks.forEach(c=>c.checked=true);updateCount();}),count,attendance);
-  for(const key of plan.studentKeys){const [cl,sid,id]=key.split(':'),person=ctx.draft.classes?.[cl]?.sections?.[sid]?.students?.[id],label=el('label',(person?.name||key)+' · Roll '+(person?.roll||'')),check=el('input');check.type='checkbox';check.value=key;check.onchange=updateCount;checks.push(check);label.prepend(check);attendance.append(label);}updateCount();
+  body.append(el('h4','1. Mark attendance'),el('p','Tick present students. Unticked students are absent.'),button('Mark all present',()=>{checks.forEach(c=>c.checked=true);remindedAbsent='';updateCount();}),count,attendance);
+  for(const key of plan.studentKeys){const [cl,sid,id]=key.split(':'),person=ctx.draft.classes?.[cl]?.sections?.[sid]?.students?.[id],label=el('label',(person?.name||key)+' · Roll '+(person?.roll||'')),check=el('input');check.type='checkbox';check.value=key;check.onchange=()=>{updateCount();if(!check.checked)remindAbsences();else remindedAbsent='';};checks.push(check);label.prepend(check);attendance.append(label);}updateCount();
   const camera=el('div'),video=el('video'),preview=el('img'),cameraMessage=el('p');video.autoplay=true;video.muted=true;video.playsInline=true;video.hidden=preview.hidden=true;video.style.width=preview.style.width='100%';body.append(el('h4','2. Take class photo'),camera);
   const capture=button('Capture photo',()=>{try{
    if(!stream||!video.videoWidth)throw Error('Wait for the camera picture, then capture.');
@@ -43,11 +44,11 @@ export function openRemedialClass(plan,ctx,credentials,refresh,initialDate){
    const captured=canvas.toDataURL('image/jpeg',.6);if(captured.length>1000000)throw Error('Photo is too large. Retake it.');
    photo=captured;evidence={ref:'photo_'+crypto.randomUUID().replaceAll('-',''),capturedAt:Date.now(),locationStatus:'not-collected'};preview.src=photo;preview.hidden=false;video.hidden=true;stop();takePhoto.hidden=false;takePhoto.textContent='Retake photo';capture.hidden=true;cameraMessage.textContent='Photo ready · capture time recorded.';message.textContent='Ready to submit record and attendance.';
   }catch(e){cameraMessage.textContent=e.message;}});
-  const takePhoto=button('Take photo',async()=>{if(saving)return;stop();takePhoto.disabled=true;try{
+  const takePhoto=button('Take photo',async()=>{if(saving)return;remindAbsences();stop();takePhoto.disabled=true;try{
    const opened=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1200}},audio:false});if(closed){opened.getTracks().forEach(t=>t.stop());return;}stream=opened;video.srcObject=stream;video.hidden=false;await video.play();preview.hidden=true;takePhoto.hidden=true;capture.hidden=false;cameraMessage.textContent='Tap Capture photo. No location permission needed.';
   }catch(e){cameraMessage.textContent='Allow camera access to take the photo. '+e.message;}finally{takePhoto.disabled=false;}});capture.hidden=true;camera.append(takePhoto,video,preview,cameraMessage,capture);
   body.append(el('h4','3. Submit record & attendance'));if(!ctx.principal)body.append(classPin);
-  actions.append(button('Submit record & attendance',()=>{if(!photo||!evidence){message.textContent='Take and capture the class photo first.';return;}send('complete',{presentKeys:checks.filter(c=>c.checked).map(c=>c.value),photo,evidence});}));
+  actions.append(button('Submit record & attendance',()=>{if(!photo||!evidence){message.textContent='Take and capture the class photo first.';return;}remindAbsences();send('complete',{presentKeys:checks.filter(c=>c.checked).map(c=>c.value),photo,evidence});}));
  }
  dates.onchange=()=>{message.textContent='';draw();};draw();
  if(!plan.sessions?.[dates.value]?.submittedAt)setTimeout(()=>{if(!closed)window.alert('If needed, call the Principal personally for observation. Then mark attendance, take a photo and submit the class record.');},0);
