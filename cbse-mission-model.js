@@ -1,3 +1,4 @@
+import {studentRemedialParticipation} from './cbse-remedial-participation.js';
 import {effectiveStudentMarks,currentMarkSubject} from './cbse-maths-carryover.js';
 import {validateConversations} from './cbse-conversation-model.js';
 import {validateStudentPhotos} from './cbse-student-photo.js';
@@ -72,7 +73,8 @@ export function studentProgress(key,m,draft,examId="",subjectScope=[]){
  const bands=subjects.map(s=>s.band);
  const school=entries(m.attendance).map(([,a])=>a).filter(a=>a.studentKey===key&&a.session==='school'),percentage=school.length?school.filter(a=>a.status==='present').length/school.length*100:null;
  const register=latestAttendanceRegister(key,m),attendance=register?register.total.present/register.total.working*100:percentage;
- return {subjects,academic:overallAcademicBand(bands),attendance,dailyAttendance:percentage,attendanceBand:band(attendance,m.settings.attendanceRedBelow,m.settings.attendanceGreenFrom),recordedDays:school.length,overdue:entries(m.tasks).filter(([,t])=>t.studentKey===key&&!['done','cancelled'].includes(t.status)&&t.due<today()).length};
+ const remedialClasses=studentRemedialParticipation(m,key,subjectScope);
+ return {remedial:{attended:remedialClasses.length,classes:remedialClasses},subjects,academic:overallAcademicBand(bands),attendance,dailyAttendance:percentage,attendanceBand:band(attendance,m.settings.attendanceRedBelow,m.settings.attendanceGreenFrom),recordedDays:school.length,overdue:entries(m.tasks).filter(([,t])=>t.studentKey===key&&!['done','cancelled'].includes(t.status)&&t.due<today()).length};
 }
 export function genderCounts(keys,m){const out={girl:0,boy:0,unknown:0};for(const key of keys)out[normalizedGender(m.students?.[key]?.gender)]++;return out;}
 export function staffCanView(staffId,studentKey,m,draft,faculty){
@@ -90,7 +92,7 @@ export function staffProfileView(staffId,key,m,draft,faculty){
  const p=studentIndex(draft)[key],staff=staffIndex(faculty,m)[staffId],role=faculty?.classes?.[p.classId]?.roles?.[p.sectionId],tid=staffId.split(':').slice(1).join(':');
  const allowContact=true; // This function has already verified the student's assignment; teachers need call/contact access.
  const original=studentProgress(key,m,draft),mark=v=>v?{score:v.score,maximum:v.maximum,absent:v.absent,exam:{name:v.exam.name,date:v.exam.date,type:v.exam.type},...(v.importSource==='monthly_workbook_v1'?{importSource:v.importSource,inferredAbsent:!!v.inferredAbsent,passFrom:v.passFrom,secureFrom:v.secureFrom,criticalBelow:v.criticalBelow}:{})}:null;
- const progress={academic:original.academic,attendance:original.attendance,attendanceBand:original.attendanceBand,recordedDays:original.recordedDays,overdue:original.overdue,subjects:original.subjects.map(s=>({id:s.id,name:s.name,percentage:s.percentage,band:s.band,latest:mark(s.latest),history:s.history.map(mark)}))};
+ const progress={remedial:original.remedial,academic:original.academic,attendance:original.attendance,attendanceBand:original.attendanceBand,recordedDays:original.recordedDays,overdue:original.overdue,subjects:original.subjects.map(s=>({id:s.id,name:s.name,percentage:s.percentage,band:s.band,latest:mark(s.latest),history:s.history.map(mark)}))};
  const sourceAttendance=m.academicAttendance?.[key];if(sourceAttendance)progress.sourceAttendance={percentage:sourceAttendance.percentage,session:sourceAttendance.session};
  const contact=m.students?.[key]||{};
  return {student:{key,name:p.name,roll:p.roll,classId:p.classId,section:p.section,stream:p.stream},sectionTeam:sectionTeam(faculty,p.classId,p.sectionId,p.section,m,Object.keys(p.subjects||{})),progress,roles:staffStudentRoles(staffId,p,faculty,m),contact:allowContact?{guardian:contact.guardian||'',phones:contact.phones||'',location:contact.location||'',gender:contact.gender||'unknown',numbers:contact.numbers||{},mapLocation:contact.mapLocation||'',revision:contact.revision||0}:null,contactRevision:contact.revision||0,mapLocation:contact.mapLocation||'',tasks:entries(m.tasks).filter(([,t])=>(t.studentKey===key||!t.studentKey&&t.sectionKey===`${p.classId}:${p.sectionId}`)&&t.staffId===staffId).map(([id,t])=>({id,title:t.title,due:t.due,status:t.status,outcome:t.outcome,category:t.category,studentKey:key})),records:entries(m.records).filter(([,r])=>(r.studentKey===key||!r.studentKey&&r.sectionKey===`${p.classId}:${p.sectionId}`)&&(r.visibility==='general'||r.authorId===staffId)).map(([id,r])=>staffVisibleRecord(id,r))};
