@@ -7,6 +7,7 @@ export const rollToday=(now=Date.now())=>new Date(now+19800000).toISOString().sl
 export function rollWing(p){if(['primary','secondary'].includes(p?.wing))return p.wing;if(secondaryStaffEntry(p))return 'secondary';if(p?.wing==='primary'||p?.kind==='prt'||/\bPRT\b/i.test(p?.designation||''))return 'primary';if(p?.wing==='secondary'||p?.kind==='faculty'||/\b(?:TGT|PGT)\b/i.test(p?.designation||''))return 'secondary';return '';}
 const text=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.length<=max;
 const validDate=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
+export const rollReasonWordCount=value=>String(value||'').trim().split(/\s+/).filter(Boolean).length;
 export function rollNoAnswers(input){const labels=new Map([...ROLL_CHECKS,...LEAVE_CHECKS].map(([k,label])=>[k,label]));const out=[];if(input.reported==='no')out.push('Reported in Vidyalaya: No');for(const[k,v]of Object.entries(input.answers||{}))if(v==='no'&&labels.has(k))out.push(labels.get(k));return out;}
 export function applyRollCall(current,input,actor,staff,now=Date.now(),id=''){const next=structuredClone(current||{});next.reports||={};next.objections||={};const day=rollToday(now),op=input.rollOperation;
  if(op==='report'){
@@ -32,7 +33,7 @@ export function applyRollCall(current,input,actor,staff,now=Date.now(),id=''){co
    const morning=next.reports[day+'_morning_'+actor.id];if(!firstHalf&&(!morning||morning.reported!=='yes'))throw Error('Submit today’s morning roll call as reported before afternoon roll call, or select first-half leave.');
    if(Object.values(next.objections).some(o=>o.staffId===actor.id&&o.status==='open'))throw Error('A task is pending. Collect NOC from the concerned IC / Principal before submitting afternoon roll call.');
   }
-  const noAnswers=rollNoAnswers(r);if(noAnswers.length){const reason=String(input.noReason||'').trim();if(reason.length<10||reason.length>1000)throw Error('Explain the reason / emergency for every No answer (10–1000 characters) for Principal review.');r.noReason=reason;r.noAnswers=noAnswers;r.requiresReview=true;if(input.period==='morning')r.status='review';}
+  const noAnswers=rollNoAnswers(r);if(noAnswers.length){const reason=String(input.noReason||'').trim();if(reason.length<10||reason.length>4000||rollReasonWordCount(reason)>100)throw Error('Explain the reason / emergency for every No answer for Principal review. Use at least 10 characters and no more than 100 words.');r.noReason=reason;r.noAnswers=noAnswers;r.requiresReview=true;if(input.period==='morning')r.status='review';}
   next.reports[key]=r;
  }else if(op==='object'){
   if(!text(input.department,100)||!text(input.remark,1000))throw Error('Enter the department / IC responsibility and pending-task remark.');
