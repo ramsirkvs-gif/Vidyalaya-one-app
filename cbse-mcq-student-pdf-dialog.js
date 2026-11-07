@@ -1,7 +1,6 @@
 import {el} from './cbse-ui.js';
 import {renderMCQSectionScope} from './cbse-mcq-section-scope.js';
 import {renderMCQStudentTargets} from './cbse-mcq-student-targets-view.js';
-import {printMCQStudentCopies} from './cbse-mcq-personalised-print.js';
 import {showMCQAssignedCopies} from './cbse-mcq-assigned-copies-view.js';
 const button=(text,fn)=>{const b=el('button',text);b.type='button';b.onclick=fn;return b;};
 export async function createMCQStudentPDF(summary,ctx,{identity,errorNode,guarded,onCreated=()=>{}}){
@@ -15,8 +14,7 @@ export async function createMCQStudentPDF(summary,ctx,{identity,errorNode,guarde
    sections.requireValid();if(!picker.enabled()||!picker.value().length)throw Error('Select at least one student. This action creates only student-specific papers.');
    const response=await ctx.submit('mcq-paper',{...who.values(),classId:paper.classId,subjectId:paper.subjectId,requestId,questionIds:paper.questions.map(q=>q.id),pageSettings:paper.pageSettings,paperType:'student-specific',targetStudentKeys:picker.value(),targetSections:sections.value(),questionBankEpoch:paper.questionBankEpoch||0});
    who.remember();form.dataset.portalDirty='false';content.replaceChildren();const result=el('section',undefined,'mcq-student-pdf-result');result.setAttribute('role','status');result.append(el('strong','STUDENT-SPECIFIC QP saved · '+response.paperId),el('p',picker.value().length+' students assigned. Print all named papers together, or choose one student below.'));
-   const resultError=el('p');const full=async()=>{const value=await ctx.read({paperId:response.paperId});if(!value.paper?.copyAssignments?.length)throw Error('Assigned student papers could not be loaded. Open the saved QP and retry.');return value.paper;};
-   result.append(button('Print all student-specific QPs / Save PDF',async()=>{try{await printMCQStudentCopies(await full(),ctx.draft);}catch(e){resultError.textContent=e.message;}}),button('Print by student / Save PDF',()=>showMCQAssignedCopies({id:response.paperId},ctx)),resultError);content.append(result);try{await onCreated(response.paperId);}catch{resultError.textContent='QP saved. Refresh the ready-made list to see it.';}
+   const resultError=el('p');   result.append(button('Print all student-specific QPs / Save PDF',async()=>{try{await showMCQAssignedCopies({id:response.paperId},ctx);}catch(e){resultError.textContent=e.message;}}),button('Print by student / Save PDF',()=>showMCQAssignedCopies({id:response.paperId},ctx)),resultError);content.append(result);try{await onCreated(response.paperId);}catch{resultError.textContent='QP saved. Refresh the ready-made list to see it.';}
   });};
  }catch(e){status.textContent=e.message;}
 }
