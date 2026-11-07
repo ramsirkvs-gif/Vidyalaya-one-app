@@ -34,7 +34,7 @@ function planSupportSave(current,input,newId,now){
  check(name&&name.length<=120&&['prt','counsellor','special_educator','support','other_support'].includes(kind)&&['active','inactive'].includes(status)&&subjects.length<=300,'Enter valid support member details.');
  check(!Object.entries(m.staff||{}).some(([k,t])=>k!==tid&&t.name.trim().toUpperCase()===name.toUpperCase()&&t.kind===kind),'This support member already exists. Open Edit instead.');
  const designation=String(input.designation??m.staff?.[tid]?.designation??'').trim();check(designation.length<=100,'Enter a valid designation.');
- m.staff||={};m.staff[tid]={...m.staff[tid],name,designation,kind,status,subjects};
+ m.staff||={};m.staff[tid]={...m.staff[tid],name,designation,kind,status,subjects};if(input.wing!==undefined){check(['primary','secondary'].includes(input.wing),'Choose Primary or Secondary reporting wing.');m.staff[tid].wing=input.wing;}
  const email=String(input.email||'').trim(),mobile=String(input.mobile||'').trim(),whatsapp=String(input.whatsapp||'').trim();
  check(!mobile||dialNumber(mobile),'Enter a valid mobile number.');check(!whatsapp||dialNumber(whatsapp),'Enter a valid WhatsApp number.');
  m.staffContacts||={};m.staffContacts[id]={...m.staffContacts[id],mobile:dialNumber(mobile),whatsapp:dialNumber(whatsapp)};
