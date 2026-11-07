@@ -92,7 +92,7 @@ with fx['ns']['sync_playwright']() as p:
  assert preview.locator('.mcq-question').count()==3
  assert preview.locator('.mcq-whole-question').count()==3
  page.evaluate("""()=>{new MutationObserver(items=>{for(const item of items)for(const n of item.addedNodes)if(n.matches?.('.mcq-print-frame'))n.contentWindow.print=()=>window.__simplePrint={text:n.contentDocument.body.textContent,html:n.contentDocument.body.innerHTML};}).observe(document.body,{childList:true});}""")
- preview.get_by_role('button',name='Print A4 / save PDF — no answers',exact=True).click()
+ preview.get_by_role('button',name='Print QP / Save PDF',exact=True).click()
  page.wait_for_function('!!window.__simplePrint');printed=page.evaluate('window.__simplePrint')
  assert printed['html'].count('class="mcq-question"')==3
  assert printed['html'].count('<img')==3

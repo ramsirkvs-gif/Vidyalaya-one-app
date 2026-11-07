@@ -19,7 +19,7 @@ export function mcqPaperCoverage(mission,draft,paper,index=mcqAttendanceIndex(mi
  for(const [sectionId,section]of Object.entries(sections)){
   if(paper.targetSections?.length&&!paper.targetSections.includes(sectionId))continue;
   for(const [id,student]of Object.entries(section.students||{})){
-   if(!student.subjects?.[paper.subjectId])continue;const key=classId+':'+sectionId+':'+id,group=groupFor(sectionId);group.eligible++;
+   if(!student.subjects?.[paper.subjectId])continue;const key=classId+':'+sectionId+':'+id;if(paper.targetStudentKeys?.length&&!paper.targetStudentKeys.includes(key)||paper.copyAssignments?.length&&!paper.copyAssignments.some(copy=>copy.studentKey===key))continue;const group=groupFor(sectionId);group.eligible++;
    if(!evaluated.has(key))group.remaining.push({key,name:student.name,roll:student.roll});
   }
  }
