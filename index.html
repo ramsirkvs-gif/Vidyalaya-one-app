@@ -588,7 +588,8 @@ footer {
 .chamber-mini-tiles{margin-top:24px}.chamber-mini-tiles>a{box-shadow:0 5px 18px #173b6808;transition:box-shadow .18s,border-color .18s}.chamber-mini-tiles>a:hover{border-color:#278779;box-shadow:0 8px 24px #173b6815}.chamber-mini-tiles>a:focus-visible{outline:3px solid #278779;outline-offset:4px}
 .chamber-heading{position:relative;z-index:1;min-width:0}.chamber-intro .chamber-subtitle{font-size:clamp(16px,2.3vw,21px);font-weight:750;color:#27695f;margin:14px 0 8px;line-height:1.4}.chamber-intro .chamber-motto{font-size:clamp(14px,1.6vw,17px);color:#41625f;line-height:1.65;margin:0;max-width:580px}@media(max-width:480px){.principal-chamber-page .chamber-intro{flex-direction:column;align-items:flex-start}.principal-chamber-page .chamber-intro>.principal-chamber-photo{width:130px;max-width:100%}.chamber-intro .chamber-subtitle{margin-top:12px}}
 </style>
-<link rel="stylesheet" href="cbse-mobile.css"></head>
+<link rel="stylesheet" href="cbse-mobile.css"><link rel="stylesheet" href="cbse-roll-call.css">
+</head>
 
 <body>
 <header>
@@ -628,8 +629,9 @@ footer {
       <div class="chamber-heading"><h1 id="chamber-title" tabindex="-1">Online Principal Chamber</h1><p class="chamber-subtitle">CCLE-TPE Monitoring and Support</p><p class="chamber-motto">Creative, conducive learning environment with teamwork, promptness &amp; enthusiasm.</p></div>
     </div>
     <div class="chamber-actions chamber-mini-tiles" aria-label="Principal Chamber services">
-      <a href="cbse-mission.html#tab=conversations"><strong>Reporting &amp; Replies</strong><span>Share a routine update and continue your conversation with the Principal.</span><b>Open conversations <span aria-hidden="true">→</span></b></a>
+      <a href="#principal-chamber" id="open-roll-call"><strong>Roll Call</strong><span>Morning and afternoon reporting to the Principal · Primary and Secondary wings.</span><b>Open Roll Call <span aria-hidden="true">→</span></b></a>
     </div>
+    <section id="roll-call-workspace" class="roll-workspace" hidden aria-label="Roll Call"></section>
   </section>
 
   <section aria-labelledby="apps-title">

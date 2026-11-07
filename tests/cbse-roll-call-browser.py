@@ -1,0 +1,20 @@
+from playwright.sync_api import sync_playwright
+import json
+from datetime import datetime,timezone,timedelta
+with sync_playwright() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);page=b.new_page(viewport={'width':390,'height':844});saved=[];state={'reports':{},'objections':{}};unlocked=[False];staff={'a':{'name':'Synthetic Teacher','wing':'secondary'},'b':{'name':'Synthetic Primary','wing':'primary'}}
+ def api(route):
+  v=route.request.post_data_json;action=v['action']
+  if action=='view-login':unlocked[0]=True;route.fulfill(json={'ok':True});return
+  if action=='roll-call-read' and not unlocked[0]:route.fulfill(status=401,json={'error':'Viewing password required'});return
+  if action=='pin-submit':
+   assert v['pin']=='123' and v['staffId']=='a'
+   if v['rollOperation']=='report':
+    saved.append(v);day=(datetime.now(timezone.utc)+timedelta(hours=5,minutes=30)).strftime('%Y-%m-%d');state['reports']['one']={'name':'Synthetic Teacher','staffId':'a','date':day,'wing':v['wing'],'period':v['period'],'reported':v['reported'],'status':'submitted','answers':v['answers']}
+  route.fulfill(json={'ok':True,'staff':staff,'rollCall':state})
+ page.route('**/api/staff-access',api);page.goto('http://127.0.0.1:8000/cbse-roll-call-view.js');page.set_content('<link rel="stylesheet" href="/cbse-roll-call.css"><main id="root"></main>');page.evaluate("async()=>{const {renderRollCall}=await import('./cbse-roll-call-view.js');renderRollCall(document.querySelector('#root'));}")
+ page.locator('[name=roll-view-password]').fill('synthetic');page.get_by_role('button',name='Open Roll Call',exact=True).click();page.locator('[name=roll-staff]').select_option('a');page.locator('[name=roll-pin]').fill('123');page.get_by_role('button',name='Open my roll call').click();page.locator('[name=roll-reported]').wait_for();assert page.locator('[name=roll-reported]').input_value()=='no';assert page.locator('[name=roll-informed]').input_value()=='no';page.locator('[name=roll-leave]').select_option('long');assert page.locator('[name=roll-from]').is_visible();page.locator('[name=roll-reported]').select_option('yes');assert page.locator('[name=roll-biometric]').input_value()=='no';assert page.locator('[name=roll-informed]').count()==0;page.locator('[name=roll-sop]').select_option('na');page.get_by_role('button',name='Submit roll call',exact=True).click();page.get_by_text('Roll call submitted successfully.',exact=True).wait_for();assert saved[0]['answers']['sop']=='na';assert page.get_by_text('Morning roll call submitted',exact=True).is_visible();page.locator('.roll-objections summary').click();assert page.locator('.roll-employee-picks label').count()==1;page.locator('[name=roll-objection-wing]').select_option('primary');assert 'Synthetic Primary' in page.locator('.roll-employee-picks').inner_text()
+ for width in [320,390,768,1440]:
+  page.set_viewport_size({'width':width,'height':844});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ b.close()
+print('PASS shared curtain, personal PIN entry, conditional default-No checklist, save flow, wing roster and mobile widths')

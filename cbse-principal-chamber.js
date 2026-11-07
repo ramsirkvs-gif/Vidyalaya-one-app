@@ -5,3 +5,6 @@ function renderChamber(){
  if(open){window.scrollTo({top:0,behavior:'instant'});document.getElementById('chamber-title').focus({preventScroll:true});}
 }
 window.addEventListener('hashchange',renderChamber);renderChamber();
+
+let rollOpened=false;
+document.getElementById('open-roll-call').addEventListener('click',async event=>{event.preventDefault();const host=document.getElementById('roll-call-workspace');host.hidden=false;if(!rollOpened){rollOpened=true;try{const {renderRollCall}=await import('./cbse-roll-call-view.js');renderRollCall(host);}catch(e){rollOpened=false;host.textContent='Could not open Roll Call. Please try again.';}}host.scrollIntoView({block:'start',behavior:'smooth'});});
