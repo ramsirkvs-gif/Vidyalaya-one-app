@@ -1,0 +1,12 @@
+from pathlib import Path
+from datetime import datetime,timezone
+exec(Path('tests/cbse-remedial-browser.py').read_text().split("\nwith fx['ns']['sync_playwright']() as p:")[0])
+plan={'id':'upcoming','teacherId':'X:one','teacherName':'Synthetic Teacher','classId':'X','sectionId':'a','section':'A','subjectId':'english','subjectName':'English','studentKeys':['X:a:one'],'start':'07:30','end':'08:30','dates':['2026-11-08'],'purpose':'Tomorrow reading practice','status':'planned'}
+root['mission']['remedialPlans']={'upcoming':plan,'other':{**plan,'id':'other','teacherId':'X:two','teacherName':'Other Teacher','studentKeys':['X:a:two'],'purpose':'Other learners only'}}
+with fx['ns']['sync_playwright']() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);ctx=b.new_context(viewport={'width':390,'height':844});ctx.route('https://www.gstatic.com/firebasejs/**',mcq_sdk);page=ctx.new_page();page.clock.set_fixed_time(datetime(2026,11,7,tzinfo=timezone.utc));page.route('**/api/staff-access',lambda r:api(page,r));errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+ page.goto('http://127.0.0.1:8000/cbse-mission.html');strip=page.locator('[data-upcoming-audience=principal]');strip.get_by_role('heading',name='Upcoming remedial classes · 2',exact=True).wait_for();assert strip.locator('.remedial-upcoming-tomorrow').count()==2
+ page.evaluate("location.hash='staff=X%3Aone'");strip=page.locator('[data-upcoming-audience=teacher]');strip.get_by_role('heading',name='Upcoming remedial classes · 1',exact=True).wait_for();assert 'Tomorrow reading practice' in strip.inner_text();assert 'Other learners only' not in strip.inner_text()
+ page.evaluate("location.hash='student=X%3Aa%3Aone'");strip=page.locator('[data-upcoming-audience=student]');strip.get_by_role('heading',name='Upcoming remedial classes · 1',exact=True).wait_for();assert 'You are selected' in strip.inner_text();assert 'Other learners only' not in strip.inner_text();assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ root['mission']['remedialPlans']['upcoming']['status']='cancelled';page.evaluate('(m)=>window.__mcqEmit(m)',root['mission']);strip.get_by_role('heading',name='Upcoming remedial classes · 0',exact=True).wait_for();assert not errors,errors;b.close()
+print('PASS Principal upcoming overview, teacher/student specific tomorrow classes, mobile fit and automatic cancellation update')
