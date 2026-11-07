@@ -583,6 +583,7 @@ footer {
 
 /* Application previews supplied in the launch-page reference PDF. */
 .launch-reference-card{display:flex;flex-direction:column;gap:0;overflow:hidden;padding:18px;min-height:0}.launch-reference-card .launch-tile-image{display:block;width:calc(100% + 36px);max-width:none;height:180px;object-fit:contain;object-position:center;background:#fff;border-radius:0;margin:-18px -18px 16px;flex:none}.launch-reference-card:has(img[src*="prashast"]) .launch-tile-image{padding:15px}.launch-reference-card .card-top{display:flex;justify-content:flex-end}.launch-reference-card h3{margin:10px 0 8px}.launch-reference-card p{margin-bottom:12px}.launch-reference-card .card-action{margin-top:auto;padding-top:12px}.launch-reference-card .mission-entry-logo{grid-column:auto;grid-row:auto;align-self:auto}@media(max-width:600px){.launch-reference-card{padding:16px}.launch-reference-card .launch-tile-image{width:calc(100% + 32px);height:155px;margin:-16px -16px 12px}.launch-reference-card h3{font-size:16px}.launch-reference-card p{font-size:12px;line-height:1.5}}
+.principal-chamber-visual{min-height:180px;margin:-18px -18px 16px;padding:22px;display:flex;align-items:center;justify-content:center;gap:18px;background:linear-gradient(125deg,#e4f2ee,#dce9f9);color:#19554d;font-size:22px;font-weight:800}.principal-chamber-avatar{display:grid;place-items:center;width:100px;height:100px;flex:none;border-radius:50%;border:5px solid #fff;background:#19675f;color:#fff;font-weight:800;font-size:34px;box-shadow:0 5px 18px #173b6818}.principal-chamber-page{padding:20px 0 36px}.principal-chamber-page[hidden],section[aria-labelledby=apps-title][hidden],.hero[hidden]{display:none!important}.chamber-back{display:inline-block;margin:0 0 20px;color:#195e5a;font-weight:700}.chamber-intro{display:flex;align-items:center;gap:22px;background:linear-gradient(120deg,#e5f4ef,#edf2ff);padding:28px;border-radius:20px;border:1px solid #c8dfd8}.chamber-intro h1{font-size:clamp(26px,4vw,40px);margin:8px 0}.chamber-intro p{line-height:1.7;margin:8px 0}.chamber-concept,.chamber-how{background:#fff;border:1px solid #d8e4df;border-radius:16px;padding:24px;margin:20px 0;line-height:1.8}.chamber-concept h2,.chamber-how h2{margin-top:0;color:#19554d}.chamber-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.chamber-actions>a{display:flex;flex-direction:column;gap:12px;border:1px solid #bcd7ce;border-radius:16px;background:#fff;padding:22px;color:#203d4a;text-decoration:none;line-height:1.6}.chamber-actions strong{font-size:19px;color:#165c53}.chamber-actions b{margin-top:auto;color:#176f64}.chamber-how li{margin:9px 0}.chamber-how ol{padding-left:22px}@media(max-width:650px){.chamber-intro{padding:20px;gap:14px;align-items:flex-start}.chamber-intro>.principal-chamber-avatar{width:65px;height:65px;font-size:24px}.chamber-actions{grid-template-columns:1fr}.chamber-concept,.chamber-how{padding:18px}.principal-chamber-visual{margin:-16px -16px 12px;min-height:155px;font-size:18px}.principal-chamber-visual .principal-chamber-avatar{width:86px;height:86px}}
 </style>
 <link rel="stylesheet" href="cbse-mobile.css"></head>
 
@@ -617,6 +618,25 @@ footer {
     </div>
   </section>
 
+  <section id="principal-chamber" class="principal-chamber-page" aria-labelledby="chamber-title" hidden>
+    <a class="chamber-back" href="#">← All school applications</a>
+    <div class="chamber-intro">
+      <div class="principal-chamber-avatar" aria-hidden="true">PC</div>
+      <div><p class="eyebrow">VIDYALAYA ONE · STAFF REPORTING</p><h1 id="chamber-title" tabindex="-1">Online Principal Chamber</h1><p>Stay connected with the Principal. Report routine work online and keep your updates and replies in one place.</p></div>
+    </div>
+    <article class="chamber-concept" aria-labelledby="chamber-concept-title">
+      <h2 id="chamber-concept-title">The idea behind the Online Principal Chamber</h2>
+      <p>This is an online space for reporting work that does not require teachers to visit the Principal’s chamber physically. Teachers can share routine updates, report student follow-up, submit completed remedial-class records and receive the Principal’s feedback through the existing portal.</p>
+      <p>Use it to save time, keep a clear record of reporting and continue classroom work with fewer interruptions. For an urgent matter or a discussion that needs personal attention, contact or meet the Principal directly.</p>
+    </article>
+    <div class="chamber-actions" aria-label="Principal Chamber reporting areas">
+      <a href="cbse-mission.html#tab=conversations"><strong>Reporting &amp; replies</strong><span>Share a routine update and continue your conversation with the Principal.</span><b>Open conversations →</b></a>
+      <a href="cbse-mission.html#zone=students"><strong>Student progress &amp; follow-up</strong><span>Open the concerned student’s profile, review progress and record the follow-up.</span><b>Open student profiles →</b></a>
+      <a href="cbse-mission.html#tab=remedial"><strong>Remedial class records</strong><span>Mark attendance, capture the class photo and submit the completed class for Principal approval.</span><b>Open Remedial Class Manager →</b></a>
+    </div>
+    <section class="chamber-how"><h2>How to report</h2><ol><li>Choose the relevant reporting area above.</li><li>Select your name and the concerned student, class or subject, where applicable.</li><li>Write a short, clear update and submit using your personal PIN.</li><li>Return to the same record or conversation to see the Principal’s feedback or approval.</li></ol><p>Principal: use your existing Principal login to review reports, reply to teachers and approve completed remedial classes.</p></section>
+  </section>
+
   <section aria-labelledby="apps-title">
     <div class="section-head">
       <div>
@@ -638,6 +658,14 @@ footer {
         <div class="card-action">
           Open official portal <span aria-hidden="true">↗</span>
         </div>
+      </a>
+
+      <a class="app-card launch-reference-card principal-chamber-entry" href="#principal-chamber">
+        <div class="principal-chamber-visual" aria-hidden="true"><span class="principal-chamber-avatar">PC</span><span>Principal’s Chamber</span></div>
+        <div class="card-top"><span class="status">STAFF REPORTING</span></div>
+        <h3>Online Principal Chamber</h3>
+        <p>Routine reporting, student follow-up and updates to the Principal—without a physical visit when one is not required.</p>
+        <div class="card-action">Enter Online Principal Chamber <span aria-hidden="true">→</span></div>
       </a>
 
       <a class="app-card launch-reference-card"
@@ -883,6 +911,7 @@ document.querySelector(".grid").addEventListener("click", function(event) {
   alert(link.querySelector("h3").textContent + " is not connected yet. The application URL will be added when it is available.");
 });
 </script>
+<script type="module" src="cbse-principal-chamber.js"></script>
 <script type="module" src="portal-firebase.js"></script>
 <script type="module" src="live-update.js"></script></body>
 </html>

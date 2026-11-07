@@ -12,7 +12,7 @@ with sync_playwright() as p:
  try:page.get_by_text('Keep other configured applications',exact=True).wait_for(timeout=8000)
  except Exception:
   print('errors',errors,'body',page.locator('body').inner_text()[-2000:],flush=True);raise
- assert page.locator('.launch-reference-card').count()==15
+ assert page.locator('.launch-reference-card').count()==16
  assert page.locator('a[href="https://example.test/student-timetable"]').count()==1
  assert page.locator('a[href="https://pis.kvs.gov.in/"]').count()==0
  assert page.locator('a[href="https://samvida-sathi.kvs.gov.in/"]').count()==1
@@ -22,7 +22,7 @@ with sync_playwright() as p:
  for img in page.locator('.launch-tile-image').all():img.scroll_into_view_if_needed();img.evaluate('(n)=>n.loading="eager"')
  page.wait_for_function('[...document.querySelectorAll(".launch-tile-image")].every(n=>n.complete&&n.naturalWidth>0)')
  for width in [360,768,1440]:
-  page.set_viewport_size({'width':width,'height':1100});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth');assert page.locator('.launch-reference-card').count()==15
+  page.set_viewport_size({'width':width,'height':1100});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth');assert page.locator('.launch-reference-card').count()==16
  page.evaluate('scrollTo(0,0)');page.screenshot(path='/tmp/launch-tiles-desktop.png',full_page=True);page.set_viewport_size({'width':390,'height':1000});page.screenshot(path='/tmp/launch-tiles-mobile.png',full_page=True)
  assert not errors,errors;b.close()
-print('PASS fifteen PDF image tiles, Samvida URL, PIS removal, old live catalogue, existing links and mobile/tablet/desktop layout')
+print('PASS sixteen application tiles including Principal Chamber, Samvida URL, PIS removal, old live catalogue, existing links and mobile/tablet/desktop layout')
