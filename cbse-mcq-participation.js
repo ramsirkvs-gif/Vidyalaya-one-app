@@ -28,3 +28,16 @@ export function mcqPaperCoverage(mission,draft,paper,index=mcqAttendanceIndex(mi
  const result=[...groups.values()].map(group=>({...group,evaluated:group.evaluated.sort(sort),remaining:group.remaining.sort(sort)})).sort((a,b)=>String(a.section).localeCompare(String(b.section),undefined,{numeric:true}));
  return {groups:result,evaluated:result.reduce((n,g)=>n+g.evaluated.length,0),remaining:result.reduce((n,g)=>n+g.remaining.length,0),eligible:result.reduce((n,g)=>n+g.eligible,0)};
 }
+
+// Credit the recorded evaluator, including linked teacher identities. A corrected
+// result is one evaluation, and another teacher's result is never inferred by name.
+export function teacherMCQParticipation(mission,teacherIds){
+ const ids=new Set(teacherIds),papers=new Map(),students=new Set();let evaluations=0,lastReportedAt=0;
+ for(const [key,tests]of mcqAttendanceIndex(mission))for(const mark of tests.values()){
+  if(!ids.has(mark.evaluatedBy))continue;
+  const classId=key.split(':')[0],groupKey=classId+'|'+mark.paperId;
+  if(!papers.has(groupKey))papers.set(groupKey,{paperId:mark.paperId,classId,subjectId:mark.subjectId,reportedAt:0,students:[]});
+  const group=papers.get(groupKey);group.students.push({key,score:mark.score,maximum:mark.maximum,reportedAt:mark.updatedAt||0});group.reportedAt=Math.max(group.reportedAt,mark.updatedAt||0);students.add(key);evaluations++;lastReportedAt=Math.max(lastReportedAt,mark.updatedAt||0);
+ }
+ return {evaluations,studentCount:students.size,paperCount:papers.size,lastReportedAt,papers:[...papers.values()].sort((a,b)=>b.reportedAt-a.reportedAt||a.paperId.localeCompare(b.paperId))};
+}

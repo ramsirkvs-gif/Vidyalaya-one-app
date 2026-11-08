@@ -146,3 +146,5 @@ body.mission-app #mission-nav .mission-switch-menu[open]>button{display:block;wi
 .mcq-topic-selection{display:grid;grid-template-columns:minmax(0,1fr);gap:9px}.mcq-topic-selection>button{display:block;width:100%;margin:0;padding:13px 16px;text-align:left;border-radius:8px;font-size:16px;line-height:1.4}.mcq-topic-selection>button:nth-of-type(1){background:#e1f2e9;border-color:#9ac5af;color:#164c34}.mcq-topic-selection>button:nth-of-type(2){background:#e8effb;border-color:#b0c5e2;color:#244e7d}.mcq-topic-selection>button:nth-of-type(3){background:#fff0e8;border-color:#dfb99f;color:#824726}.mcq-topic-selection>.notice{margin:0}
 
 .mcq-preview-back-actions{display:flex;justify-content:flex-end;margin:8px 0}.mcq-preview-back-actions>button{min-height:44px;max-width:100%;white-space:normal}
+
+.mcq-teacher-contribution-total{font-size:18px;font-weight:700;color:#175b4b}.mcq-teacher-paper{border:1px solid #bed8d1;border-radius:9px;padding:12px;margin:10px 0}.mcq-teacher-paper summary{font-weight:700;cursor:pointer;line-height:1.6}.mcq-teacher-paper li{margin:10px 0;overflow-wrap:anywhere}.mcq-teacher-paper button{white-space:normal;text-align:left;max-width:100%}
