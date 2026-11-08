@@ -1,0 +1,21 @@
+from playwright.sync_api import sync_playwright,expect
+with sync_playwright() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);page=b.new_page(viewport={'width':390,'height':844});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
+ page.route('**/portal-firebase.js',lambda r:r.fulfill(content_type='application/javascript',body=''))
+ page.route('**/firebase-client.js',lambda r:r.fulfill(content_type='application/javascript',body='export const auth={currentUser:null,authStateReady:async()=>{}};'))
+ page.route('https://www.gstatic.com/firebasejs/**/firebase-auth.js',lambda r:r.fulfill(content_type='application/javascript',body='export function onAuthStateChanged(a,fn){fn(null);return ()=>{};}'))
+ staff={'a':{'name':'MRS. E.T. ZIRDO','designation':'PGT-English','wing':'secondary'},'b':{'name':'MR. PARAMVEER MEENA','designation':'PGT-English','wing':'secondary'},'leave':{'name':'MR. RAMESH YADAV','designation':'PGT-History','wing':'secondary'},'p':{'name':'Synthetic Primary','designation':'PRT','wing':'primary'},'half':{'name':'Synthetic First Half Leave','designation':'PRT','wing':'primary'},'full':{'name':'Synthetic Full Day Leave','designation':'PRT','wing':'primary'}}
+ def report(id,period,status='pending',**extra):return {'staffId':id,'name':staff[id]['name'],'wing':staff[id]['wing'],'date':'2026-11-09','period':period,'status':status,**extra}
+ reports={'a':report('a','morning'),'long':report('leave','morning',leaveType='long',reported='no',**{'from':'2026-11-08','to':'2026-11-10'}),'half':report('half','afternoon',leaveType='half',halfDay='first'),'full':report('full','morning',reported='no',leaveType='today')};calls=[]
+ def api(route):
+  v=route.request.post_data_json;calls.append(v)
+  route.fulfill(json={'ok':True,'serverDate':'2026-11-09','serverTime':1794196800000,'staff':staff,'rollCall':{'reports':reports,'objections':{}}})
+ page.route('**/api/staff-access',api);page.goto('http://127.0.0.1:8000/index.html#principal-chamber');assert page.locator('#roll-call-workspace').is_hidden();page.locator('#open-pending-roll-calls').click();page.get_by_role('heading',name='Pending Roll Calls — check your name',exact=True).wait_for();assert page.locator('.roll-principal-dashboard').count()==0;assert page.locator('[name=roll-staff]').count()==0;assert page.locator('[name=roll-submit-pin]').count()==0
+ secondary=page.locator('.roll-pending-wing').filter(has=page.get_by_role('heading',name='Secondary wing',exact=True));morning=secondary.locator('.roll-summary-morning');assert 'MR. PARAMVEER MEENA' in morning.locator('.roll-pending-missing').inner_text();assert 'MRS. E.T. ZIRDO' not in morning.locator('.roll-pending-missing').inner_text();assert 'MRS. E.T. ZIRDO' in morning.locator('.roll-pending-approval').inner_text();assert page.locator('.roll-pending-wing').get_by_text('MR. RAMESH YADAV',exact=True).count()==0
+ primary=page.locator('.roll-pending-wing').filter(has=page.get_by_role('heading',name='Primary wing',exact=True));assert 'Synthetic First Half Leave' not in primary.locator('.roll-summary-morning .roll-pending-missing').inner_text();assert 'Synthetic Full Day Leave' not in primary.locator('.roll-summary-afternoon .roll-pending-missing').inner_text()
+ page.locator('[name=roll-pending-search]').fill('PARAMVEER');assert page.locator('.roll-pending-wing').get_by_text('MRS. E.T. ZIRDO',exact=True).count()==0;assert page.locator('.roll-pending-missing li').count()==2;page.locator('[name=roll-pending-search]').fill('');page.locator('[name=roll-pending-wing]').select_option('primary');assert page.locator('.roll-pending-wing').count()==1
+ reports['a']['status']='approved';page.get_by_role('button',name='Refresh status',exact=True).click();expect(page.locator('.roll-pending-approval').get_by_text('MRS. E.T. ZIRDO',exact=True)).to_have_count(0)
+ for width in [320,390,768,1440]:
+  page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ assert not [c for c in calls if c['action'] in ['pin-submit','roll-call-principal']];assert not errors,errors;b.close()
+print('PASS staff pending lists by wing/period, separate approval queue, leave exemptions, name search, refresh and mobile layout without Principal login or PIN')
