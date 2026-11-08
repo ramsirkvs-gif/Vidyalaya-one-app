@@ -2,7 +2,7 @@ import {el,options} from './cbse-ui.js';
 import {compareRollStaff} from './cbse-roll-call-roster.js';
 import {rollTimestamp} from './cbse-roll-call-time.js';
 import {PODCAST_ACK} from './cbse-podcast-model.js';
-import {mountCompactYouTube} from './cbse-youtube-player.js';
+import {mountPodcastVideo} from './cbse-youtube-player.js';
 const button=(text,fn)=>{const b=el('button',text);b.type='button';b.onclick=fn;return b;};
 export function renderPodcastTeacher(parent,{data,api,run,askPIN}){
  const notice=el('p','Loading published videos…'),list=el('div',undefined,'podcast-catalogue');notice.className='podcast-catalogue-notice';notice.setAttribute('role','status');parent.append(notice,list);
@@ -44,7 +44,7 @@ export function renderPodcastTeacher(parent,{data,api,run,askPIN}){
  }
  function showVideo(video,identity,content,status,slot,reset){
   content.replaceChildren();
-  const playbackGeneration=String(Number(slot.dataset.playbackGeneration||0)+1);slot.dataset.playbackGeneration=playbackGeneration;mountCompactYouTube(slot,video.youtubeId).catch(e=>{if(slot.isConnected&&slot.dataset.playbackGeneration===playbackGeneration){const frame=slot.querySelector('.podcast-player');if(frame)frame.textContent=e.message;}});
+  const playbackGeneration=String(Number(slot.dataset.playbackGeneration||0)+1);slot.dataset.playbackGeneration=playbackGeneration;mountPodcastVideo(slot,video).catch(e=>{if(slot.isConnected&&slot.dataset.playbackGeneration===playbackGeneration){const frame=slot.querySelector('.podcast-player');if(frame)frame.textContent=e.message;}});
   if(video.ack){slot.append(el('p','You have already submitted this video report · '+rollTimestamp(video.ack.acknowledgedAt),'podcast-acknowledged'),button('Close video',reset));return;}
   let submitted=false;
   const form=el('form',undefined,'podcast-viewing-report'),ackLabel=el('label',PODCAST_ACK),check=el('input');

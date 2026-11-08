@@ -47,3 +47,5 @@
 .roll-workspace .podcast-expanded>.podcast-player-error,.podcast-expanded>.podcast-player-error{display:block;position:absolute;top:8px;left:8px;right:8px;padding:8px;background:#291b12;color:white}
 .podcast-expanded.podcast-controls-hidden .podcast-playback{opacity:0;pointer-events:none}
 .podcast-expanded.podcast-controls-hidden .podcast-playback:has(:focus-visible){opacity:1;pointer-events:auto}
+
+.podcast-drive-player.podcast-expanded .podcast-playback{top:0;bottom:auto;left:auto;width:auto;padding:6px max(8px,env(safe-area-inset-right));background:#0008}.podcast-drive-player.podcast-expanded .podcast-playback>button{margin:0}
