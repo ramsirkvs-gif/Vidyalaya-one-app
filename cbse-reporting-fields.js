@@ -1,0 +1,2 @@
+import {el,options} from './cbse-ui.js';
+export function renderReportingFields(parent,questions,start=1){const fields={};for(const q of questions){const label=el('label',`${start++}. ${q.label}${q.required?'':' (optional)'}`),input=el(q.type==='text'?'textarea':'select');input.name='roll-'+q.id;input.required=q.required;if(q.type==='text')input.maxLength=500;else options(input,[...(!q.required?[['','Not answered']]:[]),['no','No'],['yes','Yes'],...(q.type==='yesnona'?[['na',q.naLabel]]:[])]);label.append(input);parent.append(label);fields[q.id]=input;}return fields;}

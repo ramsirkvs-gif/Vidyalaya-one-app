@@ -1,17 +1,18 @@
 import {activeRollLongLeave} from './cbse-roll-call-leave.js';
 import {secondaryStaffEntry,rollStaffIdentityIds} from './cbse-roll-call-roster.js';
-export const ROLL_CHECKS=[
- ['biometric','Biometric attendance completed?'],['register','Staff attendance register signed?'],['sop','Checked and proceeding for SOP duty?','No SOP duty today'],['assembly','Aware and bringing your class to MP Hall for assembly?','I am not CT / Co-CT'],['attendance','Ensuring timely Samagam student attendance?','I am not CT / Co-CT'],['timetable','Checking timetable / arrangements in the Vidyalaya App for every period?'],['lunch','Checked and ensuring lunch duty?','No lunch duty today'],['dispersal','Checked and ensuring dispersal duty?','No dispersal duty today'],['samagam','Have you planned to log in to Samagam at least once today and update all required data?'],['messages','Have you carefully read all Vidyalaya WhatsApp group messages up to now and noted the instructions for compliance?']];
-export const LEAVE_CHECKS=[['informed','Informed the group of your leave type?'],['cover','Informed Co-CT / colleague about Samagam student attendance?'],['exam','Arranged any due exam QP submission, bundle collection or checking?','No exam / duty assigned'],['data','Ensured Samagam data updates for all your roles?','Under progress']];
+import {ROLL_CHECKS,LEAVE_CHECKS} from './cbse-roll-call-defaults.js';
+export {ROLL_CHECKS,LEAVE_CHECKS} from './cbse-roll-call-defaults.js';
+import {publishedReporting,reportingQuestions,snapshotAnswers} from './cbse-reporting-model.js';
 export const rollToday=(now=Date.now())=>new Date(now+19800000).toISOString().slice(0,10);
 export function rollWing(p){if(['primary','secondary'].includes(p?.wing))return p.wing;if(secondaryStaffEntry(p))return 'secondary';if(p?.wing==='primary'||p?.kind==='prt'||/\bPRT\b/i.test(p?.designation||''))return 'primary';if(p?.wing==='secondary'||p?.kind==='faculty'||/\b(?:TGT|PGT)\b/i.test(p?.designation||''))return 'secondary';return '';}
 const text=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.length<=max;
 const validDate=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
 export const rollReasonWordCount=value=>String(value||'').trim().split(/\s+/).filter(Boolean).length;
-export function rollNoAnswers(input){const labels=new Map([...ROLL_CHECKS,...LEAVE_CHECKS].map(([k,label])=>[k,label]));const out=[];if(input.reported==='no')out.push('Reported in Vidyalaya: No');for(const[k,v]of Object.entries(input.answers||{}))if(v==='no'&&labels.has(k))out.push(labels.get(k));return out;}
+export function rollNoAnswers(input){const labels=new Map(input.questionSnapshot?input.questionSnapshot.filter(q=>q.type!=='text').map(q=>[q.id,q.label]):[...ROLL_CHECKS,...LEAVE_CHECKS].map(([k,label])=>[k,label]));const out=[];if(input.reported==='no')out.push('Reported in Vidyalaya: No');for(const[k,v]of Object.entries(input.answers||{}))if(v==='no'&&labels.has(k))out.push(labels.get(k));return out;}
 export const rollNeedsApproval=r=>!!r&&['morning','afternoon'].includes(r.period)&&['pending','review','submitted'].includes(r.status);
-export function applyRollCall(current,input,actor,staff,now=Date.now(),id=''){const next=structuredClone(current||{});next.reports||={};next.objections||={};const day=rollToday(now),op=input.rollOperation;
+export function applyRollCall(current,input,actor,staff,now=Date.now(),id='',reportingStore=null){const next=structuredClone(current||{});next.reports||={};next.objections||={};const day=rollToday(now),op=input.rollOperation;
  if(op==='report'){
+  const form=publishedReporting(reportingStore);if(!form.enabled)throw Error('Reporting is not currently published.');if((input.formVersion??1)!==form.version)throw Error('The reporting form changed. Reopen it to use the latest published questions.');
   if(activeRollLongLeave(next.reports,rollStaffIdentityIds(staff,actor.id),day))throw Error('You are on recorded long leave. Morning and afternoon roll calls are not required during this period.');
   if(input.date!==undefined&&input.date!==day)throw Error('Roll calls can be submitted only for today. Past and future reporting is not allowed.');
   if(!staff[actor.id]||staff[actor.id].status!=='active')throw Error('Choose an active staff member.');
@@ -25,8 +26,6 @@ export function applyRollCall(current,input,actor,staff,now=Date.now(),id=''){co
   const firstHalf=leave==='half'&&input.halfDay==='first';
   if(input.period==='morning'||firstHalf){
    if(!['yes','no'].includes(input.reported))throw Error('Choose whether you reported today.');r.reported=input.reported;r.answers={};
-   const checks=firstHalf||input.reported==='no'?LEAVE_CHECKS:ROLL_CHECKS;
-   for(const[k,,na]of checks){const v=input.answers?.[k];if(!['yes','no',...(na?['na']:[])].includes(v))throw Error('Complete each checklist item.');r.answers[k]=v;}
    if(input.reported==='no'&&leave==='none')throw Error('Choose the leave period.');
    if(input.reported==='no'){r.remark=String(input.remark||'').trim();if(r.remark.length>1000||r.remark.split(/\s+/).filter(Boolean).length>50)throw Error('Keep your action-plan remark within 50 words.');}
   }
@@ -34,7 +33,7 @@ export function applyRollCall(current,input,actor,staff,now=Date.now(),id=''){co
    const morning=next.reports[day+'_morning_'+actor.id];if(!firstHalf&&(!morning||morning.reported!=='yes'))throw Error('Submit today’s morning roll call as reported before afternoon roll call, or select first-half leave.');
    if(Object.values(next.objections).some(o=>o.staffId===actor.id&&o.status==='open'))throw Error('A task is pending. Collect NOC from the concerned IC / Principal before submitting afternoon roll call.');
   }
-  const noAnswers=rollNoAnswers(r);if(noAnswers.length){const reason=String(input.noReason||'').trim();if(reason.length<10||reason.length>4000||rollReasonWordCount(reason)>100)throw Error('Explain the reason / emergency for every No answer for Principal review. Use at least 10 characters and no more than 100 words.');r.noReason=reason;r.noAnswers=noAnswers;r.hasNoAnswers=true;r.requiresReview=true;if(input.period==='morning')r.status='review';}
+  r.formVersion=form.version;r.formTitle=form.title;r.questionSnapshot=structuredClone(reportingQuestions(form,input));r.answers=snapshotAnswers(r.questionSnapshot,input.answers);const noAnswers=rollNoAnswers(r);if(noAnswers.length){const reason=String(input.noReason||'').trim();if(reason.length<10||reason.length>4000||rollReasonWordCount(reason)>100)throw Error('Explain the reason / emergency for every No answer for Principal review. Use at least 10 characters and no more than 100 words.');r.noReason=reason;r.noAnswers=noAnswers;r.hasNoAnswers=true;r.requiresReview=true;if(input.period==='morning')r.status='review';}
   next.reports[key]=r;
  }else if(op==='object'){
   const department=String(input.department||'IC Objection');if(!text(department,100)||!text(input.remark,1000))throw Error('Enter a short pending-task remark.');
