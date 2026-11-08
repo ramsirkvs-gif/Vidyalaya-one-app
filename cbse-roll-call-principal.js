@@ -1,3 +1,4 @@
+import {renderLeaveRecords} from './cbse-advance-leave-view.js';
 import {renderRollPending} from './cbse-roll-call-pending.js';
 import {renderReportingEditor} from './cbse-reporting-editor.js';
 import {renderPodcastEditor} from './cbse-podcast-editor.js';
@@ -19,12 +20,13 @@ export function renderRollPrincipalDashboard(host,{data,state,api,run,refresh,cl
   const ticket=++generation,scope=state.scope||'dashboard';root.dataset.workspace=scope;
   workspaceTitle.hidden=!['roll','settings'].includes(scope);workspaceTitle.textContent=scope==='roll'?(data.reporting?.title||'Roll Call'):scope==='settings'?'Settings':'';
   tools.hidden=!state.tab;const setupNotice=root.querySelector('[data-setup-notice]');if(setupNotice)setupNotice.hidden=scope!=='dashboard'||!state.tab;
-  tabs.replaceChildren();const choices=scope==='podcasts'?[]:scope==='roll'?[['pending','Monitoring'],['noc','IC Objections / NOC'],['reporting','Edit questions / title']]:scope==='settings'?[['staff','Staff / Faculty'],['pins','Shared PINs']]:[];
+  tabs.replaceChildren();const choices=scope==='podcasts'?[]:scope==='roll'?[['pending','Monitoring'],['noc','IC Objections / NOC'],['advance-leave','Advance leave reports'],['reporting','Edit questions / title']]:scope==='settings'?[['staff','Staff / Faculty'],['pins','Shared PINs']]:[];
   tabs.hidden=!choices.length;
   for(const[value,label]of choices){const b=button(label,()=>{state.scope=['staff','pins'].includes(value)?'settings':value==='podcasts'?'podcasts':'roll';state.tab=value;state.staffEdit='';drawTab();});b.dataset.tab=value;b.setAttribute('aria-pressed',String(value===state.tab||value==='pending'&&['approved','not-approved','missing'].includes(state.tab)));tabs.append(b);}
   pane.replaceChildren();const content=el('div');pane.append(content);if(!state.tab)return;
   if(state.tab==='staff')drawStaff(ticket).catch(e=>{if(pane.isConnected&&ticket===generation)pane.append(el('p',e.message,'roll-warning'));});
   else if(state.tab==='pins')drawPins(ticket).catch(e=>{if(pane.isConnected&&ticket===generation)pane.append(el('p',e.message,'roll-warning'));});
+  else if(state.tab==='advance-leave'){content.append(button(state.advanceEdit?'Back to leave reports':'Add / edit / delete leave questions',()=>{state.advanceEdit=!state.advanceEdit;drawTab();}));if(state.advanceEdit)renderReportingEditor(content,{api,run,refresh,onlyGroup:'advanceLeave'}).catch(e=>content.append(el('p',e.message,'roll-warning')));else renderLeaveRecords(content,{data,principal:true,records:Object.entries(data.rollCall.advanceLeaves||{}),submit:(rollOperation,values)=>run(async()=>{await api({action:'roll-call-principal',rollOperation,...values});await refresh();})});}
   else if(state.tab==='reporting')renderReportingEditor(content,{api,run,refresh}).catch(e=>{if(pane.isConnected)pane.append(el('p',e.message,'roll-warning'));});
   else if(state.tab==='podcasts')renderPodcastEditor(content,{api,run,refresh,state}).catch(e=>{if(pane.isConnected)pane.append(el('p',e.message,'roll-warning'));});
   else if(state.tab==='noc')drawObjections();

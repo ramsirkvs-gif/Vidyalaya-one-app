@@ -1,1 +1,3 @@
 export function activeRollLongLeave(reports,ids,date){const wanted=new Set(ids);return Object.entries(reports||{}).filter(([,r])=>wanted.has(r.staffId)&&r.leaveType==='long'&&r.from&&r.to&&r.from<=date&&date<=r.to).map(([id,r])=>({id,...r})).sort((a,b)=>Number(b.updatedAt||b.submittedAt||0)-Number(a.updatedAt||a.submittedAt||0))[0]||null;}
+
+export function activeAdvanceLeave(leaves,ids,date){const wanted=new Set(ids);return Object.entries(leaves||{}).filter(([,r])=>wanted.has(r.staffId)&&r.status==='recorded'&&r.dates?.includes(date)&&!r.cancelledDates?.includes(date)).map(([id,r])=>({id,...r})).sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0))[0]||null;}

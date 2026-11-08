@@ -1,4 +1,5 @@
-import {activeRollLongLeave} from './cbse-roll-call-leave.js';
+import {applyAdvanceLeave} from './cbse-advance-leave-model.js';
+import {activeRollLongLeave,activeAdvanceLeave} from './cbse-roll-call-leave.js';
 import {secondaryStaffEntry,rollStaffIdentityIds} from './cbse-roll-call-roster.js';
 import {ROLL_CHECKS,LEAVE_CHECKS} from './cbse-roll-call-defaults.js';
 export {ROLL_CHECKS,LEAVE_CHECKS} from './cbse-roll-call-defaults.js';
@@ -11,8 +12,10 @@ export const rollReasonWordCount=value=>String(value||'').trim().split(/\s+/).fi
 export function rollNoAnswers(input){const labels=new Map(input.questionSnapshot?input.questionSnapshot.filter(q=>q.type!=='text').map(q=>[q.id,q.label]):[...ROLL_CHECKS,...LEAVE_CHECKS].map(([k,label])=>[k,label]));const out=[];if(input.reported==='no')out.push('Reported in Vidyalaya: No');for(const[k,v]of Object.entries(input.answers||{}))if(v==='no'&&labels.has(k))out.push(labels.get(k));return out;}
 export const rollNeedsApproval=r=>!!r&&['morning','afternoon'].includes(r.period)&&['pending','review','submitted'].includes(r.status);
 export function applyRollCall(current,input,actor,staff,now=Date.now(),id='',reportingStore=null){const next=structuredClone(current||{});next.reports||={};next.objections||={};const day=rollToday(now),op=input.rollOperation;
+ if(String(op).startsWith('advance-leave-'))return applyAdvanceLeave(current,input,{...actor,wing:rollWing(staff[actor.id])},staff,now,id,reportingStore);
  if(op==='report'){
   const form=publishedReporting(reportingStore);if(!form.enabled)throw Error('Reporting is not currently published.');if((input.formVersion??1)!==form.version)throw Error('The reporting form changed. Reopen it to use the latest published questions.');
+  if(activeAdvanceLeave(next.advanceLeaves,rollStaffIdentityIds(staff,actor.id),day))throw Error('Advance leave reporting done for today. Morning and afternoon Roll Call are not required.');
   if(activeRollLongLeave(next.reports,rollStaffIdentityIds(staff,actor.id),day))throw Error('You are on recorded long leave. Morning and afternoon roll calls are not required during this period.');
   if(input.date!==undefined&&input.date!==day)throw Error('Roll calls can be submitted only for today. Past and future reporting is not allowed.');
   if(!staff[actor.id]||staff[actor.id].status!=='active')throw Error('Choose an active staff member.');
