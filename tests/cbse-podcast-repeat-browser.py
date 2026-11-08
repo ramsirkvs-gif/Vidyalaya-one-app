@@ -1,0 +1,14 @@
+"""Assigned video replays remain available before and after reporting."""
+from playwright.sync_api import sync_playwright
+with sync_playwright() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);page=b.new_page(viewport={'width':390,'height':844});page.route('**/podcast-test',lambda r:r.fulfill(content_type='text/html',body='<main></main>'));page.goto('http://127.0.0.1:8000/podcast-test')
+ page.evaluate("""async()=>{window.YT={Player:function(holder,config){this.playVideo=()=>{};this.pauseVideo=()=>{};this.destroy=()=>{};setTimeout(()=>config.events.onReady(),0);}};const {renderPodcastTeacher}=await import('./cbse-podcast-view.js');window.ack=null;window.calls=[];const video=()=>({id:'one',version:1,title:'Assigned guidance',youtubeId:'abcdefghijk',ack:window.ack});renderPodcastTeacher(document.querySelector('main'),{run:fn=>fn(),askPIN:async()=> 'test-pin',api:async input=>{window.calls.push(input.operation||input.action);if(input.action==='chamber-read')return {videos:[{id:'one',title:'Assigned guidance',recipients:[{id:'teacher',name:'Teacher'}]}]};if(input.operation==='podcast-ack')window.ack={acknowledgedAt:1794110400000};return {videos:[video()]};}});} """)
+ for repeat in range(2):
+  page.get_by_role('button',name='Open video: Assigned guidance',exact=True).click();dialog=page.get_by_role('dialog',name='Please submit your viewing report.',exact=True);dialog.wait_for();dialog.get_by_role('button',name='Continue watching').click();assert page.locator('.podcast-player').count()==1;page.get_by_role('button',name='Play',exact=True).wait_for(state='visible');assert page.get_by_role('button',name='Submit viewing report').is_visible()
+  if repeat==0:
+   page.get_by_role('button',name='Close video',exact=True).click();page.get_by_role('button',name='Close without reporting',exact=True).click()
+ page.locator('[name=podcast-acknowledged]').check();page.get_by_role('button',name='Submit viewing report',exact=True).click();page.get_by_text('Viewing report submitted successfully.',exact=True).wait_for();page.get_by_role('button',name='Close video',exact=True).click()
+ for repeat in range(2):
+  page.get_by_role('button',name='Open video: Assigned guidance',exact=True).click();dialog=page.get_by_role('dialog',name='You have already submitted this video report.',exact=True);dialog.wait_for();dialog.get_by_role('button',name='Continue watching').click();assert page.locator('.podcast-player').count()==1;assert page.get_by_role('button',name='Submit viewing report').count()==0;page.get_by_role('button',name='Close video',exact=True).click()
+ assert page.evaluate("calls.filter(c=>c==='podcast-ack').length")==1;b.close()
+print('PASS repeat assigned-video viewing before/after reporting, correct popups, same frame and no duplicate report')

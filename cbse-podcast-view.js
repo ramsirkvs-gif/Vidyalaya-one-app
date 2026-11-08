@@ -30,7 +30,7 @@ export function renderPodcastTeacher(parent,{data,api,run,askPIN}){
     if(!card.isConnected||!single&&staff.value!==requested)return;
     const video=(result.videos||[]).find(v=>v.id===post.id);
     if(!video){content.replaceChildren();throw Error('This video is not assigned to you or is no longer published. Refresh the video list.');}
-    access.hidden=true;status.textContent='PIN verified.';row.classList.add('podcast-video-playing');showVideo(video,requested,content,status,slot,reset);
+    access.hidden=true;status.textContent='PIN verified.';row.classList.add('podcast-video-playing');showVideo(video,requested,content,status,slot,reset);reportNotice(video,slot);
    });
    const preview=button('▶',()=>{if(single)verify();else{access.hidden=false;staff.focus();}});preview.className='podcast-locked-preview';preview.setAttribute('aria-label','Open video: '+post.title);preview.title=single?'Watch · enter your PIN':'Watch · choose your name and enter your PIN';
    const slot=el('div',undefined,'podcast-video-slot');slot.append(preview);const reset=()=>{slot.dataset.playbackGeneration=String(Number(slot.dataset.playbackGeneration||0)+1);preview.disabled=false;slot.replaceChildren(preview);row.classList.remove('podcast-video-playing');content.replaceChildren();status.textContent='';};
@@ -38,10 +38,14 @@ export function renderPodcastTeacher(parent,{data,api,run,askPIN}){
    row.append(slot,info);card.append(row,access,status,content);list.append(card);
   }
  }
+ function reportNotice(video,slot){
+  const dialog=el('dialog',undefined,'podcast-report-notice'),title=video.ack?'You have already submitted this video report.':'Please submit your viewing report.';dialog.setAttribute('aria-label',title);dialog.append(el('h3',title),el('p',video.ack?'You can watch this assigned video again at any time.':'You can watch this assigned video again at any time. After watching, tick the confirmation below the video and select Submit viewing report.'));
+  dialog.append(button('Continue watching',()=>dialog.close()));if(!video.ack)dialog.append(button('Go to viewing report',()=>{dialog.close();const form=slot.querySelector('.podcast-viewing-report');form?.scrollIntoView({block:'center',behavior:'smooth'});form?.querySelector('input')?.focus({preventScroll:true});}));dialog.onclose=()=>dialog.remove();slot.append(dialog);dialog.showModal();
+ }
  function showVideo(video,identity,content,status,slot,reset){
   content.replaceChildren();
   const playbackGeneration=String(Number(slot.dataset.playbackGeneration||0)+1);slot.dataset.playbackGeneration=playbackGeneration;mountCompactYouTube(slot,video.youtubeId).catch(e=>{if(slot.isConnected&&slot.dataset.playbackGeneration===playbackGeneration){const frame=slot.querySelector('.podcast-player');if(frame)frame.textContent=e.message;}});
-  if(video.ack){slot.append(el('p','Viewing report submitted · '+rollTimestamp(video.ack.acknowledgedAt),'podcast-acknowledged'),button('Close video',reset));return;}
+  if(video.ack){slot.append(el('p','You have already submitted this video report · '+rollTimestamp(video.ack.acknowledgedAt),'podcast-acknowledged'),button('Close video',reset));return;}
   let submitted=false;
   const form=el('form',undefined,'podcast-viewing-report'),ackLabel=el('label',PODCAST_ACK),check=el('input');
   check.type='checkbox';check.name='podcast-acknowledged';check.required=true;ackLabel.prepend(check);
