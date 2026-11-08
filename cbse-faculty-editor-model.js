@@ -1,9 +1,12 @@
+import {rollNameKey,secondaryStaffEntry,rollStaffIdentityIds} from './cbse-roll-call-roster.js';
 import {recordContactChanges} from './cbse-contact-audit.js';
 import {emptyFaculty,validateFaculty,clearTeacherRoles} from './cbse-faculty-model.js';
-import {emptyMission,validateMission} from './cbse-mission-model.js';
+import {emptyMission,validateMission,staffIndex} from './cbse-mission-model.js';
 import {teacherIdentityIds} from './cbse-view-data.js';
 import {dialNumber} from './cbse-contact-model.js';
 const entries=x=>Object.entries(x||{}),check=(ok,msg)=>{if(!ok)throw Error(msg);},key=x=>typeof x==='string'&&/^[A-Za-z0-9_-]{1,100}$/.test(x)&&!['constructor','prototype','__proto__'].includes(x);
+export function findExistingStaff(current,name,editing=''){const key=rollNameKey(name);if(!key)return null;const staff=staffIndex(current.facultyDraft||emptyFaculty(),current.mission||emptyMission()),excluded=new Set(editing?rollStaffIdentityIds(staff,editing):[]),official=secondaryStaffEntry({name});return Object.entries(staff).find(([id,p])=>!excluded.has(id)&&(rollNameKey(p.name)===key||official&&secondaryStaffEntry(p)?.serial===official.serial))||null;}
+function preventDuplicateStaff(current,input,editing){if(input.status==='vacant')return;const match=findExistingStaff(current,input.name,editing);check(!match,'This staff member already exists in Mission 100. Open Edit on the existing record instead of adding a duplicate.');}
 export function planFacultySave(current,input,newId,now){
  if(input.memberType==='support'||String(input.staffId||'').startsWith('support:'))return planSupportSave(current,input,newId,now);
  const next=structuredClone(current),f=next.facultyDraft||emptyFaculty(),m=next.mission||emptyMission(),d=next.draft;
@@ -13,7 +16,7 @@ export function planFacultySave(current,input,newId,now){
  const classes=[...new Set(input.classes||[])];check(Array.isArray(input.classes)&&classes.length>0&&classes.every(c=>['X','XII'].includes(c)),'Select Class X, XII, or both.');
  const name=String(input.name||'').trim(),designation=String(input.designation||'').trim(),email=String(input.email||'').trim(),mobile=String(input.mobile||'').trim(),whatsapp=String(input.whatsapp||'').trim();
  check(!email||email.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),'Enter a valid email.');check(!mobile||dialNumber(mobile),'Enter a valid mobile number.');check(!whatsapp||dialNumber(whatsapp),'Enter a valid WhatsApp number.');
- const status=input.status||old?.status||'active';check(['active','inactive','vacant'].includes(status),'Choose a valid faculty status.');check(status==='active'||!input.assignments?.length&&!input.roles?.length,'Remove teaching assignments and responsibilities before marking faculty inactive or vacant.');const photo=String(input.photoData||'');check(!photo||photo.length<=45000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(photo),'Choose a JPG, PNG or WebP photo using Upload photo.');
+ preventDuplicateStaff(current,input,editing);const status=input.status||old?.status||'active';check(['active','inactive','vacant'].includes(status),'Choose a valid faculty status.');check(status==='active'||!input.assignments?.length&&!input.roles?.length,'Remove teaching assignments and responsibilities before marking faculty inactive or vacant.');const photo=String(input.photoData||'');check(!photo||photo.length<=45000&&/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/.test(photo),'Choose a JPG, PNG or WebP photo using Upload photo.');
  check(Array.isArray(input.assignments)&&input.assignments.length<=150&&Array.isArray(input.roles)&&input.roles.length<=60,'Invalid assignments or roles.');
  // Retain existing identities, history and PINs even when a standard is no longer taught.
  for(const cl of classes){let id=aliases.find(id=>id.startsWith(cl+':'));if(!id){const match=entries(f.classes[cl].teachers).find(([,t])=>t.name.trim().toUpperCase()===name.toUpperCase()&&t.designation.trim().toUpperCase()===designation.toUpperCase());check(!match,'This faculty already exists. Open Edit instead of adding a duplicate.');id=cl+':'+newId;f.classes[cl].teachers||={};f.classes[cl].teachers[id.split(':')[1]]={};}ids.add(id);}
@@ -33,6 +36,7 @@ function planSupportSave(current,input,newId,now){
  const name=String(input.name||'').trim(),kind=input.kind,status=input.status||'active',subjects=String(input.subjects||'').trim();
  check(name&&name.length<=120&&['prt','counsellor','special_educator','support','other_support'].includes(kind)&&['active','inactive'].includes(status)&&subjects.length<=300,'Enter valid support member details.');
  check(!Object.entries(m.staff||{}).some(([k,t])=>k!==tid&&t.name.trim().toUpperCase()===name.toUpperCase()&&t.kind===kind),'This support member already exists. Open Edit instead.');
+ preventDuplicateStaff(current,input,editing);
  const designation=String(input.designation??m.staff?.[tid]?.designation??'').trim();check(designation.length<=100,'Enter a valid designation.');
  m.staff||={};m.staff[tid]={...m.staff[tid],name,designation,kind,status,subjects};if(input.wing!==undefined){check(['primary','secondary'].includes(input.wing),'Choose Primary or Secondary reporting wing.');m.staff[tid].wing=input.wing;}
  const email=String(input.email||'').trim(),mobile=String(input.mobile||'').trim(),whatsapp=String(input.whatsapp||'').trim();

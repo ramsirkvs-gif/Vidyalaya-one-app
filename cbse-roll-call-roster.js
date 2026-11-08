@@ -18,3 +18,6 @@ export function rollRoster(staff,wing){
 }
 export function rollStaffOptions(staff,wing,data){return rollRoster(staff,wing).filter(p=>p.id&&(!data||!activeRollLongLeave(data.rollCall?.reports,p.ids,data.serverDate))).map(p=>[p.id,`${p.serial}. ${p.name}${p.designation?' · '+p.designation:''}`]);}
 export function rollStaffIdentityIds(staff,id){const person=staff[id],entry=secondaryStaffEntry(person);if(!person)return [id];return Object.entries(staff).filter(([key,p])=>key===id||(entry?secondaryStaffEntry(p)?.serial===entry.serial:rollNameKey(p.name)===rollNameKey(person.name)&&p.designation===person.designation)).map(([key])=>key);}
+
+// Settings groups existing linked profiles without deleting records, history or PINs.
+export function rollSettingsRoster(staff){const out=[],seen=new Map();for(const p of rollCombinedRoster(staff)){const entry=secondaryStaffEntry(p),key=entry?'official:'+entry.serial:rollNameKey(p.name)+'|'+String(p.designation||'').trim().toUpperCase();if(seen.has(key)){const old=seen.get(key);old.ids=[...new Set([...old.ids,...p.ids])];if(!old.id&&p.id){old.id=p.id;old.wing=p.wing;old.unlinked=false;}continue;}const row={...p,ids:[...p.ids]};seen.set(key,row);out.push(row);}return out.map((p,i)=>({...p,serial:i+1}));}

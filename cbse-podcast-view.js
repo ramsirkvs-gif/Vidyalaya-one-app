@@ -40,15 +40,15 @@ export function renderPodcastTeacher(parent,{data,api,run,askPIN}){
  }
  function showVideo(video,identity,content,status,slot,reset){
   content.replaceChildren();
-  const playbackGeneration=String(Number(slot.dataset.playbackGeneration||0)+1);slot.dataset.playbackGeneration=playbackGeneration;mountCompactYouTube(slot,video.youtubeId).catch(e=>{if(slot.isConnected&&slot.dataset.playbackGeneration===playbackGeneration)slot.textContent=e.message;});
-  if(video.ack){content.append(el('p','Viewing report submitted · '+rollTimestamp(video.ack.acknowledgedAt),'podcast-acknowledged'),button('Close video',reset));return;}
+  const playbackGeneration=String(Number(slot.dataset.playbackGeneration||0)+1);slot.dataset.playbackGeneration=playbackGeneration;mountCompactYouTube(slot,video.youtubeId).catch(e=>{if(slot.isConnected&&slot.dataset.playbackGeneration===playbackGeneration){const frame=slot.querySelector('.podcast-player');if(frame)frame.textContent=e.message;}});
+  if(video.ack){slot.append(el('p','Viewing report submitted · '+rollTimestamp(video.ack.acknowledgedAt),'podcast-acknowledged'),button('Close video',reset));return;}
   let submitted=false;
   const form=el('form',undefined,'podcast-viewing-report'),ackLabel=el('label',PODCAST_ACK),check=el('input');
   check.type='checkbox';check.name='podcast-acknowledged';check.required=true;ackLabel.prepend(check);
   form.append(el('h4','Viewing report'),ackLabel,el('button','Submit viewing report'));
   const closeWithout=button('Close without reporting',reset);closeWithout.hidden=true;
   const close=button('Close video',()=>{if(submitted){reset();return;}status.textContent='Before closing, submit your viewing report below. If you have not finished watching, close without reporting; your report will remain pending.';closeWithout.hidden=false;form.scrollIntoView({block:'center',behavior:'smooth'});check.focus({preventScroll:true});});
-  content.append(form,close,closeWithout);
+  const playbackControls=slot.querySelector('.podcast-playback');if(playbackControls)playbackControls.insertAdjacentElement('afterend',form);else slot.append(form);form.insertAdjacentElement('afterend',close);close.insertAdjacentElement('afterend',closeWithout);
   form.onsubmit=e=>{e.preventDefault();run(async()=>{const pin=await askPIN('Confirm submission','Mission 100 PIN or given PIN');if(!pin)return;const result=await api({action:'pin-submit',operation:'podcast-ack',staffId:identity,pin,id:video.id,version:video.version,acknowledged:check.checked});if(!content.isConnected)return;const updated=result.videos.find(v=>v.id===video.id&&v.version===video.version);if(updated?.ack){submitted=true;closeWithout.hidden=true;form.replaceWith(el('p','Viewing report submitted · '+rollTimestamp(updated.ack.acknowledgedAt),'podcast-acknowledged'));status.textContent='Viewing report submitted successfully.';}else{reset();status.textContent='Video access changed. Refresh the published video list.';}});};
  }
 
