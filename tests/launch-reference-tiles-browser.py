@@ -21,8 +21,10 @@ with sync_playwright() as p:
  assert page.locator('a[href="cbse-mission.html"]').count()==1
  for img in page.locator('.launch-tile-image').all():img.scroll_into_view_if_needed();img.evaluate('(n)=>n.loading="eager"')
  page.wait_for_function('[...document.querySelectorAll(".launch-tile-image")].every(n=>n.complete&&n.naturalWidth>0)')
- for width in [360,768,1440]:
+ for width in [320,360,768,1440]:
   page.set_viewport_size({'width':width,'height':1100});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth');assert page.locator('.launch-reference-card').count()==16
+  assert page.locator('.launch-reference-card').evaluate_all('(cards)=>cards.every(n=>getComputedStyle(n).display==="grid")')
+  assert page.locator('.launch-tile-image').evaluate_all('(images)=>images.every(n=>{const card=n.closest(".launch-reference-card"),r=n.getBoundingClientRect(),c=card.getBoundingClientRect();return r.width<=121&&r.left-c.left>=16&&getComputedStyle(n).backgroundColor==="rgba(0, 0, 0, 0)";})')
  page.evaluate('scrollTo(0,0)');page.screenshot(path='/tmp/launch-tiles-desktop.png',full_page=True);page.set_viewport_size({'width':390,'height':1000});page.screenshot(path='/tmp/launch-tiles-mobile.png',full_page=True)
  assert not errors,errors;b.close()
 print('PASS sixteen application tiles including Principal Chamber, Samvida URL, PIS removal, old live catalogue, existing links and mobile/tablet/desktop layout')
