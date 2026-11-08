@@ -1,5 +1,5 @@
 import {defaultReporting,publishedReporting,applyReporting} from '../cbse-reporting-model.js';
-import {applyPodcast,teacherPodcasts,acknowledgePodcast} from '../cbse-podcast-model.js';
+import {applyPodcast,teacherPodcasts,acknowledgePodcast,podcastCatalogue} from '../cbse-podcast-model.js';
 import {rollStaffIdentityIds} from '../cbse-roll-call-roster.js';
 import {planRollRosterProfiles} from '../cbse-roll-call-setup.js';
 import {rollReportingStaff} from '../cbse-roll-call-roster.js';
@@ -57,7 +57,7 @@ export function createStaffService({db,auth,now=Date.now,displayKey,viewSecret=d
   if(['view-login','view-data','view-version','view-student-photo','view-student-photos','view-logout'].includes(action)){const result=await sharedView(action,{...input,ip},session.viewerToken||'');if(result?.error){const error=new AccessError(result.error,result.status);error.curtainRequired=result.curtainRequired;throw error;}return result;}
   if(action==='mcq-read'||action==='news-read'){if(token)await principal(token);else{const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}if(action==='news-read'){const output=value=>{try{return readTeamNews(value,input);}catch(e){throw new AccessError(e.message,400);}};if(input.photoId){if(typeof input.photoId!=='string'||!/^news_[A-Za-z0-9_-]{8,80}$/.test(input.photoId))throw new AccessError('Choose a News photo.',400);const [post,photo]=await Promise.all([read('cbse/teamNews/posts/'+input.photoId),read('cbse/teamNews/photos/'+input.photoId)]);return output({posts:post?{[input.photoId]:post}:{},photos:{[input.photoId]:photo}});}const [posts,revision]=await Promise.all([read('cbse/teamNews/posts'),read('cbse/teamNews/revision')]);return output({posts:posts||{},revision:revision||0});}return publicMCQBank(await read('cbse/mcq')||{},input);}
   if(action==='chamber-read'){
-   if(token)await principal(token);else{const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error)throw new AccessError(access.error,access.status);}return {reporting:publishedReporting(await read('cbse/chamber/reporting'))};
+   if(token)await principal(token);else{const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error)throw new AccessError(access.error,access.status);}const [reporting,podcasts,staff]=await Promise.all([read('cbse/chamber/reporting'),read('cbse/chamber/podcasts'),directoryStaff()]);return {reporting:publishedReporting(reporting),videos:podcastCatalogue(podcasts,staff)};
   }
   if(action==='chamber-principal'){
    await principal(token);const operation=input.operation,staff=await directoryStaff();if(operation==='read'){const value=await read('cbse/chamber')||{};return {reporting:value.reporting||{revision:0,draft:defaultReporting(),published:publishedReporting(null)},podcasts:value.podcasts||{},staff:Object.fromEntries(entries(staff).map(([id,p])=>[id,{name:p.name,designation:p.designation,wing:rollWing(p),status:p.status,classTeacher:p.classTeacher,coClassTeacher:p.coClassTeacher}]))};}

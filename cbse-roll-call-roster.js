@@ -8,11 +8,13 @@ const aliases=name=>{const key=rollNameKey(name),portrait=facultyPortraits.find(
 const roster=SECONDARY_ROSTER.map(([name,designation],index)=>({name,designation,serial:index+1,aliases:aliases(name)}));
 export function secondaryStaffEntry(person){const key=rollNameKey(person?.name);return roster.find(r=>r.aliases.has(key));}
 export function rollReportingStaff(person){return !/\bVACANT\b|\bPRINCIPAL\b|^VP\b/i.test((person?.name||'')+' '+(person?.designation||''))&&!['RAMKUMARSINGHS','RAMKUMARSINGHSIKARWAR'].includes(rollNameKey(person?.name));}
+export function compareRollStaff(a,b){const rank=p=>{const designation=p.designation||secondaryStaffEntry(p)?.designation||'';return /^PGT\b/i.test(designation)?0:/^TGT\b/i.test(designation)?1:/^PRT\b/i.test(designation)?2:3;};return rank(a)-rank(b)||(secondaryStaffEntry(a)?.serial??9999)-(secondaryStaffEntry(b)?.serial??9999)||String(a.name||'').localeCompare(String(b.name||''));}
+export function rollCombinedRoster(staff){return [...rollRoster(staff,'secondary'),...rollRoster(staff,'primary'),...Object.entries(staff||{}).filter(([,p])=>!['primary','secondary'].includes(p.wing)&&rollReportingStaff(p)).map(([id,p])=>({...p,id,ids:[id]}))].sort(compareRollStaff).map((p,i)=>({...p,serial:i+1}));}
 export function rollRoster(staff,wing){
  const active=Object.entries(staff||{}).filter(([,p])=>p.wing===wing&&rollReportingStaff(p));
- if(wing!=='secondary')return active.sort((a,b)=>a[1].name.localeCompare(b[1].name)).map(([id,p],i)=>({...p,id,ids:[id],serial:i+1}));
+ if(wing!=='secondary')return active.sort((a,b)=>compareRollStaff(a[1],b[1])).map(([id,p],i)=>({...p,id,ids:[id],serial:i+1}));
  const used=new Set(),out=roster.map(r=>{const matches=active.filter(([,p])=>r.aliases.has(rollNameKey(p.name)));for(const[id]of matches)used.add(id);return {name:r.name,designation:r.designation,serial:r.serial,wing:'secondary',id:matches[0]?.[0]||'',ids:matches.map(([id])=>id),unlinked:!matches.length};});
- for(const[id,p]of active)if(!used.has(id))out.push({...p,id,ids:[id],serial:out.length+1});return out;
+ for(const[id,p]of active)if(!used.has(id))out.push({...p,id,ids:[id],serial:out.length+1});return out.sort(compareRollStaff).map((p,i)=>({...p,serial:i+1}));
 }
 export function rollStaffOptions(staff,wing,data){return rollRoster(staff,wing).filter(p=>p.id&&(!data||!activeRollLongLeave(data.rollCall?.reports,p.ids,data.serverDate))).map(p=>[p.id,`${p.serial}. ${p.name}${p.designation?' · '+p.designation:''}`]);}
 export function rollStaffIdentityIds(staff,id){const person=staff[id],entry=secondaryStaffEntry(person);if(!person)return [id];return Object.entries(staff).filter(([key,p])=>key===id||(entry?secondaryStaffEntry(p)?.serial===entry.serial:rollNameKey(p.name)===rollNameKey(person.name)&&p.designation===person.designation)).map(([key])=>key);}
