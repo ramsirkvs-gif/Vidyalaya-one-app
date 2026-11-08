@@ -31,7 +31,7 @@ export function applyRollCall(current,input,actor,staff,now=Date.now(),id='',rep
   }
   if(input.period==='afternoon'){
    const morning=next.reports[day+'_morning_'+actor.id];if(!firstHalf&&(!morning||morning.reported!=='yes'))throw Error('Submit today’s morning roll call as reported before afternoon roll call, or select first-half leave.');
-   if(Object.values(next.objections).some(o=>o.staffId===actor.id&&o.status==='open'))throw Error('A task is pending. Collect NOC from the concerned IC / Principal before submitting afternoon roll call.');
+   if(Object.values(next.objections).some(o=>rollStaffIdentityIds(staff,actor.id).includes(o.staffId)&&o.status==='open'))throw Error('A task is pending. Collect NOC from the concerned IC / Principal before submitting afternoon roll call.');
   }
   r.formVersion=form.version;r.formTitle=form.title;r.questionSnapshot=structuredClone(reportingQuestions(form,input));r.answers=snapshotAnswers(r.questionSnapshot,input.answers);const noAnswers=rollNoAnswers(r);if(noAnswers.length){const reason=String(input.noReason||'').trim();if(reason.length<10||reason.length>4000||rollReasonWordCount(reason)>100)throw Error('Explain the reason / emergency for every No answer for Principal review. Use at least 10 characters and no more than 100 words.');r.noReason=reason;r.noAnswers=noAnswers;r.hasNoAnswers=true;r.requiresReview=true;if(input.period==='morning')r.status='review';}
   next.reports[key]=r;
@@ -44,7 +44,7 @@ export function applyRollCall(current,input,actor,staff,now=Date.now(),id='',rep
  }else if(op==='clear'){
   const o=next.objections[input.objectionId];if(!o||o.status!=='open'||actor.id!=='principal'&&o.createdBy!==actor.id)throw Error('Only the reporting IC or Principal can clear this objection.');o.status='cleared';o.clearedBy=actor.id;o.clearedAt=now;
  }else if(op==='approve'||op==='reject'){
-  if(actor.id!=='principal')throw Error('Principal approval required.');const r=next.reports[input.reportId];if(!r||r.date!==day||!rollNeedsApproval(r))throw Error('Choose today’s pending roll call for review.');if(op==='approve'&&r.period==='afternoon'&&Object.values(next.objections).some(o=>o.staffId===r.staffId&&o.status==='open'))throw Error('Clear pending-task objections first.');r.updatedAt=now;r.requiresReview=false;if(op==='approve'){r.status='approved';r.approvedBy=actor.id;r.approvedAt=now;}else{r.status='not-approved';r.rejectedBy=actor.id;r.rejectedAt=now;delete r.approvedAt;delete r.approvedBy;}
+  if(actor.id!=='principal')throw Error('Principal approval required.');const r=next.reports[input.reportId];if(!r||r.date!==day||!rollNeedsApproval(r))throw Error('Choose today’s pending roll call for review.');if(op==='approve'&&r.period==='afternoon'&&Object.values(next.objections).some(o=>rollStaffIdentityIds(staff,r.staffId).includes(o.staffId)&&o.status==='open'))throw Error('Clear pending-task objections first.');r.updatedAt=now;r.requiresReview=false;if(op==='approve'){r.status='approved';r.approvedBy=actor.id;r.approvedAt=now;}else{r.status='not-approved';r.rejectedBy=actor.id;r.rejectedAt=now;delete r.approvedAt;delete r.approvedBy;}
  }else throw Error('Unknown roll-call operation.');
  next.revision=(next.revision||0)+1;return next;
 }

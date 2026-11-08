@@ -5,6 +5,7 @@ exec(Path('tests/cbse-conversations-browser.py').read_text().split("with fx['ns'
 root={'adminUid':'principal-test','draft':D,'facultyDraft':F,'mission':M,'mcq':{}};clock=[1762065000000];calls=[]
 def mcq_sdk(route):
  u=route.request.url;body=fx['DB'];a=body.index('let mission=');b=body.index(';window.__teacherMission=',a);body=body[:a]+'let mission='+json.dumps(root['mission'])+body[b:];body+='\nwindow.__mcqEmit=m=>{mission=structuredClone(m);window.__conversationMission=mission;for(const cb of callbacks["cbse/mission"]||[])cb({val:()=>mission});};'
+ body=body.replace("val:()=>p==='cbse/mission'?(window.__conversationMission||mission):'principal-test'","val:()=>p==='cbse/draft'?draft:p==='cbse/facultyDraft'?faculty:p==='cbse/mission'?(window.__conversationMission||mission):'principal-test'")
  route.fulfill(content_type='application/javascript',body=fx['ns']['APP'] if u.endswith('firebase-app.js') else fx['ns']['AUTH'] if u.endswith('firebase-auth.js') else body)
 def mcq_api(page,route):
  d=route.request.post_data_json;calls.append(d);action=d['action']

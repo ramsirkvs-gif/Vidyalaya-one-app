@@ -8,8 +8,8 @@ function applyUpdate(requested=false){
  const unsafe=!!editing();
  if(unsafe||!requested&&workspaceOpen()){
   let notice=document.getElementById('portal-update-notice');
-  if(!notice){notice=document.createElement('div');notice.id='portal-update-notice';notice.className='notice';notice.setAttribute('role','status');const text=document.createElement('span'),update=document.createElement('button');text.dataset.updateMessage='true';update.type='button';update.textContent='Update when ready';update.onclick=()=>applyUpdate(true);notice.append(text,update);(document.querySelector('main')||document.body).prepend(notice);}
-  notice.querySelector('[data-update-message]').textContent=unsafe?'An app update is ready. Save or finish your current work first. ':'An app update is ready. You can keep working and update when ready. ';
+  if(!notice){notice=document.createElement('div');notice.id='portal-update-notice';notice.className='notice';notice.setAttribute('role','status');const text=document.createElement('span'),update=document.createElement('button');text.dataset.updateMessage='true';update.type='button';update.textContent='Update app when ready';update.onclick=()=>applyUpdate(true);notice.append(text,update);(document.querySelector('main')||document.body).prepend(notice);}
+  notice.querySelector('[data-update-message]').textContent=unsafe?'New app changes are ready. Save/finish your current work and clear the PIN field before updating. This is a code update, separate from student-data refresh. ':'New app changes are ready. Click Update app when ready to see them. Your current screen is being kept open. ';
   notice.querySelector('button').disabled=unsafe;
   return;
  }
