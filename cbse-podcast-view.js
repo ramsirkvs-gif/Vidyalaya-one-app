@@ -30,7 +30,7 @@ export function renderPodcastTeacher(parent,{data,api,run,askPIN}){
     if(!card.isConnected||!single&&staff.value!==requested)return;
     const video=(result.videos||[]).find(v=>v.id===post.id);
     if(!video){content.replaceChildren();throw Error('This video is not assigned to you or is no longer published. Refresh the video list.');}
-    access.hidden=true;status.textContent='PIN verified.';row.classList.add('podcast-video-playing');showVideo(video,requested,content,status,slot,reset);reportNotice(video,slot);
+    access.hidden=true;status.textContent='PIN verified.';row.classList.add('podcast-video-playing');showVideo(video,requested,content,status,slot,reset);if(video.ack)reportNotice(video,slot);
    });
    const preview=button('▶',()=>{if(single)verify();else{access.hidden=false;staff.focus();}});preview.className='podcast-locked-preview';preview.setAttribute('aria-label','Open video: '+post.title);preview.title=single?'Watch · enter your PIN':'Watch · choose your name and enter your PIN';
    const slot=el('div',undefined,'podcast-video-slot');slot.append(preview);const reset=()=>{slot.dataset.playbackGeneration=String(Number(slot.dataset.playbackGeneration||0)+1);preview.disabled=false;slot.replaceChildren(preview);row.classList.remove('podcast-video-playing');content.replaceChildren();status.textContent='';};
@@ -51,7 +51,7 @@ export function renderPodcastTeacher(parent,{data,api,run,askPIN}){
   check.type='checkbox';check.name='podcast-acknowledged';check.required=true;ackLabel.prepend(check);
   form.append(el('h4','Viewing report'),ackLabel,el('button','Submit viewing report'));
   const closeWithout=button('Close without reporting',reset);closeWithout.hidden=true;
-  const close=button('Close video',()=>{if(submitted){reset();return;}status.textContent='Before closing, submit your viewing report below. If you have not finished watching, close without reporting; your report will remain pending.';closeWithout.hidden=false;form.scrollIntoView({block:'center',behavior:'smooth'});check.focus({preventScroll:true});});
+  const close=button('Close video',()=>{if(submitted){reset();return;}status.textContent='Before closing, submit your viewing report below. If you have not finished watching, close without reporting; your report will remain pending.';closeWithout.hidden=false;reportNotice(video,slot);});
   const playbackControls=slot.querySelector('.podcast-playback');if(playbackControls)playbackControls.insertAdjacentElement('afterend',form);else slot.append(form);form.insertAdjacentElement('afterend',close);close.insertAdjacentElement('afterend',closeWithout);
   form.onsubmit=e=>{e.preventDefault();run(async()=>{const pin=await askPIN('Confirm submission','Mission 100 PIN or given PIN');if(!pin)return;const result=await api({action:'pin-submit',operation:'podcast-ack',staffId:identity,pin,id:video.id,version:video.version,acknowledged:check.checked});if(!content.isConnected)return;const updated=result.videos.find(v=>v.id===video.id&&v.version===video.version);if(updated?.ack){submitted=true;closeWithout.hidden=true;form.replaceWith(el('p','Viewing report submitted · '+rollTimestamp(updated.ack.acknowledgedAt),'podcast-acknowledged'));status.textContent='Viewing report submitted successfully.';}else{reset();status.textContent='Video access changed. Refresh the published video list.';}});};
  }
