@@ -296,3 +296,5 @@ Saving a QP without targeted students opens **Please select the targeted student
 
 
 The MCQ entrance keeps one primary Create student-specific QP belt; its duplicate menu row is removed. See Question Bank explicitly covers adding one question, editing questions/answers and deleting questions. Ready-made QPs remember the already selected teacher, class and subject, and default to that teacher’s saved papers (including linked class identities). The Prepared by selector offers **All contributors** to widen the view explicitly. Creator filtering happens before saved-paper pagination and topic counts. Question selection uses three full-width strips: **Select all questions from this topic**, **Select questions one by one from this topic**, and **De-select all questions**. Deselection clears questions while keeping student targets.
+
+Selecting **All students** in a section clears and disables the other category ticks until All students is unticked. Previously-used-question warnings exclude deleted QPs; retained archived records do not trigger reuse warnings.
