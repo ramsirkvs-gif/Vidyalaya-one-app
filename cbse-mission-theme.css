@@ -148,3 +148,5 @@ body.mission-app #mission-nav .mission-switch-menu[open]>button{display:block;wi
 .mcq-preview-back-actions{display:flex;justify-content:flex-end;margin:8px 0}.mcq-preview-back-actions>button{min-height:44px;max-width:100%;white-space:normal}
 
 .mcq-teacher-contribution-total{font-size:18px;font-weight:700;color:#175b4b}.mcq-teacher-paper{border:1px solid #bed8d1;border-radius:9px;padding:12px;margin:10px 0}.mcq-teacher-paper summary{font-weight:700;cursor:pointer;line-height:1.6}.mcq-teacher-paper li{margin:10px 0;overflow-wrap:anywhere}.mcq-teacher-paper button{white-space:normal;text-align:left;max-width:100%}
+
+.mission-summary{grid-template-columns:repeat(5,minmax(0,1fr))}@media(max-width:760px){.mission-summary{grid-template-columns:repeat(6,minmax(0,1fr))}.mission-summary>.summary-item{grid-column:span 2}.mission-summary>.summary-item:nth-child(4),.mission-summary>.summary-item:nth-child(5){grid-column:span 3}}
