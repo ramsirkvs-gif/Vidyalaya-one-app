@@ -27,6 +27,7 @@ async function copy(relative){
 for(const name of (await fs.readdir(root)).sort()){
  if(name==='index.html'||/^cbse-[\w-]+\.(html|js|css)$/.test(name)||['firebase-client.js','portal-firebase.js','live-update.js','cbse.css','database.rules.json'].includes(name)||/\.(png|svg|ico)$/.test(name)||/^portal-tile-[\w-]+\.jpe?g$/.test(name))await copy(name);
 }
+await copy('cbse-team-x-weekly');
 await copy('vendor');
 const version=hash.digest('hex');
 for(const name of await fs.readdir(output))if(name.endsWith('.html')){
