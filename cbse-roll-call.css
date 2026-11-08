@@ -49,3 +49,7 @@
 .podcast-expanded.podcast-controls-hidden .podcast-playback:has(:focus-visible){opacity:1;pointer-events:auto}
 
 .podcast-drive-player.podcast-expanded .podcast-playback{top:0;bottom:auto;left:auto;width:auto;padding:6px max(8px,env(safe-area-inset-right));background:#0008}.podcast-drive-player.podcast-expanded .podcast-playback>button{margin:0}
+
+/* Drive's inline preview needs a definite 16:9 viewport on narrow phones. */
+.podcast-drive-player:not(.podcast-expanded) .podcast-player{position:relative;width:100%;height:auto;min-height:0;aspect-ratio:16/9}
+.podcast-drive-player:not(.podcast-expanded) .podcast-player iframe{position:absolute;inset:0;display:block;width:100%;height:100%;min-height:0;border:0}
