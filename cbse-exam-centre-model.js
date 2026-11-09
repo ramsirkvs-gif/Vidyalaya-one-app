@@ -1,9 +1,10 @@
+import {schoolPreboard1DateSheet} from './cbse-preboard1-datesheet.js';
 import {schoolBoardDateSheet} from './cbse-board-datesheet-model.js';
 export const examCentreToday=now=>new Date(now+19800000).toISOString().slice(0,10);
 export function examCentrePaper(draft,input){
  if(!['cbse','preboard1','preboard2'].includes(input.exam)||!['X','XII'].includes(input.classId))throw Error('Choose a published examination and standard.');
- if(input.exam!=='cbse')throw Error('This examination date sheet is not yet available.');
- const paper=schoolBoardDateSheet(draft,input.classId).rows.find(p=>p.id===input.paperId);if(!paper||!paper.codeConfirmed)throw Error('This paper or its school mapping changed. Reopen the date sheet.');
+ if(input.exam==='preboard2')throw Error('This examination date sheet is not yet available.');
+ const paper=(input.exam==='preboard1'?schoolPreboard1DateSheet:schoolBoardDateSheet)(draft,input.classId).rows.find(p=>p.id===input.paperId);if(!paper||!paper.codeConfirmed)throw Error('This paper or its school mapping changed. Reopen the date sheet.');
  return {...paper,exam:input.exam,storeKey:input.exam+'_'+input.classId+'_'+paper.date.replaceAll('-','')+'_'+paper.codes.join('-')};
 }
 export function examCentreRoster(draft,contacts,paper){
