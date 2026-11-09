@@ -24,3 +24,8 @@ export function applyExamCentreAttendance(current,input,actor,paper,now){
  const record={status:input.status,updatedAt:now,updatedBy:actor.id,updatedByName:actor.name,revision:(old?.revision||0)+1,requestId:input.requestId,reportedAt:input.status==='reported'?(old?.status==='reported'?old.reportedAt:now):null,...(reason?{reason}:{})};
  next.paperKey=paper.storeKey;next.exam=paper.exam;next.classId=paper.classId;next.date=paper.date;next.codes=paper.codes;next.subject=paper.name;next.students[input.studentKey]=record;next.revision=(next.revision||0)+1;next.updatedAt=now;next.audit['change_'+next.revision]={studentKey:input.studentKey,previous:old||null,current:structuredClone(record),actorId:actor.id,actorName:actor.name,changedAt:now};return next;
 }
+
+export function applyExamCentreAttendanceBatch(current,input,actor,paper,now){
+ if(!Array.isArray(input.changes)||!input.changes.length||input.changes.length>500||new Set(input.changes.map(c=>c?.studentKey)).size!==input.changes.length)throw Error('Choose distinct students for this attendance save.');
+ let next=structuredClone(current||{});for(const change of input.changes){if(!change||typeof change!=='object')throw Error('Choose valid attendance changes.');next=applyExamCentreAttendance(next,{studentKey:change.studentKey,status:change.status,expectedRevision:change.expectedRevision,requestId:change.requestId,reason:input.reason},actor,paper,now);}return next;
+}
