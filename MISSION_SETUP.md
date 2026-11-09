@@ -901,3 +901,11 @@ The broad mobile-density overrides have been removed at the user's request. Orig
 The functional updates remain: four subject/class-based MCQ activities, no-QR evaluation, saved-score integration, QP-store coverage and expandable student reports, existing PIN controls, and the requested teacher profile information order/notification strips/contact details last. No saved data or authentication configuration is reverted.
 
 Validation: the restored-display browser check covers Academics, News, Teachers, MCQ choices and portal pages at 320–768px and asserts a single horizontally scrolling nav row with non-shrinking labels. The default front-page check, QP coverage report and no-QR evaluation checks pass; all 49 Node test files and the production build pass.
+
+## VEMS published Preboard attendance
+
+Preboard attendance now uses the encrypted structured Classwise report published by the linked VEMS portal (`ramsirkvs-gif/vems-new-portal-with-firebase-`). Invigilators submit their room PIN in VEMS. Mission reads the public, active-session `publicPortalBoards/examDayAttendanceClasswise/attendanceFeed` through its existing staff-authenticated attendance API; no private VEMS credentials or room PINs are transferred.
+
+The source and receiving repositories must both deploy. In VEMS, publish **Classwise Report for CTs / Samagam** and keep the authorised Exam Cell page open during reporting so its existing live submission listener refreshes the published report/feed. Only the currently published matching exam/date/session is displayed. Missing, ambiguous, mock or unsubmitted data remains unmarked. Stopping publication removes the source feed; nothing is copied permanently into Mission's manual attendance branch. CBSE manual attendance is unchanged. Preboard edits in Mission are disabled to avoid duplicate or conflicting entry.
+
+Matching requires the same Preboard number, date, academic session, subject, class, section and roll number. Only students already enrolled for that paper in Mission are returned. Duplicate roll identities are never guessed. Future-paper status is withheld until the scheduled exam date. The active attendance panel refreshes automatically, retaining unsaved manual changes in other exam types. The source reader caches public responses briefly to reduce repeated database downloads.

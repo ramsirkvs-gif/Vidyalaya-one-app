@@ -1,0 +1,3 @@
+import {pinDisplayKey} from '../_server/pin-vault.js';
+import {vemsBridgePublicKey} from '../_server/vems-crypto.js';
+export default function handler(req,res){res.setHeader('Cache-Control','no-store');res.setHeader('Access-Control-Allow-Origin','*');res.setHeader('X-Content-Type-Options','nosniff');if(req.method!=='GET')return res.status(405).json({error:'Use GET.'});try{const credential=JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON||'null');if(credential?.project_id!=='vidyalaya-one-app'||typeof credential.private_key!=='string')throw Error();return res.status(200).json(vemsBridgePublicKey(pinDisplayKey(credential)));}catch{return res.status(503).json({error:'Secure attendance bridge is not configured.'});}}
