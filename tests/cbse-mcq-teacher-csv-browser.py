@@ -1,5 +1,5 @@
 from pathlib import Path
-exec(Path('tests/cbse-mcq-csv-credit-pin-browser.py').read_text().split("\nwith fx['ns']['sync_playwright']() as p:")[0])
+exec(Path('tests/cbse-mcq-principal-csv-browser.py').read_text().split("\nwith fx['ns']['sync_playwright']() as p:")[0])
 with fx['ns']['sync_playwright']() as p:
  b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);ctx=b.new_context(viewport={'width':390,'height':844});ctx.add_init_script("window.__guest=true;sessionStorage.setItem('mcq-entry-selection:false',JSON.stringify({classId:'X',subjectId:'english',staffId:'X:one'}))");ctx.route('https://www.gstatic.com/firebasejs/**',mcq_sdk);page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.route('**/api/staff-access',lambda route:mcq_api(page,route));page.goto('http://127.0.0.1:8000/cbse-mission.html#tab=mcq&mcqClass=X&mcq=bank')
  for kind in ['normal','linked']:
