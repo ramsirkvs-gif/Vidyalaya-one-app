@@ -16,7 +16,7 @@ with sync_playwright() as p:
  const final=await buildMCQPaperFrame({...paper,count:12,questions:questions.slice(4,16),studentCopy:{token:'1'.repeat(32),name:'Synthetic Student',classId:'X',section:'A',roll:'1'}},mcqPrintLayout({},'compact'),{fit:false}),fd=final.frame.contentDocument,fc=[...fd.querySelectorAll('.paper-column')],area=fd.querySelector('.response-area'),qr=fd.querySelector('[aria-label="Student paper QR"]');if(final.contentSheetCount!==1||fc.some(c=>!c.children.length)||Math.abs(fc[0].getBoundingClientRect().height-fc[1].getBoundingClientRect().height)>70||area.getBoundingClientRect().top<fd.querySelector('.paper-columns').getBoundingClientRect().bottom-1||Math.abs(qr.getBoundingClientRect().width-22*96/25.4)>1)issues.push('Final page scan area did not fit below balanced columns');final.frame.remove();
  window.compactHTML=doc.documentElement.outerHTML;const counts={compact:compact.contentSheetCount,single:single.contentSheetCount};compact.frame.remove();single.frame.remove();
  window.setup=renderMCQPageSetup(document.querySelector('#setup'),{paper:()=>paper});document.querySelector('[data-print-layout=compact]').click();const selected=await window.setup.ready();
- return {issues,ids,choices,counts,selected,pressed:document.querySelector('[data-print-layout=compact]').getAttribute('aria-pressed'),columns:document.querySelector('.mcq-a4-preview iframe').contentDocument.querySelectorAll('.paper-column').length};
+ return {issues,ids,choices,counts,selected,pressed:document.querySelector('[data-print-layout=compact]').getAttribute('aria-pressed'),comparison:window.setup.status.textContent,columns:document.querySelector('.mcq-a4-preview iframe').contentDocument.querySelectorAll('.paper-column').length};
  }''')
  assert not result['issues'],result['issues']
  assert len(result['ids'])==60 and len(set(result['ids']))==60,result
@@ -24,7 +24,9 @@ with sync_playwright() as p:
  assert result['counts']['compact']<=result['counts']['single'],result['counts']
  assert result['selected']['columns']==2 and result['selected']['margin']==6 and result['pressed']=='true'
  assert result['columns']>=2
+ assert 'Compare per copy (double-sided): Two-column' in result['comparison'] and 'Single-column' in result['comparison'] and 'A4 sheets' in result['comparison']
  page.locator('[data-print-layout=single]').click();assert page.evaluate('window.setup.value().columns')==1
+ comparison=page.evaluate('''async()=>{window.testPaper.questions=window.testPaper.questions.slice(0,1);window.testPaper.count=1;await window.setup.ready();return window.setup.status.textContent;}''');assert 'Two-column 1 A4 sheet; Single-column 1 A4 sheet' in comparison and 'Same paper use' in comparison
  pdfpage=b.new_page();pdfpage.set_content(page.evaluate('window.compactHTML'));pdf=fitz.open(stream=pdfpage.pdf(prefer_css_page_size=True),filetype='pdf');pdf[0].get_pixmap(matrix=fitz.Matrix(1,1)).save('/tmp/mcq-compact-preview.png');text=''.join(s.get_text() for s in pdf)
  assert all('Q ID No: QE'+str(i+1).zfill(3) in text for i in range(60))
  assert 'The last alternative' in text and 'A long explanation' in text
