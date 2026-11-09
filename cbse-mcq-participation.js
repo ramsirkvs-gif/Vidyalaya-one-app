@@ -41,3 +41,5 @@ export function teacherMCQParticipation(mission,teacherIds){
  }
  return {evaluations,studentCount:students.size,paperCount:papers.size,lastReportedAt,papers:[...papers.values()].sort((a,b)=>b.reportedAt-a.reportedAt||a.paperId.localeCompare(b.paperId))};
 }
+
+export function mcqResultDetails(mission,draft,mark,staff={}){const [classId,sectionId]=String(mark.studentKey||'').split(':'),section=draft?.classes?.[classId]?.sections?.[sectionId],exam=mission.exams?.[mark.examId]||mission.exams?.['mcq_'+mark.paperId];return {subjectName:section?.subjects?.[mark.subjectId]?.name||mark.subjectId||'Subject not recorded',teacherName:mark.evaluatedByName||staff[mark.evaluatedBy]?.name||(mark.evaluatedBy==='principal'?'Principal':'Teacher not recorded'),testDate:/^\d{4}-\d{2}-\d{2}$/.test(exam?.date||'')&&Number.isFinite(Date.parse(exam.date+'T12:00:00+05:30'))?exam.date:'',evaluatedAt:mark.updatedAt||0};}

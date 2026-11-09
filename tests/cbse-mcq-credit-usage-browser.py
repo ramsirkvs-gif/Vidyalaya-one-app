@@ -21,6 +21,6 @@ with fx['ns']['sync_playwright']() as p:
  for width in [360,768,1440]:
   page.set_viewport_size({'width':width,'height':1000});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
  usage.screenshot(path='/tmp/mcq-evaluation-usage.png')
- usage.locator('a[href="#student=X%3Aa%3Aone"]').click();badge=page.locator('.mcq-profile-participation');badge.wait_for();assert badge.locator('summary').inner_text()=='MCQ tests attended · 2';badge.locator('summary').click();assert 'QPE001' in badge.inner_text() and 'QPE002' in badge.inner_text()
+ usage.locator('a[href="#student=X%3Aa%3Aone"]').click();badge=page.locator('.mcq-profile-participation');badge.wait_for();assert badge.locator('summary').inner_text()=='MCQ tests attended · 2';assert badge.get_attribute('open') is not None;assert 'QPE001' in badge.inner_text() and 'QPE002' in badge.inner_text()
  assert not errors,errors;b.close()
 print('PASS contributor/editor credit, QP preparer, class usage, live attendance, student profile badge and responsive layout')
