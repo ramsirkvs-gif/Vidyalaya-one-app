@@ -17,3 +17,5 @@ const winterName=value=>String(value||'').replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS
 const winterTeacherNames=new Set(['PRIYANKAMEHTA','JYOTIVERMA','GAURAVSINGH','BIKASJYOTIDAS','BIKASHJYOTIDAS','AJAYAPRATAPSINGH','AJAYPRATAPSINGH','AJAYPRATAPSINGHC','MONIKA','MONIKAYADAV']);
 export function isWinterTimetableTeacher(person){const key=winterName(person?.name),name=String(person?.name||'').replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS)\b\.?\s*/gi,'').trim();return person?.status==='active'&&(winterTeacherNames.has(key)||/^BIBEK(?:\s|$)/i.test(name));}
 export const winterTimetableStaff=staff=>Object.fromEntries(Object.entries(staff||{}).filter(([,p])=>isWinterTimetableTeacher(p)));
+export const WINTER_ATTENDANCE_TAKEN='Attendance has already been taken for snacks distribution and student signatures. If you want to take attendance for your subject progress record, please go to the Remedial Class Manager.';
+export const winterAttendanceComplete=(keys,records={})=>keys.length>0&&keys.every(key=>['reported','not-reported'].includes(records[key]?.status));
