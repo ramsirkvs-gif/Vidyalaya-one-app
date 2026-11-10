@@ -1,6 +1,7 @@
+import {withGuestFaculty,guestFacultyName} from './cbse-faculty-guest.js';
 import {clone,entries,uniqueKey} from './cbse-model.js';
 import {meetingLink} from './cbse-contact-model.js';
-export const facultyName=value=>String(value||'').toUpperCase().replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS)\b\.?\s*/g,'').replace(/[^A-Z0-9]/g,'');
+export const facultyName=value=>String(guestFacultyName(value)||'').toUpperCase().replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS)\b\.?\s*/g,'').replace(/[^A-Z0-9]/g,'');
 const designationKind=value=>{const s=String(value||'').toUpperCase();return s.match(/\b(PGT|TGT|PRT)\b/)?.[1]||(/COUNS/.test(s)?'COUNSELLOR':/SPECIAL/.test(s)?'SPECIAL':/COMP/.test(s)?'COMPUTER':s.replace(/[^A-Z]/g,''));};
 export const validFacultyEmail=value=>typeof value==='string'&&value.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 export const isAISubject=value=>['AI','ARTIFICIALINTELLIGENCE'].includes(String(value||'').toUpperCase().replace(/[^A-Z]/g,''));
@@ -32,7 +33,7 @@ export function parseVCSetupCSV(header,rows){
  return {format:'mission-vc-support-v1',members:[...members.values()],emails,...(teachingRows.length?{teachingRows}:{})};
 }
 export function vcStaff(faculty,mission){
- const out={};for(const[cl,c]of entries(faculty?.classes))for(const[id,t]of entries(c.teachers))out[cl+':'+id]={...t,classId:cl,kind:'faculty'};
+ const out={};for(const[cl,c]of entries(faculty?.classes))for(const[id,t]of entries(c.teachers))out[cl+':'+id]={...withGuestFaculty(t),classId:cl,kind:'faculty'};
  for(const[id,t]of entries(mission?.staff))out['support:'+id]={...t,classId:''};
  for(const[id,t]of entries(out)){t.email=mission?.staffEmails?.[id]?.email||t.email||'';if(mission?.staffPhotos?.[id]?.data)t.photoData=mission.staffPhotos[id].data;}
  return out;

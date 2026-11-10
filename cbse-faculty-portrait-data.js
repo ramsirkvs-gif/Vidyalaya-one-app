@@ -236,7 +236,8 @@ export const facultyPortraits=[
   {
     "file": "faculty-photo-avinashsingh.png",
     "names": [
-      "MR. AVINASH SINGH"
+      "MR. AVINASH SINGH",
+      "AVINASH/Bibek"
     ],
     "staffId": "X:pdf_02222829e8b1896e_43"
   },

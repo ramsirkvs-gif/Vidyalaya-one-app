@@ -1,3 +1,4 @@
+import {isAvinashGuestProfile} from './cbse-faculty-guest.js';
 export const WINTER_TITLE='Winter break TT with daily attendance report';
 export const WINTER_PERIODS=['P1 · 8:00–9:30 a.m.','P2 · 9:30–11:00 a.m.','P3 · 11:30 a.m.–1:00 p.m.','P4 · 1:00–2:30 p.m.'];
 export const WINTER_TIMETABLE={
@@ -15,7 +16,7 @@ export function winterAttendanceDay(draft,input){
 // spelling variants from the school roster, never everyone teaching a subject.
 const winterName=value=>String(value||'').replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS)\b\.?\s*/gi,'').toUpperCase().replace(/[^A-Z]/g,'');
 const winterTeacherNames=new Set(['PRIYANKAMEHTA','JYOTIVERMA','GAURAVSINGH','BIKASJYOTIDAS','BIKASHJYOTIDAS','AJAYAPRATAPSINGH','AJAYPRATAPSINGH','AJAYPRATAPSINGHC','MONIKA','MONIKAYADAV']);
-export function isWinterTimetableTeacher(person){const key=winterName(person?.name),name=String(person?.name||'').replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS)\b\.?\s*/gi,'').trim();return person?.status==='active'&&(winterTeacherNames.has(key)||/^BIBEK(?:\s|$)/i.test(name));}
+export function isWinterTimetableTeacher(person){const key=winterName(person?.name),name=String(person?.name||'').replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS)\b\.?\s*/gi,'').trim();return person?.status==='active'&&(isAvinashGuestProfile(person)||winterTeacherNames.has(key)||/^BIBEK(?:\s|$)/i.test(name));}
 export const winterTimetableStaff=staff=>Object.fromEntries(Object.entries(staff||{}).filter(([,p])=>isWinterTimetableTeacher(p)));
 export const WINTER_ATTENDANCE_TAKEN='Attendance has already been taken for snacks distribution and student signatures. If you want to take attendance for your subject progress record, please go to the Remedial Class Manager.';
 export const winterAttendanceComplete=(keys,records={})=>keys.length>0&&keys.every(key=>['reported','not-reported'].includes(records[key]?.status));

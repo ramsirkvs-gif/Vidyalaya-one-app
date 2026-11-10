@@ -1,3 +1,4 @@
+import {guestFacultyName} from './cbse-faculty-guest.js';
 import {activeRollLongLeave} from './cbse-roll-call-leave.js';
 import {facultyPortraits} from './cbse-faculty-portrait-data.js';
 export const SECONDARY_ROSTER=[
@@ -5,7 +6,7 @@ export const SECONDARY_ROSTER=[
 ];
 export const rollNameKey=v=>String(v||'').replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS)\b\.?\s*/gi,'').toUpperCase().replace(/[^A-Z]/g,'');
 const aliases=name=>{const key=rollNameKey(name),portrait=facultyPortraits.find(p=>p.names.some(n=>rollNameKey(n)===key));return new Set([key,...(portrait?.names||[]).map(rollNameKey)]);};
-const roster=SECONDARY_ROSTER.map(([name,designation],index)=>({name,designation,serial:index+1,aliases:aliases(name)}));
+const roster=SECONDARY_ROSTER.map(([name,designation],index)=>({name:guestFacultyName(name),designation,serial:index+1,aliases:aliases(name)}));
 export function secondaryStaffEntry(person){const key=rollNameKey(person?.name);return roster.find(r=>r.aliases.has(key));}
 export function rollReportingStaff(person){return !/\bVACANT\b|\bPRINCIPAL\b|^VP\b/i.test((person?.name||'')+' '+(person?.designation||''))&&!['RAMKUMARSINGHS','RAMKUMARSINGHSIKARWAR'].includes(rollNameKey(person?.name));}
 export function compareRollStaff(a,b){const rank=p=>{const designation=p.designation||secondaryStaffEntry(p)?.designation||'';return /^PGT\b/i.test(designation)?0:/^TGT\b/i.test(designation)?1:/^PRT\b/i.test(designation)?2:3;};return rank(a)-rank(b)||(secondaryStaffEntry(a)?.serial??9999)-(secondaryStaffEntry(b)?.serial??9999)||String(a.name||'').localeCompare(String(b.name||''));}
