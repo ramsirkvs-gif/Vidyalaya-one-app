@@ -1,8 +1,10 @@
+import {winterAttendanceDay} from './cbse-winter-timetable.js';
 import {schoolPreboard2DateSheet} from './cbse-preboard2-datesheet.js';
 import {schoolPreboard1DateSheet} from './cbse-preboard1-datesheet.js';
 import {schoolBoardDateSheet} from './cbse-board-datesheet-model.js';
 export const examCentreToday=now=>new Date(now+19800000).toISOString().slice(0,10);
 export function examCentrePaper(draft,input){
+ if(input.exam==='winter')return winterAttendanceDay(draft,input);
  if(!['cbse','preboard1','preboard2'].includes(input.exam)||!['X','XII'].includes(input.classId))throw Error('Choose a published examination and standard.');
  const paper=(input.exam==='preboard2'?schoolPreboard2DateSheet:input.exam==='preboard1'?schoolPreboard1DateSheet:schoolBoardDateSheet)(draft,input.classId).rows.find(p=>p.id===input.paperId);if(!paper||!paper.codeConfirmed)throw Error('This paper or its school mapping changed. Reopen the date sheet.');
  return {...paper,exam:input.exam,storeKey:input.exam+'_'+input.classId+'_'+paper.date.replaceAll('-','')+'_'+paper.codes.join('-')};

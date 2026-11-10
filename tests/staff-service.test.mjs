@@ -446,3 +446,11 @@ test('MCQ disconnect fallback confirms a committed evaluation without duplicatin
  await assert.rejects(f.service('pin-submit',{...input,responses:['A']}),/different answers/);
  await f.service('disable',{staffId:'X:one'},'principal');await assert.rejects(service('pin-submit',input),/correct PIN/);
 });
+test('winter daily attendance uses existing private read and teacher PIN routes, independently of exam attendance',async()=>{
+ const f=fixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');const clock=Date.parse('2026-12-23T06:00Z'),service=createStaffService({db:f.db,auth:f.auth,now:()=>clock,displayKey:Buffer.alloc(32,7),viewSecret}),scope={exam:'winter',classId:'X',paperId:'winter|X|1'};
+ await assert.rejects(service('exam-attendance-read',scope),/access|password|curtain/i);
+ const initial=await service('exam-attendance-read',scope,'principal');assert.equal(initial.students.length,2);assert.equal(initial.paper.date,'2026-12-23');assert.equal(initial.vems,undefined);
+ const input={...scope,operation:'exam-attendance-save',staffId:'X:one',pin:'123',changes:[{studentKey:'X:a:one',status:'reported',expectedRevision:0,requestId:'winter_service_one'}]};
+ const session={viewerToken:(await service('view-login',{password:'synthetic-curtain'})).viewerToken};const saved=await service('pin-submit',input,'','winter',session);assert.equal(saved.records['X:a:one'].status,'reported');assert.equal(saved.records['X:b:two'],undefined);
+ const second=await service('exam-attendance-read',{...scope,paperId:'winter|X|2'},'principal');assert.deepEqual(second.records,{});await assert.rejects(service('pin-submit',{...input,paperId:'winter|X|2'},'','winter',session),/scheduled exam date/);assert.equal(f.data.cbse.examCentreAttendance.winter_X_20261223_WINTER.revision,1);
+});

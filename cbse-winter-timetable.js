@@ -1,0 +1,12 @@
+export const WINTER_TITLE='Winter break TT with daily attendance report';
+export const WINTER_PERIODS=['P1 · 8:00–9:30 a.m.','P2 · 9:30–11:00 a.m.','P3 · 11:30 a.m.–1:00 p.m.','P4 · 1:00–2:30 p.m.'];
+export const WINTER_TIMETABLE={
+ odd:{A:['Maths – Priyanka Mehta','Science – Jyoti Verma','SST – Gaurav Singh','AI – Bibek'],B:['Maths – Bikas Jyoti Das','Science – Monika','AI – Bibek','SST – Gaurav Singh'],C:['Science – Jyoti Verma','Maths – Priyanka Mehta','SST – Ajaya Pratap Singh','Writing Practice – Invigilator: Bikas Jyoti Das'],D:['Science – Monika','Maths – Bikas Jyoti Das','Writing Practice – Invigilator: Monika','SST – Ajaya Pratap Singh']},
+ even:{A:['Science – Jyoti Verma','Maths – Priyanka Mehta','SST – Gaurav Singh','Writing Practice – Invigilator: Jyoti'],B:['Maths – Bikas Jyoti Das','Science – Monika','Writing Practice – Invigilator: Priyanka Mehta','SST – Gaurav Singh'],C:['Maths – Priyanka Mehta','Science – Jyoti Verma','AI – Bibek','SST – Ajaya Pratap Singh'],D:['Science – Monika','Maths – Bikas Jyoti Das','SST – Ajaya Pratap Singh','AI – Bibek']}
+};
+export const WINTER_DAYS=Array.from({length:10},(_,i)=>({day:i+1,date:new Date(Date.UTC(2026,11,23+i)).toISOString().slice(0,10),pattern:i%2?'even':'odd'}));
+export function winterAttendanceDay(draft,input){
+ const day=WINTER_DAYS.find(d=>input.paperId==='winter|X|'+d.day);if(input.classId!=='X'||!day)throw Error('Choose a winter-break teaching day for Class X.');
+ const sections=Object.entries(draft.classes?.X?.sections||{}).filter(([,s])=>['A','B','C','D'].includes(String(s.name).trim().toUpperCase())),studentKeys=sections.flatMap(([sid,s])=>Object.keys(s.students||{}).map(id=>'X:'+sid+':'+id));
+ return {...day,id:input.paperId,name:'Winter break · Day '+day.day,classId:'X',exam:'winter',codes:['WINTER'],codeConfirmed:true,studentKeys,storeKey:'winter_X_'+day.date.replaceAll('-','')+'_WINTER'};
+}
