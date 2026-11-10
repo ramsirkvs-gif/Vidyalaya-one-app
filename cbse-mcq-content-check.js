@@ -1,2 +1,5 @@
 // Multiple complete option sets usually indicate two questions or section instructions in one CSV cell.
 export function hasMultipleMCQOptionSets(value){const matches=[...String(value||'').matchAll(/^[ \t]*(?:\(([A-Da-dकखगघ])\)|([A-Da-dकखगघ])[).:])[ \t]+/gm)],letters=matches.map(match=>({'क':'A','ख':'B','ग':'C','घ':'D'})[match[1]||match[2]]||(match[1]||match[2]).toUpperCase()).join('');return (letters.match(/ABCD/g)||[]).length>1;}
+
+export const MCQ_BULK_PASTE_MESSAGE='This area is for one MCQ only. Please contact the Principal for bulk uploading.';
+export function singleMCQPasteCheck(value){const text=String(value||''),letters=[...text.matchAll(/(?<!\S)(?:\(([A-Da-dकखगघ])\)|([A-Da-dकखगघ])[).:])[ \t\r\n]+/g)].map(m=>({'क':'A','ख':'B','ग':'C','घ':'D'})[m[1]||m[2]]||(m[1]||m[2]).toUpperCase()).join(''),headings=[...text.matchAll(/^\s*(?:Q(?:uestion)?|प्रश्न)\s*[.:#-]?\s*[0-9०-९]+(?:[).:]|\s)/gmi)];return {bulk:(letters.match(/ABCD/g)||[]).length>1||headings.length>1,large:text.length>4000};}
