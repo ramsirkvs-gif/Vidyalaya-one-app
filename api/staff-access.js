@@ -1,3 +1,4 @@
+import {createRESTTransaction} from '../_server/mcq-transaction.js';
 import {VIEW_COOKIE} from '../_server/shared-view.js';
 import {pinDisplayKey} from '../_server/pin-vault.js';
 import {createStaffService,AccessError} from '../_server/staff-service.js';
@@ -14,7 +15,7 @@ async function getService(){
  if(typeof credential.client_email!=='string'||typeof credential.private_key!=='string')throw new AccessError('The server Firebase credential is missing its service-account email or private key. Update FIREBASE_SERVICE_ACCOUNT_JSON in Vercel and redeploy.',503);
  let app;try{app=getApps().find(a=>a.name==='mission-server')||initializeApp({credential:cert(credential),databaseURL:'https://vidyalaya-one-app-default-rtdb.firebaseio.com'},'mission-server');}
  catch(error){console.error('PIN_SERVICE_CREDENTIAL_INVALID',String(error?.code||'invalid-certificate'));throw new AccessError('The server Firebase service-account credential is invalid. Update FIREBASE_SERVICE_ACCOUNT_JSON in Vercel and redeploy.',503);}
- service=createStaffService({db:getDatabase(app),auth:getAuth(app),displayKey:pinDisplayKey(credential)});return service;
+ service=createStaffService({db:getDatabase(app),auth:getAuth(app),displayKey:pinDisplayKey(credential),restTransaction:createRESTTransaction({databaseURL:app.options.databaseURL,credential:app.options.credential})});return service;
 }
 export default async function handler(req,res){
  res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
@@ -25,5 +26,5 @@ export default async function handler(req,res){
   if(!['exam-attendance-read','chamber-read','roll-call-read','view-login','view-data','view-version','view-student-photo','view-student-photos','view-logout','pin-submit','directory','login','mcq-read','news-read'].includes(action)&&!token)throw new AccessError('Sign in first.',401);
   const ip=String(req.headers['x-vercel-forwarded-for']||req.socket?.remoteAddress||'unknown').split(',')[0];
   const viewerToken=String(req.headers.cookie||'').split(';').map(v=>v.trim()).find(v=>v.startsWith(VIEW_COOKIE+'='))?.slice(VIEW_COOKIE.length+1)||'';const result=await (await getService())(action,input,token,ip,{viewerToken});if(action==='view-login'||action==='remember-view'){res.setHeader('Set-Cookie',`${VIEW_COOKIE}=${result.viewerToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=34560000`);delete result.viewerToken;}if(action==='view-data'&&viewerToken)res.setHeader('Set-Cookie',`${VIEW_COOKIE}=${viewerToken}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=34560000`);if(action==='view-logout')res.setHeader('Set-Cookie',`${VIEW_COOKIE}=; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=0`);res.status(200).json(result);
- }catch(error){if(!(error instanceof AccessError)&&!String(error?.code||'').startsWith('auth/'))console.error('PIN_SERVICE_REQUEST_FAILED',String(error?.code||'initialization-or-request'));const status=error instanceof AccessError?error.status:String(error.code||'').startsWith('auth/')?401:500;res.status(status).json({curtainRequired:!!error.curtainRequired,error:status===500?'Staff service could not complete the request. Please try again.':error instanceof AccessError?error.message:'Your session is invalid. Sign in again.'});}
+ }catch(error){if(!(error instanceof AccessError)&&!String(error?.code||'').startsWith('auth/'))console.error('PIN_SERVICE_REQUEST_FAILED',String(error?.code||'initialization-or-request'));const status=error instanceof AccessError?error.status:String(error.code||'').startsWith('auth/')?401:500;res.status(status).json({curtainRequired:!!error.curtainRequired,error:status===500?(error.code==='MCQ_DATABASE_UNAVAILABLE'||error.code==='MCQ_DATABASE_BUSY'?error.message:'Staff service could not complete the request. Please try again.'):error instanceof AccessError?error.message:'Your session is invalid. Sign in again.'});}
 }
