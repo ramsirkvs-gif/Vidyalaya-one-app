@@ -1,0 +1,14 @@
+from pathlib import Path
+exec(Path('tests/cbse-teacher-monitoring-browser.py').read_text().split('\nwith sync_playwright() as p:')[0])
+with sync_playwright() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);ctx=b.new_context(viewport={'width':390,'height':844});ctx.route('https://www.gstatic.com/firebasejs/**',sdk);page=ctx.new_page();calls=[]
+ def api(route):
+  d=route.request.post_data_json;calls.append(d)
+  if d['action']=='principal-notifications':
+   assert route.request.headers.get('authorization')=='Bearer test-token';route.fulfill(json={'ok':True,'generatedAt':1794300000000,'pending':[{'kind':'Remedial approvals','title':'Synthetic Teacher · Science','detail':'10 Nov · Waiting for approval','at':1794300000000,'href':'cbse-mission.html#tab=remedial&reviewPlan=synthetic&reviewDate=2026-11-10'}],'recent':[{'kind':'Teacher MCQ contributions','title':'Synthetic Teacher','detail':'10 questions · Class X','at':1794300000000,'href':'cbse-mission.html#tab=mcq&mcqClass=X'}],'news':[{'kind':'Latest team news','title':'Team News','detail':'Synthetic news update','at':1794300000000,'href':'cbse-mission.html#tab=news&news=synthetic'}]})
+  else:route.fulfill(json={'ok':True,'staff':[]})
+ page.route('**/api/staff-access',api);errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.goto('http://127.0.0.1:8000/cbse-mission.html');panel=page.locator('[data-principal-notifications]');panel.get_by_text('Pending approvals & follow-up · 1',exact=True).wait_for();assert panel.evaluate('(n)=>n.open');assert '10 questions · Class X' in panel.inner_text();assert 'Synthetic news update' in panel.inner_text();assert 'does not approve' in panel.inner_text();assert page.locator('dialog[open]').count()==0;assert len([c for c in calls if c['action']=='principal-notifications'])==1;panel.get_by_role('button',name='Refresh notifications',exact=True).click();assert len([c for c in calls if c['action']=='principal-notifications'])==2
+ for width in [320,390,768,1440]:
+  page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ guest=b.new_context();guest.add_init_script('window.__guest=true');guest.route('https://www.gstatic.com/firebasejs/**',sdk);gp=guest.new_page();gp.route('**/api/staff-access',lambda r:r.fulfill(json={'ok':True,'staff':[]}));gp.goto('http://127.0.0.1:8000/cbse-mission.html');gp.wait_for_timeout(500);assert gp.locator('[data-principal-notifications]').count()==0;assert not errors,errors;b.close()
+print('PASS Principal-only automatic notifications, pending/recent/news links, refresh, no blocking modal and mobile layout')

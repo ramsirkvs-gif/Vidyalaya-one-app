@@ -1,3 +1,4 @@
+import {remedialTeacherCanEdit} from './cbse-remedial-status.js';
 import {REMEDIAL_HOLIDAYS,REMEDIAL_CALENDAR} from './cbse-remedial-holidays.js';
 import {resolvedAllocations,teacherIdentityIds} from './cbse-view-data.js';
 import {staffIndex} from './cbse-mission-model.js';
@@ -13,7 +14,7 @@ export function remedialConflicts(mission,plan,faculty={},excludeId=''){const te
 export const remedialConflictSignature=conflicts=>JSON.stringify(conflicts.map(c=>[c.kind,c.id,c.start,c.end,c.dates,c.studentCount,[...(c.studentKeys||[])].sort()]).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))));
 const planFingerprint=p=>JSON.stringify([...['teacherId','start','end','schedule','dates','studentKeys','purpose'].map(key=>p[key]),[...(p.scopes||[[p.classId,p.sectionId,p.subjectId].join('|')])].sort()]);
 export function applyRemedialPlan(mission,draft,faculty,input,actor,now){
- if(['observe','complete','verify'].includes(input.operation))return applyRemedialSession(mission,faculty,input,actor,now);
+ if(['observe','complete','amend-attendance','verify','revert'].includes(input.operation))return applyRemedialSession(mission,faculty,input,actor,now);
  if(input.operation==='delete'){
   check(actor.id==='principal','Only the Principal can permanently delete a class.');check(typeof input.planId==='string'&&Object.hasOwn(mission.remedialPlans||{},input.planId),'This plan is no longer available.');const old=mission.remedialPlans[input.planId];check(old.status==='cancelled','Cancel the plan before permanently deleting it.');check(input.confirmDelete===true,'Confirm permanent deletion.');check(input.expectedRevision===(old.revision||0),'This plan changed. Refresh the calendar before deleting.');const next=structuredClone(mission);delete next.remedialPlans[input.planId];next.revision=(next.revision||0)+1;return {next,planId:input.planId};
  }
@@ -49,17 +50,22 @@ export function applyRemedialSession(mission,faculty,input,actor,now){
  check(actor.id==='principal'||teacherIdentityIds(actor.id,faculty,mission).includes(old.teacherId),'Use the planned teacher’s own PIN.');check(old.status!=='cancelled','This class was cancelled.');
  check(old.dates.includes(input.date),'Choose a scheduled class date.');check(input.date<=remedialToday(now),'Record the class on its scheduled day or afterwards.');
  const prior=old.sessions?.[input.date]||{};check((prior.revision||0)===(input.sessionRevision||0),'This class record changed. Reopen it before saving.');
+ if(actor.id!=='principal'&&['observe','complete','amend-attendance'].includes(input.operation))check(remedialTeacherCanEdit(old,input.date,now),'Teacher attendance editing is allowed only on the class day and before Principal approval.');
  let session={...prior,revision:(prior.revision||0)+1};
  if(input.operation==='observe'){
   check(!prior.submittedAt,'This class was already submitted.');session={...session,observationRequestedAt:now,observationRequestedBy:actor.id,observationRequestedByName:actor.name};
  }else if(input.operation==='complete'){
-  check(!prior.submittedAt,'This class was already submitted.');
+  check(!prior.submittedAt||prior.status==='returned','This class was already submitted.');
   check(Array.isArray(input.presentKeys)&&new Set(input.presentKeys).size===input.presentKeys.length&&input.presentKeys.every(k=>old.studentKeys.includes(k)),'Tick attendance from this class’s targeted students.');
-  const e=input.evidence;check(e&&typeof e.ref==='string'&&/^[a-zA-Z0-9_-]{8,100}$/.test(e.ref)&&Number.isFinite(e.capturedAt)&&e.capturedAt<=now+60000&&now-e.capturedAt<6*3600000&&remedialToday(e.capturedAt)===input.date,'Take a fresh class photo on the selected class date.');
+  const reuse=input.reuseEvidence===true;check(!reuse||prior.status==='returned'&&prior.evidence?.ref,'Previously captured evidence can be reused only for a returned class.');const e=reuse?prior.evidence:input.evidence;check(e&&typeof e.ref==='string'&&/^[a-zA-Z0-9_-]{8,100}$/.test(e.ref)&&Number.isFinite(e.capturedAt)&&(reuse||e.capturedAt<=now+60000&&now-e.capturedAt<6*3600000&&remedialToday(e.capturedAt)===input.date),'Take a fresh class photo on the selected class date.');
   const hasLocation=Number.isFinite(e.latitude)&&Math.abs(e.latitude)<=90&&Number.isFinite(e.longitude)&&Math.abs(e.longitude)<=180&&Number.isFinite(e.accuracy)&&e.accuracy>=0;
-  session={...session,status:'submitted',presentKeys:[...input.presentKeys],absentKeys:old.studentKeys.filter(k=>!input.presentKeys.includes(k)),evidence:{ref:e.ref,capturedAt:e.capturedAt,...(hasLocation?{latitude:e.latitude,longitude:e.longitude,accuracy:e.accuracy}:{locationStatus:'not-collected'})},submittedAt:now,submittedBy:actor.id,submittedByName:actor.name};
+  session={...session,status:'submitted',approvalComment:'',presentKeys:[...input.presentKeys],absentKeys:old.studentKeys.filter(k=>!input.presentKeys.includes(k)),evidence:{ref:e.ref,capturedAt:e.capturedAt,...(hasLocation?{latitude:e.latitude,longitude:e.longitude,accuracy:e.accuracy}:{locationStatus:'not-collected'})},submittedAt:now,submittedBy:actor.id,submittedByName:actor.name};
+ }else if(input.operation==='amend-attendance'){
+  check(prior.submittedAt,'Submit the class record before correcting attendance.');check(Array.isArray(input.presentKeys)&&new Set(input.presentKeys).size===input.presentKeys.length&&input.presentKeys.every(k=>old.studentKeys.includes(k)),'Tick attendance from this class’s targeted students.');const previous=Object.fromEntries(['status','presentKeys','absentKeys','submittedAt','submittedBy','submittedByName','evidence'].filter(k=>prior[k]!==undefined).map(k=>[k,structuredClone(prior[k])]));session={...session,status:'submitted',presentKeys:[...input.presentKeys],absentKeys:old.studentKeys.filter(k=>!input.presentKeys.includes(k)),submittedAt:now,submittedBy:actor.id,submittedByName:actor.name,attendanceUpdatedAt:now,reviewHistory:{...prior.reviewHistory,['attendance_'+session.revision]:{...previous,changedAt:now,changedBy:actor.id}}};
+ }else if(input.operation==='revert'){
+  check(actor.id==='principal','Principal access required.');check(prior.submittedAt&&prior.status!=='returned','Choose a submitted or approved class to return.');const rawComment=input.returnComment??'';check(typeof rawComment==='string','Write a return comment.');const comment=rawComment.trim();check(comment.length>0&&comment.length<=1000,'Add a return comment within 1000 characters.');const snapshot=Object.fromEntries(['status','presentKeys','absentKeys','evidence','submittedAt','submittedBy','submittedByName','verifiedAt','verifiedBy','verifiedByName','approvalComment'].filter(k=>prior[k]!==undefined).map(k=>[k,structuredClone(prior[k])]));session={...session,status:'returned',returnComment:comment,returnedAt:now,returnedBy:actor.id,reviewHistory:{...prior.reviewHistory,['review_'+session.revision]:{...snapshot,returnComment:comment,returnedAt:now,returnedBy:actor.id}}};delete session.verifiedAt;delete session.verifiedBy;delete session.verifiedByName;delete session.approvalComment;
  }else if(input.operation==='verify'){
-  check(actor.id==='principal','Principal access required.');check(prior.submittedAt,'Submit the completed class first.');session={...session,status:'verified',verifiedAt:now,verifiedBy:actor.id};
+  check(actor.id==='principal','Principal access required.');check(prior.submittedAt,'Submit the completed class first.');const comment=input.approvalComment??'';check(typeof comment==='string'&&comment.length<=1000,'Keep the approval comment within 1000 characters.');check(prior.status!=='returned'||comment.trim(),'Add a comment when reapproving a returned record.');session={...session,status:'verified',verifiedAt:now,verifiedBy:actor.id,verifiedByName:actor.name||'Principal',approvalComment:comment.trim()};
  }else throw Error('Choose a valid class action.');
  const next=structuredClone(mission);next.remedialPlans[input.planId]={...old,sessions:{...old.sessions,[input.date]:session},revision:(old.revision||0)+1};next.revision=(next.revision||0)+1;return {next,planId:input.planId};
 }

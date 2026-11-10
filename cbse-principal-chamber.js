@@ -1,3 +1,4 @@
+import {createPrincipalNotificationPanel} from './cbse-principal-notifications-view.js';
 const chamber=document.getElementById('principal-chamber'),applications=document.querySelector('section[aria-labelledby="apps-title"]'),hero=document.querySelector('.hero');
 function renderChamber(){
  const open=location.hash==='#principal-chamber';chamber.hidden=!open;applications.hidden=open;hero.hidden=open;
@@ -26,3 +27,6 @@ window.addEventListener('hashchange',()=>{if(location.hash==='#principal-chamber
 if(location.hash==='#principal-chamber')watchPrincipalSession();
 
 document.getElementById('open-chamber-settings').addEventListener('click',async event=>{event.preventDefault();const controller=await openRollWorkspace();await controller.openSettings();document.getElementById('roll-call-workspace').scrollIntoView({block:'start',behavior:'smooth'});});
+
+let principalNotificationsPanel;
+window.addEventListener('chamber-principal-session',event=>{if(!event.detail.signedIn){principalNotificationsPanel?.destroy();principalNotificationsPanel=null;document.getElementById('chamber-notifications')?.remove();return;}if(principalNotificationsPanel)return;const host=document.createElement('section');host.id='chamber-notifications';chamber.prepend(host);principalNotificationsPanel=createPrincipalNotificationPanel(host,{read:async()=>{const {auth}=await import('./firebase-client.js');if(!auth.currentUser)throw Error('Sign in as Principal.');const response=await fetch('/api/staff-access',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+await auth.currentUser.getIdToken()},body:JSON.stringify({action:'principal-notifications'})});const data=await response.json();if(!response.ok)throw Error(data.error||'Notifications unavailable.');return data;}});});
