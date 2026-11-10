@@ -306,7 +306,7 @@ async function connectMission(){try{const[client,a,d]=await Promise.all([import(
 }catch{publicState='error';render();if(!canBrowse())message('The live connection is unavailable. Retrying the saved staff session…','error');}}
 render();
 
-function ensurePrincipalNotifications(){if(!editable()||principalNotificationPanel)return;const host=el('section');host.id='principal-notification-host';document.querySelector('.mission-status-row').after(host);principalNotificationPanel=createPrincipalNotificationPanel(host,{read:()=>staffAPI('principal-notifications')});}
+function ensurePrincipalNotifications(){if(!editable()||principalNotificationPanel)return;const host=el('section');host.id='principal-notification-host';document.querySelector('.mission-status-row').after(host);principalNotificationPanel=createPrincipalNotificationPanel(host,{read:values=>staffAPI('principal-notifications',values),markSeen:values=>staffAPI('principal-notifications',{operation:'seen',...values})});}
 function renderSummary(){
  const known=viewPrivate()||!!published,total=viewPrivate()?Object.keys(people()).length:entries(published?.sections).reduce((n,[,s])=>n+(Number(s.count)||0),0),sections=['X','XII'].reduce((n,cl)=>n+classSections(cl).length,0),box=$('mission-summary'),team=canBrowse()?missionTeamCounts(faculty,mission):null;box.replaceChildren();
  for(const[value,label]of [[known?total:'—','Students'],[known?sections:'—','Sections'],[2,'Standards · X & XII'],[team?.X??'—','Team X'],[team?.XII??'—','Team XII']]){const item=el('div',undefined,'summary-item'),text=el('div');text.append(el('strong',String(value)),el('small',label));item.append(text);box.append(item);}
