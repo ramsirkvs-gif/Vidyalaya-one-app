@@ -185,3 +185,5 @@ body.mission-app #mission-nav .mission-switch-menu[open]>button{display:block;wi
 .exam-attendance-list .exam-attendance-choices input{min-height:0;width:16px;height:16px;flex:none}
 .exam-attendance-list .exam-attendance-name{font-size:12px}
 .exam-attendance-list .exam-attendance-row small{font-size:10px;margin-top:2px}
+
+.mission-holiday-month{margin-top:24px}.mission-holiday-table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:13px}.mission-holiday-table th,.mission-holiday-table td{border:1px solid #cbded6;padding:10px;text-align:left;vertical-align:top;overflow-wrap:anywhere}.mission-holiday-table thead{background:#174f47;color:white}.mission-holiday-table th:first-child{width:27%}.mission-holiday-table .holiday-winter{background:#edf5fc}.mission-holiday-table .holiday-extra-class{background:#e9f6ec}.mission-holiday-table a{display:inline-block;padding:6px 0;font-weight:600}@media(max-width:600px){.mission-holiday-table{font-size:11px}.mission-holiday-table th,.mission-holiday-table td{padding:7px}.mission-holiday-table th:first-child{width:28%}}
