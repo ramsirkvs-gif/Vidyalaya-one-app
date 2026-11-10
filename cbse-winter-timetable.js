@@ -10,3 +10,10 @@ export function winterAttendanceDay(draft,input){
  const sections=Object.entries(draft.classes?.X?.sections||{}).filter(([,s])=>['A','B','C','D'].includes(String(s.name).trim().toUpperCase())),studentKeys=sections.flatMap(([sid,s])=>Object.keys(s.students||{}).map(id=>'X:'+sid+':'+id));
  return {...day,id:input.paperId,name:'Winter break · Day '+day.day,classId:'X',exam:'winter',codes:['WINTER'],codeConfirmed:true,studentKeys,storeKey:'winter_X_'+day.date.replaceAll('-','')+'_WINTER'};
 }
+
+// The PDF uses abbreviated names; match only its seven teachers and known
+// spelling variants from the school roster, never everyone teaching a subject.
+const winterName=value=>String(value||'').replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS)\b\.?\s*/gi,'').toUpperCase().replace(/[^A-Z]/g,'');
+const winterTeacherNames=new Set(['PRIYANKAMEHTA','JYOTIVERMA','GAURAVSINGH','BIKASJYOTIDAS','BIKASHJYOTIDAS','AJAYAPRATAPSINGH','AJAYPRATAPSINGH','AJAYPRATAPSINGHC','MONIKA','MONIKAYADAV']);
+export function isWinterTimetableTeacher(person){const key=winterName(person?.name),name=String(person?.name||'').replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS)\b\.?\s*/gi,'').trim();return person?.status==='active'&&(winterTeacherNames.has(key)||/^BIBEK(?:\s|$)/i.test(name));}
+export const winterTimetableStaff=staff=>Object.fromEntries(Object.entries(staff||{}).filter(([,p])=>isWinterTimetableTeacher(p)));
