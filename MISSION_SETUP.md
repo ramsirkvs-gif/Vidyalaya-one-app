@@ -939,3 +939,7 @@ The Mission faculty view labels Avinash Singh’s existing faculty identity **AV
 ### Mission holiday list, November 2026–January 2027
 
 The **Holidays & Winter Break · Nov–Jan** Mission tile displays all 35 unique saved holiday dates in month-wise tables, including each of the 20 winter-break dates as a separate row. 23 December–1 January are labelled **Winter break with extra classes** and link to teaching days 1–10 of the winter timetable; 2–11 January are labelled **Winter break**. Christmas, Sundays and second Saturdays retain their overlapping names in the same date row. The list includes past dates for a complete November–January view. January named GH/RH holidays and undated Annual Day/Sports Day are explicitly pending; no missing holidays are invented. Existing attendance and holiday scheduling policies are unchanged.
+
+### Principal remedial approval screen
+
+Principal class cards use **Review attendance & evidence**. The dialog defaults to a submitted date awaiting approval, shows the saved attendance expanded, allows viewing captured evidence and approving the class, and shows approved status afterwards. Dates without a submitted record show **Attendance not submitted**; they do not expose teacher attendance checkboxes, camera capture, personal PIN or completion submission. Teacher class recording, photo capture, PIN submission and priority-absence reminders remain unchanged. Existing Principal authentication and server approval checks are preserved.

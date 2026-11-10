@@ -9,9 +9,10 @@ export function openRemedialClass(plan,ctx,credentials,refresh,initialDate){
  const stop=()=>{stream?.getTracks().forEach(t=>t.stop());stream=null;};
  const close=()=>{closed=true;stop();dialog.close();dialog.remove();};
  const dateLabel=el('label','Class date');dateLabel.append(dates);dates.setAttribute('aria-label','Scheduled class date');
- dialog.append(el('h3','Attendance & remedial class record'),el('p',plan.teacherName+' · '+plan.classId+'-'+(plan.sections||[plan.section]).join(', ')+' · '+plan.subjectName),dateLabel,body,message,actions,button('Close',close));
+ dialog.append(el('h3',ctx.principal?'Review attendance & evidence':'Attendance & remedial class record'),el('p',plan.teacherName+' · '+plan.classId+'-'+(plan.sections||[plan.section]).join(', ')+' · '+plan.subjectName),dateLabel,body,message,actions,button('Close',close));
  message.setAttribute('role','status');document.body.append(dialog);dialog.addEventListener('close',stop);dialog.addEventListener('cancel',close);
- options(dates,plan.dates.map(d=>[d,d]),initialDate|| (plan.dates.includes(remedialToday())?remedialToday():plan.dates[0]));dialog.showModal();
+ const submittedDates=plan.dates.filter(d=>plan.sessions?.[d]?.submittedAt),reviewDate=ctx.principal?(submittedDates.find(d=>plan.sessions[d].status!=='verified')||submittedDates[0]):null;
+ options(dates,plan.dates.map(d=>[d,d]),initialDate||reviewDate|| (plan.dates.includes(remedialToday())?remedialToday():plan.dates[0]));dialog.showModal();
  async function send(operation,extra={}){
   if(saving)return;const date=dates.value;saving=true;message.textContent=operation==='evidence'?'Loading photo…':'Saving…';dates.disabled=true;actions.querySelectorAll('button').forEach(b=>b.disabled=true);
   try{
@@ -19,20 +20,21 @@ export function openRemedialClass(plan,ctx,credentials,refresh,initialDate){
    if(closed)return;
    if(operation==='evidence'){message.textContent='';return r;}
    plan=(ctx.currentMission?.()||ctx.mission).remedialPlans[plan.id];refresh();draw();message.textContent=operation==='verify'?'Approved · class done.':'Record and attendance submitted · awaiting Principal approval.';return r;
-  }catch(e){if(!closed)message.textContent=e.message+' Your attendance and photo remain here; you can retry.';}
+  }catch(e){if(!closed)message.textContent=e.message+(ctx.principal?' Please retry the review.':' Your attendance and photo remain here; you can retry.');}
   finally{saving=false;dates.disabled=false;actions.querySelectorAll('button').forEach(b=>b.disabled=false);}
  }
  function draw(){
   stop();photo=null;evidence=null;body.replaceChildren();actions.replaceChildren();const session=plan.sessions?.[dates.value]||{};
   if(session.submittedAt){
    body.append(el('strong',session.status==='verified'?'Approved · class done':'Completed · awaiting Principal approval'),el('p',(session.presentKeys||[]).length+' present · '+(session.absentKeys||[]).length+' absent'),el('p','Submitted by '+session.submittedByName+' · '+new Date(session.submittedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})));
-   const attendance=el('details');attendance.append(el('summary','View recorded attendance'));
+   const attendance=el('details');attendance.append(el('summary','View recorded attendance'));attendance.open=!!ctx.principal;
    for(const key of plan.studentKeys){const [cl,sid,id]=key.split(':'),person=ctx.draft.classes?.[cl]?.sections?.[sid]?.students?.[id];attendance.append(el('p',(person?.name||key)+' · '+((session.presentKeys||[]).includes(key)?'Present':'Absent')));}body.append(attendance);
    if(ctx.principal){
     actions.append(button('View captured evidence',async()=>{const r=await send('evidence');if(r?.photo?.photo){body.querySelector('[data-class-photo]')?.remove();const holder=el('div'),image=el('img');holder.dataset.classPhoto='true';image.src=r.photo.photo;image.alt='Captured class evidence';image.style.maxWidth='100%';holder.append(image,el('p','Captured '+new Date(session.evidence.capturedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})));if(Number.isFinite(session.evidence.latitude)&&Number.isFinite(session.evidence.longitude)){const map=el('a','View photo location in Google Maps');map.href='https://www.google.com/maps?q='+session.evidence.latitude+','+session.evidence.longitude;map.target='_blank';map.rel='noopener';holder.append(map);}body.append(holder);}}));
     if(session.status!=='verified')actions.append(button('Approve · class done',()=>send('verify')));
    }return;
   }
+  if(ctx.principal){body.append(el('strong','Attendance not submitted'),el('p','The teacher has not submitted attendance and class evidence for this date. Approval will be available after submission.','notice'));return;}
   const attendance=el('div',undefined,'remedial-session-attendance'),checks=[],count=el('p');let remindedAbsent='';const remindAbsences=()=>{const absent=remedialPriorityAbsentees(ctx.draft,ctx.currentMission?.()||ctx.mission,plan,checks.filter(c=>c.checked).map(c=>c.value)),signature=JSON.stringify(absent.map(p=>[p.key,p.band]));if(!absent.length){remindedAbsent='';return;}if(signature===remindedAbsent)return;remindedAbsent=signature;window.alert(remedialAbsenceReminderText(absent));};
   const updateCount=()=>{count.textContent=checks.filter(c=>c.checked).length+' present · '+checks.filter(c=>!c.checked).length+' absent';};
   body.append(el('h4','1. Mark attendance'),el('p','Tick present students. Unticked students are absent.'),button('Mark all present',()=>{checks.forEach(c=>c.checked=true);remindedAbsent='';updateCount();}),count,attendance);
@@ -51,5 +53,5 @@ export function openRemedialClass(plan,ctx,credentials,refresh,initialDate){
   actions.append(button('Submit record & attendance',()=>{if(!photo||!evidence){message.textContent='Take and capture the class photo first.';return;}remindAbsences();send('complete',{presentKeys:checks.filter(c=>c.checked).map(c=>c.value),photo,evidence});}));
  }
  dates.onchange=()=>{message.textContent='';draw();};draw();
- if(!plan.sessions?.[dates.value]?.submittedAt)setTimeout(()=>{if(!closed)window.alert('If needed, call the Principal personally for observation. Then mark attendance, take a photo and submit the class record.');},0);
+ if(!ctx.principal&&!plan.sessions?.[dates.value]?.submittedAt)setTimeout(()=>{if(!closed)window.alert('If needed, call the Principal personally for observation. Then mark attendance, take a photo and submit the class record.');},0);
 }
