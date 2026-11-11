@@ -68,8 +68,9 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   if(action==='credits-read'||action==='credits-principal'){
    if(token)await principal(token);else{const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error)throw new AccessError(access.error,access.status);}
    if(action==='credits-principal'&&!token)throw new AccessError('Principal access required.',403);
+   if(action==='credits-principal'&&input.operation==='evidence'){if(typeof input.claimId!=='string'||!/^credit_[A-Za-z0-9_-]{8,80}$/.test(input.claimId))throw new AccessError('Choose a valid credit claim.',400);const evidence=await read('cbse/contributionCredits/evidence/'+input.claimId);if(!evidence)throw new AccessError('Evidence has not been attached to this claim.',404);return {ok:true,photo:evidence.photo||'',reference:evidence.reference||'',submittedAt:evidence.submittedAt};}
    const [c,evaluations,posts]=await Promise.all([context(),read('cbse/mcq/evaluations'),read('cbse/teamNews/posts')]),data={...c,evaluations:evaluations||{},posts:posts||{}};
-   if(action==='credits-read'){const summary=creditSummary(data,await read('cbse/contributionCredits')||{},now());return input.compact?{generatedAt:summary.generatedAt,members:summary.members,totalPoints:summary.totalPoints,pendingCount:summary.pendingCount}:summary;}
+   if(action==='credits-read'){const [claims,revision]=await Promise.all([read('cbse/contributionCredits/claims'),read('cbse/contributionCredits/revision')]);const summary=creditSummary(data,{claims:claims||{},revision:revision||0},now());return input.compact?{generatedAt:summary.generatedAt,members:summary.members,totalPoints:summary.totalPoints,pendingCount:summary.pendingCount}:summary;}
    const known=await read('cbse/contributionCredits');let reason='',claimId='';const result=await mcqTransaction(db,'cbse/contributionCredits',current=>{if(current===null&&known!==null)return null;try{const planned=applyCreditClaim(current||{},input,{id:'principal'},data,now());claimId=planned.claimId;reason='';return planned.next;}catch(e){reason=e.message;return;}},{restTransaction});
    if(!result.committed||!result.snapshot?.val())throw new AccessError(reason||'Credit review was not confirmed. Refresh before retrying.',409);return {ok:true,claimId};
   }
@@ -118,9 +119,9 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   }
   if(action==='credit-claim'){
    if(!pinIdentity)throw new AccessError('Verify your own teacher PIN.',403);const id=pinIdentity.decoded.staffId,[c,evaluations,posts]=await Promise.all([context(),read('cbse/mcq/evaluations'),read('cbse/teamNews/posts')]),data={...c,evaluations:evaluations||{},posts:posts||{}};
-   if(input.claimOperation!=='submit')throw new AccessError('Teachers may submit claims; only the Principal may review them.',403);
+   if(!['submit','attach-evidence'].includes(input.claimOperation))throw new AccessError('Teachers may submit claims; only the Principal may review them.',403);
    const access=await read('cbse/staffAccess/'+id);if(!access?.enabled||access.version!==pinIdentity.access.version)throw new AccessError('PIN access changed. Verify again.',403);
-   let reason='',claimId='';const result=await mcqTransaction(db,'cbse/contributionCredits',current=>{try{const planned=applyCreditClaim(current||{},{...input,operation:'submit'},{id},data,now());claimId=planned.claimId;reason='';return planned.next;}catch(e){reason=e.message;return;}},{restTransaction});
+   let reason='',claimId='';const result=await mcqTransaction(db,'cbse/contributionCredits',current=>{try{const planned=applyCreditClaim(current||{},{...input,operation:input.claimOperation},{id},data,now());claimId=planned.claimId;reason='';return planned.next;}catch(e){reason=e.message;return;}},{restTransaction});
    if(!result.committed||!result.snapshot?.val())throw new AccessError(reason||'Credit claim was not confirmed. Retry the same claim.',409);return {ok:true,claimId};
   }
   if(action==='exam-attendance-save'||action==='exam-attendance-principal'){
