@@ -9,7 +9,8 @@ export function mcqUsageEstimate(sheetCount,lastFraction){return Math.max(.25,Ma
 // Old page caps no longer restrict saved papers.
 export function mcqSavedPageSettings(value={}){return mcqPageSettings({...value,target:0});}
 
-export function mcqUsageLabel(usedPages,sheetCount,blankPages=0){const remaining=Math.ceil(usedPages)-usedPages;return 'A4 used ≈ '+usedPages+' '+(usedPages===1?'page':'pages')+' · '+(remaining?'≈ '+remaining+' page free on current sheet':'Current sheet nearly full')+' · PDF: '+sheetCount+' '+(sheetCount===1?'page':'pages')+(blankPages?' · '+blankPages+' blank page for double-sided printing':'')+' · Print both sides · flip on long edge';}
+export function mcqUsageLabel(usedPages,sheetCount,blankPages=0){const content=sheetCount-blankPages;return content+' A4 '+(content===1?'content page':'content pages')+' per copy · PDF: '+sheetCount+' '+(sheetCount===1?'page':'pages')+(blankPages?' (including '+blankPages+' blank duplex page)':'')+' · '+Math.ceil(sheetCount/2)+' A4 '+(Math.ceil(sheetCount/2)===1?'sheet':'sheets')+' per student when printed both sides · Flip on long edge';}
+
 
 export const MCQ_PRINT_LAYOUTS=Object.freeze({compact:Object.freeze({columns:2,margin:6,fontSize:11,gap:2}),single:Object.freeze({columns:1,margin:10,fontSize:11,gap:3})});
 export function mcqPrintLayout(value,preset){if(!Object.hasOwn(MCQ_PRINT_LAYOUTS,preset))throw Error('Choose a supported print layout.');return mcqPageSettings({...value,...MCQ_PRINT_LAYOUTS[preset]});}
