@@ -9,3 +9,5 @@ body.mission-app.mission-home-view #mission-nav button[data-master-segment="cred
 
 .credit-evidence-fields{border:1px solid #d7c88b;border-radius:12px;padding:.8rem;display:grid;gap:.7rem}.credit-evidence-photo{display:block;max-width:100%;max-height:65vh;object-fit:contain;margin:.6rem auto}.credit-evidence-dialog{width:min(680px,calc(100vw - 2rem));max-height:85vh;overflow:auto;border:1px solid #d7b653;border-radius:16px;padding:1rem;box-sizing:border-box}.credit-evidence-dialog form{display:grid;gap:.7rem}.credit-period-scope label[hidden],.credit-claim-form label[hidden],.credit-evidence-photo[hidden]{display:none!important}.credit-claim-form fieldset[hidden]{display:none!important}
 .credit-evidence-fields{min-width:0}.credit-evidence-fields input,.credit-evidence-fields textarea{max-width:100%;width:100%;box-sizing:border-box}.credit-evidence-dialog label{display:grid;gap:.4rem}
+
+.credit-minus-alert{display:grid;gap:.4rem;padding:1rem;margin:1rem 0;border:1px solid #d99880;border-left:5px solid #b54b29;border-radius:12px;background:#fff2e9;color:#79391f;line-height:1.5}.credit-minus-alert strong{font-size:1rem}.credit-minus-alert em{font-weight:700}
