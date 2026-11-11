@@ -527,3 +527,14 @@ test('Mission exclusions preserve school PINs and Roll Call eligibility, while M
  assert.equal(data.cbse.staffAccess['support:removed'].enabled,true);
  const school=await service('chamber-principal',{operation:'read'},'principal');assert.equal(school.staff['support:removed'].name,'MS. IPI RIBA');
 });
+
+
+test('Mission PIN selector lists Ganga once and retains both existing PIN records',async()=>{
+ const {service,data}=fixture();
+ data.cbse.facultyDraft.classes.XII.teachers.ganga={name:'LAISHRAM GANGA DEVI',designation:'PGT-Chemistry',status:'active'};
+ data.cbse.mission.staff={ganga:{name:'MS. L. GANGA DEVI',designation:'PGT-Chemistry',status:'active',kind:'other_support'}};
+ await service('set-pin',{staffId:'XII:ganga',pin:'654321'},'principal');
+ const before=JSON.stringify(data.cbse.staffAccess),directory=await service('directory');
+ assert.deepEqual(directory.staff.filter(p=>/GANGA/.test(p.name)).map(p=>p.id),['XII:ganga']);
+ assert.equal(JSON.stringify(data.cbse.staffAccess),before);
+});

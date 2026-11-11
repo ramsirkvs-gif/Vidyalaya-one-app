@@ -17,3 +17,15 @@ test('excluded staff and aliases disappear from Mission ranks, credits and count
  assert.equal(result.members.length,3);assert.equal(result.totalPoints,20);assert.equal(result.ledger.length,1);
  assert.equal(mission.staff.s0.status,'active');
 });
+
+test('Ganga Devi is one subject teacher with combined credit across both names',async()=>{
+ const {teacherIdentityIds}=await import('../cbse-view-data.js');
+ const faculty={classes:{XII:{teachers:{ganga:{name:'LAISHRAM GANGA DEVI',status:'active',designation:'PGT-Chemistry'}}}}};
+ const mission={staff:{duplicate:{name:'MS. L. GANGA DEVI',status:'active',kind:'other_support',designation:'PGT-Chemistry'}}};
+ const before=JSON.stringify({faculty,mission});
+ assert.deepEqual(teacherIdentityIds('support:duplicate',faculty,mission),['XII:ganga','support:duplicate']);
+ assert.deepEqual(missionTeamCounts(faculty,mission),{total:1,X:0,XII:1,coopted:0});
+ const result=creditSummary({faculty,mission,draft:{classes:{}},posts:{one:{authorId:'support:duplicate',text:'First contribution',createdAt:1},two:{authorId:'XII:ganga',text:'Second contribution',createdAt:2}}});
+ assert.equal(result.members.length,1);assert.equal(result.members[0].name,'LAISHRAM GANGA DEVI');assert.equal(result.members[0].isCoopted,false);assert.equal(result.totalPoints,40);
+ assert.equal(JSON.stringify({faculty,mission}),before);
+});

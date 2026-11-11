@@ -1,4 +1,4 @@
-import {bamangMehaIdentityIds} from './cbse-faculty-guest.js';
+import {bamangMehaIdentityIds,gangaDeviIdentityIds} from './cbse-faculty-guest.js';
 import {resolvedFaculty,ORIGINAL_FACULTY_SHA} from './cbse-faculty-model.js';
 const entries=v=>Object.entries(v||{});
 export const normalizedGender=v=>({female:'girl',f:'girl',girl:'girl',male:'boy',m:'boy',boy:'boy'}[String(v||'').trim().toLowerCase()]||'unknown');
@@ -24,6 +24,7 @@ export function resolvedViewingData(draft,faculty,mission){
 }
 
 export function teacherIdentityIds(id,faculty,mission={}){
+ const ganga=gangaDeviIdentityIds(id,faculty,mission);if(ganga?.length)return ganga;
  const meha=bamangMehaIdentityIds(id,faculty,mission);if(meha?.length)return meha;
  const [cl,...parts]=id.split(':'),own=faculty?.classes?.[cl]?.teachers?.[parts.join(':')];if(!own||own.status!=='active')return [id];
  const norm=v=>String(v||'').trim().replace(/\s+/g,' ').toUpperCase();

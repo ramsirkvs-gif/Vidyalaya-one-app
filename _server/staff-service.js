@@ -1,3 +1,4 @@
+import {isGangaDeviProfile} from '../cbse-faculty-guest.js';
 import {missionMemberAllowed} from '../cbse-mission-membership.js';
 import {createPINAttemptLimiter} from './pin-attempts.js';
 import {creditSummary,applyCreditClaim} from '../cbse-contribution-credit-model.js';
@@ -188,7 +189,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    let reason='';const result=await db.ref('cbse').transaction(value=>{if(!value||value.adminUid!==admin.uid)return;try{const planned=planFacultySave(value,input,newId,now());planned.next.staffAccess||={};for(const id of planned.newStaffIds)if(!planned.next.staffAccess[id])planned.next.staffAccess[id]=pins[id];return planned.next;}catch(e){reason=e.message;return;}});
    if(!result.committed)throw new AccessError(reason||'Faculty changed. Reload and retry.',409);return {ok:true,staffId:prepared.staffId};
   }
-  if(action==='directory'){const staff=await directoryStaff(),access=await read('cbse/staffAccess');return {staff:entries(access).filter(([id,a])=>a.enabled&&staff[id]?.status==='active'&&missionMemberAllowed(staff[id])).map(([id])=>({id,name:staff[id].name,role:staff[id].classId?`Class ${staff[id].classId} faculty`:staff[id].kind}))};}
+  if(action==='directory'){const staff=await directoryStaff(),access=await read('cbse/staffAccess'),eligible=entries(access).filter(([id,a])=>a.enabled&&staff[id]?.status==='active'&&missionMemberAllowed(staff[id])),ganga=eligible.filter(([id])=>isGangaDeviProfile(staff[id])).sort(([a],[b])=>(staff[a].classId?0:1)-(staff[b].classId?0:1)||a.localeCompare(b))[0]?.[0];return {staff:eligible.filter(([id])=>!isGangaDeviProfile(staff[id])||id===ganga).map(([id])=>({id,name:staff[id].name,role:staff[id].classId?`Class ${staff[id].classId} faculty`:staff[id].kind}))};}
   if(action==='login'){
    const id=String(input.staffId||'');if(!/^[a-zA-Z0-9_:-]{1,200}$/.test(id))throw new AccessError('Choose a staff member and enter the correct PIN.',401);
    const access=await read(`cbse/staffAccess/${id}`),person=(await directoryStaff())[id];if(!access?.enabled||person?.status!=='active')throw new AccessError('Choose a staff member and enter the correct PIN.',401);
