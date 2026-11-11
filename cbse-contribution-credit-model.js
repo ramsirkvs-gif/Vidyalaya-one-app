@@ -20,7 +20,14 @@ const entries=v=>Object.entries(v||{}),check=(v,m)=>{if(!v)throw Error(m);};
 const clean=(v,max,label)=>{check(typeof v==='string'&&v.trim()&&v.length<=max,'Enter '+label+'.');return v.trim();};
 export const creditRateText=rule=>rule.rate?rule.rate.toLocaleString('en-IN')+' points per '+rule.unit:'Points decided by Principal · per student / event';
 const stableKey=(kind,staffId,event,student='')=>JSON.stringify([kind,staffId,event,student]);
-export function creditDirectory(faculty,mission){const all=staffIndex(faculty,mission),canonical=id=>teacherIdentityIds(id,faculty,mission).filter(key=>all[key])[0]||id;return {all,canonical,members:Object.fromEntries(entries(all).filter(([id,p])=>p.status==='active'&&canonical(id)===id).map(([id,p])=>[id,{id,name:p.name,designation:p.designation||p.kind||'',aliases:entries(all).filter(([key])=>canonical(key)===id).map(([key])=>key)}]))};}
+export function creditDirectory(faculty,mission){
+ const all=staffIndex(faculty,mission),canonical=id=>teacherIdentityIds(id,faculty,mission).filter(key=>all[key])[0]||id;
+ const supportRole=p=>['prt','counsellor','special_educator','support','other_support'].includes(p?.kind)||/\bPRT\b|COUNSELL?OR|SPECIAL\s*EDUCATOR/i.test(p?.designation||'');
+ const members=Object.fromEntries(entries(all).filter(([id,p])=>p.status==='active'&&canonical(id)===id).map(([id,p])=>{
+  const aliases=entries(all).filter(([key])=>canonical(key)===id).map(([key])=>key),subjectTeacher=aliases.some(key=>/^(X|XII):/.test(key)&&!supportRole(all[key]))||Object.values(mission?.allocations||{}).some(a=>aliases.includes(a.staffId)&&a.subjectId),isCoopted=!subjectTeacher&&aliases.some(key=>key.startsWith('support:')||supportRole(all[key]));
+  return [id,{id,name:p.name,designation:p.designation||p.kind||'',aliases,isCoopted}];
+ }));return {all,canonical,members};
+}
 export function automaticCredits(data){
  const {faculty={},mission={},evaluations={},posts={}}=data,{all,canonical}=creditDirectory(faculty,mission),ledger=new Map();
  const add=(kind,member,event,student,at,detail,href)=>{const staffId=canonical(member);if(!all[staffId]||!member)return;const key=stableKey(kind,staffId,event,student);if(!ledger.has(key))ledger.set(key,{key,kind,staffId,studentKey:student,event,at:Number(at)||0,detail,href,points:CREDIT_RULES[kind].rate,origin:'automatic'});};
@@ -36,7 +43,7 @@ export function creditSummary(data,bank={},now=Date.now()){
  const {canonical,members}=creditDirectory(data.faculty||{},data.mission||{}),ledger=automaticCredits(data),used=new Set(ledger.map(r=>r.key)),claims=[];
  for(const[id,c]of entries(bank.claims).sort((a,b)=>(a[1].reviewedAt||a[1].submittedAt)-(b[1].reviewedAt||b[1].submittedAt)||a[0].localeCompare(b[0]))){const units=claimUnits(c,canonical),covered=units.filter(key=>used.has(key)).length,row={...c,rate:c.kind==='custom'&&!c.pointsDecidedBy&&c.status!=='approved'?null:c.rate,requestedPoints:c.requestedPoints??null,id,staffId:canonical(c.staffId),overlapUnits:covered};claims.push(row);if(c.status!=='approved')continue;for(const[key,i]of units.map((key,i)=>[key,i]))if(!used.has(key)){used.add(key);ledger.push({key,staffId:canonical(c.staffId),kind:c.kind,studentKey:c.awardBasis==='event'?'':c.studentKeys?.[i]||'',event:c.event,at:c.reviewedAt,detail:c.title,points:c.rate,origin:'approved claim',claimId:id,href:'cbse-mission.html#'+new URLSearchParams({tab:'credits',claim:id})});}}
  const rows=Object.values(members).map(member=>{const own=ledger.filter(r=>r.staffId===member.id),pending=claims.filter(r=>r.staffId===member.id&&r.status==='pending');return {...member,total:own.reduce((n,r)=>n+r.points,0),automatic:own.filter(r=>r.origin==='automatic').reduce((n,r)=>n+r.points,0),approved:own.filter(r=>r.origin!=='automatic').reduce((n,r)=>n+r.points,0),pending:pending.length,pendingPoints:pending.reduce((n,r)=>n+(Number(r.requestedPoints)||0),0),breakdown:Object.fromEntries(Object.keys(CREDIT_RULES).map(kind=>[kind,{units:own.filter(r=>r.kind===kind).length,points:own.filter(r=>r.kind===kind).reduce((n,r)=>n+r.points,0)}]))};}).sort((a,b)=>b.total-a.total||a.name.localeCompare(b.name));
- const ranked=rows.map(m=>{const rank=rows.findIndex(r=>r.total===m.total)+1,tied=rows.filter(r=>r.total===m.total).length>1,next=rows.filter(r=>r.total>m.total).at(-1);return {...m,rank,tied,teamSize:rows.length,pointsToNext:next?next.total-m.total:0};});
+ const coopted=rows.filter(m=>m.isCoopted),ranked=rows.map(m=>{const rank=rows.findIndex(r=>r.total===m.total)+1,tied=rows.filter(r=>r.total===m.total).length>1,next=rows.filter(r=>r.total>m.total).at(-1);return {...m,rank,tied,teamSize:rows.length,pointsToNext:next?next.total-m.total:0,...(m.isCoopted?{cooptedRank:coopted.findIndex(r=>r.total===m.total)+1,cooptedTied:coopted.filter(r=>r.total===m.total).length>1,cooptedTeamSize:coopted.length}:{})};});
  return {generatedAt:now,revision:bank.revision||0,members:ranked,ledger:ledger.sort((a,b)=>b.at-a.at),claims:claims.sort((a,b)=>b.submittedAt-a.submittedAt),pendingCount:claims.filter(c=>c.status==='pending').length,totalPoints:rows.reduce((n,r)=>n+r.total,0)};
 }
 export function applyCreditClaim(bank,input,actor,data,now){
@@ -65,10 +72,10 @@ export function applyCreditClaim(bank,input,actor,data,now){
 }
 
 export function creditMotivation(member){
- const position=(member.tied?'Joint position #':'Position #')+member.rank+' of '+member.teamSize;
+ const position=(member.isCoopted?(member.tied?'Joint overall position #':'Overall position #'):(member.tied?'Joint position #':'Position #'))+member.rank+' of '+member.teamSize,cooptedPosition=member.isCoopted?(member.cooptedTied?'Joint co-opted position #':'Co-opted position #')+member.cooptedRank+' of '+member.cooptedTeamSize:'';
  let guidance=!member.breakdown?.remedial?.units?'Organise a remedial class: earn 50 points per present student after class approval.':!member.breakdown?.mcq?.units?'Evaluate an MCQ test: earn 50 points per evaluated student.':!member.breakdown?.contact?.units?'Update a student’s contact or home location: earn 20 points per student.':'Keep supporting students through remedial classes and MCQ evaluations.';
  if(member.pointsToNext)guidance+=' '+member.pointsToNext+' more points will match the next higher score.';else if(member.total>0)guidance='You are leading—keep supporting students! '+guidance;
- return {position,guidance};
+ return {position,cooptedPosition,guidance};
 }
 
 export function creditEvidence(input={},photoRequired=false){
