@@ -5,7 +5,7 @@ const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof v
 const digest=value=>hash(JSON.stringify(canonical(value)));
 export const notificationAccountKey=uid=>hash(String(uid));
 const collections={
- 'Remedial approvals':'remedialPlans','Classes planned but not done':'remedialPlans','Returned records needing Principal review':'remedialPlans','Remedial class records':'remedialPlans','Returned remedial classes':'remedialPlans','Class plans':'remedialPlans','Class plan updates':'remedialPlans','Class cancellations':'remedialPlans',
+ 'Contribution credit claims':'contributionClaims','Remedial approvals':'remedialPlans','Classes planned but not done':'remedialPlans','Returned records needing Principal review':'remedialPlans','Remedial class records':'remedialPlans','Returned remedial classes':'remedialPlans','Class plans':'remedialPlans','Class plan updates':'remedialPlans','Class cancellations':'remedialPlans',
  'Today’s Roll Call approvals':'rollReports','Roll Call activity':'rollReports','Advance leave reviews':'advanceLeaves','Advance leave activity':'advanceLeaves','Open staff objections':'objections','Teacher reports to follow up':'reportRequests','My pending tasks':'tasks','Member task updates':'tasks','MCQ contributions':'mcqBatches','MCQ evaluations':'mcqEvaluations','Progress updates':'records','Team News comments':'newsPosts','Team News':'newsPosts','Latest team news':'newsPosts','Student attendance activity':'attendance','Contact detail updates':'contactAudit'
 };
 export function decoratePrincipalNotifications(summary,data,seen={},now=Date.now(),includeSeen=false){
@@ -23,6 +23,7 @@ export function decoratePrincipalNotifications(summary,data,seen={},now=Date.now
   else if(collection==='objections')contributor=source?.createdByName||source?.name||data.staffNames?.[source?.createdBy||source?.staffId]||item.title;
   else if(collection==='tasks')contributor=source?.updatedByName||source?.staffName||data.staffNames?.[source?.staffId]||(source?.staffId==='principal'?'Principal':item.title);
   else if(collection==='reportRequests'){entity=['reportRequest',id];source={request:source,replies:Object.fromEntries(Object.entries(records).filter(([,r])=>r.requestId===id&&r.visibility==='general'))};contributor=source.request?.createdByName||'Principal';}
+  else if(collection==='contributionClaims')contributor=source?.contributorName||data.staffNames?.[source?.staffId]||item.title;
   else if(collection==='mcqBatches')contributor=source?.updatedByName||data.staffNames?.[source?.updatedBy]||source?.uploadedByName||data.staffNames?.[source?.uploadedBy]||source?.contributorName||item.title;
   else if(collection==='mcqEvaluations')contributor=source?.evaluatorName||data.staffNames?.[source?.evaluatorId]||item.title;
   const key=digest(entity),version=digest(source??{id:item.id,title:item.title,detail:item.detail,at:item.at,href:item.href}),isSeen=Object.hasOwn(seen[key]?.versions||{},version);

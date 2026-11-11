@@ -1,0 +1,33 @@
+from pathlib import Path
+exec(Path('tests/cbse-teacher-monitoring-browser.py').read_text().split('\nwith sync_playwright() as p:')[0])
+M={'schemaVersion':1,'revision':0,'settings':{},'students':{},'records':{},'tasks':{},'staff':{'prt':{'name':'PRT Co-opted Member','kind':'prt','designation':'PRT','status':'active'}},'remedialPlans':{}}
+data={'draft':D,'faculty':F,'mission':M,'posts':{'news1':{'authorId':'support:prt','text':'Learning support','createdAt':1794300000000}},'evaluations':{'one':{'evaluatorId':'X:one','paperId':'QPE001','studentKey':'X:a:one','score':7,'maximum':10,'evaluatedAt':1794300000000}}};bank={};calls=[]
+def credit_api(page,route):
+ global bank
+ d=route.request.post_data_json;calls.append(d);a=d['action']
+ if a=='credits-read':
+  result=page.evaluate("async args=>{const m=await import('./cbse-contribution-credit-model.js');return m.creditSummary(...args);}",[data,bank,1794390000000]);route.fulfill(json=result);return
+ if a=='credits-principal' or a=='pin-submit' and d.get('operation')=='credit-claim':
+  if a=='pin-submit' and d.get('pin')!='123':route.fulfill(status=401,json={'error':'The PIN does not match this staff member.'});return
+  values={**d,'operation':'submit'} if a=='pin-submit' else d;actor={'id':d['staffId']} if a=='pin-submit' else {'id':'principal'}
+  if a=='credits-principal':assert route.request.headers.get('authorization')=='Bearer test-token'
+  try:
+   result=page.evaluate("async args=>{const m=await import('./cbse-contribution-credit-model.js');return m.applyCreditClaim(...args);}",[bank,values,actor,data,1794390000000]);bank=result['next'];route.fulfill(json={'ok':True,'claimId':result['claimId']})
+  except Exception as e:route.fulfill(status=409,json={'error':str(e)})
+  return
+ if a=='view-version':route.fulfill(json={'version':'1','staff':[]});return
+ if a=='view-data':route.fulfill(json={'draft':D,'faculty':F,'mission':M,'version':'1','photoVersion':'0'});return
+ if a=='principal-notifications':route.fulfill(json={'pending':[],'recent':[],'news':[]});return
+ route.fulfill(json={'ok':True,'staff':[],'posts':[]})
+with sync_playwright() as p:
+ b=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);ctx=b.new_context(viewport={'width':390,'height':844});ctx.route('https://www.gstatic.com/firebasejs/**',sdk);page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)));page.route('**/api/staff-access',lambda r:credit_api(page,r));page.goto('http://127.0.0.1:8000/cbse-mission.html');page.get_by_role('button',name='🪙 Team Contribution Credit',exact=True).click();page.get_by_role('heading',name='🪙 Team Contribution Credit',exact=True).wait_for();page.locator('.credit-stats').get_by_text('🪙 70 earned points',exact=True).wait_for();assert page.get_by_text('PRT Co-opted Member',exact=True).count()>0
+ compose=page.locator('.credit-compose');compose.locator('summary').click();form=compose.locator('form');form.locator('[name=credit-staff]').select_option('X:one');form.locator('[name=credit-title]').fill('Student motivation VC');form.locator('[name=credit-date]').fill('2026-11-10');form.locator('[name=credit-event]').fill('VC register 10 Nov');form.locator('[name=credit-description]').fill('Completed student meeting; improved study commitment recorded.');form.locator('.credit-student-picker input').first.check();form.locator('[name=credit-pin]').fill('999');form.get_by_role('button',name='Submit claim for Principal review',exact=True).click();form.get_by_role('status').filter(has_text='PIN does not match').wait_for();form.locator('[name=credit-pin]').fill('123');form.get_by_role('button',name='Submit claim for Principal review',exact=True).click();form.get_by_role('status').filter(has_text='Claim submitted').wait_for();assert page.locator('.credit-stats').get_by_text('🪙 70 earned points',exact=True).count()==1
+ page.get_by_role('button',name='Approve credit',exact=True).click();dialog=page.locator('dialog[open]');dialog.locator('textarea').fill('Evidence and outcome checked');dialog.get_by_role('button',name='Approve credit',exact=True).click();page.locator('.credit-stats').get_by_text('🪙 100 earned points',exact=True).wait_for();assert page.get_by_text('Principal: Evidence and outcome checked',exact=True).count()==1
+ for width in [320,390,768,1440]:
+  page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+ page.set_viewport_size({'width':1100,'height':900});page.screenshot(path='/tmp/team-contribution-credit.png',full_page=True)
+ page.get_by_role('button',name='Revert credit with comment',exact=True).click();dialog=page.locator('dialog[open]');dialog.locator('textarea').fill('Return for supporting attendance');dialog.get_by_role('button',name='Revert credit with comment',exact=True).click();page.locator('.credit-stats').get_by_text('🪙 70 earned points',exact=True).wait_for()
+ page.evaluate("location.hash='staff=X%3Aone'");page.locator('.credit-profile-coin').get_by_text('🪙 50 contribution points',exact=True).wait_for();page.locator('.credit-profile-coin').click();page.get_by_role('heading',name='🪙 Synthetic Teacher · 50 points',exact=True).wait_for();assert not errors,errors
+ guest=b.new_context();guest.add_init_script('window.__guest=true');guest.route('https://www.gstatic.com/firebasejs/**',sdk);g=guest.new_page();g.route('**/api/staff-access',lambda r:credit_api(g,r));g.goto('http://127.0.0.1:8000/cbse-mission.html#tab=credits');g.get_by_role('heading',name='🪙 Team Contribution Credit',exact=True).wait_for();g.locator('.credit-stats').get_by_text('🪙 70 earned points',exact=True).wait_for();assert g.get_by_role('button',name='Approve credit',exact=True).count()==0;assert g.get_by_role('button',name='Revert credit with comment',exact=True).count()==0
+ b.close()
+print('PASS Mission credit tile, profile coin, PRT totals, PIN claim, review/revert comments, pending exclusion, teacher controls and mobile layout')
