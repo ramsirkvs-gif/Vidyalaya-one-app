@@ -1,3 +1,4 @@
+import {missionMemberAllowed} from './cbse-mission-membership.js';
 import {withGuestFaculty,guestFacultyName} from './cbse-faculty-guest.js';
 import {clone,entries,uniqueKey} from './cbse-model.js';
 import {meetingLink} from './cbse-contact-model.js';
@@ -32,10 +33,10 @@ export function parseVCSetupCSV(header,rows){
  if(!members.size&&!emails.length)throw Error('No VC setup records.');
  return {format:'mission-vc-support-v1',members:[...members.values()],emails,...(teachingRows.length?{teachingRows}:{})};
 }
-export function vcStaff(faculty,mission){
+export function vcStaff(faculty,mission,{includeRollOnly=false}={}){
  const out={};for(const[cl,c]of entries(faculty?.classes))for(const[id,t]of entries(c.teachers))out[cl+':'+id]={...withGuestFaculty(t),classId:cl,kind:'faculty'};
  for(const[id,t]of entries(mission?.staff))out['support:'+id]={...withGuestFaculty(t),classId:''};
- for(const[id,t]of entries(out)){t.email=mission?.staffEmails?.[id]?.email||t.email||'';if(mission?.staffPhotos?.[id]?.data)t.photoData=mission.staffPhotos[id].data;}
+ for(const[id,t]of entries(out)){if(!includeRollOnly&&!missionMemberAllowed(t))t.status='inactive';t.email=mission?.staffEmails?.[id]?.email||t.email||'';if(mission?.staffPhotos?.[id]?.data)t.photoData=mission.staffPhotos[id].data;}
  return out;
 }
 export function supportDuties(mission,staffId='',classId='',sectionId='',subjectIds=null){return entries(mission?.supportAssignments).map(([,a])=>a).filter(a=>(!staffId||a.staffId===staffId)&&(!classId||a.classId===classId)&&(!sectionId||a.sectionId===sectionId)&&(!subjectIds||subjectIds.includes(a.subjectId)));}

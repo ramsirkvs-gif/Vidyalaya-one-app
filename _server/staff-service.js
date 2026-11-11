@@ -1,3 +1,4 @@
+import {missionMemberAllowed} from '../cbse-mission-membership.js';
 import {createPINAttemptLimiter} from './pin-attempts.js';
 import {creditSummary,applyCreditClaim} from '../cbse-contribution-credit-model.js';
 import {decoratePrincipalNotifications,notificationAccountKey,applyNotificationSeen} from './principal-notification-state.js';
@@ -43,7 +44,7 @@ const rollPublicReport=r=>({...Object.fromEntries(['staffId','name','wing','date
 export function createStaffService({db,auth,restTransaction,readVemsAttendance=readPublishedVemsAttendance,now=Date.now,displayKey,viewSecret=defaultViewSecret}){
  const read=async path=>(await db.ref(path).get()).val();
  async function context(){const [draft,faculty,mission]=await Promise.all([read('cbse/draft'),read('cbse/facultyDraft'),read('cbse/mission')]);return {draft,...resolvedViewingData(draft,faculty,mission||emptyMission())};}
- async function directoryStaff(){const[faculty,support]=await Promise.all([read('cbse/facultyDraft'),read('cbse/mission/staff')]);return Object.fromEntries(entries(staffIndex(faculty,{staff:support||{}})).map(([id,p])=>{const roles=Object.values(faculty?.classes?.[p.classId]?.roles||{}),tid=id.slice(String(p.classId||'').length+1);return [id,{...p,classTeacher:roles.some(r=>r.classTeacher===tid),coClassTeacher:roles.some(r=>r.coClassTeacher===tid)}];}));}
+ async function directoryStaff(){const[faculty,support]=await Promise.all([read('cbse/facultyDraft'),read('cbse/mission/staff')]);return Object.fromEntries(entries(staffIndex(faculty,{staff:support||{}},{includeRollOnly:true})).map(([id,p])=>{const roles=Object.values(faculty?.classes?.[p.classId]?.roles||{}),tid=id.slice(String(p.classId||'').length+1);return [id,{...p,classTeacher:roles.some(r=>r.classTeacher===tid),coClassTeacher:roles.some(r=>r.coClassTeacher===tid)}];}));}
  async function generateMissingPINs(staff){
     const access=await read('cbse/staffAccess')||{},missing=entries(staff).filter(([id,p])=>p.status==='active'&&!access[id]?.hash&&access[id]?.enabled!==false);
     if(missing.length>900)throw new AccessError('Generate PINs for fewer than 901 staff at a time.',400);
@@ -118,7 +119,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    if(['roll-call','podcast-list','podcast-ack','exam-attendance-save'].includes(input.operation)){const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error)throw new AccessError(access.error,access.status);}
    const id=String(input.staffId||'');if(!/^[a-zA-Z0-9_:-]{1,200}$/.test(id))throw new AccessError('Choose your name and enter your PIN.',401);const access=await read(`cbse/staffAccess/${id}`),person=(await directoryStaff())[id];if(!access?.enabled||person?.status!=='active')throw new AccessError('Choose your name and enter the correct PIN.',401);
    await verifySubmissionPIN(id,input.pin,access,ip);
-   action=String(input.operation||'comment');if(!['comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply','news-create','news-comment','credit-claim','mcq-contribute','mcq-import-csv','mcq-question-edit','mcq-question-delete','mcq-paper-delete','mcq-paper','mcq-evaluate','mcq-answer-key','remedial-plan','roll-call','podcast-list','podcast-ack','exam-attendance-save'].includes(action))throw new AccessError('This operation requires Principal access.',403);pinIdentity={decoded:{staffId:id},access};
+   action=String(input.operation||'comment');if(!['comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply','news-create','news-comment','credit-claim','mcq-contribute','mcq-import-csv','mcq-question-edit','mcq-question-delete','mcq-paper-delete','mcq-paper','mcq-evaluate','mcq-answer-key','remedial-plan','roll-call','podcast-list','podcast-ack','exam-attendance-save'].includes(action))throw new AccessError('This operation requires Principal access.',403);if(!['roll-call','podcast-list','podcast-ack'].includes(action)&&!missionMemberAllowed(person))throw new AccessError('This staff member is not part of the Mission team.',403);pinIdentity={decoded:{staffId:id},access};
   }
   if(action==='credit-claim'){
    if(!pinIdentity)throw new AccessError('Verify your own teacher PIN.',403);const id=pinIdentity.decoded.staffId,[c,evaluations,posts]=await Promise.all([context(),read('cbse/mcq/evaluations'),read('cbse/teamNews/posts')]),data={...c,evaluations:evaluations||{},posts:posts||{}};
@@ -187,10 +188,11 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    let reason='';const result=await db.ref('cbse').transaction(value=>{if(!value||value.adminUid!==admin.uid)return;try{const planned=planFacultySave(value,input,newId,now());planned.next.staffAccess||={};for(const id of planned.newStaffIds)if(!planned.next.staffAccess[id])planned.next.staffAccess[id]=pins[id];return planned.next;}catch(e){reason=e.message;return;}});
    if(!result.committed)throw new AccessError(reason||'Faculty changed. Reload and retry.',409);return {ok:true,staffId:prepared.staffId};
   }
-  if(action==='directory'){const staff=await directoryStaff(),access=await read('cbse/staffAccess');return {staff:entries(access).filter(([id,a])=>a.enabled&&staff[id]?.status==='active').map(([id])=>({id,name:staff[id].name,role:staff[id].classId?`Class ${staff[id].classId} faculty`:staff[id].kind}))};}
+  if(action==='directory'){const staff=await directoryStaff(),access=await read('cbse/staffAccess');return {staff:entries(access).filter(([id,a])=>a.enabled&&staff[id]?.status==='active'&&missionMemberAllowed(staff[id])).map(([id])=>({id,name:staff[id].name,role:staff[id].classId?`Class ${staff[id].classId} faculty`:staff[id].kind}))};}
   if(action==='login'){
    const id=String(input.staffId||'');if(!/^[a-zA-Z0-9_:-]{1,200}$/.test(id))throw new AccessError('Choose a staff member and enter the correct PIN.',401);
    const access=await read(`cbse/staffAccess/${id}`),person=(await directoryStaff())[id];if(!access?.enabled||person?.status!=='active')throw new AccessError('Choose a staff member and enter the correct PIN.',401);
+   if(!missionMemberAllowed(person))throw new AccessError('This staff member is not part of the Mission team.',403);
    const attemptKey=await throttle(id,ip);
    if(!await verifyPIN(input.pin,access))throw new AccessError('Choose a staff member and enter the correct PIN.',401);
    const customToken=await auth.createCustomToken('mission_'+createHash('sha256').update(id).digest('hex').slice(0,40),{missionStaff:true,staffId:id,pinVersion:access.version});await pinDatabase(()=>pinAttempts.clear(attemptKey,{all:false}));return {customToken,name:person.name};
