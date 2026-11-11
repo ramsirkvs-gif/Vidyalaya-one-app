@@ -1,3 +1,4 @@
+import {createPINAttemptLimiter} from './pin-attempts.js';
 import {creditSummary,applyCreditClaim} from '../cbse-contribution-credit-model.js';
 import {decoratePrincipalNotifications,notificationAccountKey,applyNotificationSeen} from './principal-notification-state.js';
 import {principalNotifications} from '../cbse-principal-notifications.js';
@@ -55,10 +56,12 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
  }
  async function principal(token){const decoded=await auth.verifyIdToken(token,true),uid=await read('cbse/adminUid');if(decoded.uid!==uid)throw new AccessError('Principal access required.');return decoded;}
  async function staffUser(token){const decoded=await auth.verifyIdToken(token,true);if(decoded.missionStaff!==true||typeof decoded.staffId!=='string')throw new AccessError('Staff access required.');const access=await read(`cbse/staffAccess/${decoded.staffId}`);if(!access?.enabled||decoded.pinVersion!==access.version)throw new AccessError('Staff access has been disabled or reset. Sign in again.');return {decoded,access};}
- async function throttle(staffId,ip){const key=createHash('sha256').update(`${ip}|${staffId}`).digest('hex');for(const[scope,limit]of [[`ip|${ip}`,25],[`${ip}|${staffId}`,8],[`staff|${staffId}`,30]]){const bucket=createHash('sha256').update(scope).digest('hex');let denied=false;await db.ref(`cbse/staffAttempts/${bucket}`).transaction(current=>{const value=current&&now()-current.started<15*60_000?current:{started:now(),count:0};if(value.count>=limit){denied=true;return;}return {...value,count:value.count+1};});if(denied)throw new AccessError('Too many PIN attempts. Try again in 15 minutes.',429);}return key;}
+ const pinAttempts=createPINAttemptLimiter({db,restTransaction,now});
+ async function pinDatabase(operation){try{return await operation();}catch(error){console.error('PIN_DATABASE_REQUEST_FAILED',String(error?.code||'database-request'));throw new AccessError('PIN verification could not reach the database. No save was attempted. Please retry in a moment.',503);}}
+ async function throttle(staffId,ip){const ticket=await pinDatabase(()=>pinAttempts.reserve(staffId,ip));if(!ticket.allowed)throw new AccessError('Too many PIN attempts. Try again in 15 minutes.',429);return ticket;}
  async function verifySubmissionPIN(id,pin,access,ip){
   if(!pin)throw new AccessError('Enter your personal PIN for this submission on the student profile.',403);
-  const key=await throttle(id,'submit|'+ip);if(!await verifyPIN(pin,access))throw new AccessError('The PIN does not match this staff member.',401);await db.ref(`cbse/staffAttempts/${key}`).remove();for(const scope of [`ip|submit|${ip}`,`submit|${ip}|${id}`,`staff|${id}`])await db.ref('cbse/staffAttempts/'+createHash('sha256').update(scope).digest('hex')).remove();
+  const ticket=await throttle(id,'submit|'+ip);if(!await verifyPIN(pin,access))throw new AccessError('The PIN does not match this staff member.',401);await pinDatabase(()=>pinAttempts.clear(ticket));
  }
  async function revoke(staffId){try{await auth.revokeRefreshTokens('mission_'+createHash('sha256').update(staffId).digest('hex').slice(0,40));}catch(e){if(e.code!=='auth/user-not-found')throw e;}}
  const sharedView=createSharedView({db,context,now,defaultSecret:viewSecret});
@@ -190,7 +193,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    const access=await read(`cbse/staffAccess/${id}`),person=(await directoryStaff())[id];if(!access?.enabled||person?.status!=='active')throw new AccessError('Choose a staff member and enter the correct PIN.',401);
    const attemptKey=await throttle(id,ip);
    if(!await verifyPIN(input.pin,access))throw new AccessError('Choose a staff member and enter the correct PIN.',401);
-   const customToken=await auth.createCustomToken('mission_'+createHash('sha256').update(id).digest('hex').slice(0,40),{missionStaff:true,staffId:id,pinVersion:access.version});await db.ref(`cbse/staffAttempts/${attemptKey}`).remove();return {customToken,name:person.name};
+   const customToken=await auth.createCustomToken('mission_'+createHash('sha256').update(id).digest('hex').slice(0,40),{missionStaff:true,staffId:id,pinVersion:access.version});await pinDatabase(()=>pinAttempts.clear(attemptKey,{all:false}));return {customToken,name:person.name};
   }
   if(['list','set-pin','disable','generate-pins','import-pins','add-faculty-pin'].includes(action)){
    const inputPrincipal=await principal(token);const staff=await directoryStaff();
