@@ -16,7 +16,7 @@ export const CREDIT_RULES={
 const entries=v=>Object.entries(v||{}),check=(v,m)=>{if(!v)throw Error(m);};
 const clean=(v,max,label)=>{check(typeof v==='string'&&v.trim()&&v.length<=max,'Enter '+label+'.');return v.trim();};
 const stableKey=(kind,staffId,event,student='')=>JSON.stringify([kind,staffId,event,student]);
-export function creditDirectory(faculty,mission){const all=staffIndex(faculty,mission),canonical=id=>teacherIdentityIds(id,faculty,mission).filter(key=>all[key]).sort()[0]||id;return {all,canonical,members:Object.fromEntries(entries(all).filter(([id,p])=>p.status==='active'&&canonical(id)===id).map(([id,p])=>[id,{id,name:p.name,designation:p.designation||p.kind||'',aliases:entries(all).filter(([key])=>canonical(key)===id).map(([key])=>key)}]))};}
+export function creditDirectory(faculty,mission){const all=staffIndex(faculty,mission),canonical=id=>teacherIdentityIds(id,faculty,mission).filter(key=>all[key])[0]||id;return {all,canonical,members:Object.fromEntries(entries(all).filter(([id,p])=>p.status==='active'&&canonical(id)===id).map(([id,p])=>[id,{id,name:p.name,designation:p.designation||p.kind||'',aliases:entries(all).filter(([key])=>canonical(key)===id).map(([key])=>key)}]))};}
 export function automaticCredits(data){
  const {faculty={},mission={},evaluations={},posts={}}=data,{all,canonical}=creditDirectory(faculty,mission),ledger=new Map();
  const add=(kind,member,event,student,at,detail,href)=>{const staffId=canonical(member);if(!all[staffId]||!member)return;const key=stableKey(kind,staffId,event,student);if(!ledger.has(key))ledger.set(key,{key,kind,staffId,studentKey:student,event,at:Number(at)||0,detail,href,points:CREDIT_RULES[kind].rate,origin:'automatic'});};

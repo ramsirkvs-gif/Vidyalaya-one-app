@@ -1,3 +1,4 @@
+import {bamangMehaIdentityIds} from './cbse-faculty-guest.js';
 import {resolvedFaculty,ORIGINAL_FACULTY_SHA} from './cbse-faculty-model.js';
 const entries=v=>Object.entries(v||{});
 export const normalizedGender=v=>({female:'girl',f:'girl',girl:'girl',male:'boy',m:'boy',boy:'boy'}[String(v||'').trim().toLowerCase()]||'unknown');
@@ -23,6 +24,7 @@ export function resolvedViewingData(draft,faculty,mission){
 }
 
 export function teacherIdentityIds(id,faculty,mission={}){
+ const meha=bamangMehaIdentityIds(id,faculty,mission);if(meha?.length)return meha;
  const [cl,...parts]=id.split(':'),own=faculty?.classes?.[cl]?.teachers?.[parts.join(':')];if(!own||own.status!=='active')return [id];
  const norm=v=>String(v||'').trim().replace(/\s+/g,' ').toUpperCase();
  return entries(faculty.classes).flatMap(([c,g])=>entries(g.teachers).filter(([,t])=>t.status==='active'&&norm(t.name)===norm(own.name)&&norm(t.designation)===norm(own.designation)).map(([tid])=>`${c}:${tid}`));

@@ -244,7 +244,8 @@ export const facultyPortraits=[
   {
     "file": "faculty-photo-bamangmeha.png",
     "names": [
-      "BAMANG MEHA"
+      "BAMANG MEHA",
+      "DAMIANG MEHA"
     ],
     "kind": "counsellor"
   },

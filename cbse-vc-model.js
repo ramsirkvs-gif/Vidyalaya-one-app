@@ -34,7 +34,7 @@ export function parseVCSetupCSV(header,rows){
 }
 export function vcStaff(faculty,mission){
  const out={};for(const[cl,c]of entries(faculty?.classes))for(const[id,t]of entries(c.teachers))out[cl+':'+id]={...withGuestFaculty(t),classId:cl,kind:'faculty'};
- for(const[id,t]of entries(mission?.staff))out['support:'+id]={...t,classId:''};
+ for(const[id,t]of entries(mission?.staff))out['support:'+id]={...withGuestFaculty(t),classId:''};
  for(const[id,t]of entries(out)){t.email=mission?.staffEmails?.[id]?.email||t.email||'';if(mission?.staffPhotos?.[id]?.data)t.photoData=mission.staffPhotos[id].data;}
  return out;
 }
