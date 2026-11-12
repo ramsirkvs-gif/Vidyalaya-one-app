@@ -14,19 +14,17 @@ with sync_playwright() as p:
   except Exception as e:route.fulfill(status=409,json={'error':str(e)})
  page.route('**/api/staff-access',api)
  def submit():
-  page.locator('[name=roll-undertaking]').check();page.get_by_role('button',name='Submit roll call',exact=True).click();page.locator('[name=roll-submit-pin]').fill('123');page.get_by_role('button',name='Confirm submission',exact=True).click();page.get_by_text('Roll call submitted successfully.',exact=False).wait_for();assert page.locator('.roll-report-form').count()==0
- for half in ['first','second']:
+  page.locator('[name=roll-undertaking]').check();page.get_by_role('button',name='Submit with PIN' if page.locator('[name=roll-morning-mode]').count() else 'Submit roll call',exact=True).click();page.locator('[name=roll-submit-pin]').fill('123');page.get_by_role('button',name='Confirm submission',exact=True).click();page.get_by_text('Roll call submitted successfully.',exact=False).wait_for();assert page.locator('.roll-report-form').count()==0
+ for half in ['first']:
   page.evaluate('saved={};render()');page.get_by_role('button',name='Morning Roll Call reporting',exact=True).click();page.locator('[name=roll-reporting-wing]').select_option('secondary');page.get_by_role('button',name='Submit Roll Call for Synthetic Teacher',exact=True).click()
-  assert not page.locator('[name=roll-reported]').is_visible();page.locator('[name=roll-on-leave]').select_option('yes')
-  assert page.locator('[name=roll-leave] option').all_text_contents()==['Choose leave arrangement','Instant first-half leave','Instant second-half leave','More than half a day — fill leave status first']
-  page.locator('[name=roll-leave]').select_option(half);assert page.locator('[name=roll-period]').input_value()=='morning';assert page.locator('[name=roll-reported]').input_value()==('no' if half=='first' else 'yes')
+  assert not page.locator('[name=roll-reported]').is_visible();page.locator('[name=roll-morning-mode]').select_option('first')
+  assert page.locator('[name=roll-morning-mode] option').all_text_contents()==['Choose','Only first-half instant leave','Other leave','Present for Roll Call']
+  assert page.locator('.roll-answer-strips').count()==4
   assert page.locator('.roll-leave-pdf').count()==0;submit();assert page.evaluate('Object.values(saved.reports).length')==1;assert page.evaluate('Object.values(saved.reports)[0].halfDay')==half
   if half=='first':
-   row=page.locator('.roll-daily-register tr[data-staff-id=one]');assert 'On leave · exempt from Roll Call' in row.inner_text();assert row.get_by_role('button').count()==0
+   row=page.locator('.roll-daily-register tr[data-staff-id=one]');assert 'On leave · exempt from Roll Call' in row.inner_text();assert row.get_by_role('button',name='Edit Roll Call for Synthetic Teacher').count()==1
    page.get_by_role('button',name='Afternoon Roll Call',exact=True).click();page.get_by_role('button',name='Submit Roll Call for Synthetic Teacher',exact=True).click();page.locator('[name=roll-on-leave]').select_option('no');assert page.locator('[name=roll-half-day]').input_value()=='first';assert page.locator('[name=roll-reported]').input_value()=='yes';submit();assert page.evaluate("Object.values(saved.reports).find(r=>r.period==='afternoon').reported")=='yes'
-  else:
-   row=page.locator('.roll-daily-register tr[data-staff-id=one]');assert 'Yes · Roll Call submitted' in row.inner_text();page.get_by_role('button',name='Afternoon Roll Call',exact=True).click();page.wait_for_function("document.querySelector('#host').dataset.busy==='false'");row=page.locator('.roll-daily-register tr[data-staff-id=one]');assert 'On leave · exempt from Roll Call' in row.inner_text();assert 'Principal approval awaited' in row.inner_text();assert row.get_by_role('button').count()==0
  # Longer leave leaves only the redirect; it cannot silently submit a Roll Call.
- page.evaluate('saved={};render()');page.get_by_role('button',name='Morning Roll Call reporting',exact=True).click();page.locator('[name=roll-reporting-wing]').select_option('secondary');page.get_by_role('button',name='Submit Roll Call for Synthetic Teacher',exact=True).click();page.locator('[name=roll-on-leave]').select_option('yes');page.locator('[name=roll-leave]').select_option('more');assert not page.get_by_role('button',name='Submit roll call',exact=True).is_visible();page.get_by_role('button',name='Update leave report',exact=True).click();page.locator('.advance-leave-form').wait_for();assert page.locator('.roll-employee-dialog').count()==0
+ page.evaluate('saved={};render()');page.get_by_role('button',name='Morning Roll Call reporting',exact=True).click();page.locator('[name=roll-reporting-wing]').select_option('secondary');page.get_by_role('button',name='Submit Roll Call for Synthetic Teacher',exact=True).click();page.locator('[name=roll-morning-mode]').select_option('other');assert not page.get_by_role('button',name='Submit with PIN',exact=True).is_visible();page.get_by_role('button',name='Fill leave details',exact=True).click();page.locator('.advance-leave-form').wait_for();assert page.locator('.roll-employee-dialog').count()==0
  assert not errors,errors;b.close()
-print('PASS instant half-day morning recording, first-half afternoon return, period-specific exemptions and longer-leave redirect')
+print('PASS first-half morning recording, actual afternoon return, exemptions and other-leave redirect')
