@@ -1,3 +1,4 @@
+import {rollDisplayName} from './cbse-roll-call-roster.js';
 import {el} from './cbse-ui.js';
 import {rollStaffStatus} from './cbse-roll-call-status.js';
 import {rollDateText} from './cbse-roll-call-time.js';
@@ -24,6 +25,6 @@ export function renderReportedLeaveRegister(parent,data,wing){
  const section=el('section',undefined,'roll-leave-register');section.append(el('h3','Reported leave · staff coordination'),el('p','For Samagam, timetable arrangements and CT / Co-CT accountability. This is not an office leave application or sanction.'));
  const table=el('table',undefined,'roll-staff-table'),head=el('thead'),tr=el('tr'),body=el('tbody');for(const label of ['S.No.','Name and designation','Leave dates','Type of leave','Remark / Roll Call'])tr.append(el('th',label));head.append(tr);table.append(head,body);
  const records=Object.values(data.rollCall?.advanceLeaves||{}).filter(r=>r.wing===wing&&r.dates?.some(d=>!r.cancelledDates?.includes(d))).sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
- records.forEach((r,i)=>{const row=el('tr',undefined,'roll-staff-row'),person=data.staff[r.staffId],dates=r.dates.filter(d=>!r.cancelledDates?.includes(d));for(const [label,value]of [['S.No.',String(i+1)],['Name and designation',r.name+(person?.designation?' · '+person.designation:'')],['Leave dates',dates.map(rollDateText).join(', ')],['Type of leave',r.leaveKind||'Not specified (earlier report)'],['Remark / Roll Call',r.status==='recorded'?'Recorded · no Roll Call on selected dates':r.status==='pending'?'Review pending · Roll Call required':'Not approved · Roll Call required']]){const td=el('td',value);td.dataset.label=label;row.append(td);}body.append(row);});
+ records.forEach((r,i)=>{const row=el('tr',undefined,'roll-staff-row'),person=data.staff[r.staffId],dates=r.dates.filter(d=>!r.cancelledDates?.includes(d));for(const [label,value]of [['S.No.',String(i+1)],['Name and designation',rollDisplayName(r.name)+(person?.designation?' · '+person.designation:'')],['Leave dates',dates.map(rollDateText).join(', ')],['Type of leave',r.leaveKind||'Not specified (earlier report)'],['Remark / Roll Call',r.status==='recorded'?'Recorded · no Roll Call on selected dates':r.status==='pending'?'Review pending · Roll Call required':'Not approved · Roll Call required']]){const td=el('td',value);td.dataset.label=label;row.append(td);}body.append(row);});
  section.append(table);if(!records.length)section.append(el('p','No leave reports for this wing.'));parent.append(section);
 }
