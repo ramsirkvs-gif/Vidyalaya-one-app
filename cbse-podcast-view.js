@@ -48,7 +48,7 @@ export function renderPodcastTeacher(parent,{data,api,run,askPIN}){
   if(video.ack){slot.append(el('p','You have already submitted this video report · '+rollTimestamp(video.ack.acknowledgedAt),'podcast-acknowledged'),button('Close video',reset));return;}
   let submitted=false;
   const form=el('form',undefined,'podcast-viewing-report'),ackLabel=el('label',PODCAST_ACK),check=el('input');
-  check.type='checkbox';check.name='podcast-acknowledged';check.required=true;ackLabel.prepend(check);
+  form.dataset.portalTrackDirty='true';form.addEventListener('input',()=>{form.dataset.portalDirty='true';});check.type='checkbox';check.name='podcast-acknowledged';check.required=true;ackLabel.prepend(check);
   form.append(el('h4','Viewing report'),ackLabel,el('button','Submit viewing report'));
   const closeWithout=button('Close without reporting',reset);closeWithout.hidden=true;
   const close=button('Close video',()=>{if(submitted){reset();return;}status.textContent='Before closing, submit your viewing report below. If you have not finished watching, close without reporting; your report will remain pending.';closeWithout.hidden=false;reportNotice(video,slot);});

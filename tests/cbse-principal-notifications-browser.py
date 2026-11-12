@@ -6,7 +6,7 @@ def items():
 def api(route):
  d=route.request.post_data_json;calls.append(d)
  if d['action']!='principal-notifications':route.fulfill(json={'ok':True,'staff':[]});return
- assert route.request.headers.get('authorization')=='Bearer test-token'
+ assert route.request.headers.get('authorization')=='Bearer test-token';assert d.get('scope')=='mission'
  data=items()
  if d.get('operation')=='seen':
   if state['fail']:route.fulfill(status=503,json={'error':'Synthetic connection failure'});return
