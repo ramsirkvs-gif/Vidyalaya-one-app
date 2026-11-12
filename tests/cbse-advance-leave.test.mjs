@@ -21,3 +21,12 @@ test('past/duplicate/invalid/overlapping dates and stale questionnaire versions 
  const draft=defaultReporting();draft.groups.advanceLeave.push({id:'handover',label:'Handover completed?',type:'yesno',required:true});const store=applyReporting(null,{operation:'reporting-publish',expectedRevision:0,draft},now);assert.throws(()=>applyRollCall({},input,actor,staff,now,'l',store),/questionnaire changed/);assert.throws(()=>applyRollCall({},{...input,formVersion:2},actor,staff,now,'l',store),/Handover/);
  const legacy={published:{...defaultReporting(),version:4}};delete legacy.published.groups.advanceLeave;assert.equal(publishedReporting(legacy).groups.advanceLeave.length,4);assert.equal(rollToday(now),'2026-11-08');
 });
+
+
+test('new leave workflow records type and undertaking, rejects missing confirmation and remarks above 50 words',()=>{
+ const report={...input,workflowVersion:2,leaveKind:'Casual leave (CL)',undertaking:true};
+ assert.throws(()=>applyRollCall({}, {...report,undertaking:false},actor,staff,now,'new'),/undertaking/);
+ assert.throws(()=>applyRollCall({}, {...report,leaveKind:'arbitrary'},actor,staff,now,'new'),/leave type/);
+ assert.throws(()=>applyRollCall({}, {...report,reason:Array(51).fill('word').join(' ')},actor,staff,now,'new'),/50 words/);
+ const next=applyRollCall({},report,actor,staff,now,'new');assert.equal(next.advanceLeaves.new.leaveKind,'Casual leave (CL)');assert.equal(next.advanceLeaves.new.undertaking,true);
+});

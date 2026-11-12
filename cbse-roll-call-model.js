@@ -14,6 +14,7 @@ export const rollNeedsApproval=r=>!!r&&['morning','afternoon'].includes(r.period
 export function applyRollCall(current,input,actor,staff,now=Date.now(),id='',reportingStore=null){const next=structuredClone(current||{});next.reports||={};next.objections||={};const day=rollToday(now),op=input.rollOperation;
  if(String(op).startsWith('advance-leave-'))return applyAdvanceLeave(current,input,{...actor,wing:rollWing(staff[actor.id])},staff,now,id,reportingStore);
  if(op==='report'){
+  if(input.workflowVersion===2&&input.undertaking!==true)throw Error('Accept the duty undertaking before submitting Roll Call.');
   const form=publishedReporting(reportingStore);if(!form.enabled)throw Error('Reporting is not currently published.');if((input.formVersion??1)!==form.version)throw Error('The reporting form changed. Reopen it to use the latest published questions.');
   if(activeAdvanceLeave(next.advanceLeaves,rollStaffIdentityIds(staff,actor.id),day))throw Error('Advance leave reporting done for today. Morning and afternoon Roll Call are not required.');
   if(activeRollLongLeave(next.reports,rollStaffIdentityIds(staff,actor.id),day))throw Error('You are on recorded long leave. Morning and afternoon roll calls are not required during this period.');
@@ -22,7 +23,7 @@ export function applyRollCall(current,input,actor,staff,now=Date.now(),id='',rep
   const wing=input.wing;if(!['primary','secondary'].includes(wing)||rollWing(staff[actor.id])&&wing!==rollWing(staff[actor.id]))throw Error('Choose your assigned wing.');
   if(!['morning','afternoon'].includes(input.period))throw Error('Choose morning or afternoon.');
   const key=day+'_'+input.period+'_'+actor.id,old=next.reports[key];if(old?.status==='approved')throw Error('This roll call is already approved.');
-  const r={staffId:actor.id,name:actor.name,wing,date:day,period:input.period,submittedAt:now,updatedAt:now,status:'pending',requiresReview:true,hasNoAnswers:false};
+  const r={...(input.workflowVersion===2?{workflowVersion:2,undertaking:true}:{}),staffId:actor.id,name:actor.name,wing,date:day,period:input.period,submittedAt:now,updatedAt:now,status:'pending',requiresReview:true,hasNoAnswers:false};
   const leave=input.leaveType||'none';if(!['none','today','long','half'].includes(leave))throw Error('Choose the leave period.');
   if(leave==='long'&&(input.period!=='morning'||input.reported!=='no'))throw Error('Record long-leave details as not reported in the morning leave form.');
   if(leave!=='none'){r.leaveType=leave;if(leave==='half'){if(!['first','second'].includes(input.halfDay))throw Error('Choose first half or second half.');r.halfDay=input.halfDay;if(input.halfDay==='first'&&input.period!=='afternoon')throw Error('First-half leave permits afternoon roll call only.');}if(leave==='long'){if(!validDate(input.from)||!validDate(input.to)||input.from>day||input.to<day||input.to<input.from)throw Error('Leave dates must include today.');r.from=input.from;r.to=input.to;}}
@@ -36,7 +37,7 @@ export function applyRollCall(current,input,actor,staff,now=Date.now(),id='',rep
    const morning=next.reports[day+'_morning_'+actor.id];if(!firstHalf&&(!morning||morning.reported!=='yes'))throw Error('Submit today’s morning roll call as reported before afternoon roll call, or select first-half leave.');
    if(Object.values(next.objections).some(o=>rollStaffIdentityIds(staff,actor.id).includes(o.staffId)&&o.status==='open'))throw Error('A task is pending. Collect NOC from the concerned IC / Principal before submitting afternoon roll call.');
   }
-  r.formVersion=form.version;r.formTitle=form.title;r.questionSnapshot=structuredClone(reportingQuestions(form,input));r.answers=snapshotAnswers(r.questionSnapshot,input.answers);const noAnswers=rollNoAnswers(r);if(noAnswers.length){const reason=String(input.noReason||'').trim();if(reason.length<10||reason.length>4000||rollReasonWordCount(reason)>100)throw Error('Explain the reason / emergency for every No answer for Principal review. Use at least 10 characters and no more than 100 words.');r.noReason=reason;r.noAnswers=noAnswers;r.hasNoAnswers=true;r.requiresReview=true;if(input.period==='morning')r.status='review';}
+  r.formVersion=form.version;r.formTitle=form.title;r.questionSnapshot=structuredClone(reportingQuestions(form,input));r.answers=snapshotAnswers(r.questionSnapshot,input.answers);const noAnswers=rollNoAnswers(r);if(noAnswers.length){const reason=String(input.noReason||'').trim();if(reason.length<10||reason.length>4000||rollReasonWordCount(reason)>(input.workflowVersion===2?50:100))throw Error('Explain the reason / emergency for every No answer for Principal review. Use at least 10 characters and no more than '+(input.workflowVersion===2?50:100)+' words.');r.noReason=reason;r.noAnswers=noAnswers;r.hasNoAnswers=true;r.requiresReview=true;if(input.period==='morning')r.status='review';}
   next.reports[key]=r;
  }else if(op==='object'){
   const department=String(input.department||'IC Objection');if(!text(department,100)||!text(input.remark,1000))throw Error('Enter a short pending-task remark.');
