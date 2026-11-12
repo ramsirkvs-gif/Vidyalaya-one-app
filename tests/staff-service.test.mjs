@@ -557,3 +557,9 @@ for(const afterCommit of [false,true])test('Bharat Lal Meena leave save recovers
  await service('pin-submit',payload,'','meena-retry',session);assert.equal(Object.keys(f.data.cbse.rollCall.advanceLeaves).length,1);assert.equal(f.data.cbse.rollCall.revision,1);assert.deepEqual(f.data.cbse.staffAccess['X:one'],original);
  await assert.rejects(service('pin-submit',{...payload,dates:['1970-01-02']},'','meena-retry',session),/already used/);assert.equal(Object.keys(f.data.cbse.rollCall.advanceLeaves).length,1);
 });
+
+test('instant first-half leave stays morning-excused after a fresh public directory read',async()=>{
+ const f=fixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');const view=await f.service('view-login',{password:'synthetic-curtain'}),session={viewerToken:view.viewerToken},{publishedReporting}=await import('../cbse-reporting-model.js'),{rollStaffStatus}=await import('../cbse-roll-call-status.js'),form=publishedReporting(null);
+ await f.service('pin-submit',{operation:'roll-call',staffId:'X:one',pin:'123',rollOperation:'report',workflowVersion:4,formVersion:form.version,undertaking:true,wing:'secondary',period:'morning',reported:'no',leaveType:'half',halfDay:'first',answers:Object.fromEntries(form.groups.leave.map(q=>[q.id,'yes']))},'','instant-half-read',session);
+ const read=await f.service('roll-call-read',{},'','instant-half-read',session),record=Object.values(read.rollCall.reports)[0];assert.equal(record.workflowVersion,4);assert.equal(record.answers,undefined);const person=rollStaffStatus(read,'secondary').find(p=>p.ids.includes('X:one'));assert.equal(person.morningExcused,true);assert.equal(person.afternoonLeave,false);assert.equal(person.afternoon,undefined);
+});

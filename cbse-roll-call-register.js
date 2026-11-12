@@ -11,11 +11,12 @@ export function renderDailyRollRegister(parent,data,wing,period,onOpen){
   const cell=(label)=>{const td=el('td');td.dataset.label=label;row.append(td);return td;};
   cell('S.No.').textContent=String(p.serial);const name=cell('Name and designation');name.append(el('strong',p.name),el('small',p.designation||''));
   const r=p[period],leave=p.advanceLeave||p.longLeave,excused=!!leave||(period==='morning'?p.morningExcused:p.afternoonLeave),present=r&&(r.reported==='yes'||period==='afternoon'&&!r.reported);
-  cell('Roll Call / present in Vidyalaya').append(el('span',present?'Yes · Roll Call submitted':r?'Roll Call submitted · on leave':'No · not submitted',present?'roll-rc-reported':'roll-rc-missing'));
+  cell('Roll Call / present in Vidyalaya').append(el('span',excused?'On leave · exempt from Roll Call':present?'Yes · Roll Call submitted':r?'Roll Call submitted · on leave':'No · not submitted',excused?'roll-rc-leave':present?'roll-rc-reported':'roll-rc-missing'));
   const status=cell('Status / submit');
   if(excused){const dates=leave?.dates?.filter(d=>!leave.cancelledDates?.includes(d))||[],till=leave?.to||dates.filter(d=>d>=data.serverDate).sort().at(-1);status.append(el('span',till?'On leave · recorded dates through '+rollDateText(till):'On leave · Roll Call not required','roll-rc-leave'));}
   else if(r)status.append(el('span',r.status==='approved'?'Approved':r.status==='not-approved'?'Not approved · discuss with Principal':'Submitted · waiting for Principal review',r.status==='approved'?'roll-rc-approved':'roll-rc-status'));
   else status.append(el('span','No recorded leave · Roll Call not submitted','roll-rc-missing'));
+  const halfRecord=p.morning?.workflowVersion>=4&&p.morning.leaveType==='half'?p.morning:null;if(excused&&halfRecord)status.append(el('small',halfRecord.status==='approved'?'Half-day leave approved':halfRecord.status==='blocked'?'IC clearance required · departure not approved':halfRecord.status==='not-approved'?'Leave not approved · discuss with Principal':'Half-day leave reported · Principal approval awaited'));
   if(p.id&&!excused&&r?.status!=='approved'){const b=el('button',r?'View / update Roll Call':'Submit Roll Call',r?'':'roll-submit-missing');b.type='button';b.setAttribute('aria-label',(r?'View / update Roll Call for ':'Submit Roll Call for ')+p.name);b.onclick=()=>onOpen(p.id);status.append(b);}else if(!p.id)status.append(el('small','Staff profile setup pending'));
   body.append(row);
  }
