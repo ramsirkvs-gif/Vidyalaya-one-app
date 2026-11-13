@@ -1,13 +1,11 @@
+import {NOTIFICATION_COLLECTIONS,notificationSourceExists} from '../cbse-notification-source.js';
 import {createHash} from 'node:crypto';
 import {remedialClassStatus} from '../cbse-remedial-status.js';
 const hash=value=>createHash('sha256').update(value).digest('hex');
 const canonical=value=>Array.isArray(value)?value.map(canonical):value&&typeof value==='object'?Object.fromEntries(Object.keys(value).filter(k=>value[k]!==undefined).sort().map(k=>[k,canonical(value[k])])):value;
 const digest=value=>hash(JSON.stringify(canonical(value)));
 export const notificationAccountKey=uid=>hash(String(uid));
-const collections={
- 'Contribution credit claims':'contributionClaims','Remedial approvals':'remedialPlans','Classes planned but not done':'remedialPlans','Returned records needing Principal review':'remedialPlans','Remedial class records':'remedialPlans','Returned remedial classes':'remedialPlans','Class plans':'remedialPlans','Class plan updates':'remedialPlans','Class cancellations':'remedialPlans',
- 'Today’s Roll Call approvals':'rollReports','Roll Call activity':'rollReports','Advance leave reviews':'advanceLeaves','Advance leave activity':'advanceLeaves','Staff NOC activity':'objections','Podcast viewing reports':'podcasts','Podcast updates':'podcasts','Open staff objections':'objections','Teacher reports to follow up':'reportRequests','My pending tasks':'tasks','Member task updates':'tasks','MCQ contributions':'mcqBatches','MCQ evaluations':'mcqEvaluations','Progress updates':'records','Team News comments':'newsPosts','Team News':'newsPosts','Latest team news':'newsPosts','Student attendance activity':'attendance','Contact detail updates':'contactAudit'
-};
+const collections=NOTIFICATION_COLLECTIONS;
 export function decoratePrincipalNotifications(summary,data,seen={},now=Date.now(),includeSeen=false){
  const records=data.records||{},root=id=>{const visited=new Set();let key=id;while(records[key]?.replyToRecord&&records[records[key].replyToRecord]&&!visited.has(key)){visited.add(key);key=records[key].replyToRecord;}return key;},groups=new Map();
  for(const[id,r]of Object.entries(records))if(r.visibility==='general'){const key=r.conversationId||'legacy_'+root(id);if(!groups.has(key))groups.set(key,{});groups.get(key)[id]=r;}
@@ -23,6 +21,7 @@ export function decoratePrincipalNotifications(summary,data,seen={},now=Date.now
   else if(collection==='podcasts'){const [postId,version,...member]=parts,post=data.podcasts?.posts?.[postId]||{};if(item.kind==='Podcast viewing reports'){const staffId=member.join('|'),ack=data.podcasts?.acks?.[postId]?.[version]?.[staffId];entity=['podcastViewing',postId,version,staffId];source=ack;contributor=ack?.name||data.staffNames?.[staffId]||item.title;}else{entity=['podcastUpdate',postId];source=post;contributor='Principal';}}
   else if(collection==='objections'&&source?.status==='cleared')contributor=source.clearedByName||data.staffNames?.[source.clearedBy]||(source.clearedBy==='principal'?'Principal':source.createdName)||item.title;
   else if(collection==='objections')contributor=source?.createdByName||source?.createdName||data.staffNames?.[source?.createdBy]||source?.name||data.staffNames?.[source?.staffId]||item.title;
+  else if(collection==='movementRequests')contributor=source?.lastActionActor==='principal'?'Principal':data.staffNames?.[source?.lastActionActor]||source?.name||item.title;
   else if(collection==='tasks')contributor=source?.updatedByName||source?.staffName||data.staffNames?.[source?.staffId]||(source?.staffId==='principal'?'Principal':item.title);
   else if(collection==='reportRequests'){entity=['reportRequest',id];source={request:source,replies:Object.fromEntries(Object.entries(records).filter(([,r])=>r.requestId===id&&r.visibility==='general'))};contributor=source.request?.createdByName||'Principal';}
   else if(collection==='contributionClaims')contributor=source?.contributorName||data.staffNames?.[source?.staffId]||item.title;
@@ -32,7 +31,7 @@ export function decoratePrincipalNotifications(summary,data,seen={},now=Date.now
   return {...item,contributor:String(contributor||'Member'),key,version,seen:isSeen};
  };
  const pending=summary.pending.map(stamp),recent=summary.recent.map(stamp),news=summary.news.map(stamp),all=[...pending,...recent,...news],active=new Set(all.map(i=>i.key));
- const archivedSeen=includeSeen?Object.entries(seen).filter(([key,s])=>!active.has(key)&&s.snapshot&&Object.hasOwn(s.versions||{},s.snapshot.version)).map(([key,s])=>({...s.snapshot,key,seen:true})):[];
+ const archivedSeen=includeSeen?Object.entries(seen).filter(([key,s])=>!active.has(key)&&s.snapshot&&notificationSourceExists(s.snapshot,data)&&Object.hasOwn(s.versions||{},s.snapshot.version)).map(([key,s])=>({...s.snapshot,key,seen:true})):[];
  const count=items=>new Set(items.filter(i=>!i.seen).map(i=>i.key)).size;
  return {...summary,pending,recent,news,archivedSeen,pendingWorkCount:summary.pendingCount,pendingCount:count(pending),recentCount:count(recent),unseenCount:count(all)};
 }

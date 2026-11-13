@@ -571,7 +571,7 @@ test('page-specific notifications separate active items, seen history, counts an
  const m=mission.news[0],c=chamber.pending[0];await f.service('principal-notifications',{scope:'mission',operation:'seen',key:m.key,version:m.version},'principal');await assert.rejects(f.service('principal-notifications',{scope:'chamber',operation:'seen',key:m.key,version:m.version},'principal'),/changed|no longer/);
  await f.service('principal-notifications',{scope:'chamber',operation:'seen',key:c.key,version:c.version},'principal');assert.equal(f.data.cbse.rollCall.reports.rc.status,'pending');assert.equal((await f.service('principal-notifications',{scope:'chamber'},'principal')).pendingCount,0);
  delete f.data.cbse.teamNews.posts.news;delete f.data.cbse.rollCall.reports.rc;
- const mh=await f.service('principal-notifications',{scope:'mission',includeSeen:true},'principal'),ch=await f.service('principal-notifications',{scope:'chamber',includeSeen:true},'principal');assert.ok(mh.archivedSeen.some(r=>r.key===m.key));assert.ok(!mh.archivedSeen.some(r=>r.key===c.key));assert.ok(ch.archivedSeen.some(r=>r.key===c.key));assert.ok(!ch.archivedSeen.some(r=>r.key===m.key));
+ const mh=await f.service('principal-notifications',{scope:'mission',includeSeen:true},'principal'),ch=await f.service('principal-notifications',{scope:'chamber',includeSeen:true},'principal');assert.ok(!mh.archivedSeen.some(r=>r.key===m.key));assert.ok(!mh.archivedSeen.some(r=>r.key===c.key));assert.ok(!ch.archivedSeen.some(r=>r.key===c.key));assert.ok(!ch.archivedSeen.some(r=>r.key===m.key));
  await assert.rejects(f.service('principal-notifications',{scope:'other'},'principal'),e=>e.status===400);await assert.rejects(f.service('principal-notifications',{scope:'chamber'},'outsider'),/Principal/);
 });
 
@@ -618,4 +618,11 @@ test('credit read includes existing saved question and QP preparation, replaced 
  const {service,data}=fixture();data.cbse.mcq={questions:{QEN001:{id:'QEN001',contributorId:'X:one',createdAt:1,stem:'PRIVATE_SOURCE_QUESTION',image:'PRIVATE_SOURCE_IMAGE'}},papers:{QPEN001:{id:'QPEN001',createdBy:'X:one',createdAt:2,questionIds:['QEN001'],questions:[{id:'QEN001',stem:'PRIVATE_SOURCE_QUESTION'}]}},evaluations:{}};
  let summary=await service('credits-read',{},'principal');assert.equal(summary.members.find(m=>m.id==='X:one').total,6);assert.ok(!JSON.stringify(summary).includes('PRIVATE_SOURCE'));
  data.cbse.mcq.evaluations.saved={paperId:'QPEN001',studentKey:'X:a:one',evaluatorId:'X:one',score:0,maximum:1,evaluatedAt:3,photo:'PRIVATE_EVALUATION_PHOTO'};summary=await service('credits-read',{},'principal');assert.equal(summary.members.find(m=>m.id==='X:one').total,50);assert.ok(!JSON.stringify(summary).includes('PRIVATE_'));
+});
+
+test('Chamber movement notifications retain pending status on Seen and disappear after source deletion',async()=>{
+ const f=fixture();f.data.cbse.chamber={movements:{requests:{move:{id:'move',name:'Movement Teacher',staffId:'X:one',date:'1970-01-01',from:'06:00',to:'07:00',status:'pending',submittedAt:1000,updatedAt:1000,purpose:'PRIVATE_MOVEMENT_PURPOSE',comment:'PRIVATE_MOVEMENT_COMMENT'}}}};
+ const result=await f.service('principal-notifications',{scope:'chamber'},'principal'),item=result.pending.find(n=>n.kind==='Movement approvals');assert.ok(item);assert.ok(!JSON.stringify(result).includes('PRIVATE_MOVEMENT'));
+ await f.service('principal-notifications',{scope:'chamber',operation:'seen',key:item.key,version:item.version},'principal');assert.equal(f.data.cbse.chamber.movements.requests.move.status,'pending');delete f.data.cbse.chamber.movements.requests.move;
+ const after=await f.service('principal-notifications',{scope:'chamber',includeSeen:true},'principal');assert.equal(after.archivedSeen.length,0);assert.equal(after.pending.length,0);assert.equal(after.recent.length,0);
 });
