@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96" role="img" aria-label="Microphone and television">
+ <circle cx="48" cy="48" r="45" fill="#e8dff8"/>
+ <path d="m47 19 9 8 10-12" fill="none" stroke="#62507e" stroke-width="3" stroke-linecap="round"/>
+ <rect x="31" y="27" width="59" height="44" rx="8" fill="#756294" stroke="#4c396b" stroke-width="3"/>
+ <rect x="37" y="33" width="41" height="31" rx="4" fill="#faf6ff"/>
+ <path d="m52 40 14 9-14 9Z" fill="#248478"/>
+ <circle cx="84" cy="42" r="2" fill="#f1cb69"/><path d="M83 51h2m-2 6h2M48 72l-4 8m29-8 4 8" stroke="#4c396b" stroke-width="3" stroke-linecap="round"/>
+ <rect x="10" y="16" width="22" height="39" rx="11" fill="#f1cb69" stroke="#6d5530" stroke-width="3"/>
+ <path d="M16 25h10m-10 7h10m-10 7h10" stroke="#9e7839" stroke-width="2" stroke-linecap="round"/>
+ <path d="M5 43v5a16 16 0 0 0 32 0v-5M21 65v16m-10 1h20" fill="none" stroke="#246f6b" stroke-width="4" stroke-linecap="round"/>
+</svg>
