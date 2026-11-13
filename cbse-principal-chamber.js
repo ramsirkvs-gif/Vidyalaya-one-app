@@ -7,8 +7,11 @@ function renderChamber(){
 }
 window.addEventListener('hashchange',renderChamber);renderChamber();
 
+const chamberTiles=chamber.querySelector('.chamber-mini-tiles'),chamberWorkspace=document.getElementById('roll-call-workspace');
+const syncChamberTiles=()=>{chamberTiles.hidden=!chamberWorkspace.hidden;};
+new MutationObserver(syncChamberTiles).observe(chamberWorkspace,{attributes:true,attributeFilter:['hidden']});syncChamberTiles();
 let rollController,rollLoading;
-async function openRollWorkspace(){const host=document.getElementById('roll-call-workspace');host.hidden=false;if(!rollController){rollLoading||=import('./cbse-roll-call-view.js').then(({renderRollCall})=>{rollController=renderRollCall(host,{deferOpen:true});return rollController;}).catch(error=>{rollLoading=null;host.textContent='Could not open Roll Call. Please try again.';throw error;});await rollLoading;}return rollController;}
+async function openRollWorkspace(){const host=document.getElementById('roll-call-workspace');host.hidden=false;if(!rollController){rollLoading||=import('./cbse-roll-call-view.js').then(({renderRollCall})=>{rollController=renderRollCall(host,{deferOpen:true});return rollController;}).catch(error=>{rollLoading=null;host.replaceChildren(document.createTextNode('Could not open this section. Please try again.'));const back=document.createElement('button');back.type='button';back.textContent='← Back to Chamber';back.onclick=()=>{host.hidden=true;};host.append(back);throw error;});await rollLoading;}return rollController;}
 document.getElementById('open-roll-call').addEventListener('click',async event=>{event.preventDefault();const controller=await openRollWorkspace();await controller.openReporting();document.getElementById('roll-call-workspace').scrollIntoView({block:'start',behavior:'smooth'});});
 document.getElementById('chamber-principal-login').addEventListener('click',async()=>{const controller=await openRollWorkspace();await controller.openPrincipal();document.getElementById('roll-call-workspace').scrollIntoView({block:'start',behavior:'smooth'});});
 
