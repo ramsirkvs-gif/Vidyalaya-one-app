@@ -15,3 +15,15 @@ test('saved general reasons appear in dropdown and public list while private det
  const again=applyMovement(s,{...input,requestId:'another_request',from:'11:00',to:'12:00',reason:' collect   OFFICIAL documents ',addReason:true},actor,staff,now);assert.equal(Object.keys(again.reasons).length,1);assert.equal(again.requests.movement_another_request.reason,'Collect official documents');
  assert.throws(()=>submit({reason:'Unlisted reason'}),/Add new reason/);assert.throws(()=>submit({reason:'abc',addReason:true}),/5–120/);assert.throws(()=>submit({reason:'New valid reason',addReason:true,undertaking:false}),/undertaking/);
 });
+
+test('Principal may correct approved movements and delete with private audit history; teachers cannot',()=>{
+ let s=submit({freeTime:'yes',comment:''});s=step(s,'approve');
+ const change={reason:'Medical reasons',purpose:'Medical reasons',from:'09:40',to:'10:40',comment:'Corrected detail',correctionReason:'Correcting entered time.'};
+ assert.throws(()=>step(s,'edit',actor,change),/Principal/);assert.throws(()=>step(s,'delete',actor,{correctionReason:'Remove request'}),/Principal/);
+ const before=s.requests.movement_request123;s=step(s,'edit',principal,change);const r=s.requests.movement_request123;assert.equal(r.status,'approved');assert.equal(r.approvedAt,before.approvedAt);assert.equal(r.returnBy,'10:35');assert.equal(s.audit.action_edit.before.from,'09:30');assert.equal(movementView(s,null,staff,now).audit,undefined);
+ assert.throws(()=>step(s,'delete',principal,{correctionReason:'x'}),/5–500/);const stale=r.revision-1;assert.throws(()=>step(s,'edit',principal,{...change,expectedRevision:stale,actionId:'another_edit'}),/changed/);
+ const deletion={movementOperation:'delete',id:r.id,expectedRevision:r.revision,actionId:'delete_request',correctionReason:'Duplicate request removed.'};s=applyMovement(s,deletion,principal,staff,now);assert.equal(Object.keys(s.requests).length,0);assert.equal(s.audit.delete_request.before.comment,'Corrected detail');assert.deepEqual(applyMovement(s,deletion,principal,staff,now),s);
+});
+test('Principal query requires own PIN reply and resubmission followed by new approval',()=>{
+ let s=submit({freeTime:'yes',comment:''});s=step(s,'approve');s=step(s,'query',principal,{correctionReason:'Please clarify the movement purpose.'});assert.equal(s.requests.movement_request123.status,'query');assert.equal(s.requests.movement_request123.approvedAt,undefined);assert.equal(movementView(s,null,staff,now).requests.movement_request123.query,undefined);assert.throws(()=>step(s,'depart',actor),/approval/);assert.throws(()=>step(s,'resubmit',{id:'b'},{reply:'Clarification entered'}),/own PIN/);assert.throws(()=>step(s,'resubmit',actor,{reply:'word '.repeat(51)}),/50 words/);s=step(s,'resubmit',actor,{reply:'I need to collect the required documents.'});assert.equal(s.requests.movement_request123.status,'pending');s=step(s,'approve',principal,{actionId:'new_approval'});s=step(s,'return',actor);assert.equal(movementView(s,null,staff,now).requests.movement_request123.statusLabel,'Completed');assert.equal(s.requests.movement_request123.departedAt,undefined);
+});
