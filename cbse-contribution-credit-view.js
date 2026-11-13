@@ -19,6 +19,8 @@ export function renderCreditBadge(parent,{staffId,read,open}){
 }
 const creditSuggestions=[
  ['remedial','Remedial classes','Organise a class, take attendance and submit evidence. Points follow Principal approval of the class.'],
+ ['mcqQuestion','MCQ question contribution','Prepare and save a question: 1 point per question when you have not evaluated students using it.'],
+ ['mcqPaper','Question paper preparation','Prepare and save a QP: 5 points per QP when you have not evaluated students using it.'],
  ['mcq','MCQ tests','Conduct a test and evaluate each student’s responses. Saved evaluations generate points automatically.'],
  ['contact','Student contacts & home locations','Verify and update a student’s contact number, home address or map location from the student profile.'],
  ['vc','Online home visit · motivation & bonding','Meet the student and family online, discuss learning and wellbeing, and record the outcome and evidence. Submit the completed visit as a VC claim.'],
@@ -39,7 +41,7 @@ function creditPopup(text,action,onClaim){
  else if(action){const a=el('a',action[0]);a.href=action[1];a.onclick=()=>d.close();d.append(a);}
  d.append(button('Continue',()=>d.close()));d.onclose=()=>d.remove();document.body.append(d);d.showModal();
 }
-const activityRoutes={remedial:['Organise a remedial class','cbse-mission.html#tab=remedial'],mcq:['Evaluate an MCQ test','cbse-mission.html#tab=mcq&mcq=evaluate'],contact:['Open student profiles','cbse-mission.html#zone=students'],news:['Post Team News','cbse-mission.html#tab=news&compose=1'],conversation:['Open conversations','cbse-mission.html#tab=conversations']};
+const activityRoutes={mcqQuestion:['Contribute MCQ questions','cbse-mission.html#tab=mcq'],mcqPaper:['Prepare a question paper','cbse-mission.html#tab=mcq'],remedial:['Organise a remedial class','cbse-mission.html#tab=remedial'],mcq:['Evaluate an MCQ test','cbse-mission.html#tab=mcq&mcq=evaluate'],contact:['Open student profiles','cbse-mission.html#zone=students'],news:['Post Team News','cbse-mission.html#tab=news&compose=1'],conversation:['Open conversations','cbse-mission.html#tab=conversations']};
 export function renderContributionCredits(parent,ctx){
  parent.classList.add('contribution-credit-page');parent.dataset.creditWorkspace='true';const head=el('div',undefined,'credit-merit-heading'),add=button('View rate list & claim more',()=>openClaim());head.append(el('h2','🪙 Team Contribution Merit List'),add);parent.append(head);
  const notice=el('p',undefined,'muted'),ranking=el('ol',undefined,'credit-merit-list'),detail=el('section'),claims=el('details',undefined,'credit-claims-review'),claimHeading=el('summary');claims.append(claimHeading);const claimBody=el('div');claims.append(claimBody);parent.append(ranking,notice,detail,claims);let data=null,selected=ctx.staffId||'',loading=false,firstLoad=true;

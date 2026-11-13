@@ -605,3 +605,17 @@ test('movement approval PIN can be delegated only by Principal and revocation bl
  const approved=await service('pin-submit',{operation:'movement',staffId:'X:senior',pin:'321',movementOperation:'approve',id:'movement_delegated_request',expectedRevision:1,actionId:'delegate_approve'});assert.equal(approved.movements.requests.movement_delegated_request.approvedBy,'X:senior');
  await service('movement-principal',{...permit,actionId:'delegate_revoke',expectedStoreRevision:approved.movements.revision,delegations:[]},'principal');await assert.rejects(service('pin-submit',{operation:'movement',staffId:'X:senior',pin:'321',movementOperation:'review-read'}),/not permitted/);
 });
+
+test('merged Avinash/Bibek directory and submissions use Avinash PIN without resetting stored credentials',async()=>{
+ const {service,data}=fixture();data.cbse.facultyDraft.classes.X.teachers.avinash={name:'MR. AVINASH SINGH',designation:'Computer Instructor-1',subjects:'AI',status:'active'};data.cbse.mission.staff.bibek={name:'BIBEK KUMAR DUBEY',kind:'other_support',status:'active'};
+ await service('set-pin',{staffId:'X:avinash',pin:'357'},'principal');const owner=structuredClone(data.cbse.staffAccess['X:avinash']);data.cbse.staffAccess['support:bibek']={...await hashPIN('468'),enabled:true,version:'legacy-bibek'};const old=structuredClone(data.cbse.staffAccess['support:bibek']);
+ const directory=await service('directory');assert.equal(directory.staff.filter(p=>/AVINASH|BIBEK/i.test(p.name)).length,1);assert.equal(directory.staff.find(p=>/AVINASH/i.test(p.name)).id,'X:avinash');
+ await assert.rejects(service('login',{staffId:'support:bibek',pin:'468'}),/correct PIN/);const login=await service('login',{staffId:'support:bibek',pin:'357'});assert.equal(JSON.parse(login.customToken).staffId,'X:avinash');
+ const own=await service('pin-submit',{operation:'movement',movementOperation:'read',staffId:'support:bibek',pin:'357'});assert.equal(own.ok,true);await assert.rejects(service('pin-submit',{operation:'movement',movementOperation:'read',staffId:'support:bibek',pin:'468'}),/PIN/);assert.deepEqual(data.cbse.staffAccess['X:avinash'],owner);assert.deepEqual(data.cbse.staffAccess['support:bibek'],old);
+});
+
+test('credit read includes existing saved question and QP preparation, replaced by own evaluation without exposing question data',async()=>{
+ const {service,data}=fixture();data.cbse.mcq={questions:{QEN001:{id:'QEN001',contributorId:'X:one',createdAt:1,stem:'PRIVATE_SOURCE_QUESTION',image:'PRIVATE_SOURCE_IMAGE'}},papers:{QPEN001:{id:'QPEN001',createdBy:'X:one',createdAt:2,questionIds:['QEN001'],questions:[{id:'QEN001',stem:'PRIVATE_SOURCE_QUESTION'}]}},evaluations:{}};
+ let summary=await service('credits-read',{},'principal');assert.equal(summary.members.find(m=>m.id==='X:one').total,6);assert.ok(!JSON.stringify(summary).includes('PRIVATE_SOURCE'));
+ data.cbse.mcq.evaluations.saved={paperId:'QPEN001',studentKey:'X:a:one',evaluatorId:'X:one',score:0,maximum:1,evaluatedAt:3,photo:'PRIVATE_EVALUATION_PHOTO'};summary=await service('credits-read',{},'principal');assert.equal(summary.members.find(m=>m.id==='X:one').total,50);assert.ok(!JSON.stringify(summary).includes('PRIVATE_'));
+});

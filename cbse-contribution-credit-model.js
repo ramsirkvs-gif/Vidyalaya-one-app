@@ -1,3 +1,4 @@
+import {mcqPreparationCredits,validMCQCreditEvaluation} from './cbse-mcq-preparation-credit.js';
 import {missionMemberAllowed} from './cbse-mission-membership.js';
 import {conversationThreads} from './cbse-conversation-model.js';
 import {staffIndex,studentIndex} from './cbse-mission-model.js';
@@ -7,6 +8,8 @@ export const CREDIT_RULES={
  preboard:{label:'Real performance · PB-1 / PB-2',rate:300,unit:'student per PB exam',mode:'review',note:'Specify PB-1 or PB-2 and the subject; attach actual performance evidence.'},
  weekly:{label:'Weekly test · progressive improvement',rate:200,unit:'student per weekly test',mode:'review',note:'Record previous and current test results and the week.'},
  remedial:{label:'Approved remedial class',rate:50,unit:'student per class',mode:'automatic',note:'Only present students in Principal-approved class records.'},
+ mcqQuestion:{label:'MCQ question contributed',rate:1,unit:'question',mode:'automatic',note:'Preparation only: 1 point per saved question until its contributor evaluates students using it.'},
+ mcqPaper:{label:'Question paper prepared',rate:5,unit:'saved QP',mode:'automatic',note:'Preparation only: 5 points per saved QP until its creator evaluates students using it.'},
  mcq:{label:'MCQ test evaluated',rate:50,unit:'evaluated student per test',mode:'automatic',note:'One credit per evaluated student and saved QP; corrections do not multiply credit.'},
  contact:{label:'Student contact / home location update',rate:20,unit:'student',mode:'automatic',note:'Once per student per contributor, across contact and location edits.'},
  vc:{label:'Student VC · motivation and bonding',rate:30,unit:'student per completed VC',mode:'review',note:'A meeting link alone is not proof of a completed VC.'},
@@ -19,10 +22,10 @@ export const CREDIT_RULES={
 };
 const entries=v=>Object.entries(v||{}),check=(v,m)=>{if(!v)throw Error(m);};
 const clean=(v,max,label)=>{check(typeof v==='string'&&v.trim()&&v.length<=max,'Enter '+label+'.');return v.trim();};
-export const creditRateText=rule=>rule.rate?rule.rate.toLocaleString('en-IN')+' points per '+rule.unit:'Points decided by Principal · per student / event';
+export const creditRateText=rule=>rule.rate?rule.rate.toLocaleString('en-IN')+(rule.rate===1?' point per ':' points per ')+rule.unit:'Points decided by Principal · per student / event';
 const stableKey=(kind,staffId,event,student='')=>JSON.stringify([kind,staffId,event,student]);
 export function creditDirectory(faculty,mission){
- const all=staffIndex(faculty,mission),canonical=id=>teacherIdentityIds(id,faculty,mission).filter(key=>all[key])[0]||id;
+ const all=staffIndex(faculty,mission),canonical=id=>typeof id==='string'&&id?(teacherIdentityIds(id,faculty,mission).filter(key=>all[key])[0]||id):'';
  const supportRole=p=>['prt','counsellor','special_educator','support','other_support'].includes(p?.kind)||/\bPRT\b|COUNSELL?OR|SPECIAL\s*EDUCATOR/i.test(p?.designation||'');
  const members=Object.fromEntries(entries(all).filter(([id,p])=>p.status==='active'&&canonical(id)===id).map(([id,p])=>{
   const aliases=entries(all).filter(([key])=>canonical(key)===id).map(([key])=>key),subjectTeacher=aliases.some(key=>/^(X|XII):/.test(key)&&!supportRole(all[key]))||Object.values(mission?.allocations||{}).some(a=>aliases.includes(a.staffId)&&a.subjectId),isCoopted=!subjectTeacher&&aliases.some(key=>key.startsWith('support:')||supportRole(all[key]));
@@ -33,7 +36,8 @@ export function automaticCredits(data){
  const {faculty={},mission={},evaluations={},posts={}}=data,{all,canonical}=creditDirectory(faculty,mission),ledger=new Map();
  const add=(kind,member,event,student,at,detail,href)=>{const staffId=canonical(member);if(!all[staffId]||!member||!missionMemberAllowed(all[staffId]))return;const key=stableKey(kind,staffId,event,student);if(!ledger.has(key))ledger.set(key,{key,kind,staffId,studentKey:student,event,at:Number(at)||0,detail,href,points:CREDIT_RULES[kind].rate,origin:'automatic'});};
  for(const[id,p]of entries(mission.remedialPlans))if(p.status!=='cancelled')for(const[date,s]of entries(p.sessions))if((p.dates||[]).includes(date)&&s.status==='verified'&&s.submittedAt&&s.verifiedAt&&s.verifiedBy==='principal')for(const key of new Set(s.presentKeys||[]))if(p.studentKeys?.includes(key))add('remedial',p.teacherId,id+':'+date,key,s.verifiedAt,`${date} · ${p.subjectName||'Remedial class'}`,'cbse-mission.html#'+new URLSearchParams({tab:'remedial',reviewPlan:id,reviewDate:date}));
- for(const r of Object.values(evaluations))if(r.paperId&&r.studentKey&&Number.isFinite(r.score)&&Number.isFinite(r.maximum)&&r.maximum>0&&r.score>=0&&r.score<=r.maximum)add('mcq',r.originalEvaluatorId||r.evaluatorId,r.paperId,r.studentKey,r.evaluatedAt,`${r.paperId} · evaluated`,'cbse-mission.html#'+new URLSearchParams({student:r.studentKey}));
+ for(const r of Object.values(evaluations).filter(validMCQCreditEvaluation))add('mcq',r.originalEvaluatorId||r.evaluatorId,r.paperId,r.studentKey,r.evaluatedAt,`${r.paperId} · evaluated`,'cbse-mission.html#'+new URLSearchParams({student:r.studentKey}));
+ for(const r of mcqPreparationCredits(data,canonical))add(r.kind,r.member,r.event,'',r.at,r.detail,r.href);
  for(const r of Object.values(mission.contactAudit||{}))if(r.targetType==='student'&&r.targetId&&(r.fields||[]).some(f=>['phones','numbers','location','mapLocation'].includes(f)&&JSON.stringify(r.previous?.[f]??'')!==JSON.stringify(r.next?.[f]??'')&&!!r.next?.[f]&&(typeof r.next[f]!=='object'||Object.keys(r.next[f]).length)))add('contact',r.changedBy,'',r.targetId,r.changedAt,'Contact / home location updated','cbse-mission.html#'+new URLSearchParams({student:r.targetId}));
  for(const[id,r]of entries(posts))if(r.text?.trim())add('news',r.authorId,id,'',r.createdAt,'Team News posted','cbse-mission.html#'+new URLSearchParams({tab:'news',news:id}));
  for(const t of conversationThreads(mission,data.draft||{classes:{}},faculty))for(const r of t.messages)if(!r.deletedAt&&r.visibility==='general'&&String(r.notes||r.outcome||'').trim())add('conversation',r.authorId,t.id,'',r.updatedAt||r.createdAt||t.createdAt,'Conversation participation','cbse-mission.html#'+new URLSearchParams({tab:'conversations',thread:t.id}));
