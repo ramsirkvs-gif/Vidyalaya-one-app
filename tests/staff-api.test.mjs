@@ -18,3 +18,13 @@ test('teacher CSV bulk uploads have the same bounded request allowance as Princi
 test('credit reads accept the shared viewing route while review requires Principal bearer access',async()=>{const old=process.env.FIREBASE_SERVICE_ACCOUNT_JSON;delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;try{let res=response();await handler({method:'POST',headers:{},body:{action:'credits-read'}},res);assert.equal(res.statusCode,503);res=response();await handler({method:'POST',headers:{},body:{action:'credits-principal',operation:'approve'}},res);assert.equal(res.statusCode,401);}finally{if(old!==undefined)process.env.FIREBASE_SERVICE_ACCOUNT_JSON=old;}});
 
 test('teacher evidence photos have a bounded allowance without expanding ordinary PIN submissions',async()=>{const old=process.env.FIREBASE_SERVICE_ACCOUNT_JSON;delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;try{let res=response();await handler({method:'POST',headers:{},body:{action:'pin-submit',operation:'credit-claim',photo:'x'.repeat(100000)}},res);assert.equal(res.statusCode,503);res=response();await handler({method:'POST',headers:{},body:{action:'pin-submit',operation:'credit-claim',photo:'x'.repeat(240001)}},res);assert.equal(res.statusCode,413);res=response();await handler({method:'POST',headers:{},body:{action:'pin-submit',operation:'update-contact',photo:'x'.repeat(100000)}},res);assert.equal(res.statusCode,413);}finally{if(old!==undefined)process.env.FIREBASE_SERVICE_ACCOUNT_JSON=old;}});
+
+test('movement register passes HTTP routing without viewing login and Principal review requires authorization',async()=>{
+ const old=process.env.FIREBASE_SERVICE_ACCOUNT_JSON;delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+ try{
+  let res=response();await handler({method:'POST',headers:{},body:{action:'movement-read'}},res);assert.equal(res.statusCode,503);assert.doesNotMatch(res.body.error,/Unknown action|Sign in first/);
+  res=response();await handler({method:'POST',headers:{},body:{action:'movement-principal',movementOperation:'read'}},res);assert.equal(res.statusCode,401);
+  res=response();await handler({method:'POST',headers:{authorization:'Bearer synthetic-principal'},body:{action:'movement-principal',movementOperation:'read'}},res);assert.equal(res.statusCode,503);assert.doesNotMatch(res.body.error,/Unknown action/);
+  res=response();await handler({method:'POST',headers:{},body:{action:'pin-submit',operation:'movement',movementOperation:'submit'}},res);assert.equal(res.statusCode,503);
+ }finally{if(old!==undefined)process.env.FIREBASE_SERVICE_ACCOUNT_JSON=old;}
+});
