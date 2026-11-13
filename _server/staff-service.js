@@ -1,4 +1,4 @@
-import {applyMovement,movementView,movementToday} from '../cbse-movement-model.js';
+import {applyMovement,movementView,movementToday,movementCanApprove} from '../cbse-movement-model.js';
 import {NOTIFICATION_SOURCES,notificationsForScope} from '../cbse-notification-scope.js';
 import {rollRoleDirectory} from '../cbse-roll-call-roles.js';
 import {isGangaDeviProfile} from '../cbse-faculty-guest.js';
@@ -131,8 +131,8 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   if(action==='movement'||action==='movement-principal'){
    const admin=action==='movement-principal';if(admin)await principal(token);else if(!pinIdentity)throw new AccessError('Verify your own staff PIN.',403);
    const staff=Object.fromEntries(entries(await directoryStaff()).map(([id,p])=>[id,{...p,name:rollDisplayName(p.name),wing:rollWing(p)}])),actor=admin?{id:'principal',name:'Principal'}:{id:pinIdentity.decoded.staffId,name:staff[pinIdentity.decoded.staffId]?.name||'Staff'},stamp=now();
-   const output=store=>({ok:true,principal:admin,serverDate:movementToday(stamp),serverTime:stamp,staff:Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active'&&rollReportingStaff(p)).map(([id,p])=>[id,{name:p.name,designation:p.designation||'',wing:p.wing,status:p.status}])),movements:movementView(store,admin||input.movementOperation==='read'?actor:null,staff,stamp)});
-   if(input.movementOperation==='read')return output(await read('cbse/chamber/movements')||{});let reason='';const known=await read('cbse/chamber/movements');
+   const output=store=>({ok:true,principal:admin,serverDate:movementToday(stamp),serverTime:stamp,staff:Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active'&&rollReportingStaff(p)).map(([id,p])=>[id,{name:p.name,designation:p.designation||'',wing:p.wing,status:p.status}])),movements:movementView(store,admin||actor.movementReview||input.movementOperation==='read'?actor:null,staff,stamp)});
+   const known=await read('cbse/chamber/movements');if(input.movementOperation==='review-read'){if(!movementCanApprove(known,actor,staff,stamp))throw new AccessError('The Principal has not permitted approval access, or that permission has ended.',403);actor.movementReview=true;return output(known||{});}if(input.movementOperation==='read')return output(known||{});if(!admin&&input.movementOperation==='approve')actor.movementReview=true;let reason='';
    if(!admin){const access=await read('cbse/staffAccess/'+actor.id);if(!access?.enabled||access.version!==pinIdentity.access.version)throw new AccessError('PIN access changed. Verify again.',403);}
    const result=await mcqTransaction(db,'cbse/chamber/movements',current=>{if(current===null&&known!==null)return null;reason='';try{return applyMovement(current||{},input,actor,staff,stamp);}catch(e){reason=e.message;return;}},{restTransaction});if(!result.committed||!result.snapshot?.val())throw new AccessError(reason||'Movement save was not confirmed. Keep the form open and retry.',409);return output(result.snapshot.val());
   }

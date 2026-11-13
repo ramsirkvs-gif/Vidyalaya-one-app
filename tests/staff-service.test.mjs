@@ -593,3 +593,15 @@ test('movement opens directly without viewing password while PIN and Principal a
  assert.equal(data.cbse.chamber.movements.requests[id].status,'pending');
  await assert.rejects(service('roll-call-read'),/viewing password/);
 });
+
+test('movement approval PIN can be delegated only by Principal and revocation blocks it immediately',async()=>{
+ const {service,data}=fixture();data.cbse.facultyDraft.classes.X.teachers.senior={name:'MRS. E.T. ZIRDO',designation:'PGT-English',status:'active'};
+ await service('set-pin',{staffId:'X:one',pin:'654321'},'principal');await service('set-pin',{staffId:'X:senior',pin:'321'},'principal');
+ let current=await service('movement-principal',{movementOperation:'read'},'principal');assert.ok(current.movements.delegationSettings.some(p=>p.id==='X:senior'));
+ const permit={movementOperation:'delegation-save',expectedStoreRevision:0,actionId:'delegate_service',delegations:[{id:'X:senior',enabled:true,until:'1970-01-01'}]};
+ await assert.rejects(service('pin-submit',{operation:'movement',staffId:'X:senior',pin:'321',...permit}),/Principal/);current=await service('movement-principal',permit,'principal');assert.equal(current.movements.approvers.length,1);
+ await service('pin-submit',{operation:'movement',staffId:'X:one',pin:'654321',movementOperation:'submit',requestId:'delegated_request',date:'1970-01-01',wing:'secondary',purpose:'Private movement detail',from:'06:00',to:'07:00',freeTime:'yes',undertaking:true});
+ const read=await service('pin-submit',{operation:'movement',staffId:'X:senior',pin:'321',movementOperation:'review-read'});assert.equal(read.movements.approvalAccess,true);assert.equal(read.movements.requests.movement_delegated_request.purpose,'Private movement detail');
+ const approved=await service('pin-submit',{operation:'movement',staffId:'X:senior',pin:'321',movementOperation:'approve',id:'movement_delegated_request',expectedRevision:1,actionId:'delegate_approve'});assert.equal(approved.movements.requests.movement_delegated_request.approvedBy,'X:senior');
+ await service('movement-principal',{...permit,actionId:'delegate_revoke',expectedStoreRevision:approved.movements.revision,delegations:[]},'principal');await assert.rejects(service('pin-submit',{operation:'movement',staffId:'X:senior',pin:'321',movementOperation:'review-read'}),/not permitted/);
+});
