@@ -1,3 +1,4 @@
+import {createReadCoalescer} from './cbse-read-coalescer.js';
 import {renderContributionCredits,renderCreditBadge} from './cbse-contribution-credit-view.js';
 import {createPrincipalNotificationPanel} from './cbse-principal-notifications-view.js';
 import {renderMissionHolidays} from './cbse-mission-holidays-view.js';
@@ -531,5 +532,6 @@ async function submitTeamNews(operation,values){if(!canBrowse()||busy)throw Erro
 
 async function submitExamAttendance(values){if(!canBrowse()||busy)throw Error('Wait for the current save.');const version=generation;busy=true;document.documentElement.dataset.portalBusy='true';try{const result=editable()?await staffAPI('exam-attendance-principal',values):await sharedAPI('pin-submit',{...values,operation:'exam-attendance-save'});if(version!==generation)throw Error('Your session changed. Reopen attendance to check the saved status.');return result;}finally{busy=false;document.documentElement.dataset.portalBusy='false';}}
 
-function readContributionCredits(values){return editable()?staffAPI('credits-read',values):sharedAPI('credits-read',values);}
+const compactCreditReads=createReadCoalescer();
+function readContributionCredits(values={}){const load=()=>editable()?staffAPI('credits-read',values):sharedAPI('credits-read',values);return values.compact?compactCreditReads(generation+'|'+!!editable(),load):load();}
 async function submitContributionCredit(mode,values){if(!canBrowse()||busy)throw Error('Open staff view and wait for the current save.');const version=generation;busy=true;document.documentElement.dataset.portalBusy='true';try{const result=mode==='review'?await staffAPI('credits-principal',values):await sharedAPI('pin-submit',{...values,operation:'credit-claim',claimOperation:values.claimOperation||'submit'});if(result?.ok!==true)throw Error('Contribution credit save was not confirmed. Retry the same form.');if(version!==generation)throw Error('Your session changed. Reopen credit to check the saved status.');principalNotificationPanel?.refresh();return result;}finally{busy=false;document.documentElement.dataset.portalBusy='false';}}
