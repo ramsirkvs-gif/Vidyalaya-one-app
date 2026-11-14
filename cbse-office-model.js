@@ -1,3 +1,4 @@
+import {officeISODate,officeDisplayDate} from './cbse-office-dates.js';
 // Office identities are intentionally separate from Mission faculty and PIN identities.
 export const OFFICE_MEMBERS=[
  {id:'arjun-bori',name:'Mr. Arjun Bori',designation:'ASO',title:'Office finance and administration tasks'},
@@ -51,7 +52,7 @@ export function applyOfficeWorkspace(current,input,actor,directory,now){
 }
 export function searchOfficeRows(rows,{query='',status='',assignee='',assigneeIds=[],fund='',bank='',from='',to='',directory={}}={}){
  const words=query.toLowerCase().trim().split(/\s+/).filter(Boolean);return Object.values(rows||{}).filter(row=>{
-  const haystack=[...Object.keys(OFFICE_FIELDS).map(key=>row[key]),...(row.assignedNames||[]),...(row.assignedIds||[]).map(id=>directory[id]?.name||Object.values(directory).find(person=>person.identityIds?.includes(id))?.name||'')].join(' ').toLowerCase();const date=/^\d{4}-\d{2}-\d{2}$/.test(row.voucherDate)?row.voucherDate:row.chequeDate;
+  const haystack=[officeDisplayDate(row.voucherDate),officeDisplayDate(row.chequeDate),...Object.keys(OFFICE_FIELDS).map(key=>row[key]),...(row.assignedNames||[]),...(row.assignedIds||[]).map(id=>directory[id]?.name||Object.values(directory).find(person=>person.identityIds?.includes(id))?.name||'')].join(' ').toLowerCase();const date=officeISODate(row.voucherDate)||officeISODate(row.chequeDate);
   return words.every(word=>word==='pending'?row.status!=='resolved':word==='done'?row.status==='resolved':haystack.includes(word))&&(!status||(status==='pending'?row.status!=='resolved':row.status===status))&&(!assignee||(assigneeIds.length?assigneeIds:[assignee]).some(id=>row.assignedIds?.includes(id)))&&(!fund||row.fund===fund)&&(!bank||row.bank===bank)&&(!from||/^\d{4}-\d{2}-\d{2}$/.test(date)&&date>=from)&&(!to||/^\d{4}-\d{2}-\d{2}$/.test(date)&&date<=to);
  });
 }

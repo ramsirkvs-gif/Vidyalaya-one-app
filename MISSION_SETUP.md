@@ -1101,7 +1101,8 @@ an office register. The Principal must perform those application actions explici
 
 ### Simplified office register and reporting
 
-The register shows every retained row with the highest voucher numbers first.
+The register shows the newest financial year first (1 April–31 March), then the
+highest voucher numbers within that year, preserving the annual numbering reset.
 **Voucher no.** is the first column (no separate serial-number column), and
 **Final status** is the last column. Cheque-only entries
 remain at the end. There is no 25-row cutoff or automatic teacher filter; direct
@@ -1202,3 +1203,7 @@ Voucher notes no longer inherit or auto-fill the shared office notes. New entrie
 start blank, and office/staff displays show only notes actually saved on that
 voucher. Previously saved voucher notes and the retained shared source notes are
 not deleted by this change.
+
+Voucher and cheque dates display as DD/MM/YYYY in the register, staff details and
+entry forms. Recognized single dates save in the existing ISO representation;
+source date ranges and unclear text remain preserved rather than guessed.
