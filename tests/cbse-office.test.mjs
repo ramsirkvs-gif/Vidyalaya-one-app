@@ -197,3 +197,6 @@ test('direct staff-card Done rejects unpublished, cross-dashboard and stale vouc
  await call(service,'publish',{expectedRevision:1});await call(service,'save-row',{expectedRevision:2,rowId:'office_card',rowRevision:1,row:{...row,details:'Unpublished changed details'}});await assert.rejects(service('office-mark-done',{memberId:id,rowId:'office_card',rowRevision:1,},'principal','card',session),/changed after publication/);
  await call(service,'publish',{expectedRevision:3});const done=await service('office-mark-done',{memberId:id,rowId:'office_card',rowRevision:2},'principal');assert.ok(done.ok);
 });
+test('publication assigns an otherwise unassigned voucher to its IC without overwriting draft responsibility',async()=>{
+ const {service}=officeFixture();await call(service,'save-row',{rowId:'office_default_ic',expectedRevision:0,row:{...row,voucherNo:'175',sourceResponsible:'',assignedIds:[]}});await call(service,'publish',{expectedRevision:1});const snapshot=(await service('office-staff-read',{memberId:id},'principal')).published.rows.office_default_ic;assert.deepEqual(snapshot.assignedIds,['office:pramod-paswan']);assert.deepEqual(snapshot.assignedNames,['Mr. Pramod Paswan']);const draft=(await call(service,'read')).workspace.rows.office_default_ic;assert.equal(draft.assignedIds,undefined);assert.equal(draft.sourceResponsible,'');
+});

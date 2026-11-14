@@ -18,3 +18,9 @@ test('Pooran Mal Meena remains distinct from Pooran',()=>{assert.deepEqual(offic
 test('long and qualified names distinguish staff with shared first names',()=>{
  assert.deepEqual(officeVoucherPeople({details:'TADA Mr Sushil Kumar'},directory).concerned.map(person=>person.name),['Mr. SUSHIL KUMAR']);assert.deepEqual(officeVoucherPeople({details:'Mr Sushil PRT'},directory).concerned.map(person=>person.name),['MR. SUSHIL']);assert.deepEqual(officeVoucherPeople({details:'Mr Sushil'},directory).concerned.map(person=>person.name),['MR. SUSHIL']);
 });
+test('unassigned published or draft vouchers belong to their office IC for display and Pending search',()=>{
+ const row={voucherNo:'175',details:'Tax payment',status:'pending',assignedIds:[],sourceResponsible:''},before=structuredClone(row);
+ for(const [ownerId,name]of [['pramod-paswan','Mr. Pramod Paswan'],['sumit-puri','MR. SUMIT PURI'],['arjun-bori','Mr. ARJUN BORI']]){const person=officeVoucherPeople(row,directory,ownerId);assert.equal(person.defaulted,true);assert.deepEqual(person.responsible.map(p=>p.name),[name]);assert.equal(searchOfficeRows({row},{query:name,status:'pending',ownerId,directory}).length,1);assert.equal(searchOfficeRows({row},{assignee:'office:'+ownerId,status:'pending',ownerId,directory}).length,1);}assert.deepEqual(row,before);
+ const assigned={...row,assignedIds:['office:sumit-puri']};assert.equal(officeVoucherPeople(assigned,directory,'pramod-paswan').defaulted,false);assert.equal(searchOfficeRows({assigned},{assignee:'office:pramod-paswan',ownerId:'pramod-paswan',directory}).length,0);
+ const named={...row,sourceResponsible:'Mr Ajay KC'};assert.equal(officeVoucherPeople(named,directory,'pramod-paswan').defaulted,false);
+});

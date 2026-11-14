@@ -14,8 +14,9 @@ function matcher(directory){
  };
  const output={people,find};compiled.set(directory,output);return output;
 }
-export function officeVoucherPeople(row,directory=empty){
- let cache=results.get(row);if(!cache){cache=new WeakMap();results.set(row,cache);}if(cache.has(directory))return cache.get(directory);
- const {people,find}=matcher(directory),concerned=find(row.details),selected=(row.assignedIds||[]).flatMap(id=>people.filter(person=>person.id===id||person.identityIds.includes(id))),responsible=[...new Map([...selected,...find(row.sourceResponsible)].map(person=>[person.id,person])).values()];
- const output={concerned,responsible,all:[...new Map([...concerned,...responsible].map(person=>[person.id,person])).values()]};cache.set(directory,output);return output;
+export function officeVoucherPeople(row,directory=empty,ownerId=''){
+ let cache=results.get(row);if(!cache){cache=new WeakMap();results.set(row,cache);}let contexts=cache.get(directory);if(!contexts){contexts=new Map();cache.set(directory,contexts);}if(contexts.has(ownerId))return contexts.get(ownerId);
+ const {people,find}=matcher(directory),concerned=find(row.details),selected=(row.assignedIds||[]).flatMap(id=>people.filter(person=>person.id===id||person.identityIds.includes(id))),responsible=[...new Map([...selected,...find(row.sourceResponsible),...find((row.assignedNames||[]).join(' · '))].map(person=>[person.id,person])).values()];
+ const source=String(row.sourceResponsible||'').trim(),unassigned=!responsible.length&&!(row.assignedIds||[]).length&&(!source||/^(?:na|n\/a|none|nil|[-—]|ic)\.?$/i.test(source));const fallback=unassigned&&ownerId?people.find(person=>person.id==='office:'+ownerId):null;if(fallback)responsible.push(fallback);
+ const output={concerned,responsible,defaulted:!!fallback,all:[...new Map([...concerned,...responsible].map(person=>[person.id,person])).values()]};contexts.set(ownerId,output);return output;
 }

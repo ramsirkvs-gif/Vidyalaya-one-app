@@ -1372,3 +1372,13 @@ Cheque warnings now also appear when bank/cheque number/cheque amount changes
 in the entry form. A mismatched full cheque amount for the same bank and number
 shows recorded voucher amounts for comparison, in addition to the final save
 confirmation. Voucher amounts remain independent of the full cheque amount.
+
+Unassigned office vouchers default to the workspace IC (Pramod for SF, Sumit
+for VVN, and the corresponding owner for other office workspaces). The default
+is used in office responsible-name displays, staff headers, name/assignee search
+and Pending results. Existing explicit assignments/source names take precedence.
+New publications include the default IC assignment; legacy published snapshots
+resolve it at display/search time. Draft/source responsibility is not overwritten
+by merely viewing or publishing. Principal can choose another responsible person.
+Cheque amount comparison ignores commas and trailing decimal zeroes; e.g. 3,385,
+3385 and 3,385.00 are equal.
