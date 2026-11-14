@@ -1330,3 +1330,11 @@ Principal tab, Leave/OD outside reporting in staff navigation, and Report your
 Leave / OD outside on the form. The type dropdown includes OD outside as an
 explicit saved type. Existing full-day selected-date, checklist, PIN, review and
 Roll Call exemption rules apply; old leave records and identifiers are unchanged.
+
+Leave / OD outside terminology now covers absence navigation, form prompts,
+saved records, review/cancel/delete actions, staff registers, pending reporting
+lists and Principal notification display. Both mean absence from school; the
+saved type distinguishes OD outside from each leave category. Recorded selected
+full days exempt both RC periods; pending/not-approved reports do not. Existing
+half-day leave rules, internal record keys, notification identities and custom
+published question snapshots remain intact.

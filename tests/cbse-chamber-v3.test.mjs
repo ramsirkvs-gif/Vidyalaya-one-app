@@ -3,6 +3,7 @@ import {applyRollCall} from '../cbse-roll-call-model.js';
 import {publishedReporting} from '../cbse-reporting-model.js';
 import {rollRoleDirectory} from '../cbse-roll-call-roles.js';
 import {rollRoster,rollDisplayName} from '../cbse-roll-call-roster.js';
+import {rollStaffStatus} from '../cbse-roll-call-status.js';
 import {publicAdvanceLeaves} from '../cbse-advance-leave-model.js';
 const now=Date.parse('2026-11-12T04:00:00Z'),staff={a:{name:'Synthetic Teacher',designation:'TGT',wing:'secondary',status:'active'}},actor={id:'a',name:'Synthetic Teacher'},principal={id:'principal'},form=publishedReporting(null),yes=group=>Object.fromEntries(form.groups[group].map(q=>[q.id,'yes']));
 const leave={rollOperation:'advance-leave-save',workflowVersion:3,wing:'secondary',formVersion:1,dates:['2026-11-13'],leaveKind:'Other',otherLeaveKind:'Approved special leave',undertaking:true,answers:yes('advanceLeave')};
@@ -36,6 +37,6 @@ test('CT picker uses exact section roles and propagates aliases, without guessin
  const result=rollRoleDirectory(people,faculty,{X:{sections:{a:{name:'A'}}}});assert.equal(result['X:one'].classTeacher,true);assert.equal(result['support:alias'].classTeacher,true);assert.equal(result['support:none'].classTeacher,false);assert.ok(result['X:one'].classRoles.some(r=>r.sectionName==='A'&&r.role==='CT'));
 });
 test('OD outside uses the existing PIN submission, review and selected-date exemption workflow',()=>{
- const recorded=applyRollCall({}, {...leave,leaveKind:'OD outside'},actor,staff,now,'od_outside');assert.equal(recorded.advanceLeaves.od_outside.leaveKind,'OD outside');assert.equal(recorded.advanceLeaves.od_outside.status,'recorded');assert.equal(publicAdvanceLeaves(recorded.advanceLeaves).od_outside.leaveKind,'OD outside');
+ const recorded=applyRollCall({}, {...leave,leaveKind:'OD outside'},actor,staff,now,'od_outside');assert.equal(recorded.advanceLeaves.od_outside.leaveKind,'OD outside');assert.equal(recorded.advanceLeaves.od_outside.status,'recorded');const attendance=rollStaffStatus({staff,rollCall:recorded,serverDate:'2026-11-13'},'secondary')[0];assert.equal(attendance.morningExcused,true);assert.equal(attendance.afternoonLeave,true);assert.equal(rollStaffStatus({staff,rollCall:recorded,serverDate:'2026-11-14'},'secondary')[0].morningExcused,false);assert.equal(publicAdvanceLeaves(recorded.advanceLeaves).od_outside.leaveKind,'OD outside');
  const pending=applyRollCall({}, {...leave,leaveKind:'OD outside',answers:{...leave.answers,advance_approval:'no'},answerComments:{advance_approval:'Awaiting approval for outside duty.'}},actor,staff,now,'od_pending');assert.equal(pending.advanceLeaves.od_pending.status,'pending');
 });
