@@ -24,6 +24,20 @@ export function createOfficeService({db,read,principal,hashPIN,verifyPIN,throttl
    await curtain(session);const access=await confirmPIN(input.memberId,input.pin,ip),officeToken=randomBytes(32).toString('hex');await db.ref('cbse/officeSessions/'+digest(officeToken)).set({memberId:input.memberId,version:access.version,expires:now()+12*3600000});return {ok:true,memberId:input.memberId,officeToken};
   }
   if(action==='office-logout'){if(/^[a-f0-9]{64}$/.test(session.officeToken||''))await db.ref('cbse/officeSessions/'+digest(session.officeToken)).remove();return {ok:true};}
+  if(action==='office-mark-done'){
+   const owner=officeMember(input.memberId);if(!owner)fail('Choose the office task owner.',400);let who;
+   if(token){await principal(token);who={id:'principal',principal:true};}else{await curtain(session);await confirmPIN(owner.id,input.pin,ip);who={id:owner.id,principal:false};}
+   if(typeof input.rowId!=='string'||!/^office_[a-zA-Z0-9_-]{1,90}$/.test(input.rowId))fail('Choose a published voucher.',400);
+   const path='cbse/office/workspaces/'+owner.id,known=await read(path);let reason='';
+   const saved=await db.ref(path).transaction(current=>{
+    if(current===null&&known!==null)return null;reason='';const row=current?.rows?.[input.rowId],published=current?.published?.rows?.[input.rowId];
+    if(!row||!published){reason='This voucher is not currently published. Refresh the staff view.';return;}
+    if(row.status==='resolved'&&published.status==='resolved')return current;
+    if((published.revision||0)!==(input.rowRevision||0)||(row.revision||0)!==(published.revision||0)){reason='This voucher changed after publication. Ask the office or Principal to refresh and publish the selected task before updating it here.';return;}
+    try{const next=applyOfficeWorkspace(current,{memberId:owner.id,operation:'set-voucher-status',rowId:input.rowId,rowRevision:row.revision||0,expectedRevision:current.revision,status:'resolved'},who,{},now()),updated=next.rows[input.rowId];next.published.rows[input.rowId]={...published,status:'resolved',revision:updated.revision,statusUpdatedAt:updated.statusUpdatedAt,statusUpdatedBy:updated.statusUpdatedBy};return next;}catch(error){reason=error.message;return;}
+   });
+   if(!saved.committed||!saved.snapshot.val())fail(reason||'Done was not confirmed. Refresh and retry.',409);const updated=saved.snapshot.val().rows[input.rowId];return {ok:true,rowId:input.rowId,status:'resolved',rowRevision:updated.revision};
+  }
   if(action==='office-staff-read'){
    if(token)await principal(token);else{const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');if(access.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}
    if(input.operation==='directory')return {directory:await safeDirectory()};

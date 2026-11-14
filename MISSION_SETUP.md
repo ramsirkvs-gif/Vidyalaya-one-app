@@ -1245,3 +1245,19 @@ They remain in the private voucher record and office register, but are omitted
 from new published staff snapshots and stripped from staff API responses for
 older snapshots. Staff cards and their expandable details do not render them.
 Audit objections and employee assignments remain visible as approved.
+
+Published staff voucher cards have direct **See details** and **Mark Done with
+office PIN** actions. Details remain read-only. Marking Done requires the existing
+curtain plus the published task owner's enabled office PIN; it does not establish
+an office login session or grant other edit privileges. A verified Principal can
+mark Done without a PIN. The server permits this only for a currently published
+voucher, checks row revisions, updates only its status in the private register and
+published snapshot atomically, and rejects unpublished, cross-dashboard or stale
+records. This does not publish other draft fields or tasks. Existing Done retries
+are idempotent. A status change appears immediately in staff Pending/Done counts.
+
+Office name selection is visible alongside header search, and **Clear filters**
+resets hidden filters as well as the typed search. Voucher feeding has a second
+row-style strip for cheque date/number, bank, cheque amount, covered-voucher range,
+file, summary sheet and register page. Both strips belong to the same voucher and
+stack into readable fields on phones.
