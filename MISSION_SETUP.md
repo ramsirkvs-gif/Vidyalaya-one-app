@@ -1101,8 +1101,9 @@ an office register. The Principal must perform those application actions explici
 
 ### Simplified office register and reporting
 
-The register now shows every retained row in natural voucher-number order, with
-stable serial numbers and **Final status** as the last column. Cheque-only entries
+The register shows every retained row with the highest voucher numbers first.
+**Voucher no.** is the first column (no separate serial-number column), and
+**Final status** is the last column. Cheque-only entries
 remain at the end. There is no 25-row cutoff or automatic teacher filter; direct
 search is placed under the dashboard title. Optional advanced filters remain
 available. The staff register uses the same ordered rows and has no Edit or
