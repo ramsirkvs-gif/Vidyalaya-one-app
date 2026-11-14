@@ -25,7 +25,7 @@ export function createOfficeService({db,read,principal,hashPIN,verifyPIN,throttl
   }
   if(action==='office-logout'){if(/^[a-f0-9]{64}$/.test(session.officeToken||''))await db.ref('cbse/officeSessions/'+digest(session.officeToken)).remove();return {ok:true};}
   if(action==='office-mark-done'){
-   const owner=officeMember(input.memberId);if(owner?.id==='sumit-puri'&&!token)fail('Only the Principal can update VVN final status.');if(!owner)fail('Choose the office task owner.',400);let who;
+   const owner=officeMember(input.memberId);if(['pramod-paswan','sumit-puri'].includes(owner?.id)&&!token)fail('Only the Principal can update audit final status.');if(!owner)fail('Choose the office task owner.',400);let who;
    if(token){await principal(token);who={id:'principal',principal:true};}else{await curtain(session);await confirmPIN(owner.id,input.pin,ip);who={id:owner.id,principal:false};}
    if(typeof input.rowId!=='string'||!/^office_[a-zA-Z0-9_-]{1,90}$/.test(input.rowId))fail('Choose a published voucher.',400);
    const path='cbse/office/workspaces/'+owner.id,known=await read(path);let reason='';
@@ -59,7 +59,7 @@ export function createOfficeService({db,read,principal,hashPIN,verifyPIN,throttl
   const memberId=input.memberId||who.id;if(!officeMember(memberId)||!who.principal&&who.id!==memberId)fail('Only the concerned office member or Principal can open this dashboard.');
   const path='cbse/office/workspaces/'+memberId;
   if(input.operation==='read'||!input.operation)return {actor:who,members:OFFICE_MEMBERS,workspace:await read(path)||emptyOfficeWorkspace(memberId),directory:await safeDirectory()};
-  if(!who.principal&&['pramod-paswan','sumit-puri'].includes(memberId)&&!['save-row','set-voucher-status','submit-report'].includes(input.operation))fail('Only the Principal can change audit settings or import data. Office members can add vouchers and update Pending / Done.');
+  if(!who.principal&&['pramod-paswan','sumit-puri'].includes(memberId)&&!['save-row','set-voucher-status','submit-report'].includes(input.operation))fail('Only the Principal can change audit settings or import data. Office members can submit voucher and cheque details to Principal.');
   if(!who.principal){if(['publish','unpublish','review-report'].includes(input.operation))fail('Only the Principal can publish office work to staff.');await confirmPIN(memberId,input.pin,ip);}
   if(input.operation==='import'&&(!Array.isArray(input.rows)||input.rows.length<1||input.rows.length>1000))fail('Import between 1 and 1000 records.',400);
   const directory=await safeDirectory(),known=await read(path),values={...input,memberId,...(input.operation==='import'?{importIds:(input.rows||[]).map(()=> 'office_'+randomUUID().replaceAll('-',''))}:{})};let reason='';

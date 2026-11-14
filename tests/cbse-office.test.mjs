@@ -20,13 +20,13 @@ test('office sessions cannot open another member dashboard or grant Mission/Prin
  await assert.rejects(service('office-pin-settings',{},'','ip',session),/Principal/);await assert.rejects(service('chamber-principal',{operation:'read'},'','ip',session));
  await assert.rejects(call(service,'read',{},'',{officeToken:'forged'}),/Office login/);
 });
-test('Pramod status updates need his fresh PIN and preserve voucher data',async()=>{
+test('SF final status is Principal-only and preserves voucher data',async()=>{
  const {service}=officeFixture();await setPIN(service);await call(service,'save-row',{rowId:'office_1',expectedRevision:0,row});const session=await login(service),input={rowId:'office_1',rowRevision:1,expectedRevision:1,status:'resolved'};
  await assert.rejects(call(service,'set-voucher-status',input,'',session),/incorrect/);await assert.rejects(call(service,'set-voucher-status',{...input,pin:'999'},'',session),/incorrect/);
- const saved=await call(service,'set-voucher-status',{...input,pin:'123'},'',session);assert.equal(saved.workspace.rows.office_1.status,'resolved');assert.equal(saved.workspace.rows.office_1.statusUpdatedBy,id);
+ await assert.rejects(call(service,'set-voucher-status',{...input,pin:'123'},'',session),/Principal/);const saved=await call(service,'set-voucher-status',input);assert.equal(saved.workspace.rows.office_1.status,'resolved');assert.equal(saved.workspace.rows.office_1.statusUpdatedBy,'principal');
  for(const key of ['amount','details','objections','sourceKey','assignedIds'])assert.deepEqual(saved.workspace.rows.office_1[key],row[key]);
  for(const operation of ['import','save-settings','publish'])await assert.rejects(call(service,operation,{expectedRevision:2,rowId:'office_1',row,pin:'123'},'',session),/Principal/);
- await assert.rejects(call(service,'set-voucher-status',{...input,pin:'123'},'',session),/changed/);
+ await assert.rejects(call(service,'set-voucher-status',input),/changed/);
 });
 test('reset, disable, logout and expiry revoke only office sessions',async()=>{
  const {service,setTime}=officeFixture();await setPIN(service);const old=await login(service);await setPIN(service,id,'456');await assert.rejects(call(service,'read',{},'',old),/changed/);
@@ -125,15 +125,17 @@ test('office PIN login and restored office sessions also require the existing cu
  await assert.rejects(call(service,'read',{},'',{officeToken:session.officeToken}),error=>error.curtainRequired===true);
 });
 
-test('Pramod can add and edit his dashboard vouchers with his own fresh PIN',async()=>{
- const {service}=officeFixture();await setPIN(service);const session=await login(service);
- const added=await call(service,'save-row',{expectedRevision:0,rowId:'office_new',rowRevision:0,row,pin:'123'},'',session);assert.equal(added.workspace.rows.office_new.details,row.details);
- await assert.rejects(call(service,'save-row',{expectedRevision:1,rowId:'office_new',rowRevision:1,row:{...row,details:'changed'}},'',session),/incorrect/);const edited=await call(service,'save-row',{expectedRevision:1,rowId:'office_new',rowRevision:1,row:{...row,details:'changed'},pin:'123'},'',session);assert.equal(edited.workspace.rows.office_new.details,'changed');
- const done=await call(service,'set-voucher-status',{expectedRevision:2,rowId:'office_new',rowRevision:2,status:'resolved',pin:'123'},'',session);assert.equal(done.workspace.rows.office_new.status,'resolved');
+test('Pramod submits SF parts A and B with fresh PIN and retains Principal review',async()=>{
+ const {service}=officeFixture();await setPIN(service);const session=await login(service),entry={task:OFFICE_MEMBERS.find(m=>m.id===id).title,fund:'SF',voucherNo:'222',details:'Submitted details',status:'pending',assignedIds:[]};
+ const added=await call(service,'save-row',{expectedRevision:0,rowId:'office_new',rowRevision:0,row:entry,pin:'123'},'',session);assert.equal(added.workspace.rows.office_new.submittedBy,id);
+ await assert.rejects(call(service,'save-row',{expectedRevision:1,rowId:'office_new',rowRevision:1,row:{...entry,details:'changed'}},'',session),/incorrect/);
+ await assert.rejects(call(service,'save-row',{expectedRevision:1,rowId:'office_new',rowRevision:1,row:{...entry,objections:'Not allowed'},pin:'123'},'',session),/Principal/);
+ const reviewed=await call(service,'save-row',{expectedRevision:1,rowId:'office_new',rowRevision:1,row:{...entry,objections:'Principal review',assignedIds:['X:one'],status:'resolved'}});const prior=reviewed.workspace.rows.office_new;
+ const edited=await call(service,'save-row',{expectedRevision:2,rowId:'office_new',rowRevision:2,row:{...prior,details:'changed',registerPage:'10'},pin:'123'},'',session);assert.equal(edited.workspace.rows.office_new.details,'changed');assert.equal(edited.workspace.rows.office_new.objections,'Principal review');assert.equal(edited.workspace.rows.office_new.status,'resolved');assert.deepEqual(edited.workspace.rows.office_new.assignedIds,['X:one']);
 });
 
 test('voucher-specific office audit notes save and survive status updates without altering shared notes',async()=>{
- const {service}=officeFixture();await call(service,'save-settings',{expectedRevision:0,title:'Audit',notes:'Shared original office notes'});await call(service,'save-row',{expectedRevision:1,rowId:'office_note',row:{...row,officeNotes:'Individual voucher note'}});await setPIN(service);const session=await login(service);const result=await call(service,'set-voucher-status',{expectedRevision:2,rowId:'office_note',rowRevision:1,status:'resolved',pin:'123'},'',session);assert.equal(result.workspace.rows.office_note.officeNotes,'Individual voucher note');assert.equal(result.workspace.notes,'Shared original office notes');
+ const {service}=officeFixture();await call(service,'save-settings',{expectedRevision:0,title:'Audit',notes:'Shared original office notes'});await call(service,'save-row',{expectedRevision:1,rowId:'office_note',row:{...row,officeNotes:'Individual voucher note'}});await setPIN(service);const session=await login(service);const result=await call(service,'set-voucher-status',{expectedRevision:2,rowId:'office_note',rowRevision:1,status:'resolved'});assert.equal(result.workspace.rows.office_note.officeNotes,'Individual voucher note');assert.equal(result.workspace.notes,'Shared original office notes');
  await call(service,'publish',{expectedRevision:3});const published=await service('office-staff-read',{memberId:id},'principal');assert.equal(published.published.rows.office_note.officeNotes,'Individual voucher note');
 });
 
@@ -143,8 +145,8 @@ test('published office report remains listed if its legacy summary metadata is a
 });
 test('Pending status accepts no remark and changes only the status update fields',async()=>{
  const {service}=officeFixture();await call(service,'save-row',{expectedRevision:0,rowId:'office_pending',row});await setPIN(service);const session=await login(service),input={expectedRevision:1,rowId:'office_pending',rowRevision:1,status:'pending',pin:'123'};
- const pending=await call(service,'set-voucher-status',input,'',session);assert.equal(pending.workspace.rows.office_pending.status,'pending');
- const result=await call(service,'set-voucher-status',{...input,expectedRevision:2,rowRevision:2,remark:'Awaiting signed receipt'},'',session);assert.equal(result.workspace.rows.office_pending.statusRemark,'Awaiting signed receipt');assert.equal(result.workspace.rows.office_pending.objections,row.objections);
+ const pending=await call(service,'set-voucher-status',input);assert.equal(pending.workspace.rows.office_pending.status,'pending');
+ const result=await call(service,'set-voucher-status',{...input,expectedRevision:2,rowRevision:2,remark:'Awaiting signed receipt'});assert.equal(result.workspace.rows.office_pending.statusRemark,'Awaiting signed receipt');assert.equal(result.workspace.rows.office_pending.objections,row.objections);
 });
 
 test('Principal voucher editing preserves a previously saved Pending remark',async()=>{
@@ -183,15 +185,15 @@ test('reconciliation warnings remain private in office view and are absent from 
  const viewer=await service('view-login',{password:'synthetic-view'},'','viewer');const staff=await service('office-staff-read',{memberId:id},'','viewer',{viewerToken:viewer.viewerToken});assert.equal(staff.published.rows.office_private_note.reviewNote,undefined);assert.ok(!JSON.stringify(staff).includes('LEGACY_PRIVATE_RECONCILIATION'));assert.equal(staff.published.rows.office_private_note.objections,row.objections);
 });
 
-test('direct Done on a staff card requires its office owner PIN and updates only the published status',async()=>{
- const {service}=officeFixture();await setPIN(service);await setPIN(service,'arjun-bori','456');await call(service,'save-row',{expectedRevision:0,rowId:'office_card',row:{...row,reviewNote:'PRIVATE_NOTE'}});await call(service,'publish',{expectedRevision:1});const viewer=await service('view-login',{password:'synthetic-view'},'','card');const session={viewerToken:viewer.viewerToken};const input={memberId:id,rowId:'office_card',rowRevision:1};await assert.rejects(service('office-mark-done',{...input,pin:'123'},'','card'),error=>error.curtainRequired===true);await assert.rejects(service('office-mark-done',{...input,memberId:'arjun-bori',pin:'456'},'','other-office',session),/not currently published/);
- await assert.rejects(service('office-mark-done',input,'','card',session),/incorrect/);await assert.rejects(service('office-mark-done',{...input,pin:'456'},'','card',session),/incorrect/);
- const done=await service('office-mark-done',{...input,pin:'123'},'','card',session);assert.equal(done.status,'resolved');assert.ok(!JSON.stringify(done).includes('PRIVATE_NOTE'));
+test('direct Done on a staff card is Principal-only for SF and updates only the published status',async()=>{
+ const {service}=officeFixture();await setPIN(service);await setPIN(service,'arjun-bori','456');await call(service,'save-row',{expectedRevision:0,rowId:'office_card',row:{...row,reviewNote:'PRIVATE_NOTE'}});await call(service,'publish',{expectedRevision:1});const viewer=await service('view-login',{password:'synthetic-view'},'','card');const session={viewerToken:viewer.viewerToken};const input={memberId:id,rowId:'office_card',rowRevision:1};await assert.rejects(service('office-mark-done',{...input,pin:'123'},'','card'),/Principal/);await assert.rejects(service('office-mark-done',{...input,memberId:'arjun-bori',pin:'456'},'','other-office',session),/not currently published/);
+ await assert.rejects(service('office-mark-done',input,'','card',session),/Principal/);await assert.rejects(service('office-mark-done',{...input,pin:'456'},'','card',session),/Principal/);
+ const done=await service('office-mark-done',{...input},'principal','card',session);assert.equal(done.status,'resolved');assert.ok(!JSON.stringify(done).includes('PRIVATE_NOTE'));
  const office=(await call(service,'read')).workspace;assert.equal(office.rows.office_card.status,'resolved');assert.equal(office.rows.office_card.reviewNote,'PRIVATE_NOTE');const published=(await service('office-staff-read',{memberId:id},'','card',session)).published;assert.equal(published.rows.office_card.status,'resolved');assert.equal(published.rows.office_card.details,row.details);assert.equal(published.rows.office_card.reviewNote,undefined);
- const retry=await service('office-mark-done',{...input,pin:'123'},'','card',session);assert.equal(retry.rowRevision,done.rowRevision);
+ const retry=await service('office-mark-done',{...input},'principal','card',session);assert.equal(retry.rowRevision,done.rowRevision);
 });
 test('direct staff-card Done rejects unpublished, cross-dashboard and stale vouchers, and Principal needs no PIN',async()=>{
- const {service}=officeFixture();await setPIN(service);const session=await login(service);await call(service,'save-row',{expectedRevision:0,rowId:'office_card',row});await assert.rejects(service('office-mark-done',{memberId:id,rowId:'office_card',rowRevision:1,pin:'123'},'','card',session),/not currently published/);
- await call(service,'publish',{expectedRevision:1});await call(service,'save-row',{expectedRevision:2,rowId:'office_card',rowRevision:1,row:{...row,details:'Unpublished changed details'}});await assert.rejects(service('office-mark-done',{memberId:id,rowId:'office_card',rowRevision:1,pin:'123'},'','card',session),/changed after publication/);
+ const {service}=officeFixture();await setPIN(service);const session=await login(service);await call(service,'save-row',{expectedRevision:0,rowId:'office_card',row});await assert.rejects(service('office-mark-done',{memberId:id,rowId:'office_card',rowRevision:1,},'principal','card',session),/not currently published/);
+ await call(service,'publish',{expectedRevision:1});await call(service,'save-row',{expectedRevision:2,rowId:'office_card',rowRevision:1,row:{...row,details:'Unpublished changed details'}});await assert.rejects(service('office-mark-done',{memberId:id,rowId:'office_card',rowRevision:1,},'principal','card',session),/changed after publication/);
  await call(service,'publish',{expectedRevision:3});const done=await service('office-mark-done',{memberId:id,rowId:'office_card',rowRevision:2},'principal');assert.ok(done.ok);
 });

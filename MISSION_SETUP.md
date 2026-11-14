@@ -1309,3 +1309,11 @@ persons, final Pending/Done) is Principal-only, enforced server-side for row
 edits, status updates and direct staff-card Done. Principal can view and edit
 Parts A, B and C, with no office PIN. Sumit's edits retain all existing Principal
 review fields. Submission saves privately; publication remains Principal-only.
+
+SF now follows the same A/B/C workflow as VVN. Pramod Paswan, SSA, submits
+Part A voucher details and Part B cheque details (including register page) with
+his own PIN. Principal alone edits Part C, responsible persons and final status,
+and retains access to all parts. Both audit owners are blocked from final-status
+updates, including staff-card Done actions. Existing review fields are preserved
+when office members resubmit A/B. The SF task heading includes School Fund (SF);
+legacy saved task keys and publication groups are preserved.
