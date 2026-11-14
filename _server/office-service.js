@@ -59,7 +59,7 @@ export function createOfficeService({db,read,principal,hashPIN,verifyPIN,throttl
   const memberId=input.memberId||who.id;if(!officeMember(memberId)||!who.principal&&who.id!==memberId)fail('Only the concerned office member or Principal can open this dashboard.');
   const path='cbse/office/workspaces/'+memberId;
   if(input.operation==='read'||!input.operation)return {actor:who,members:OFFICE_MEMBERS,workspace:await read(path)||emptyOfficeWorkspace(memberId),directory:await safeDirectory()};
-  if(!who.principal&&memberId==='pramod-paswan'&&!['save-row','set-voucher-status','submit-report'].includes(input.operation))fail('Only the Principal can change audit settings or import data. Office members can add vouchers and update Pending / Done.');
+  if(!who.principal&&['pramod-paswan','sumit-puri'].includes(memberId)&&!['save-row','set-voucher-status','submit-report'].includes(input.operation))fail('Only the Principal can change audit settings or import data. Office members can add vouchers and update Pending / Done.');
   if(!who.principal){if(['publish','unpublish','review-report'].includes(input.operation))fail('Only the Principal can publish office work to staff.');await confirmPIN(memberId,input.pin,ip);}
   if(input.operation==='import'&&(!Array.isArray(input.rows)||input.rows.length<1||input.rows.length>1000))fail('Import between 1 and 1000 records.',400);
   const directory=await safeDirectory(),known=await read(path),values={...input,memberId,...(input.operation==='import'?{importIds:(input.rows||[]).map(()=> 'office_'+randomUUID().replaceAll('-',''))}:{})};let reason='';

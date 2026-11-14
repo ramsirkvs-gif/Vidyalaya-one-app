@@ -1269,3 +1269,34 @@ selected on reload and after office logout; it does not sign out the shared
 Firebase Principal session. Returning to Principal mode requires the existing
 password-only Principal login and server role verification. Principal management
 of an employee dashboard is explicitly labelled as Principal view.
+
+### Pre-National audit office workflow (agreed settings)
+
+Pramod Paswan, SSA, owns the School Fund (SF) register. Sumit Puri, JSA,
+owns the similar Pre-National audit register labelled VVN Fund (IC Mr. Sumit
+Puri). Preserve the separate workspaces, existing records, PINs and identities.
+The supplied VVN workbook uses VVN and VVN Vouchers sheets; its voucher sheet
+has a leading serial column. The importer selects sheets and column offsets by
+owner, retains every meaningful source row, namespaces source references by
+fund, and uses voucher financial year as well as explicit ranges for VVN cheque
+links. Source dates are retained, including suspicious years; never repair dates
+or assign ambiguous names silently. Uploads/prepared data must stay outside the
+repository and public build. The prepared VVN register is a private workspace
+artifact, not an automatic live database migration.
+
+Shared settings: default page Staff view; remembered shared curtain across pages;
+separate named office logout and cached Principal page mode; Principal password
+login, no personal PIN for Principal; office PIN for protected saves; regular
+employee roster only; official-name aliases for card headers and searches; exact
+voucher number plus financial year; newest financial year and descending voucher
+numbers; DD/MM/YYYY dates; Pending/Done only; staff defaults to Pending with
+explicit All/Done options; financial-year consolidated totals independent of
+filters; red staff audit objections; reconciliation warnings office/Principal only;
+no separate staff office-notes box; notes available in details; no default notes;
+compact voucher rows, per-row horizontal controls, Edit for authorized users;
+selected-person chips support multiple staff; keep header after saving; Principal
+Add new task and selected-task publication; same bank/cheque different cheque
+amount confirmation. Blank password fields discourage autofill. Cheque voucher
+range, voucher file number and summary sheet number are omitted from manual
+entry, while imported/existing values are preserved. Import and audit settings
+for both Pramod and Sumit require Principal access. No automatic publication.

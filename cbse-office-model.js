@@ -4,7 +4,7 @@ import {officeISODate,officeDisplayDate,officeFinancialYear} from './cbse-office
 export const OFFICE_MEMBERS=[
  {id:'arjun-bori',name:'Mr. Arjun Bori',designation:'ASO',title:'Office finance and administration tasks'},
  {id:'pramod-paswan',name:'Mr. Pramod Paswan',designation:'SSA',title:'Pre-National audit Vidyalaya Level internal audit Paras'},
- {id:'sumit-puri',name:'Mr. Sumit Puri',designation:'JSA',title:'Office administration tasks'}
+ {id:'sumit-puri',name:'Mr. Sumit Puri',designation:'JSA',title:'Pre-National audit Vidyalaya Level internal audit Paras — VVN Fund (IC Mr. Sumit Puri)'}
 ];
 export const officeMember=id=>OFFICE_MEMBERS.find(member=>member.id===id);
 const check=(ok,message)=>{if(!ok)throw Error(message);};
