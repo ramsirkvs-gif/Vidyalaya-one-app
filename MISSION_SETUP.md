@@ -1154,3 +1154,10 @@ selecting a regular employee and **Pending only** narrows the displayed work.
 Pending/Done badges, counts, the default office-contact notice and expandable
 read-only voucher details remain available. Staff have no add, edit or status
 update controls.
+
+Each voucher now has a separate, initially collapsed **Office-level audit notes**
+row directly beneath its register row, plus the same notes section in its entry
+form and staff summary. Existing shared office notes supply the display default;
+per-voucher notes are stored on that record without deleting or changing the
+shared source notes. Status-only updates preserve both. Published staff summaries
+use only their Principal-published voucher notes and shared notes snapshot.

@@ -131,3 +131,8 @@ test('Pramod can add a new voucher with his PIN but cannot change existing vouch
  await assert.rejects(call(service,'save-row',{expectedRevision:1,rowId:'office_new',rowRevision:1,row:{...row,details:'changed'},pin:'123'},'',session),/Principal/);
  const done=await call(service,'set-voucher-status',{expectedRevision:1,rowId:'office_new',rowRevision:1,status:'resolved',pin:'123'},'',session);assert.equal(done.workspace.rows.office_new.status,'resolved');
 });
+
+test('voucher-specific office audit notes save and survive status updates without altering shared notes',async()=>{
+ const {service}=officeFixture();await call(service,'save-settings',{expectedRevision:0,title:'Audit',notes:'Shared original office notes'});await call(service,'save-row',{expectedRevision:1,rowId:'office_note',row:{...row,officeNotes:'Individual voucher note'}});await setPIN(service);const session=await login(service);const result=await call(service,'set-voucher-status',{expectedRevision:2,rowId:'office_note',rowRevision:1,status:'resolved',pin:'123'},'',session);assert.equal(result.workspace.rows.office_note.officeNotes,'Individual voucher note');assert.equal(result.workspace.notes,'Shared original office notes');
+ await call(service,'publish',{expectedRevision:3});const published=await service('office-staff-read',{memberId:id},'principal');assert.equal(published.published.rows.office_note.officeNotes,'Individual voucher note');
+});
