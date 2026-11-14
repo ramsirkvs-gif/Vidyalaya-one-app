@@ -69,3 +69,4 @@
 .movement-status-query{background:#fff0bf;color:#704400;border:1px solid #cfaa40}.movement-correction form{padding:12px;border:1px solid #aacdc5;border-radius:8px;background:#f6fbf8;margin-top:10px}.movement-correction form label{display:block;margin:8px 0}.movement-correction form input,.movement-correction form select,.movement-correction form textarea{width:100%;box-sizing:border-box}
 #open-chamber-settings{margin:8px 0 0 10px;padding:9px 14px;min-height:40px;border:1px solid #a4c9c0;border-radius:9px;font:700 15px Georgia,serif;color:#185c52;cursor:pointer}#open-chamber-settings[hidden]{display:none}
 .chamber-mini-tiles[hidden]{display:none}
+.roll-cartoon-heading{display:flex;align-items:center;gap:10px}.roll-cartoon-heading img{width:52px;height:52px;flex:none;object-fit:contain}
