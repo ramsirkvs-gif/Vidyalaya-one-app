@@ -1382,3 +1382,12 @@ resolve it at display/search time. Draft/source responsibility is not overwritte
 by merely viewing or publishing. Principal can choose another responsible person.
 Cheque amount comparison ignores commas and trailing decimal zeroes; e.g. 3,385,
 3385 and 3,385.00 are equal.
+
+Principal Leave/OD date editing now uses the same shared calendar/date-range
+picker as staff submission. Existing dates are highlighted; individual selections,
+inclusive ranges and gap warnings are consistent. Date changes retain the existing
+review/comment/revision/history requirements. Morning and afternoon RC list the
+exact active recorded dates as Already on Leave / OD outside, instead of implying
+that gaps through the last date are covered. Shared-list refresh also refreshes the
+daily RC table without discarding entry forms; status follows the saved dates and
+returns to normal reporting on unselected/cancelled dates.
