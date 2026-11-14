@@ -1,3 +1,4 @@
+import {createOfficeService} from './office-service.js';
 import {createRevisionReadCache} from './revision-read-cache.js';
 import {creditQuestions,creditPapers,creditEvaluations,creditPosts,creditMission} from './credit-source-data.js';
 import {applyMovement,movementView,movementToday,movementCanApprove} from '../cbse-movement-model.js';
@@ -83,7 +84,10 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
  }
  async function revoke(staffId){try{await auth.revokeRefreshTokens('mission_'+createHash('sha256').update(staffId).digest('hex').slice(0,40));}catch(e){if(e.code!=='auth/user-not-found')throw e;}}
  const sharedView=createSharedView({db,context,now,defaultSecret:viewSecret});
+ async function officeDirectoryStaff(){const[faculty,support]=await Promise.all([readVersioned('cbse/facultyDraft','cbse/facultyDraft/revision',{fresh:true}),readVersioned('cbse/mission/staff','cbse/mission/revision',{fresh:true})]);const mission={staff:support||{}};return Object.fromEntries(entries(staffIndex(faculty,mission,{includeRollOnly:true})).map(([id,p])=>[id,{...p,officeIdentityIds:teacherIdentityIds(id,faculty,mission)}]));}
+ const officeService=createOfficeService({db,read,principal,hashPIN,verifyPIN,throttle,clearAttempt:ticket=>pinDatabase(()=>pinAttempts.clear(ticket)),displayKey,now,directoryStaff:officeDirectoryStaff,sharedView,AccessError});
  return async function handle(action,input={},token='',ip='unknown',session={}){
+  if(action.startsWith('office-'))return officeService(action,input,token,ip,session);
   if(['view-login','view-data','view-version','view-student-photo','view-student-photos','view-logout'].includes(action)){const result=await sharedView(action,{...input,ip},session.viewerToken||'');if(result?.error){const error=new AccessError(result.error,result.status);error.curtainRequired=result.curtainRequired;throw error;}return result;}
   if(action==='mcq-read'||action==='news-read'){if(token)await principal(token);else{const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}if(action==='news-read'){const output=value=>{try{return readTeamNews(value,input);}catch(e){throw new AccessError(e.message,400);}};if(input.photoId){if(typeof input.photoId!=='string'||!/^news_[A-Za-z0-9_-]{8,80}$/.test(input.photoId))throw new AccessError('Choose a News photo.',400);const [post,photo]=await Promise.all([read('cbse/teamNews/posts/'+input.photoId),read('cbse/teamNews/photos/'+input.photoId)]);return output({posts:post?{[input.photoId]:post}:{},photos:{[input.photoId]:photo}});}const [posts,revision]=await Promise.all([read('cbse/teamNews/posts'),read('cbse/teamNews/revision')]);return output({posts:posts||{},revision:revision||0});}return publicMCQBank(await read('cbse/mcq')||{},input);}
   if(action==='credits-read'||action==='credits-principal'){

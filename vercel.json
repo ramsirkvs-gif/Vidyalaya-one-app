@@ -122,6 +122,19 @@
           "value": "no-store"
         }
       ]
+    },
+    {
+      "source": "/cbse-office.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
     }
   ],
   "buildCommand": "node scripts/build-site.mjs",

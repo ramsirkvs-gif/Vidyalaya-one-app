@@ -1042,3 +1042,59 @@ and `python3 tests/cbse-remedial-session-browser.py` with the source server on p
 8000. The mobile browser test uses synthetic data and mocked Firebase at 23:59:59 IST,
 checks both entry points, camera/upload, bad/cancelled PIN, failed-request retention,
 resubmission and Principal approval. These checks do not verify a live deployment.
+
+### Office work, finance and admin tasks reporting
+
+Principal Chamber → **Office work, finance and admin tasks reporting** opens
+`cbse-office.html`. Chamber Settings links to **Office members — separate PIN
+settings**. The list contains Mr. Arjun Bori (ASO), Mr. Pramod Paswan (SSA), and
+Mr. Sumit Puri (JSA). Only the existing authenticated Principal can create,
+replace, recover or disable office PINs. No office PIN is preconfigured by a
+build or deployment; existing Mission/faculty credentials are unchanged.
+
+Office login uses a separate, expiring HttpOnly cookie, with a hashed session
+reference on the server. It grants no Mission login, Firebase identity, student
+access or Principal privilege. Only the Principal or that dashboard's office
+member can open its private register. Each office import, row save and task-note
+save requires the concerned member's PIN again; the Principal uses the existing
+verified session. Office PIN reset/disable invalidates that member's office
+sessions. Failed or cancelled PIN confirmation retains the open form.
+
+Pramod's initial task is **Pre-National audit Vidyalaya Level internal audit
+Paras**. Use **Import audit workbook / prepared register** to select the original
+workbook containing **SF** and **SF Vouchers**, or one prepared combined JSON
+register. Both sheets feed one reviewed register. Cheque details are attached by
+explicit voucher ranges; unmatched cheques remain review rows. Source dates,
+amount text, original responsibility text and office-level notes are retained.
+Ambiguous dates, amounts and cheque links are flagged instead of corrected.
+The supplied workbook produced 207 voucher rows and 13 unmatched cheque rows,
+covering all 23 filled cheque entries, in one 220-record register. The workbook
+and prepared financial register are not committed or bundled into the public site.
+
+Responsible teachers/committee members use the existing active directory's full
+names and IDs, plus the three office members. Conservative unique-name matching
+preselects dropdown identities, including the Jitender/Jitendra spelling variant;
+ambiguous names and unspecified committee roles require manual selection.
+Review these matches before publication. Reimport skips existing source
+references, preserving office edits and task notes. Add/edit records, task details,
+cheque numbers, bank references, resolution status and additional audit paras in
+this same register; separate feeding sheets are unnecessary. Date filters accept
+unambiguous ISO dates; free-text search also finds preserved irregular source dates.
+
+Only the Principal's **Publish to all staff** action creates the staff-visible
+snapshot. Subsequent office edits remain private until republished. The office
+staff view uses the existing staff viewing curtain and lists only published
+snapshots. Teachers select their name to see assigned pending office notices;
+this selection grants no edit privilege. Principal withdrawal removes staff
+visibility while retaining the draft. All office access goes through the existing
+Admin SDK service with narrow `cbse/office/...` reads; draft/student/Mission roots
+are not fetched for office screens. Default-deny database rules protect the new
+paths without a client rule change. Reuse the existing protected server credential.
+
+Validation: `node --test tests/cbse-office.test.mjs tests/build-site.test.mjs
+ tests/staff-service.test.mjs tests/cbse-chamber*.test.mjs` and
+`python3 tests/cbse-office-browser.py` (starts its own synthetic local service;
+requires Node, Python Playwright, openpyxl and `/usr/bin/chromium`). No test
+requires production PINs or school records. Local tests and a Git push do not
+verify a live deployment, import financial data, create production PINs, or publish
+an office register. The Principal must perform those application actions explicitly.

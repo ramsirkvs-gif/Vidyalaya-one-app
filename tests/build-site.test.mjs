@@ -8,7 +8,7 @@ test('static build is repeatable, includes working app assets, and excludes priv
  const build=id=>import(new URL(`../scripts/build-site.mjs?check=${id}`,import.meta.url));
  await build('first');const first=JSON.parse(await fs.readFile(path.join(root,'public/app-version.json'),'utf8'));await build('second');const second=JSON.parse(await fs.readFile(path.join(root,'public/app-version.json'),'utf8'));assert.equal(first.version,second.version);assert.match(first.version,/^[a-f0-9]{64}$/);
  const names=await fs.readdir(path.join(root,'public'));
- for(const page of ['index.html','cbse-admin.html','cbse-faculty.html','cbse-settings.html','cbse-students.html','cbse-mission.html','cbse-staff.html']){
+ for(const page of ['cbse-office.html','index.html','cbse-admin.html','cbse-faculty.html','cbse-settings.html','cbse-students.html','cbse-mission.html','cbse-staff.html']){
   const text=await fs.readFile(path.join(root,'public',page),'utf8');if(page==='cbse-students.html')assert.ok(text.includes(`src="cbse-public.js?v=${first.version}"`));else assert.ok(text.includes(`live-update.js?v=${first.version}`));
   for(const match of text.matchAll(/(?:src|href)="([^"#]+)"/g)){
    const value=match[1].split('?')[0];if(value.includes('://')||value.startsWith('mailto:'))continue;
