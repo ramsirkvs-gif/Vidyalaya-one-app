@@ -12,7 +12,7 @@ const server=http.createServer(async(req,res)=>{
    let body='';for await(const part of req)body+=part;const input=JSON.parse(body),cookie=cookies(req.headers.cookie),token=String(req.headers.authorization||'').replace(/^Bearer /,'');
    const result=await service(input.action,input,token,'browser',{officeToken:cookie.vidyalaya_office||'',viewerToken:cookie.mission_staff_view||''});
    if(input.action==='office-login'){res.setHeader('Set-Cookie','vidyalaya_office='+result.officeToken+'; Path=/; HttpOnly; SameSite=Strict');delete result.officeToken;}
-   if(input.action==='view-login'){res.setHeader('Set-Cookie','mission_staff_view='+result.viewerToken+'; Path=/; HttpOnly; SameSite=Lax');delete result.viewerToken;}
+   if(['view-login','remember-view'].includes(input.action)){res.setHeader('Set-Cookie','mission_staff_view='+result.viewerToken+'; Path=/; HttpOnly; SameSite=Lax');delete result.viewerToken;}
    if(input.action==='office-logout')res.setHeader('Set-Cookie','vidyalaya_office=; Path=/; HttpOnly; Max-Age=0');
    res.setHeader('Content-Type','application/json');res.end(JSON.stringify(result));return;
   }

@@ -26,12 +26,12 @@ export function applyOfficeWorkspace(current,input,actor,directory,now){
    const editable=['voucherNo','voucherDate','amount','details','tallyStatus','chequeDate','chequeNo','bank','chequeAmount','voucherCount','registerPage'];source={...(old||{}),task:old?.task||prior.title,fund:old?.fund||(input.memberId==='sumit-puri'?'VVN':'SF'),status:old?.status||'pending',assignedIds:old?.assignedIds||[]};
    for(const key of Object.keys(OFFICE_FIELDS).filter(key=>!editable.includes(key)))if(input.row[key]!==undefined)check(input.row[key]===(source[key]||''),'Only the Principal can update the final review fields or task settings.');
    check((input.row.status??'pending')===source.status&&JSON.stringify(input.row.assignedIds||[])===JSON.stringify(source.assignedIds),'Only the Principal can update responsible persons or final status.');for(const key of editable)source[key]=input.row[key]??'';
-  }const row=officeRow(source,directory,old?.assignedIds||[]);
+  }const row=officeRow(source,directory,old?.assignedIds||[]);checkOfficeAuditOwner(row,input.memberId);
   next.rows[input.rowId]={...row,...(old?.submittedAt?{submittedAt:old.submittedAt,submittedBy:old.submittedBy}:{}),...(auditSubmission?{submittedAt:now,submittedBy:actor.id}:{}),id:input.rowId,revision:(old?.revision||0)+1,createdAt:old?.createdAt||now,createdBy:old?.createdBy||actor.id,updatedAt:now,updatedBy:actor.id};
  }else if(operation==='import'){
   check(Array.isArray(input.rows)&&input.rows.length>0&&input.rows.length<=1000,'Import between 1 and 1000 records.');
   const keys=new Set(Object.values(next.rows).map(row=>row.sourceKey).filter(Boolean));for(const [index,source] of input.rows.entries()){
-   const row=officeRow(source,directory);check(row.sourceKey,'Imported records need a source reference.');if(keys.has(row.sourceKey))continue;
+   const row=officeRow(source,directory);checkOfficeAuditOwner(row,input.memberId);check(row.sourceKey,'Imported records need a source reference.');if(keys.has(row.sourceKey))continue;
    const id=input.importIds?.[index];check(typeof id==='string'&&/^[a-zA-Z0-9_-]{1,100}$/.test(id)&&!Object.hasOwn(next.rows,id),'Invalid import record ID.');keys.add(row.sourceKey);next.rows[id]={...row,id,revision:1,createdAt:now,createdBy:actor.id,updatedAt:now,updatedBy:actor.id};
   }
   if(input.notes!==undefined){const notes=text(input.notes,15000);if(!prior.notes)next.notes=notes;}
@@ -59,7 +59,7 @@ export function applyOfficeWorkspace(current,input,actor,directory,now){
 export function searchOfficeRows(rows,{query='',status='',assignee='',assigneeIds=[],fund='',bank='',from='',to='',financialYear='',directory={},ownerId=''}={}){
  const lookup=query.trim().match(/^(\d+(?:\s*[a-z])?)(?:[\s/]+(\d{4})(?:[-/]\d{2,4})?)?$/i),voucherKey=value=>String(value||'').replace(/\s+/g,'').toUpperCase();
  const words=query.toLowerCase().trim().split(/\s+/).filter(Boolean);return Object.values(rows||{}).filter(row=>{
-  const related=officeVoucherPeople(row,directory,ownerId);const haystack=[...related.all.flatMap(person=>[person.name,...person.aliases]),officeDisplayDate(row.voucherDate),officeDisplayDate(row.chequeDate),...Object.keys(OFFICE_FIELDS).map(key=>row[key]),...(row.assignedNames||[]),...(row.assignedIds||[]).map(id=>directory[id]?.name||Object.values(directory).find(person=>person.identityIds?.includes(id))?.name||'')].join(' ').toLowerCase();const date=officeISODate(row.voucherDate)||officeISODate(row.chequeDate);
+  const related=officeVoucherPeople(row,directory,row.officeMemberId||ownerId);const haystack=[...related.all.flatMap(person=>[person.name,...person.aliases]),officeDisplayDate(row.voucherDate),officeDisplayDate(row.chequeDate),...Object.keys(OFFICE_FIELDS).map(key=>row[key]),...(row.assignedNames||[]),...(row.assignedIds||[]).map(id=>directory[id]?.name||Object.values(directory).find(person=>person.identityIds?.includes(id))?.name||'')].join(' ').toLowerCase();const date=officeISODate(row.voucherDate)||officeISODate(row.chequeDate);
   return (lookup?voucherKey(row.voucherNo)===voucherKey(lookup[1])&&(!lookup[2]||officeFinancialYear(row)===Number(lookup[2])):words.every(word=>word==='pending'?row.status!=='resolved':word==='done'?row.status==='resolved':/^\d+$/.test(word)?voucherKey(row.voucherNo)===word:haystack.includes(word)))&&(!financialYear||(financialYear==='unknown'?officeFinancialYear(row)===null:officeFinancialYear(row)===Number(financialYear)))&&(!status||(status==='pending'?row.status!=='resolved':row.status===status))&&(!assignee||(assigneeIds.length?assigneeIds:[assignee]).some(id=>row.assignedIds?.includes(id)||related.all.some(person=>person.id===id||person.identityIds.includes(id))))&&(!fund||row.fund===fund)&&(!bank||row.bank===bank)&&(!from||/^\d{4}-\d{2}-\d{2}$/.test(date)&&date>=from)&&(!to||/^\d{4}-\d{2}-\d{2}$/.test(date)&&date<=to);
  });
 }
@@ -94,4 +94,19 @@ export function officeYearSummary(rows){
   const year=officeFinancialYear(row);if(!groups.has(year))groups.set(year,{year,total:0,pending:0,done:0});const group=groups.get(year);group.total++;if(row.status==='resolved')group.done++;else group.pending++;
  }
  return {groups:[...groups.values()].sort((a,b)=>(b.year??-Infinity)-(a.year??-Infinity)),otherRecords};
+}
+
+export function officeAuditOwner(row,currentOwner){
+ if(/\bVVN\b/i.test(row.task||'')||String(row.fund||'').trim().toUpperCase()==='VVN')return 'sumit-puri';
+ if(/School\s+Fund|pre.?national|audit.*paras/i.test(row.task||'')&&String(row.fund||'').trim().toUpperCase()==='SF')return 'pramod-paswan';
+ return currentOwner;
+}
+export function checkOfficeAuditOwner(row,memberId){
+ const owner=officeAuditOwner(row,memberId);check(owner===memberId,'VVN records belong to Mr. Sumit Puri; School Fund (SF) audit records belong to Mr. Pramod Paswan. Choose the correct record owner.');
+ if(owner==='sumit-puri'&&/\bVVN\b/i.test(row.task||''))check(String(row.fund||'').trim().toUpperCase()==='VVN','A VVN task must use fund VVN.');
+}
+export function transferOfficeRow(workspaces,input,actor,directory,now){
+ check(actor.principal,'Only the Principal can move office records.');const fromId=input.memberId,toId=input.targetMemberId;check(officeMember(fromId)&&officeMember(toId)&&fromId!==toId,'Choose a different valid office owner.');check(typeof input.rowId==='string'&&/^office_[a-zA-Z0-9_-]{1,90}$/.test(input.rowId),'Choose a valid source voucher.');const next=structuredClone(workspaces||{}),from=next[fromId],to=next[toId]||emptyOfficeWorkspace(toId),old=from?.rows&&Object.hasOwn(from.rows,input.rowId)?from.rows[input.rowId]:null;check(old&&from.revision===input.expectedRevision&&(old.revision||0)===input.rowRevision,'The source voucher changed. Refresh before moving.');check(to.revision===input.targetExpectedRevision,'The destination register changed. Refresh before moving.');check(!to.rows?.[input.rowId],'The destination already contains this record ID.');const row=officeRow(input.row,directory,old.assignedIds||[]);checkOfficeAuditOwner(row,toId);check(!row.sourceKey||!Object.values(to.rows||{}).some(existing=>existing.sourceKey===row.sourceKey),'The destination already contains this source reference. Review it before moving.');check(Object.keys(to.rows||{}).length<5000,'The destination register has reached 5000 rows.');
+ to.rows||={};to.transferHistory||={};to.transferHistory[input.rowId+'_'+((old.revision||0)+1)]={fromMemberId:fromId,toMemberId:toId,row:structuredClone(old),...(from.published?.rows?.[input.rowId]?{publishedRow:structuredClone(from.published.rows[input.rowId])}:{}),movedAt:now,movedBy:actor.id};to.rows[input.rowId]={...old,...row,revision:(old.revision||0)+1,updatedAt:now,updatedBy:actor.id,movedFrom:fromId};delete from.rows[input.rowId];if(from.published?.rows?.[input.rowId]){delete from.published.rows[input.rowId];const count=Object.keys(from.published.rows).length;if(!count)delete from.published;else if(from.published.summary)from.published.summary.count=count;}
+ for(const workspace of [from,to]){workspace.revision++;workspace.updatedAt=now;workspace.updatedBy=actor.id;}next[toId]=to;return next;
 }

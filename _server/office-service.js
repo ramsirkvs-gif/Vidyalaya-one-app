@@ -1,6 +1,6 @@
 import {officeRegularDirectory} from '../cbse-office-regular.js';
 import {randomBytes,createHash,randomUUID} from 'node:crypto';
-import {OFFICE_MEMBERS,officeMember,emptyOfficeWorkspace,applyOfficeWorkspace} from '../cbse-office-model.js';
+import {OFFICE_MEMBERS,officeMember,emptyOfficeWorkspace,applyOfficeWorkspace,transferOfficeRow,searchOfficeRows} from '../cbse-office-model.js';
 import {encryptDisplayPIN,decryptDisplayPIN} from './pin-vault.js';
 export const OFFICE_COOKIE='vidyalaya_office';
 const digest=value=>createHash('sha256').update(value).digest('hex');
@@ -40,6 +40,9 @@ export function createOfficeService({db,read,principal,hashPIN,verifyPIN,throttl
   }
   if(action==='office-staff-read'){
    if(token)await principal(token);else{const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');if(access.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}
+   if(input.operation==='master-search'){
+    if(typeof input.query!=='string'||!input.query.trim()||input.query.length>160)fail('Enter a voucher number, year or name (up to 160 characters).',400);let who=token?{id:'principal',principal:true}:null;if(!who&&session.officeToken){try{who=await actor('',session.officeToken);}catch(error){if(![401,403].includes(error.status))throw error;}}const directory=await safeDirectory(),groups=await Promise.all(OFFICE_MEMBERS.map(async member=>{const privateAccess=!!who&&(who.principal||who.id===member.id),path='cbse/office/workspaces/'+member.id,source=await read(privateAccess?path:path+'/published'),rows=Object.entries(source?.rows||{}).map(([key,row])=>{const {reviewNote,...staffRow}=row;return {...(privateAccess?row:staffRow),id:row.id||key,officeMemberId:member.id,officeMemberName:member.name,officeSource:privateAccess?'live':'published',officeCanEdit:privateAccess};});return searchOfficeRows(Object.fromEntries(rows.map((row,index)=>[index,row])),{query:input.query,directory,ownerId:member.id});}));return {rows:groups.flat(),directory,access:who?.principal?'principal':who?'office':'staff'};
+   }
    if(input.operation==='directory')return {directory:await safeDirectory()};
    if(input.memberId){if(!officeMember(input.memberId))fail('Choose an office dashboard.',400);const published=await read('cbse/office/workspaces/'+input.memberId+'/published');if(published?.rows)published.rows=Object.fromEntries(Object.entries(published.rows).map(([id,row])=>{const {reviewNote,...staffRow}=row;return [id,staffRow];}));return {published};}
    const summaries=await Promise.all(OFFICE_MEMBERS.map(async member=>{const path='cbse/office/workspaces/'+member.id+'/published',[summary,title]=await Promise.all([read(path+'/summary'),read(path+'/title')]);if(!title&&!summary?.title)return null;return {member,...(summary||{}),title:title||summary.title};}));return {summaries:summaries.filter(Boolean)};
@@ -59,6 +62,9 @@ export function createOfficeService({db,read,principal,hashPIN,verifyPIN,throttl
   const memberId=input.memberId||who.id;if(!officeMember(memberId)||!who.principal&&who.id!==memberId)fail('Only the concerned office member or Principal can open this dashboard.');
   const path='cbse/office/workspaces/'+memberId;
   if(input.operation==='read'||!input.operation)return {actor:who,members:OFFICE_MEMBERS,workspace:await read(path)||emptyOfficeWorkspace(memberId),directory:await safeDirectory()};
+  if(input.operation==='move-row'){
+   if(!who.principal)fail('Only the Principal can move office records.');const directory=await safeDirectory(),root='cbse/office/workspaces',known=await read(root);let reason='';const result=await db.ref(root).transaction(current=>{if(current===null&&known!==null)return null;reason='';try{return transferOfficeRow(current,{...input,memberId},who,directory,now());}catch(error){reason=error.message;return;}});if(!result.committed||!result.snapshot.val())fail(reason||'The move was not confirmed. Refresh and retry.',409);return {ok:true,workspace:result.snapshot.val()[input.targetMemberId],memberId:input.targetMemberId};
+  }
   if(!who.principal&&['pramod-paswan','sumit-puri'].includes(memberId)&&!['save-row','set-voucher-status','submit-report'].includes(input.operation))fail('Only the Principal can change audit settings or import data. Office members can submit voucher and cheque details to Principal.');
   if(!who.principal){if(['publish','unpublish','review-report'].includes(input.operation))fail('Only the Principal can publish office work to staff.');await confirmPIN(memberId,input.pin,ip);}
   if(input.operation==='import'&&(!Array.isArray(input.rows)||input.rows.length<1||input.rows.length>1000))fail('Import between 1 and 1000 records.',400);

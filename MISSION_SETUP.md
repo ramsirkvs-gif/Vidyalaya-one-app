@@ -1398,3 +1398,31 @@ Pending/Done filters, and matching Done vouchers with no pending work. A missing
 published match suggests republishing the selected task only if records were
 added/edited after publication. Exact voucher-number/year matching and draft
 privacy remain unchanged.
+
+Principal session reuse: Office verifies the existing Firebase Principal UID and
+remembers staff viewing automatically. Principal dashboards reuse the active
+session without another password. A stale office-mode flag no longer hides that
+session when no employee office session exists. Explicit employee PIN sessions
+retain their own named logout and restricted office role. Principal Settings
+links restore the verified Principal role directly; ordinary staff gain no admin
+access.
+
+Record ownership is explicit in Principal entry forms. A VVN task selects VVN and
+Sumit Puri; School Fund audit selects SF and Pramod Paswan. The server rejects
+misfiled audit saves/imports. New records can be saved directly to the chosen
+owner. Principal can correct an existing owner's placement via a confirmed,
+revision-checked atomic move: source draft and its published copy are removed,
+the corrected record is saved privately under the destination, and original row
+and published data are retained in private transfer history. Destination records
+remain unpublished until Principal publication. Colliding IDs/source references
+are rejected rather than overwritten.
+
+Master search is available on Staff view and inside task reports. It searches
+all office owners/funds and financial years, using exact voucher number plus
+optional financial year. Principal searches latest saved workspaces, office
+members search their own latest rows plus others' published rows, and ordinary
+staff search only published snapshots. Each result names its fund, office owner,
+year and source; authorised users can open Edit voucher directly. Searches do not
+publish drafts. A saved-record preview appears near the header after entry, with
+no scroll down to the register. Search requests ignore stale responses after
+query/navigation changes.
