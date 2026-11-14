@@ -1317,3 +1317,10 @@ and retains access to all parts. Both audit owners are blocked from final-status
 updates, including staff-card Done actions. Existing review fields are preserved
 when office members resubmit A/B. The SF task heading includes School Fund (SF);
 legacy saved task keys and publication groups are preserved.
+
+Audit screens no longer show separate Office-level audit notes sections or note
+entry fields. Legacy note data remains stored without being erased. Details and
+objections remain the working text areas. Part A now splits its Details cell into
+Details and a separate free-text Tally voucher status remark. Both office owners
+can submit that remark, and Principal can edit it. It persists separately from
+final Pending/Done and is visible in voucher details and office register text.
