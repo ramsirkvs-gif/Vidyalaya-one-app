@@ -1196,3 +1196,8 @@ snapshot; other tasks remain private in the office register. Principal saves and
 publication continue to use the verified Principal session without a PIN prompt.
 If an earlier publishing attempt failed, the Principal must select the task and
 publish again after the updated deployment; no publication is performed by a build.
+
+Voucher notes no longer inherit or auto-fill the shared office notes. New entries
+start blank, and office/staff displays show only notes actually saved on that
+voucher. Previously saved voucher notes and the retained shared source notes are
+not deleted by this change.
