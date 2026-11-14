@@ -151,3 +151,8 @@ test('Principal voucher editing preserves a previously saved Pending remark',asy
  const {service}=officeFixture();await call(service,'save-row',{expectedRevision:0,rowId:'office_remark',row});await call(service,'set-voucher-status',{expectedRevision:1,rowId:'office_remark',rowRevision:1,status:'pending',remark:'Office receipt awaited'});
  const before=(await call(service,'read')).workspace.rows.office_remark;const saved=await call(service,'save-row',{expectedRevision:2,rowId:'office_remark',rowRevision:2,row:{...before,details:'Updated details'}});assert.equal(saved.workspace.rows.office_remark.statusRemark,'Office receipt awaited');
 });
+
+test('Pending and Done search words filter actual displayed status, including combined searches',()=>{
+ const rows={pending:{...row,status:'pending',details:'Office check'},done:{...row,voucherNo:'333',status:'resolved',details:'Previously pending office check'},legacy:{...row,voucherNo:'444',status:'not-applicable'}};
+ assert.deepEqual(searchOfficeRows(rows,{query:'pending'}).map(row=>row.voucherNo),['222','444']);assert.deepEqual(searchOfficeRows(rows,{query:'DONE'}).map(row=>row.voucherNo),['333']);assert.deepEqual(searchOfficeRows(rows,{query:'Pending 222'}).map(row=>row.voucherNo),['222']);assert.equal(searchOfficeRows(rows,{query:'done 222'}).length,0);
+});
