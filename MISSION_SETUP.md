@@ -1261,3 +1261,11 @@ resets hidden filters as well as the typed search. Voucher feeding has a second
 row-style strip for cheque date/number, bank, cheque amount, covered-voucher range,
 file, summary sheet and register page. Both strips belong to the same voucher and
 stack into readable fields on phones.
+
+Office login and cached Principal access are now separate page modes. Choosing
+Office login requires the existing curtain and employee PIN, shows the employee's
+name and named Office logout, and hides Principal controls. The office mode stays
+selected on reload and after office logout; it does not sign out the shared
+Firebase Principal session. Returning to Principal mode requires the existing
+password-only Principal login and server role verification. Principal management
+of an employee dashboard is explicitly labelled as Principal view.
