@@ -1184,3 +1184,15 @@ shows the saved status. Selecting Pending requires a remark. The concerned PIN i
 still required, and status updates preserve voucher details and assignments.
 Pending remarks are stored on the voucher and retained during Principal editing.
 Staff see only the Principal-published status and remark, without edit controls.
+
+Publishing handles Firebase's omission of empty arrays: vouchers with no selected
+responsible people no longer fail at `assignedIds.map`. The synthetic office
+fixture now emulates Firebase removal of empty lists/objects, and regression tests
+cover office reads, publication and curtain-protected staff viewing of those rows.
+
+Principal controls include **Task to publish** and **Publish selected task to
+staff**. Only vouchers belonging to that selected task are copied to the published
+snapshot; other tasks remain private in the office register. Principal saves and
+publication continue to use the verified Principal session without a PIN prompt.
+If an earlier publishing attempt failed, the Principal must select the task and
+publish again after the updated deployment; no publication is performed by a build.

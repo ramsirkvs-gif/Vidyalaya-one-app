@@ -156,3 +156,17 @@ test('Pending and Done search words filter actual displayed status, including co
  const rows={pending:{...row,status:'pending',details:'Office check'},done:{...row,voucherNo:'333',status:'resolved',details:'Previously pending office check'},legacy:{...row,voucherNo:'444',status:'not-applicable'}};
  assert.deepEqual(searchOfficeRows(rows,{query:'pending'}).map(row=>row.voucherNo),['222','444']);assert.deepEqual(searchOfficeRows(rows,{query:'DONE'}).map(row=>row.voucherNo),['333']);assert.deepEqual(searchOfficeRows(rows,{query:'Pending 222'}).map(row=>row.voucherNo),['222']);assert.equal(searchOfficeRows(rows,{query:'done 222'}).length,0);
 });
+
+test('Firebase-omitted empty assignment lists do not break publishing or either view; Principal needs no PIN',async()=>{
+ const {service,db}=officeFixture();await call(service,'save-row',{expectedRevision:0,rowId:'office_unassigned',row:{...row,assignedIds:[]}});
+ const stored=(await db.ref('cbse/office/workspaces/pramod-paswan/rows/office_unassigned').get()).val();assert.equal(stored.assignedIds,undefined);
+ const published=await call(service,'publish',{expectedRevision:1});assert.ok(published.ok);assert.equal(published.workspace.published.rows.office_unassigned.details,row.details);
+ const office=await call(service,'read');assert.equal(Object.keys(office.workspace.rows).length,1);const viewer=await service('view-login',{password:'synthetic-view'},'','read-only');const session={viewerToken:viewer.viewerToken};
+ const listing=await service('office-staff-read',{},'','read-only',session);assert.equal(listing.summaries.length,1);const staff=await service('office-staff-read',{memberId:id},'','read-only',session);assert.equal(Object.keys(staff.published.rows).length,1);
+});
+
+test('Principal publication includes only the selected task; other tasks stay private',async()=>{
+ const {service}=officeFixture();await call(service,'save-row',{expectedRevision:0,rowId:'office_audit',row:{...row,task:'Pre-National Audit'}});await call(service,'save-row',{expectedRevision:1,rowId:'office_other',row:{...row,task:'Private finance study',details:'PRIVATE OTHER TASK'}});
+ const result=await call(service,'publish',{expectedRevision:2,taskTitle:'Pre-National Audit'});assert.equal(result.workspace.published.title,'Pre-National Audit');assert.deepEqual(Object.keys(result.workspace.published.rows),['office_audit']);assert.ok(result.workspace.rows.office_other);
+ const staff=await service('office-staff-read',{memberId:id},'principal');assert.ok(!JSON.stringify(staff).includes('PRIVATE OTHER TASK'));
+});

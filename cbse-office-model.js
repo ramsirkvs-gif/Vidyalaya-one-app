@@ -42,7 +42,8 @@ export function applyOfficeWorkspace(current,input,actor,directory,now){
   next.title=text(input.title,200);check(next.title,'Enter a task title.');next.notes=text(input.notes,15000);
  }else if(operation==='publish'){
   check(actor.principal,'Only the Principal can publish office work to staff.');
-  next.published={summary:{title:prior.title,memberId:input.memberId,count:Object.keys(prior.rows||{}).length,publishedAt:now,revision:prior.revision+1},title:prior.title,notes:prior.notes||'',rows:Object.fromEntries(Object.entries(prior.rows||{}).map(([id,row])=>[id,{...row,assignedNames:row.assignedIds.map(key=>directory[key]?.name||key)}]))};
+  const tasks=[...new Set(Object.values(prior.rows||{}).map(row=>String(row.task||prior.title).trim()))],selectedTask=text(input.taskTitle??(tasks.length===1?tasks[0]:prior.title),5000);check(tasks.includes(selectedTask)||!tasks.length&&selectedTask===prior.title,'Choose the task to publish.');const selectedRows=Object.entries(prior.rows||{}).filter(([,row])=>String(row.task||prior.title).trim()===selectedTask);
+  next.published={summary:{title:selectedTask,memberId:input.memberId,count:selectedRows.length,publishedAt:now,revision:prior.revision+1},title:selectedTask,notes:prior.notes||'',rows:Object.fromEntries(selectedRows.map(([id,row])=>[id,{...row,assignedIds:Array.isArray(row.assignedIds)?row.assignedIds:[],assignedNames:(Array.isArray(row.assignedIds)?row.assignedIds:[]).map(key=>directory[key]?.name||Object.values(directory).find(person=>person.identityIds?.includes(key))?.name||key)}]))};
  }else if(operation==='unpublish'){
   check(actor.principal,'Only the Principal can withdraw published office work.');delete next.published;
  }else throw Error('Choose a valid office operation.');
