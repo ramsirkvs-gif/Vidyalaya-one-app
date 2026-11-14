@@ -71,3 +71,13 @@ export function matchOfficeResponsibility(source,directory){
  }
  return {assignedIds:[...ids],unmatched};
 }
+
+// One cheque can cover several vouchers; compare cheque amounts, not voucher amounts.
+export function officeChequeConflicts(rows,input,excludeId=''){
+ const key=value=>String(value??'').normalize('NFKC').trim().toUpperCase().replace(/[\s.\-]/g,'');
+ const cheque=value=>key(value).replace(/^0+(?=\d)/,'');
+ const amount=value=>{const text=String(value??'').trim().replace(/^(?:₹|INR|RS\.?)\s*/i,'').replace(/[,\s]/g,'');return /^\d+(?:\.\d{1,2})?$/.test(text)?Math.round(Number(text)*100):null;};
+ const bank=key(input.bank),number=cheque(input.chequeNo),entered=amount(input.chequeAmount);
+ if(!bank||!number||entered===null)return [];
+ return Object.entries(rows||{}).filter(([id,row])=>id!==excludeId&&row.id!==excludeId&&key(row.bank)===bank&&cheque(row.chequeNo)===number&&amount(row.chequeAmount)!==null&&amount(row.chequeAmount)!==entered).map(([,row])=>row);
+}
