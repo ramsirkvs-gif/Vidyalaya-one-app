@@ -6,7 +6,7 @@ import {mergeOfficeAuditSheets} from '../cbse-office-import.js';
 const principal='principal',id='pramod-paswan';
 const row={task:'Audit',fund:'SF',voucherNo:'222',voucherDate:'2026-03-01',amount:'4,38,000',details:'Synthetic audit record',objections:'Need receipt',assignedIds:['X:one'],status:'pending',sourceKey:'synthetic:row1'};
 const setPIN=(service,memberId=id,pin='123')=>service('office-pin-settings',{operation:'set-pin',memberId,pin},principal);
-async function login(service,memberId=id,pin='123'){const result=await service('office-login',{memberId,pin},'','office-test');return {officeToken:result.officeToken};}
+async function login(service,memberId=id,pin='123'){const viewer=await service('view-login',{password:'synthetic-view'},'','office-view');const result=await service('office-login',{memberId,pin},'','office-test',{viewerToken:viewer.viewerToken});return {officeToken:result.officeToken,viewerToken:viewer.viewerToken};}
 const call=(service,operation,values={},token=principal,session={})=>service('office-workspace',{memberId:id,operation,...values},token,'office-test',session);
 test('office membership has exactly three separate office identities',()=>{assert.deepEqual(OFFICE_MEMBERS.map(p=>p.designation),['ASO','SSA','JSA']);assert.equal(OFFICE_MEMBERS[1].name,'Mr. Pramod Paswan');});
 test('office PIN setup is Principal-only and does not modify Mission PINs or records',async()=>{
@@ -20,13 +20,13 @@ test('office sessions cannot open another member dashboard or grant Mission/Prin
  await assert.rejects(service('office-pin-settings',{},'','ip',session),/Principal/);await assert.rejects(service('chamber-principal',{operation:'read'},'','ip',session));
  await assert.rejects(call(service,'read',{},'',{officeToken:'forged'}),/Office login/);
 });
-test('every office save rechecks the concerned PIN; wrong/missing PINs and publication are rejected',async()=>{
- const {service,data}=officeFixture();await setPIN(service);const session=await login(service),input={rowId:'office_1',rowRevision:0,expectedRevision:0,row};
- await assert.rejects(call(service,'save-row',input,'',session),/incorrect/);await assert.rejects(call(service,'save-row',{...input,pin:'999'},'',session),/incorrect/);assert.equal(data.cbse.office,undefined);
- const saved=await call(service,'save-row',{...input,pin:'123'},'',session);assert.equal(saved.workspace.rows.office_1.updatedBy,id);
- await assert.rejects(call(service,'publish',{expectedRevision:1,pin:'123'},'',session),/Principal/);
- await assert.rejects(call(service,'save-settings',{expectedRevision:1,title:'Office',notes:'x'},'',session),/incorrect/);
- await assert.rejects(call(service,'save-row',{...input,pin:'123'},'',session),/changed/);
+test('Pramod can update only Pending / Done using his own fresh PIN',async()=>{
+ const {service}=officeFixture();await setPIN(service);await call(service,'save-row',{rowId:'office_1',expectedRevision:0,row});const session=await login(service),input={rowId:'office_1',rowRevision:1,expectedRevision:1,status:'resolved'};
+ await assert.rejects(call(service,'set-voucher-status',input,'',session),/incorrect/);await assert.rejects(call(service,'set-voucher-status',{...input,pin:'999'},'',session),/incorrect/);
+ const saved=await call(service,'set-voucher-status',{...input,pin:'123'},'',session);assert.equal(saved.workspace.rows.office_1.status,'resolved');assert.equal(saved.workspace.rows.office_1.statusUpdatedBy,id);
+ for(const key of ['amount','details','objections','sourceKey','assignedIds'])assert.deepEqual(saved.workspace.rows.office_1[key],row[key]);
+ for(const operation of ['save-row','import','save-settings','publish'])await assert.rejects(call(service,operation,{expectedRevision:2,rowId:'office_1',row,pin:'123'},'',session),/Principal/);
+ await assert.rejects(call(service,'set-voucher-status',{...input,pin:'123'},'',session),/changed/);
 });
 test('reset, disable, logout and expiry revoke only office sessions',async()=>{
  const {service,setTime}=officeFixture();await setPIN(service);const old=await login(service);await setPIN(service,id,'456');await assert.rejects(call(service,'read',{},'',old),/changed/);
@@ -38,7 +38,7 @@ test('staff see only Principal-published snapshots behind the existing staff cur
  const {service,reads}=officeFixture();await call(service,'save-row',{rowId:'office_1',expectedRevision:0,row});await assert.rejects(service('office-staff-read'),/viewing password/);
  const viewer=await service('view-login',{password:'synthetic-view'},'','viewer'),session={viewerToken:viewer.viewerToken};
  assert.deepEqual((await service('office-staff-read',{},'','ip',session)).summaries,[]);
- await call(service,'publish',{expectedRevision:1});const published=(await service('office-staff-read',{memberId:id},'','ip',session)).published;assert.equal(published.rows.office_1.assignedNames[0],'Jitendra Paul');
+ await call(service,'publish',{expectedRevision:1});const published=(await service('office-staff-read',{memberId:id},'','ip',session)).published;assert.equal(published.rows.office_1.assignedNames[0],'MR. JITENDER PAUL');
  await call(service,'save-row',{rowId:'office_1',expectedRevision:2,rowRevision:1,row:{...row,details:'PRIVATE NEW DRAFT'}});
  assert.equal((await service('office-staff-read',{memberId:id},'','ip',session)).published.rows.office_1.details,'Synthetic audit record');
  await call(service,'unpublish',{expectedRevision:3});assert.equal((await service('office-staff-read',{memberId:id},'','ip',session)).published,null);
@@ -71,8 +71,8 @@ test('advanced search combines cheque, voucher, assignee, status, bank, fund and
  assert.equal(searchOfficeRows(rows,{query:'missing'}).length,0);
 });
 test('office PIN login is throttled and teacher credentials cannot substitute for office credentials',async()=>{
- const {service}=officeFixture();await setPIN(service);for(let i=0;i<8;i++)await assert.rejects(service('office-login',{memberId:id,pin:'999'},'','blocked'));
- await assert.rejects(service('office-login',{memberId:id,pin:'123'},'','blocked'),/Too many/);
+ const {service}=officeFixture();await setPIN(service);const viewer=await service('view-login',{password:'synthetic-view'},'','gate');const session={viewerToken:viewer.viewerToken};for(let i=0;i<8;i++)await assert.rejects(service('office-login',{memberId:id,pin:'999'},'','blocked',session));
+ await assert.rejects(service('office-login',{memberId:id,pin:'123'},'','blocked',session),/Too many/);
  await assert.rejects(service('office-workspace',{memberId:id,operation:'read'},'teacher'),/Principal/);
 });
 
@@ -85,6 +85,42 @@ test('ASO and JSA each open and save only their own dashboard with their own off
 });
 
 test('office directory and notification filters retain existing linked teacher identities',async()=>{
- const {service}=officeFixture(),result=await call(service,'read');assert.deepEqual(result.directory['X:one'].identityIds,['X:one','XII:linked']);
- assert.equal(searchOfficeRows({one:row},{assignee:'XII:linked',assigneeIds:result.directory['XII:linked'].identityIds}).length,1);
+ const {service}=officeFixture(),result=await call(service,'read');assert.ok(result.directory['X:one'].identityIds.includes('X:one'));assert.ok(result.directory['X:one'].identityIds.includes('XII:linked'));
+ assert.equal(searchOfficeRows({one:row},{assignee:'XII:linked',assigneeIds:result.directory['X:one'].identityIds}).length,1);
+});
+
+test('simple OK reports require concerned PIN, are visible to Principal, and retain reviewed history',async()=>{
+ const {service}=officeFixture();await setPIN(service);const session=await login(service);
+ await assert.rejects(call(service,'submit-report',{expectedRevision:0,reportText:'OK'},'',session),/incorrect/);
+ const saved=await call(service,'submit-report',{expectedRevision:0,reportText:'OK',pin:'123'},'',session);assert.equal(saved.workspace.report.text,'OK');assert.equal(saved.workspace.report.status,'submitted');
+ await assert.rejects(call(service,'review-report',{expectedRevision:1,pin:'123'},'',session),/Principal/);
+ const summary=await service('office-workspace',{operation:'report-summary'},'principal');assert.equal(summary.reports.find(item=>item.member.id===id).report.text,'OK');
+ await call(service,'review-report',{expectedRevision:1});const again=await call(service,'submit-report',{expectedRevision:2,reportText:'OK — checked again',pin:'123'},'',session);assert.equal(again.workspace.reportHistory.report_1.status,'reviewed');assert.equal(again.workspace.report.revision,2);
+});
+test('editing one remarks field preserves source responsibility and previous remarks, including retained identities',()=>{
+ const old={...row,id:'office_existing',revision:1,sourceResponsible:'Original teacher and committee',resolution:'Previous resolution',reviewNote:'Source date warning',assignedIds:['historical-id']};const current={...emptyOfficeWorkspace(id),revision:1,rows:{office_existing:old}};
+ const saved=applyOfficeWorkspace(current,{memberId:id,operation:'save-row',rowId:old.id,rowRevision:1,expectedRevision:1,row:{...old,objections:'Updated single remark'}},{id,principal:true},{},1);
+ assert.equal(saved.rows.office_existing.resolution,old.resolution);assert.equal(saved.rows.office_existing.reviewNote,old.reviewNote);assert.equal(saved.rows.office_existing.sourceResponsible,old.sourceResponsible);assert.deepEqual(saved.rows.office_existing.assignedIds,old.assignedIds);
+ assert.throws(()=>applyOfficeWorkspace(current,{memberId:id,operation:'save-row',rowId:old.id,rowRevision:1,expectedRevision:1,row:{...old,assignedIds:['new-unknown-id']}},{id,principal:true},{},1),/directory/);
+});
+
+test('office assignment dropdown is exactly the approved 51 regular employees, without creating login identities',async()=>{
+ const {OFFICE_REGULAR_EMPLOYEES,officeRegularDirectory}=await import('../cbse-office-regular.js');const directory=officeRegularDirectory({'X:one':{name:'Jitendra Paul',designation:'TGT'},contract:{name:'Contractual Teacher',designation:'Instructor'}});
+ assert.equal(Object.keys(directory).length,51);assert.deepEqual(Object.values(directory).map(person=>person.name),OFFICE_REGULAR_EMPLOYEES.map(([name])=>name));assert.equal(directory.contract,undefined);assert.equal(directory['X:one'].name,'MR. JITENDER PAUL');
+ const {service,data}=officeFixture(),before=structuredClone(data.cbse.staffAccess),result=await call(service,'read');assert.equal(Object.keys(result.directory).length,51);assert.deepEqual(data.cbse.staffAccess,before);
+});
+
+test('a staff viewing session never authorizes voucher status changes',async()=>{
+ const {service}=officeFixture();await call(service,'save-row',{rowId:'office_1',expectedRevision:0,row});const viewer=await service('view-login',{password:'synthetic-view'},'','viewer');
+ await assert.rejects(call(service,'set-voucher-status',{rowId:'office_1',expectedRevision:1,rowRevision:1,status:'resolved',pin:'123'},'',{viewerToken:viewer.viewerToken}),/Office login/);
+ const saved=await call(service,'read');assert.equal(saved.workspace.rows.office_1.status,'pending');
+});
+
+test('header search finds full regular-employee names even when the workbook uses an abbreviation',()=>{assert.equal(searchOfficeRows({one:{...row,sourceResponsible:'SSA',assignedIds:['office:pramod-paswan']}},{query:'Pramod Paswan',directory:{'office:pramod-paswan':{name:'Mr. Pramod Paswan'}}}).length,1);});
+
+test('office PIN login and restored office sessions also require the existing curtain',async()=>{
+ const {service}=officeFixture();await setPIN(service);
+ await assert.rejects(service('office-login',{memberId:id,pin:'123'},'','first-login'),error=>error.curtainRequired===true);
+ const session=await login(service);assert.equal((await call(service,'read',{},'',session)).actor.id,id);
+ await assert.rejects(call(service,'read',{},'',{officeToken:session.officeToken}),error=>error.curtainRequired===true);
 });

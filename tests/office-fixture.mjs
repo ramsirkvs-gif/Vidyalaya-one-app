@@ -2,7 +2,7 @@ import {scryptSync} from 'node:crypto';
 import {createStaffService} from '../_server/staff-service.js';
 import {emptyFaculty} from '../cbse-faculty-model.js';
 export function officeFixture(){
- const faculty=emptyFaculty();faculty.classes.X.teachers.one={name:'Jitendra Paul',designation:'PGT',subjects:'English',status:'active'};faculty.classes.X.teachers.two={name:'Synthetic Teacher',designation:'TGT',subjects:'Maths',status:'active'};
+ const faculty=emptyFaculty();faculty.classes.X.teachers.one={name:'Jitendra Paul',designation:'PGT',subjects:'English',status:'active'};faculty.classes.X.teachers.two={name:'MONIKA YADAV',designation:'TGT',subjects:'Maths',status:'active'};
  faculty.classes.XII.teachers.linked={...faculty.classes.X.teachers.one};
  const data={cbse:{adminUid:'principal-uid',facultyDraft:faculty,mission:{revision:1,staff:{}},draft:{PRIVATE_STUDENT_RECORDS:'must not be read'},staffAccess:{existing:{hash:'original-teacher-hash',enabled:true}}}},reads=[];let clock=Date.parse('2026-11-14T10:00:00Z');
  const copy=value=>value===undefined?null:structuredClone(value),get=path=>path.split('/').reduce((value,key)=>value?.[key],data),put=(path,value)=>{const keys=path.split('/'),last=keys.pop();let parent=data;for(const key of keys)parent=parent[key]??={};if(value===null)delete parent[last];else parent[last]=copy(value);};

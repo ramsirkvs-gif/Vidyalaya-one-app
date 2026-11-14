@@ -1098,3 +1098,39 @@ requires Node, Python Playwright, openpyxl and `/usr/bin/chromium`). No test
 requires production PINs or school records. Local tests and a Git push do not
 verify a live deployment, import financial data, create production PINs, or publish
 an office register. The Principal must perform those application actions explicitly.
+
+### Simplified office register and reporting
+
+The register now shows every retained row in natural voucher-number order, with
+stable serial numbers and **Final status** as the last column. Cheque-only entries
+remain at the end. There is no 25-row cutoff or automatic teacher filter; direct
+search is placed under the dashboard title. Optional advanced filters remain
+available. The staff register uses the same ordered rows and has no Edit or
+Update controls. Pending assigned work shows the gently flashing default message
+**Please contact the office as soon as possible.** Reduced-motion preferences
+turn off the animation.
+
+Principal record feeding uses one **Objection / remark** field and one multi-select
+responsibility dropdown. That dropdown contains exactly the 51 regular employees
+specified by the Principal, in the supplied order. Existing portal IDs are linked
+where available; office-only assignment references for unmatched roster names
+never create logins, PINs or faculty records. Previously selected identities and
+legacy source/resolution/reconciliation text remain stored during edits.
+
+Mr. Pramod's audit login can change only each existing voucher's **Pending / Done**
+status and send his office report. Each update requires his fresh PIN and checks
+both workspace and row revisions. The server rejects audit detail, amount,
+assignment, title, import and publishing changes from that office login. Principal
+controls retain record feeding and publishing. Done is stored using the existing
+resolved status; other retained statuses display Pending until explicitly updated.
+ASO, SSA and JSA each have a one-box **OK / report remarks** submission to the
+Principal, protected by the concerned office PIN. Principal dashboard cards show
+submitted reports; the Principal can mark them reviewed. Resubmission retains
+previous report versions privately. Reporting does not publish the register or
+reports to staff.
+
+Office members must also pass the existing remembered staff-viewing curtain before
+PIN login or restoring an office session. This is enforced on the server as well
+as the page. An existing valid curtain session is reused; no second curtain
+password or new teacher credential is introduced. Office access checks use the
+access-only curtain check, avoiding unnecessary student or Mission data reads.
