@@ -1,3 +1,4 @@
+import {officeVoucherPeople} from './cbse-office-people.js';
 import {officeISODate,officeDisplayDate,officeFinancialYear} from './cbse-office-dates.js';
 // Office identities are intentionally separate from Mission faculty and PIN identities.
 export const OFFICE_MEMBERS=[
@@ -21,7 +22,7 @@ export function applyOfficeWorkspace(current,input,actor,directory,now){
  check(input.expectedRevision===prior.revision,'These office records changed. Refresh before saving; your entries are retained.');const next=structuredClone(prior),operation=input.operation;next.rows||={};
  if(operation==='save-row'){
   check(typeof input.rowId==='string'&&/^office_[a-zA-Z0-9_-]{1,90}$/.test(input.rowId),'Choose a valid record.');
-  const old=prior.rows?.[input.rowId];check(actor.principal||input.memberId!=='pramod-paswan'||!old,'Only the Principal can edit existing audit details. Update Pending / Done instead.');check((input.rowRevision??0)===(old?.revision||0),'This record changed. Refresh before saving.');const row=officeRow(input.row,directory,old?.assignedIds||[]);
+  const old=prior.rows?.[input.rowId];check((input.rowRevision??0)===(old?.revision||0),'This record changed. Refresh before saving.');const row=officeRow(input.row,directory,old?.assignedIds||[]);
   next.rows[input.rowId]={...row,id:input.rowId,revision:(old?.revision||0)+1,createdAt:old?.createdAt||now,createdBy:old?.createdBy||actor.id,updatedAt:now,updatedBy:actor.id};
  }else if(operation==='import'){
   check(Array.isArray(input.rows)&&input.rows.length>0&&input.rows.length<=1000,'Import between 1 and 1000 records.');
@@ -32,7 +33,7 @@ export function applyOfficeWorkspace(current,input,actor,directory,now){
   if(input.notes!==undefined){const notes=text(input.notes,15000);if(!prior.notes)next.notes=notes;}
  }else if(operation==='set-voucher-status'){
   check(typeof input.rowId==='string'&&Object.hasOwn(prior.rows||{},input.rowId),'Choose an existing voucher.');check(['pending','resolved'].includes(input.status),'Choose Pending or Done.');
-  const old=prior.rows[input.rowId];check(input.rowRevision===(old.revision||0),'This voucher changed. Refresh before updating its status.');const remark=text(input.remark??old.statusRemark??'',2000);check(input.status!=='pending'||remark,'Add a remark when marking a voucher Pending.');next.rows[input.rowId]={...old,status:input.status,statusRemark:remark,revision:(old.revision||0)+1,statusUpdatedAt:now,statusUpdatedBy:actor.id,updatedAt:now,updatedBy:actor.id};
+  const old=prior.rows[input.rowId];check(input.rowRevision===(old.revision||0),'This voucher changed. Refresh before updating its status.');const remark=text(input.remark??old.statusRemark??'',2000);next.rows[input.rowId]={...old,status:input.status,statusRemark:remark,revision:(old.revision||0)+1,statusUpdatedAt:now,statusUpdatedBy:actor.id,updatedAt:now,updatedBy:actor.id};
  }else if(operation==='submit-report'){
   const reportText=text(input.reportText,5000);check(reportText,'Enter OK or your report remarks.');
   if(prior.report){next.reportHistory||={};next.reportHistory['report_'+prior.report.revision]=structuredClone(prior.report);}
@@ -53,8 +54,8 @@ export function applyOfficeWorkspace(current,input,actor,directory,now){
 export function searchOfficeRows(rows,{query='',status='',assignee='',assigneeIds=[],fund='',bank='',from='',to='',financialYear='',directory={}}={}){
  const lookup=query.trim().match(/^(\d+(?:\s*[a-z])?)(?:[\s/]+(\d{4})(?:[-/]\d{2,4})?)?$/i),voucherKey=value=>String(value||'').replace(/\s+/g,'').toUpperCase();
  const words=query.toLowerCase().trim().split(/\s+/).filter(Boolean);return Object.values(rows||{}).filter(row=>{
-  const haystack=[officeDisplayDate(row.voucherDate),officeDisplayDate(row.chequeDate),...Object.keys(OFFICE_FIELDS).map(key=>row[key]),...(row.assignedNames||[]),...(row.assignedIds||[]).map(id=>directory[id]?.name||Object.values(directory).find(person=>person.identityIds?.includes(id))?.name||'')].join(' ').toLowerCase();const date=officeISODate(row.voucherDate)||officeISODate(row.chequeDate);
-  return (lookup?voucherKey(row.voucherNo)===voucherKey(lookup[1])&&(!lookup[2]||officeFinancialYear(row)===Number(lookup[2])):words.every(word=>word==='pending'?row.status!=='resolved':word==='done'?row.status==='resolved':/^\d+$/.test(word)?voucherKey(row.voucherNo)===word:haystack.includes(word)))&&(!financialYear||(financialYear==='unknown'?officeFinancialYear(row)===null:officeFinancialYear(row)===Number(financialYear)))&&(!status||(status==='pending'?row.status!=='resolved':row.status===status))&&(!assignee||(assigneeIds.length?assigneeIds:[assignee]).some(id=>row.assignedIds?.includes(id)))&&(!fund||row.fund===fund)&&(!bank||row.bank===bank)&&(!from||/^\d{4}-\d{2}-\d{2}$/.test(date)&&date>=from)&&(!to||/^\d{4}-\d{2}-\d{2}$/.test(date)&&date<=to);
+  const related=officeVoucherPeople(row,directory);const haystack=[...related.all.flatMap(person=>[person.name,...person.aliases]),officeDisplayDate(row.voucherDate),officeDisplayDate(row.chequeDate),...Object.keys(OFFICE_FIELDS).map(key=>row[key]),...(row.assignedNames||[]),...(row.assignedIds||[]).map(id=>directory[id]?.name||Object.values(directory).find(person=>person.identityIds?.includes(id))?.name||'')].join(' ').toLowerCase();const date=officeISODate(row.voucherDate)||officeISODate(row.chequeDate);
+  return (lookup?voucherKey(row.voucherNo)===voucherKey(lookup[1])&&(!lookup[2]||officeFinancialYear(row)===Number(lookup[2])):words.every(word=>word==='pending'?row.status!=='resolved':word==='done'?row.status==='resolved':/^\d+$/.test(word)?voucherKey(row.voucherNo)===word:haystack.includes(word)))&&(!financialYear||(financialYear==='unknown'?officeFinancialYear(row)===null:officeFinancialYear(row)===Number(financialYear)))&&(!status||(status==='pending'?row.status!=='resolved':row.status===status))&&(!assignee||(assigneeIds.length?assigneeIds:[assignee]).some(id=>row.assignedIds?.includes(id)||related.all.some(person=>person.id===id||person.identityIds.includes(id))))&&(!fund||row.fund===fund)&&(!bank||row.bank===bank)&&(!from||/^\d{4}-\d{2}-\d{2}$/.test(date)&&date>=from)&&(!to||/^\d{4}-\d{2}-\d{2}$/.test(date)&&date<=to);
  });
 }
 const normalise=value=>String(value).normalize('NFKC').toLowerCase().replace(/\b(mr|mrs|ms|dr|shri|smt|pr t|pgt|tgt|prt|ex)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim().replace(/\bjitender\b/g,'jitendra').replace(/\bsmrati\b/g,'smriti').replace(/\bajaya\b/g,'ajay');

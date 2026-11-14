@@ -1220,3 +1220,22 @@ year 2025–26, or select that financial year directly. List sections label each
 financial year explicitly. Ordering depends only on financial year derived from
 the actual voucher date and voucher number, not entry/update times or cheque
 metadata. Other word searches, including staff names and Pending/Done, remain.
+
+Staff voucher headers now show the concerned employee's official roster name,
+resolved from the published voucher description and known short-name aliases.
+Examples include Ajay KC → MR. AJAY KR. CHAUBEY, HM/Rohatsh → Mr. ROTHASH,
+and Anjali → MS. ANJALI. If the description names no listed employee, explicitly
+selected/source-matched responsible members are shown instead. Text/name filters
+and staff Pending selection use these same identity matches, including older
+vouchers without saved assignment IDs. This is read-only display/search matching;
+it does not rewrite voucher text, teacher identities, PINs or assignments.
+
+Status updates now offer only **Pending** and **Done**, plus **Update status**.
+There is no remark input or required comment. Previously saved status remarks
+remain stored and available in read-only historical voucher details.
+
+Filled office vouchers have a directly visible **Edit voucher** action under each
+row. Principal editing uses the existing session; office editing is limited to
+that member's own dashboard and requires a fresh personal PIN. Staff view remains
+read-only. Long cell contents are limited to a 140px scrollable text area, keeping
+the row compact without truncating or deleting stored text.

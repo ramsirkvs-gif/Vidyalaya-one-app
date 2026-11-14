@@ -16,3 +16,5 @@
 .office-register-table td:nth-child(4){white-space:pre-wrap;overflow-wrap:break-word}.office-register-table td:nth-child(-n+3){white-space:nowrap;overflow-wrap:normal}
 .office-register-table .office-just-saved td{box-shadow:inset 0 3px #278779,inset 0 -3px #278779;background-color:#eaf8ef}
 .office-register-table .office-year-heading th{text-align:left;background:#dcefe9;color:#164c43;font-size:14px;padding:12px;position:static;text-transform:none}
+.office-staff-voucher-heading{flex-wrap:wrap}.office-staff-voucher-heading .office-voucher-employee{flex-basis:100%;margin:4px 0 0;padding:7px 9px;background:#e9f4f2;border-radius:6px;font-weight:700;font-size:14px;color:#155e63}
+.office-cell-content{max-height:140px;overflow:auto;white-space:inherit;overflow-wrap:inherit;scrollbar-width:thin}.office-cell-content p:last-child{margin-bottom:0}.office-register-table .office-voucher-row>td{height:auto}.office-voucher-tools>button{margin:5px 0}.office-entry-chart textarea{max-height:180px;overflow:auto}
