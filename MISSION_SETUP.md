@@ -1391,3 +1391,10 @@ exact active recorded dates as Already on Leave / OD outside, instead of implyin
 that gaps through the last date are covered. Shared-list refresh also refreshes the
 daily RC table without discarding entry forms; status follows the saved dates and
 returns to normal reporting on unselected/cancelled dates.
+
+Staff voucher search now places matching cards above the consolidated report.
+Search feedback distinguishes no matching published voucher, matches hidden by
+Pending/Done filters, and matching Done vouchers with no pending work. A missing
+published match suggests republishing the selected task only if records were
+added/edited after publication. Exact voucher-number/year matching and draft
+privacy remain unchanged.
