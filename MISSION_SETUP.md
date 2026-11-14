@@ -1161,3 +1161,26 @@ form and staff summary. Existing shared office notes supply the display default;
 per-voucher notes are stored on that record without deleting or changing the
 shared source notes. Status-only updates preserve both. Published staff summaries
 use only their Principal-published voucher notes and shared notes snapshot.
+
+### Selection, publication entry and notes-area status controls
+
+Responsible people are added one at a time from the regular-employee dropdown to
+a visible **Selected responsible persons** area. Each selected name has a Remove
+control; adding another person retains the previous selections without modifier
+keys. Existing IDs are preserved. Voucher entry uses the same field order as the
+register, laid out as a row chart on large screens and stacked fields on phones.
+
+The office page defaults to the read-only staff catalogue. Office login is an
+explicit navigation choice, with the existing curtain and PIN requirements.
+Published catalogue cards identify **Pre-National Audit — Pramod Paswan**. Catalogue
+reads recognize a published title even if older summary metadata is absent; no
+private draft is used as a fallback. Publishing confirms that the report appears
+in the staff listing, and Principal controls include **View published staff report**.
+
+Every voucher has a column-position slider under its row, so horizontal movement
+is available beside the current entry. Pending/Done update controls are located
+inside that voucher's **Office-level audit notes** section; the final column only
+shows the saved status. Selecting Pending requires a remark. The concerned PIN is
+still required, and status updates preserve voucher details and assignments.
+Pending remarks are stored on the voucher and retained during Principal editing.
+Staff see only the Principal-published status and remark, without edit controls.

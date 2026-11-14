@@ -136,3 +136,18 @@ test('voucher-specific office audit notes save and survive status updates withou
  const {service}=officeFixture();await call(service,'save-settings',{expectedRevision:0,title:'Audit',notes:'Shared original office notes'});await call(service,'save-row',{expectedRevision:1,rowId:'office_note',row:{...row,officeNotes:'Individual voucher note'}});await setPIN(service);const session=await login(service);const result=await call(service,'set-voucher-status',{expectedRevision:2,rowId:'office_note',rowRevision:1,status:'resolved',pin:'123'},'',session);assert.equal(result.workspace.rows.office_note.officeNotes,'Individual voucher note');assert.equal(result.workspace.notes,'Shared original office notes');
  await call(service,'publish',{expectedRevision:3});const published=await service('office-staff-read',{memberId:id},'principal');assert.equal(published.published.rows.office_note.officeNotes,'Individual voucher note');
 });
+
+test('published office report remains listed if its legacy summary metadata is absent',async()=>{
+ const {service,db}=officeFixture();await db.ref('cbse/office/workspaces/pramod-paswan/published').set({title:'Pre-National audit',rows:{one:row}});
+ const result=await service('office-staff-read',{},'principal');assert.equal(result.summaries.length,1);assert.equal(result.summaries[0].member.id,id);assert.equal(result.summaries[0].title,'Pre-National audit');
+});
+test('Pending status requires a remark and changes only the status update fields',async()=>{
+ const {service}=officeFixture();await call(service,'save-row',{expectedRevision:0,rowId:'office_pending',row});await setPIN(service);const session=await login(service),input={expectedRevision:1,rowId:'office_pending',rowRevision:1,status:'pending',pin:'123'};
+ await assert.rejects(call(service,'set-voucher-status',input,'',session),/remark/);
+ const result=await call(service,'set-voucher-status',{...input,remark:'Awaiting signed receipt'},'',session);assert.equal(result.workspace.rows.office_pending.statusRemark,'Awaiting signed receipt');assert.equal(result.workspace.rows.office_pending.objections,row.objections);
+});
+
+test('Principal voucher editing preserves a previously saved Pending remark',async()=>{
+ const {service}=officeFixture();await call(service,'save-row',{expectedRevision:0,rowId:'office_remark',row});await call(service,'set-voucher-status',{expectedRevision:1,rowId:'office_remark',rowRevision:1,status:'pending',remark:'Office receipt awaited'});
+ const before=(await call(service,'read')).workspace.rows.office_remark;const saved=await call(service,'save-row',{expectedRevision:2,rowId:'office_remark',rowRevision:2,row:{...before,details:'Updated details'}});assert.equal(saved.workspace.rows.office_remark.statusRemark,'Office receipt awaited');
+});
