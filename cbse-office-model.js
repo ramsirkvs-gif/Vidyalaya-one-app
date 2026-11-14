@@ -20,7 +20,7 @@ export function applyOfficeWorkspace(current,input,actor,directory,now){
  check(input.expectedRevision===prior.revision,'These office records changed. Refresh before saving; your entries are retained.');const next=structuredClone(prior),operation=input.operation;next.rows||={};
  if(operation==='save-row'){
   check(typeof input.rowId==='string'&&/^office_[a-zA-Z0-9_-]{1,90}$/.test(input.rowId),'Choose a valid record.');
-  const old=prior.rows?.[input.rowId];check((input.rowRevision??0)===(old?.revision||0),'This record changed. Refresh before saving.');const row=officeRow(input.row,directory,old?.assignedIds||[]);
+  const old=prior.rows?.[input.rowId];check(actor.principal||input.memberId!=='pramod-paswan'||!old,'Only the Principal can edit existing audit details. Update Pending / Done instead.');check((input.rowRevision??0)===(old?.revision||0),'This record changed. Refresh before saving.');const row=officeRow(input.row,directory,old?.assignedIds||[]);
   next.rows[input.rowId]={...row,id:input.rowId,revision:(old?.revision||0)+1,createdAt:old?.createdAt||now,createdBy:old?.createdBy||actor.id,updatedAt:now,updatedBy:actor.id};
  }else if(operation==='import'){
   check(Array.isArray(input.rows)&&input.rows.length>0&&input.rows.length<=1000,'Import between 1 and 1000 records.');

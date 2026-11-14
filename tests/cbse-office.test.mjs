@@ -124,3 +124,10 @@ test('office PIN login and restored office sessions also require the existing cu
  const session=await login(service);assert.equal((await call(service,'read',{},'',session)).actor.id,id);
  await assert.rejects(call(service,'read',{},'',{officeToken:session.officeToken}),error=>error.curtainRequired===true);
 });
+
+test('Pramod can add a new voucher with his PIN but cannot change existing voucher details',async()=>{
+ const {service}=officeFixture();await setPIN(service);const session=await login(service);
+ const added=await call(service,'save-row',{expectedRevision:0,rowId:'office_new',rowRevision:0,row,pin:'123'},'',session);assert.equal(added.workspace.rows.office_new.details,row.details);
+ await assert.rejects(call(service,'save-row',{expectedRevision:1,rowId:'office_new',rowRevision:1,row:{...row,details:'changed'},pin:'123'},'',session),/Principal/);
+ const done=await call(service,'set-voucher-status',{expectedRevision:1,rowId:'office_new',rowRevision:1,status:'resolved',pin:'123'},'',session);assert.equal(done.workspace.rows.office_new.status,'resolved');
+});

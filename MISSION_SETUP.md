@@ -1134,3 +1134,23 @@ PIN login or restoring an office session. This is enforced on the server as well
 as the page. An existing valid curtain session is reused; no second curtain
 password or new teacher credential is introduced. Office access checks use the
 access-only curtain check, avoiding unnecessary student or Mission data reads.
+
+### Voucher-only controls and compact staff view
+
+The separate OK/report entry and report receipt panels are removed from office
+screens. Previously stored reports and history remain retained. **Add new voucher**
+is visible directly in both Principal and office dashboards. Office creation
+requires the concerned member's PIN. Pramod may create a new audit voucher and
+update any existing voucher's Pending/Done status, but the server prevents him
+from changing existing voucher details, amounts, observations or assignments.
+Principal record editing and publication controls are unchanged.
+
+Office register columns have explicit widths; voucher numbers, dates and amounts
+stay on one line, and wider text columns wrap at words. The complete table scrolls
+horizontally within its container without squeezing numeric values into letters.
+The staff view uses compact read-only voucher summaries instead of the wide office
+table. Its header searches full staff names, voucher/cheque numbers and text;
+selecting a regular employee and **Pending only** narrows the displayed work.
+Pending/Done badges, counts, the default office-contact notice and expandable
+read-only voucher details remain available. Staff have no add, edit or status
+update controls.
