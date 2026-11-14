@@ -1,3 +1,4 @@
+import {advanceLeaveStatus} from './cbse-advance-leave-model.js';
 import {rollDisplayName} from './cbse-roll-call-roster.js';
 import {el} from './cbse-ui.js';
 import {rollStaffStatus} from './cbse-roll-call-status.js';
@@ -23,10 +24,10 @@ export function renderDailyRollRegister(parent,data,wing,period,onOpen){
  }
  section.append(table);parent.append(section);
 }
-export function renderReportedLeaveRegister(parent,data,wing){
- const section=el('section',undefined,'roll-leave-register');section.append(el('h3','Reported Leave / OD outside · staff coordination'),el('p','For Samagam, timetable arrangements and CT / Co-CT accountability. This is not an office leave application or sanction.'));
- const table=el('table',undefined,'roll-staff-table'),head=el('thead'),tr=el('tr'),body=el('tbody');for(const label of ['S.No.','Name and designation','Leave / OD outside dates','Type of Leave / OD outside','Remark / Roll Call'])tr.append(el('th',label));head.append(tr);table.append(head,body);
- const records=Object.values(data.rollCall?.advanceLeaves||{}).filter(r=>r.wing===wing&&r.dates?.some(d=>!r.cancelledDates?.includes(d))).sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
- records.forEach((r,i)=>{const row=el('tr',undefined,'roll-staff-row'),person=data.staff[r.staffId],dates=r.dates.filter(d=>!r.cancelledDates?.includes(d));for(const [label,value]of [['S.No.',String(i+1)],['Name and designation',rollDisplayName(r.name)+(person?.designation?' · '+person.designation:'')],['Leave / OD outside dates',dates.map(rollDateText).join(', ')],['Type of Leave / OD outside',r.leaveKind||'Not specified (earlier report)'],['Remark / Roll Call',r.status==='recorded'?'Recorded · no Roll Call on selected dates':r.status==='pending'?'Review pending · Roll Call required':'Not approved · Roll Call required']]){const td=el('td',value);td.dataset.label=label;row.append(td);}body.append(row);});
- section.append(table);if(!records.length)section.append(el('p','No Leave / OD outside reports for this wing.'));parent.append(section);
+export function renderReportedLeaveRegister(parent,data,wing='',onRefresh){
+ const section=el('section',undefined,'roll-leave-register');section.append(el('h3','All Leave / OD outside submissions'),el('p','For Samagam, timetable arrangements and CT / Co-CT accountability. This is not an office leave application or sanction.'));
+ if(onRefresh){const refresh=el('button','Refresh submission list');refresh.type='button';refresh.onclick=onRefresh;section.append(refresh);}const table=el('table',undefined,'roll-staff-table'),head=el('thead'),tr=el('tr'),body=el('tbody');for(const label of ['S.No.','Name and designation','Leave / OD outside dates','Type of Leave / OD outside','Status','Principal comment'])tr.append(el('th',label));head.append(tr);table.append(head,body);
+ const records=Object.values(data.rollCall?.advanceLeaves||{}).filter(r=>(!wing||r.wing===wing)&&r.dates?.length).sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
+ records.forEach((r,i)=>{const row=el('tr',undefined,'roll-staff-row'),person=data.staff[r.staffId],dates=r.dates;for(const [label,value]of [['S.No.',String(i+1)],['Name and designation',rollDisplayName(r.name)+(person?.designation?' · '+person.designation:'')],['Leave / OD outside dates',dates.map(date=>rollDateText(date)+(r.cancelledDates?.includes(date)?' (cancelled)':'')).join(', ')],['Type of Leave / OD outside',r.leaveKind||'Not specified (earlier report)'],['Status',advanceLeaveStatus(r)],['Principal comment',r.reviewComment||'—']]){const td=el('td',value);td.dataset.label=label;row.append(td);}body.append(row);});
+ section.append(table);if(!records.length)section.append(el('p','No Leave / OD outside submissions yet.'));parent.append(section);
 }

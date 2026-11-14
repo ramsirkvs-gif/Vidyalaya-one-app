@@ -10,3 +10,5 @@ test('same bank and cheque warns only when recorded cheque amount differs',()=>{
  assert.equal(officeChequeConflicts(rows,{bank:'SBI',chequeNo:'1234',chequeAmount:''}).length,0);
  assert.equal(officeChequeConflicts(rows,{bank:'SBI',chequeNo:'1234',chequeAmount:'11000'},'one').length,0);
 });
+
+test('UBI cheque 613 across vouchers compares the full cheque amount, including Indian comma notation',()=>{const records={a:{id:'a',voucherNo:'101',bank:'UBI',chequeNo:'613',chequeAmount:'2,46,078',amount:'12000'},b:{id:'b',voucherNo:'102',bank:'UBI',chequeNo:'613',chequeAmount:'246078.00',amount:'30000'}};assert.equal(officeChequeConflicts(records,{bank:'ubi',chequeNo:'000613',chequeAmount:'2,46,078'}).length,0);assert.equal(officeChequeConflicts(records,{bank:'UBI',chequeNo:'613',chequeAmount:'2,46,780'}).length,2);});

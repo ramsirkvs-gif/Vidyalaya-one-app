@@ -1348,3 +1348,27 @@ expire cookies after prolonged inactivity; device-wide lifetime storage cannot
 be guaranteed by a website. Explicit viewing logout still revokes access. Roll
 Call connection failures show Retry loading instead of a curtain password form;
 only a confirmed curtain-required response opens that form.
+
+Leave / OD date entry offers individual days or an explicit inclusive date range.
+Applying a range confirms and selects every day, including both endpoints. Gaps
+in individual selections prompt a reminder that intermediate days are excluded.
+Saved data continues to use explicit dates; no existing endpoint-only records
+are automatically expanded.
+
+The staff Roll Call menu, daily RC view and Leave/OD area include a shared list
+of all wings' submissions: name, explicit dates, type, status and Principal review
+comment. Fully cancelled submissions remain labelled Cancelled; deleted records
+are removed and retained in private audit history. Refresh submission list updates
+only the list, preserving entry forms; visible staff lists also refresh every
+30 seconds. Principal Settings offers Leave/OD review/edit/delete alongside the
+Roll Call review tab. Edit and Revert require comments and revision checks; edits
+retain a private history and reject overlapping active dates. Revert marks the
+report returned, removes RC exemption, and lets only the concerned employee
+correct dates/type and answer the current checklist again with a fresh PIN.
+Resubmission updates the same record, retains private history and is idempotent.
+Staff see review comments and statuses, never checklist answers or audit history.
+
+Cheque warnings now also appear when bank/cheque number/cheque amount changes
+in the entry form. A mismatched full cheque amount for the same bank and number
+shows recorded voucher amounts for comparison, in addition to the final save
+confirmation. Voucher amounts remain independent of the full cheque amount.

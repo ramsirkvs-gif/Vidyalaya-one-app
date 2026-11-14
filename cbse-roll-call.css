@@ -70,3 +70,4 @@
 #open-chamber-settings{margin:8px 0 0 10px;padding:9px 14px;min-height:40px;border:1px solid #a4c9c0;border-radius:9px;font:700 15px Georgia,serif;color:#185c52;cursor:pointer}#open-chamber-settings[hidden]{display:none}
 .chamber-mini-tiles[hidden]{display:none}
 .roll-cartoon-heading{display:flex;align-items:center;gap:10px}.roll-cartoon-heading img{width:52px;height:52px;flex:none;object-fit:contain}
+.advance-leave-range{padding:12px;border:1px solid #b8d4cc;border-radius:10px;background:#fffdf1;margin-bottom:12px}.advance-leave-range[hidden]{display:none}.advance-leave-range label{display:inline-flex;flex-direction:column;max-width:100%;margin-right:12px}.advance-leave-range input{max-width:100%;box-sizing:border-box}
