@@ -170,3 +170,8 @@ test('Principal publication includes only the selected task; other tasks stay pr
  const result=await call(service,'publish',{expectedRevision:2,taskTitle:'Pre-National Audit'});assert.equal(result.workspace.published.title,'Pre-National Audit');assert.deepEqual(Object.keys(result.workspace.published.rows),['office_audit']);assert.ok(result.workspace.rows.office_other);
  const staff=await service('office-staff-read',{memberId:id},'principal');assert.ok(!JSON.stringify(staff).includes('PRIVATE OTHER TASK'));
 });
+
+test('numeric voucher lookup matches only voucher number and financial year, never amounts or other text',()=>{
+ const rows={wanted:{...row,voucherNo:'158',voucherDate:'03/10/2025'},amount:{...row,voucherNo:'20',amount:'158',details:'Voucher 158 mentioned'},otherYear:{...row,voucherNo:'158',voucherDate:'03/10/2024'}};
+ assert.equal(searchOfficeRows(rows,{query:'158'}).length,2);assert.deepEqual(searchOfficeRows(rows,{query:'158 2025'}).map(row=>row.voucherDate),['03/10/2025']);assert.equal(searchOfficeRows(rows,{query:'158/2024'}).length,1);assert.equal(searchOfficeRows(rows,{query:'158',financialYear:'2025'}).length,1);
+});

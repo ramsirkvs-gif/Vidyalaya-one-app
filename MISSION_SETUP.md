@@ -1213,3 +1213,10 @@ and cheque source dates determine financial-year placement; missing dates remain
 unknown. After a successful voucher save, the office register scrolls to and
 highlights that exact saved row, even if its voucher date places it farther down
 the register. The confirmation identifies the saved voucher number.
+
+Numeric voucher lookup matches the voucher identifier exactly, rather than amounts
+or unrelated narrative text. Enter `158 2025` to match voucher 158 in financial
+year 2025–26, or select that financial year directly. List sections label each
+financial year explicitly. Ordering depends only on financial year derived from
+the actual voucher date and voucher number, not entry/update times or cheque
+metadata. Other word searches, including staff names and Pending/Done, remain.

@@ -12,4 +12,4 @@ export function officeDateParts(value){
 }
 export function officeDisplayDate(value){const date=officeDateParts(value);if(!date)return String(value||'');const pad=value=>String(value).padStart(2,'0');return (date.firstDay!==undefined?pad(date.firstDay)+'-':'')+pad(date.day)+'/'+pad(date.month)+'/'+date.year;}
 export function officeISODate(value){const date=officeDateParts(value);return date&&date.firstDay===undefined?`${date.year}-${String(date.month).padStart(2,'0')}-${String(date.day).padStart(2,'0')}`:'';}
-export function officeFinancialYear(row){const date=officeDateParts(row.voucherDate)||officeDateParts(row.chequeDate);return date?date.year-(date.month<4?1:0):null;}
+export function officeFinancialYear(row){const date=officeDateParts(row.voucherDate);return date?date.year-(date.month<4?1:0):null;}

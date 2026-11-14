@@ -1,4 +1,4 @@
-import {officeISODate,officeDisplayDate} from './cbse-office-dates.js';
+import {officeISODate,officeDisplayDate,officeFinancialYear} from './cbse-office-dates.js';
 // Office identities are intentionally separate from Mission faculty and PIN identities.
 export const OFFICE_MEMBERS=[
  {id:'arjun-bori',name:'Mr. Arjun Bori',designation:'ASO',title:'Office finance and administration tasks'},
@@ -50,10 +50,11 @@ export function applyOfficeWorkspace(current,input,actor,directory,now){
  }else throw Error('Choose a valid office operation.');
  check(Object.keys(next.rows).length<=5000,'This register has reached 5000 rows.');next.revision=prior.revision+1;next.updatedAt=now;next.updatedBy=actor.id;return next;
 }
-export function searchOfficeRows(rows,{query='',status='',assignee='',assigneeIds=[],fund='',bank='',from='',to='',directory={}}={}){
+export function searchOfficeRows(rows,{query='',status='',assignee='',assigneeIds=[],fund='',bank='',from='',to='',financialYear='',directory={}}={}){
+ const lookup=query.trim().match(/^(\d+(?:\s*[a-z])?)(?:[\s/]+(\d{4})(?:[-/]\d{2,4})?)?$/i),voucherKey=value=>String(value||'').replace(/\s+/g,'').toUpperCase();
  const words=query.toLowerCase().trim().split(/\s+/).filter(Boolean);return Object.values(rows||{}).filter(row=>{
   const haystack=[officeDisplayDate(row.voucherDate),officeDisplayDate(row.chequeDate),...Object.keys(OFFICE_FIELDS).map(key=>row[key]),...(row.assignedNames||[]),...(row.assignedIds||[]).map(id=>directory[id]?.name||Object.values(directory).find(person=>person.identityIds?.includes(id))?.name||'')].join(' ').toLowerCase();const date=officeISODate(row.voucherDate)||officeISODate(row.chequeDate);
-  return words.every(word=>word==='pending'?row.status!=='resolved':word==='done'?row.status==='resolved':haystack.includes(word))&&(!status||(status==='pending'?row.status!=='resolved':row.status===status))&&(!assignee||(assigneeIds.length?assigneeIds:[assignee]).some(id=>row.assignedIds?.includes(id)))&&(!fund||row.fund===fund)&&(!bank||row.bank===bank)&&(!from||/^\d{4}-\d{2}-\d{2}$/.test(date)&&date>=from)&&(!to||/^\d{4}-\d{2}-\d{2}$/.test(date)&&date<=to);
+  return (lookup?voucherKey(row.voucherNo)===voucherKey(lookup[1])&&(!lookup[2]||officeFinancialYear(row)===Number(lookup[2])):words.every(word=>word==='pending'?row.status!=='resolved':word==='done'?row.status==='resolved':/^\d+$/.test(word)?voucherKey(row.voucherNo)===word:haystack.includes(word)))&&(!financialYear||(financialYear==='unknown'?officeFinancialYear(row)===null:officeFinancialYear(row)===Number(financialYear)))&&(!status||(status==='pending'?row.status!=='resolved':row.status===status))&&(!assignee||(assigneeIds.length?assigneeIds:[assignee]).some(id=>row.assignedIds?.includes(id)))&&(!fund||row.fund===fund)&&(!bank||row.bank===bank)&&(!from||/^\d{4}-\d{2}-\d{2}$/.test(date)&&date>=from)&&(!to||/^\d{4}-\d{2}-\d{2}$/.test(date)&&date<=to);
  });
 }
 const normalise=value=>String(value).normalize('NFKC').toLowerCase().replace(/\b(mr|mrs|ms|dr|shri|smt|pr t|pgt|tgt|prt|ex)\b/g,' ').replace(/[^a-z0-9]+/g,' ').trim().replace(/\bjitender\b/g,'jitendra').replace(/\bsmrati\b/g,'smriti').replace(/\bajaya\b/g,'ajay');
