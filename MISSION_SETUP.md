@@ -1019,3 +1019,26 @@ Student-specific preparation, stored-paper previews, final format choices and as
 The renderer reserves consistent student-identity, continuation and answer-identity heights across the assigned roster, so a long name does not unexpectedly add pages for a later copy. This roster reservation is retained when absent copies are skipped. Fonts and images finish loading before the displayed preview is marked ready and before combined copies print. Named papers retain QR answer blocks; separate answer-sheet settings remain separate. Content pages, total PDF pages (including duplex blanks) and physical A4 sheets are explicitly distinguished. Fractional content occupancy is no longer presented as the print-page requirement. Printer settings should be **A4, 100% scale, browser headers/footers off**; app CSS cannot override a user-selected printer paper size or scaling.
 
 `tests/cbse-mcq-preview-print-parity-browser.py` compares actual PDF page counts and physical A4 dimensions against the live preview in both columns, with short/long student names, linked passages, diagrams and separate answer sheets. It verifies all question IDs and final options remain in the PDFs. The unified-workflow test checks the preparation column selector, stored settings and both final formats; absent-copy and unrestricted-page tests retain original QR assignments, blank duplex pages and fresh-sheet boundaries.
+
+### Same-day remedial class reporting
+
+On the scheduled date, teachers can open **Report remedial class · attendance & photo**
+from their profile, or **Take attendance & record class** on the relevant plan in
+**Remedial Class Manager**, without first opening the planning form. Mark attendance,
+capture or attach a class photo, and submit with that teacher's existing personal PIN.
+Successful submissions show **Submitted successfully for Principal approval.**
+Reporting is available throughout the scheduled date until 11:59 PM IST, including
+after the planned end time. Same-day captured evidence remains usable later that day;
+future-date and next-day teacher submissions remain blocked. Principal approval and
+existing protections for records that have already been approved are unchanged.
+Incorrect/missing PINs, Escape during PIN entry, and failed requests retain attendance
+and the prepared photo in the open report. Explicit Close leaves the report; drafts
+are not uploaded until submission. Existing stored evidence is retained for attendance
+corrections and Principal review. Attachments are prepared locally using the existing
+JPEG size limit; the selected original file and previously stored images are unchanged.
+
+Validation: `node --test tests/cbse-remedial*.test.mjs tests/staff-service.test.mjs`
+and `python3 tests/cbse-remedial-session-browser.py` with the source server on port
+8000. The mobile browser test uses synthetic data and mocked Firebase at 23:59:59 IST,
+checks both entry points, camera/upload, bad/cancelled PIN, failed-request retention,
+resubmission and Principal approval. These checks do not verify a live deployment.
