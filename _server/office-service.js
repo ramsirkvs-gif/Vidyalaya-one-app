@@ -25,7 +25,7 @@ export function createOfficeService({db,read,principal,hashPIN,verifyPIN,throttl
   }
   if(action==='office-logout'){if(/^[a-f0-9]{64}$/.test(session.officeToken||''))await db.ref('cbse/officeSessions/'+digest(session.officeToken)).remove();return {ok:true};}
   if(action==='office-mark-done'){
-   const owner=officeMember(input.memberId);if(!owner)fail('Choose the office task owner.',400);let who;
+   const owner=officeMember(input.memberId);if(owner?.id==='sumit-puri'&&!token)fail('Only the Principal can update VVN final status.');if(!owner)fail('Choose the office task owner.',400);let who;
    if(token){await principal(token);who={id:'principal',principal:true};}else{await curtain(session);await confirmPIN(owner.id,input.pin,ip);who={id:owner.id,principal:false};}
    if(typeof input.rowId!=='string'||!/^office_[a-zA-Z0-9_-]{1,90}$/.test(input.rowId))fail('Choose a published voucher.',400);
    const path='cbse/office/workspaces/'+owner.id,known=await read(path);let reason='';

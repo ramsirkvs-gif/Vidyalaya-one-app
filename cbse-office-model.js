@@ -22,8 +22,12 @@ export function applyOfficeWorkspace(current,input,actor,directory,now){
  check(input.expectedRevision===prior.revision,'These office records changed. Refresh before saving; your entries are retained.');const next=structuredClone(prior),operation=input.operation;next.rows||={};
  if(operation==='save-row'){
   check(typeof input.rowId==='string'&&/^office_[a-zA-Z0-9_-]{1,90}$/.test(input.rowId),'Choose a valid record.');
-  const old=prior.rows?.[input.rowId];check((input.rowRevision??0)===(old?.revision||0),'This record changed. Refresh before saving.');const row=officeRow(input.row,directory,old?.assignedIds||[]);
-  next.rows[input.rowId]={...row,id:input.rowId,revision:(old?.revision||0)+1,createdAt:old?.createdAt||now,createdBy:old?.createdBy||actor.id,updatedAt:now,updatedBy:actor.id};
+  const old=prior.rows?.[input.rowId];check((input.rowRevision??0)===(old?.revision||0),'This record changed. Refresh before saving.');let source=input.row;const sumitSubmission=!actor.principal&&input.memberId==='sumit-puri';if(sumitSubmission){
+   const editable=['voucherNo','voucherDate','amount','details','chequeDate','chequeNo','bank','chequeAmount','voucherCount','registerPage'];source={...(old||{}),task:old?.task||prior.title,fund:old?.fund||'VVN',status:old?.status||'pending',assignedIds:old?.assignedIds||[]};
+   for(const key of Object.keys(OFFICE_FIELDS).filter(key=>!editable.includes(key)))if(input.row[key]!==undefined)check(input.row[key]===(source[key]||''),'Only the Principal can update the final review fields or task settings.');
+   check((input.row.status??'pending')===source.status&&JSON.stringify(input.row.assignedIds||[])===JSON.stringify(source.assignedIds),'Only the Principal can update responsible persons or final status.');for(const key of editable)source[key]=input.row[key]??'';
+  }const row=officeRow(source,directory,old?.assignedIds||[]);
+  next.rows[input.rowId]={...row,...(old?.submittedAt?{submittedAt:old.submittedAt,submittedBy:old.submittedBy}:{}),...(sumitSubmission?{submittedAt:now,submittedBy:actor.id}:{}),id:input.rowId,revision:(old?.revision||0)+1,createdAt:old?.createdAt||now,createdBy:old?.createdBy||actor.id,updatedAt:now,updatedBy:actor.id};
  }else if(operation==='import'){
   check(Array.isArray(input.rows)&&input.rows.length>0&&input.rows.length<=1000,'Import between 1 and 1000 records.');
   const keys=new Set(Object.values(next.rows).map(row=>row.sourceKey).filter(Boolean));for(const [index,source] of input.rows.entries()){
@@ -32,6 +36,7 @@ export function applyOfficeWorkspace(current,input,actor,directory,now){
   }
   if(input.notes!==undefined){const notes=text(input.notes,15000);if(!prior.notes)next.notes=notes;}
  }else if(operation==='set-voucher-status'){
+  check(actor.principal||input.memberId!=='sumit-puri','Only the Principal can update VVN final status.');
   check(typeof input.rowId==='string'&&Object.hasOwn(prior.rows||{},input.rowId),'Choose an existing voucher.');check(['pending','resolved'].includes(input.status),'Choose Pending or Done.');
   const old=prior.rows[input.rowId];check(input.rowRevision===(old.revision||0),'This voucher changed. Refresh before updating its status.');const remark=text(input.remark??old.statusRemark??'',2000);next.rows[input.rowId]={...old,status:input.status,statusRemark:remark,revision:(old.revision||0)+1,statusUpdatedAt:now,statusUpdatedBy:actor.id,updatedAt:now,updatedBy:actor.id};
  }else if(operation==='submit-report'){

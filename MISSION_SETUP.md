@@ -1300,3 +1300,12 @@ amount confirmation. Blank password fields discourage autofill. Cheque voucher
 range, voucher file number and summary sheet number are omitted from manual
 entry, while imported/existing values are preserved. Import and audit settings
 for both Pramod and Sumit require Principal access. No automatic publication.
+
+VVN role refinement: Sumit fills Part A (voucher number, voucher date, voucher
+amount, details) and Part B (cheque issue date/number, bank, cheque amount,
+vouchers covered, cheque register page). Submit to Principal requires Sumit's
+fresh PIN and records submission metadata. Part C (objection/remark, responsible
+persons, final Pending/Done) is Principal-only, enforced server-side for row
+edits, status updates and direct staff-card Done. Principal can view and edit
+Parts A, B and C, with no office PIN. Sumit's edits retain all existing Principal
+review fields. Submission saves privately; publication remains Principal-only.

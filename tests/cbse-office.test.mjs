@@ -79,7 +79,7 @@ test('office PIN login is throttled and teacher credentials cannot substitute fo
 test('ASO and JSA each open and save only their own dashboard with their own office PIN',async()=>{
  const {service}=officeFixture();for(const member of OFFICE_MEMBERS.filter(member=>member.id!==id)){
   await setPIN(service,member.id,'456');const session=await login(service,member.id,'456');const result=await service('office-workspace',{memberId:member.id,operation:'read'},'','role-ip',session);assert.equal(result.actor.id,member.id);
-  const saved=await service('office-workspace',{memberId:member.id,operation:'save-row',rowId:'office_role',expectedRevision:0,row:{...row,assignedIds:[]},pin:'456'},'','role-ip',session);assert.equal(saved.workspace.rows.office_role.updatedBy,member.id);
+  const saved=await service('office-workspace',{memberId:member.id,operation:'save-row',rowId:'office_role',expectedRevision:0,row:member.id==='sumit-puri'?{task:member.title,fund:'VVN',voucherNo:'222',details:'Synthetic VVN entry',status:'pending',assignedIds:[]}:{...row,assignedIds:[]},pin:'456'},'','role-ip',session);assert.equal(saved.workspace.rows.office_role.updatedBy,member.id);
   await assert.rejects(service('office-workspace',{memberId:id,operation:'read'},'','role-ip',session),/concerned office/);
  }
 });
