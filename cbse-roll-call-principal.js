@@ -21,7 +21,7 @@ export function renderRollPrincipalDashboard(host,{data,state,api,run,refresh,cl
   const ticket=++generation,scope=state.scope||'dashboard';root.dataset.workspace=scope;
   workspaceTitle.hidden=!['roll','settings'].includes(scope);workspaceTitle.textContent=scope==='roll'?(data.reporting?.title||'Roll Call'):scope==='settings'?'Settings':'';
   tools.hidden=!state.tab;const setupNotice=root.querySelector('[data-setup-notice]');if(setupNotice)setupNotice.hidden=scope!=='dashboard'||!state.tab;
-  tabs.replaceChildren();const choices=scope==='podcasts'?[]:scope==='roll'?[['pending','Monitoring'],['noc','IC Objections / NOC'],['advance-leave','Advance leave reports'],['records','Records / delete'],['reporting','Edit questions / title']]:scope==='settings'?[['staff','Staff / Faculty'],['pins','Shared PINs']]:[];
+  tabs.replaceChildren();const choices=scope==='podcasts'?[]:scope==='roll'?[['pending','Monitoring'],['noc','IC Objections / NOC'],['advance-leave','Advance leave/OD outside reporting'],['records','Records / delete'],['reporting','Edit questions / title']]:scope==='settings'?[['staff','Staff / Faculty'],['pins','Shared PINs']]:[];
   if(scope==='settings'){const office=el('a','Office members — separate PIN settings','button');office.href='cbse-office.html#settings';tabs.append(office);}
   tabs.hidden=!choices.length;
   for(const[value,label]of choices){const b=button(label,()=>{state.scope=['staff','pins'].includes(value)?'settings':value==='podcasts'?'podcasts':'roll';state.tab=value;state.staffEdit='';state.notification=null;drawTab();});b.dataset.tab=value;b.setAttribute('aria-pressed',String(value===state.tab||value==='pending'&&['approved','not-approved','missing'].includes(state.tab)));tabs.append(b);}

@@ -35,3 +35,7 @@ test('CT picker uses exact section roles and propagates aliases, without guessin
  const faculty={classes:{X:{teachers:{one:{...staff.a}},roles:{A:{classTeacher:'one',coClassTeacher:''}}},XII:{teachers:{},roles:{}}}},people={'X:one':staff.a,'support:alias':{...staff.a},'support:none':{...staff.a,name:'Other Teacher'}};
  const result=rollRoleDirectory(people,faculty,{X:{sections:{a:{name:'A'}}}});assert.equal(result['X:one'].classTeacher,true);assert.equal(result['support:alias'].classTeacher,true);assert.equal(result['support:none'].classTeacher,false);assert.ok(result['X:one'].classRoles.some(r=>r.sectionName==='A'&&r.role==='CT'));
 });
+test('OD outside uses the existing PIN submission, review and selected-date exemption workflow',()=>{
+ const recorded=applyRollCall({}, {...leave,leaveKind:'OD outside'},actor,staff,now,'od_outside');assert.equal(recorded.advanceLeaves.od_outside.leaveKind,'OD outside');assert.equal(recorded.advanceLeaves.od_outside.status,'recorded');assert.equal(publicAdvanceLeaves(recorded.advanceLeaves).od_outside.leaveKind,'OD outside');
+ const pending=applyRollCall({}, {...leave,leaveKind:'OD outside',answers:{...leave.answers,advance_approval:'no'},answerComments:{advance_approval:'Awaiting approval for outside duty.'}},actor,staff,now,'od_pending');assert.equal(pending.advanceLeaves.od_pending.status,'pending');
+});

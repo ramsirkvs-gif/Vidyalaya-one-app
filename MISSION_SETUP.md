@@ -1324,3 +1324,9 @@ objections remain the working text areas. Part A now splits its Details cell int
 Details and a separate free-text Tally voucher status remark. Both office owners
 can submit that remark, and Principal can edit it. It persists separately from
 final Pending/Done and is visible in voucher details and office register text.
+
+Advance leave reporting is labelled Advance leave/OD outside reporting in the
+Principal tab, Leave/OD outside reporting in staff navigation, and Report your
+Leave / OD outside on the form. The type dropdown includes OD outside as an
+explicit saved type. Existing full-day selected-date, checklist, PIN, review and
+Roll Call exemption rules apply; old leave records and identifiers are unchanged.
