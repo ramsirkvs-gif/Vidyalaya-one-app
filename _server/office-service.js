@@ -27,7 +27,7 @@ export function createOfficeService({db,read,principal,hashPIN,verifyPIN,throttl
   if(action==='office-staff-read'){
    if(token)await principal(token);else{const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');if(access.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}
    if(input.operation==='directory')return {directory:await safeDirectory()};
-   if(input.memberId){if(!officeMember(input.memberId))fail('Choose an office dashboard.',400);return {published:await read('cbse/office/workspaces/'+input.memberId+'/published')};}
+   if(input.memberId){if(!officeMember(input.memberId))fail('Choose an office dashboard.',400);const published=await read('cbse/office/workspaces/'+input.memberId+'/published');if(published?.rows)published.rows=Object.fromEntries(Object.entries(published.rows).map(([id,row])=>{const {reviewNote,...staffRow}=row;return [id,staffRow];}));return {published};}
    const summaries=await Promise.all(OFFICE_MEMBERS.map(async member=>{const path='cbse/office/workspaces/'+member.id+'/published',[summary,title]=await Promise.all([read(path+'/summary'),read(path+'/title')]);if(!title&&!summary?.title)return null;return {member,...(summary||{}),title:title||summary.title};}));return {summaries:summaries.filter(Boolean)};
   }
   const who=await actor(token,session.officeToken);if(!who.principal)await curtain(session);

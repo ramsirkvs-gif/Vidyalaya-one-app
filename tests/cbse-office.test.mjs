@@ -175,3 +175,10 @@ test('numeric voucher lookup matches only voucher number and financial year, nev
  const rows={wanted:{...row,voucherNo:'158',voucherDate:'03/10/2025'},amount:{...row,voucherNo:'20',amount:'158',details:'Voucher 158 mentioned'},otherYear:{...row,voucherNo:'158',voucherDate:'03/10/2024'}};
  assert.equal(searchOfficeRows(rows,{query:'158'}).length,2);assert.deepEqual(searchOfficeRows(rows,{query:'158 2025'}).map(row=>row.voucherDate),['03/10/2025']);assert.equal(searchOfficeRows(rows,{query:'158/2024'}).length,1);assert.equal(searchOfficeRows(rows,{query:'158',financialYear:'2025'}).length,1);
 });
+
+test('reconciliation warnings remain private in office view and are absent from new and legacy staff publications',async()=>{
+ const {service,db}=officeFixture();await call(service,'save-row',{expectedRevision:0,rowId:'office_private_note',row:{...row,reviewNote:'PRIVATE_RECONCILIATION_WARNING'}});await call(service,'publish',{expectedRevision:1});
+ const office=await call(service,'read');assert.equal(office.workspace.rows.office_private_note.reviewNote,'PRIVATE_RECONCILIATION_WARNING');assert.equal(office.workspace.published.rows.office_private_note.reviewNote,undefined);
+ await db.ref('cbse/office/workspaces/pramod-paswan/published/rows/office_private_note/reviewNote').set('LEGACY_PRIVATE_RECONCILIATION');
+ const viewer=await service('view-login',{password:'synthetic-view'},'','viewer');const staff=await service('office-staff-read',{memberId:id},'','viewer',{viewerToken:viewer.viewerToken});assert.equal(staff.published.rows.office_private_note.reviewNote,undefined);assert.ok(!JSON.stringify(staff).includes('LEGACY_PRIVATE_RECONCILIATION'));assert.equal(staff.published.rows.office_private_note.objections,row.objections);
+});

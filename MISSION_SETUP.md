@@ -1239,3 +1239,9 @@ row. Principal editing uses the existing session; office editing is limited to
 that member's own dashboard and requires a fresh personal PIN. Staff view remains
 read-only. Long cell contents are limited to a 140px scrollable text area, keeping
 the row compact without truncating or deleting stored text.
+
+Reconciliation/import action warnings (`reviewNote`) are office/Principal-only.
+They remain in the private voucher record and office register, but are omitted
+from new published staff snapshots and stripped from staff API responses for
+older snapshots. Staff cards and their expandable details do not render them.
+Audit objections and employee assignments remain visible as approved.
