@@ -10,9 +10,18 @@ export function createSharedView({db,context,now=Date.now,defaultSecret}){
  const read=async p=>(await db.ref(p).get()).val();let memoContext=null,memoVersion='',memoRead;
  async function browsingContext(){if(memoRead)return memoRead;memoRead=(async()=>{const versions=await Promise.all(['cbse/draft/revision','cbse/facultyDraft/revision','cbse/mission/revision'].map(read));const key=JSON.stringify(versions);if(memoContext&&key===memoVersion)return memoContext;memoContext=await context();memoVersion=key;return memoContext;})();try{return await memoRead;}finally{memoRead=null;}}
  const digest=token=>createHash('sha256').update(token).digest('hex');
- async function session(token){if(!/^[a-f0-9]{64}$/.test(token||''))return false;const saved=await read('cbse/viewSessions/'+digest(token));if(!saved||saved.expiresAt<=now())return false;if(saved.expiresAt<now()+390*24*60*60_000)await db.ref('cbse/viewSessions/'+digest(token)).update({expiresAt:now()+400*24*60*60_000});return true;}
+ const secretVersion=secret=>digest(JSON.stringify([secret?.salt||'',secret?.hash||'']));
+ async function grant(secret){const token=randomBytes(32).toString('hex');await db.ref('cbse/viewSessions/'+digest(token)).set({version:2,secretVersion:secretVersion(secret),createdAt:now()});return {viewerToken:token};}
+ async function session(token){
+  if(!/^[a-f0-9]{64}$/.test(token||''))return false;const path='cbse/viewSessions/'+digest(token),saved=await read(path);if(!saved)return false;const secret=await read('cbse/viewAccess')||defaultSecret,version=secretVersion(secret);
+  if(saved.version===2)return saved.secretVersion===version;
+  // Upgrade still-valid legacy browser sessions without asking for the password again.
+  if(!Number.isFinite(saved.expiresAt)||saved.expiresAt<=now()||secret?.updatedAt&&saved.createdAt<secret.updatedAt)return false;
+  await db.ref(path).update({version:2,secretVersion:version,expiresAt:null});return true;
+ }
+
  return async function handle(action,input={},viewerToken=''){
-  if(action==='view-grant'){const token=randomBytes(32).toString('hex'),expiresAt=now()+400*24*60*60_000;await db.ref('cbse/viewSessions/'+digest(token)).set({expiresAt,createdAt:now()});return {viewerToken:token,expiresAt};}
+  if(action==='view-grant')return grant(await read('cbse/viewAccess')||defaultSecret);
   if(action==='view-login'){
    const ip=String(input.ip||'unknown'),key=digest(ip);let blocked=false;
    await db.ref('cbse/viewAttempts/'+key).transaction(current=>{const c=current&&now()-current.started<15*60_000?current:{started:now(),count:0};if(c.count>=8){blocked=true;return;}return {...c,count:c.count+1};});
@@ -20,7 +29,7 @@ export function createSharedView({db,context,now=Date.now,defaultSecret}){
    const secret=await read('cbse/viewAccess')||defaultSecret,value=String(input.password||'');let valid=false;
    if(value.length<=100&&secret?.salt&&secret?.hash){const expected=Buffer.from(secret.hash,'hex'),actual=scryptSync(value,secret.salt,64);valid=actual.length===expected.length&&timingSafeEqual(actual,expected);}
    if(!valid)return {error:'Enter the staff viewing password.',status:401};
-   const token=randomBytes(32).toString('hex'),expiresAt=now()+400*24*60*60_000;await db.ref('cbse/viewSessions/'+digest(token)).set({expiresAt,createdAt:now()});await db.ref('cbse/viewAttempts/'+key).remove();return {viewerToken:token,expiresAt};
+   const result=await grant(secret);await db.ref('cbse/viewAttempts/'+key).remove();return result;
   }
   if(action==='view-logout'){if(/^[a-f0-9]{64}$/.test(viewerToken||''))await db.ref('cbse/viewSessions/'+digest(viewerToken)).remove();return {ok:true};}
   if(['view-data','view-version','view-student-photo','view-student-photos'].includes(action)){

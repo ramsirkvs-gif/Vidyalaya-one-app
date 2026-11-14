@@ -1338,3 +1338,13 @@ saved type distinguishes OD outside from each leave category. Recorded selected
 full days exempt both RC periods; pending/not-approved reports do not. Existing
 half-day leave rules, internal record keys, notification identities and custom
 published question snapshots remain intact.
+
+Shared viewing sessions now bind to a fingerprint of the viewing-password
+verifier and have no server-side time expiry. Valid legacy sessions upgrade
+without re-entry; changing the verifier invalidates remembered sessions. The
+HttpOnly cookie is renewed on successful staff reads throughout the app, using
+the browser-supported 400-day lifetime. Browsers can still clear site data or
+expire cookies after prolonged inactivity; device-wide lifetime storage cannot
+be guaranteed by a website. Explicit viewing logout still revokes access. Roll
+Call connection failures show Retry loading instead of a curtain password form;
+only a confirmed curtain-required response opens that form.
