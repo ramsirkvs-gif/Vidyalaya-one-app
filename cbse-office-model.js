@@ -81,3 +81,12 @@ export function officeChequeConflicts(rows,input,excludeId=''){
  if(!bank||!number||entered===null)return [];
  return Object.entries(rows||{}).filter(([id,row])=>id!==excludeId&&row.id!==excludeId&&key(row.bank)===bank&&cheque(row.chequeNo)===number&&amount(row.chequeAmount)!==null&&amount(row.chequeAmount)!==entered).map(([,row])=>row);
 }
+
+export function officeYearSummary(rows){
+ const groups=new Map();let otherRecords=0;
+ for(const row of Object.values(rows||{})){
+  if(!String(row.voucherNo||'').trim()){otherRecords++;continue;}
+  const year=officeFinancialYear(row);if(!groups.has(year))groups.set(year,{year,total:0,pending:0,done:0});const group=groups.get(year);group.total++;if(row.status==='resolved')group.done++;else group.pending++;
+ }
+ return {groups:[...groups.values()].sort((a,b)=>(b.year??-Infinity)-(a.year??-Infinity)),otherRecords};
+}
