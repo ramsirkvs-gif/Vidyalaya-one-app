@@ -76,6 +76,9 @@ with sync_playwright() as p:
  assert page.locator('.office-register-table tbody tr').filter(has_text='Synthetic audit voucher').locator('td').nth(5).evaluate('(node)=>node.classList.contains("office-audit-alert")')
  page.emulate_media(reduced_motion='reduce');assert page.locator('.office-audit-alert').first.evaluate('(node)=>getComputedStyle(node).animationName')=='none';page.emulate_media(reduced_motion='no-preference')
  page.screenshot(path='/tmp/office-arranged-table.png',full_page=True)
+ staff.get_by_role('button',name='Office logout — Mr. Pramod Paswan',exact=True).click();staff.get_by_role('heading',name='Office login',exact=True).wait_for();assert staff.get_by_role('button',name='Update status',exact=True).count()==0;assert staff.get_by_role('button',name='Office logout — Mr. Pramod Paswan',exact=True).count()==0
+ result=staff.evaluate('''async()=>{const response=await fetch('/api/staff-access',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'office-workspace',memberId:'pramod-paswan',operation:'read'})});return response.status;}''');assert result==401
+ staff.reload();staff.get_by_role('heading',name='Office login',exact=True).wait_for();assert staff.locator('[name=office-curtain-password]').count()==0
  assert not errors,errors
  browser.close()
 print('PASS mobile office PIN settings, dashboards, combined import, concerned-PIN saves, draft retention, Principal-only publication, staff notifications and search')
