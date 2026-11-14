@@ -16,3 +16,11 @@ test('financial-year reset puts post-March vouchers above larger numbers from th
 test('dates display as DD/MM/YYYY without guessing malformed dates or losing source ranges',async()=>{
  const {officeDisplayDate,officeISODate,officeFinancialYear}=await import('../cbse-office-dates.js');assert.equal(officeDisplayDate('2025-03-31'),'31/03/2025');assert.equal(officeDisplayDate('5/5/2025'),'05/05/2025');assert.equal(officeISODate('05/05/2025'),'2025-05-05');assert.equal(officeDisplayDate('06-07/03/2025'),'06-07/03/2025');assert.equal(officeDisplayDate('2025-02-31'),'2025-02-31');assert.equal(officeFinancialYear({voucherDate:'31/03/2025'}),2024);assert.equal(officeFinancialYear({voucherDate:'01/04/2025'}),2025);
 });
+
+test('voucher dates alone determine financial years, regardless of entry/update time',()=>{
+ const createdAt=Date.parse('2026-11-14T10:00:00Z'),rows={existing:{voucherNo:'157',voucherDate:'2026-09-17'},added158:{voucherNo:'158',voucherDate:'03/10/2025',createdAt},added159:{voucherNo:'159',voucherDate:'03/10/2025',createdAt,updatedAt:createdAt+86400000}};
+ assert.deepEqual(officeVoucherRows(rows).map(row=>row.voucherNo),['157','159','158']);assert.equal(rows.added158.voucherDate,'03/10/2025');
+});
+test('undated imported rows and explicitly dated manual vouchers retain their original financial-year treatment',async()=>{
+ const {officeFinancialYear}=await import('../cbse-office-dates.js');const createdAt=Date.parse('2026-11-14T10:00:00Z');assert.equal(officeFinancialYear({sourceKey:'import:1',createdAt}),null);assert.equal(officeFinancialYear({createdAt}),null);assert.equal(officeFinancialYear({voucherDate:'2025-03-31',createdAt}),2024);assert.equal(officeFinancialYear({voucherDate:'unclear source date',createdAt}),null);
+});

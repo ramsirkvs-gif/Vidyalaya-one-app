@@ -1207,3 +1207,9 @@ not deleted by this change.
 Voucher and cheque dates display as DD/MM/YYYY in the register, staff details and
 entry forms. Recognized single dates save in the existing ISO representation;
 source date ranges and unclear text remain preserved rather than guessed.
+
+Voucher ordering never uses creation, entry or update timestamps. Actual voucher
+and cheque source dates determine financial-year placement; missing dates remain
+unknown. After a successful voucher save, the office register scrolls to and
+highlights that exact saved row, even if its voucher date places it farther down
+the register. The confirmation identifies the saved voucher number.

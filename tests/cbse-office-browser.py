@@ -79,6 +79,7 @@ with sync_playwright() as p:
   page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth');assert page.locator('.office-register-table td').nth(2).evaluate('(node)=>getComputedStyle(node).whiteSpace')=='nowrap';assert page.locator('.office-register-table th').nth(2).bounding_box()['width']>=125
  assert page.locator('.office-register-table tbody tr.office-voucher-row').filter(has_text='Synthetic audit voucher').locator('td').nth(4).evaluate('(node)=>node.classList.contains("office-audit-alert")')
  page.emulate_media(reduced_motion='reduce');assert page.locator('.office-audit-alert').first.evaluate('(node)=>getComputedStyle(node).animationName')=='none';page.emulate_media(reduced_motion='no-preference')
+ assert page.locator('.office-voucher-row.office-just-saved').locator('td').first.inner_text()=='999'
  assert page.locator('.office-voucher-notes').count()==32
  assert page.locator('.office-voucher-tools input[type=range]').count()==32
  track=page.get_by_label('Move columns for voucher 1',exact=True);track.fill(track.get_attribute('max'));assert page.locator('.office-table-scroll').evaluate('(node)=>node.scrollLeft')>0;track.fill('0')
