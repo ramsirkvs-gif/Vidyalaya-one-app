@@ -21,7 +21,7 @@ test('office members can answer Principal objections with fresh PIN; replies are
  const result=await call(service,'reply-review',{...input,pin:'123'},'',session);assert.equal(result.workspace.rows.office_reply.status,'pending');assert.equal(result.workspace.rows.office_reply.reviewReplies[input.replyId].objection,row.objections);
  const retry=await call(service,'reply-review',{...input,pin:'123'},'',session);assert.equal(retry.workspace.revision,result.workspace.revision);assert.equal(Object.keys(retry.workspace.rows.office_reply.reviewReplies).length,1);
  await assert.rejects(call(service,'reply-review',{...input,pin:'123',reply:'Changed duplicate text'},'',session),/different text/);await assert.rejects(call(service,'set-voucher-status',{expectedRevision:2,rowId:'office_reply',rowRevision:2,status:'resolved',pin:'123'},'',session),/Principal/);
- await setPIN(service,'sumit-puri');const other=await login(service,'sumit-puri');await assert.rejects(call(service,'reply-review',{...input,pin:'123'},'',other),/concerned office/);
+ await setPIN(service,'sumit-puri','456');const other=await login(service,'sumit-puri','456');await assert.rejects(call(service,'reply-review',{...input,pin:'123'},'',other),/concerned office/);
  const published=await call(service,'publish',{expectedRevision:2});assert.equal(published.workspace.published.rows.office_reply.reviewReplies,undefined);
  const privateRead=await call(service,'read',{},'',session);assert.equal(privateRead.workspace.rows.office_reply.reviewReplies[input.replyId].text,input.reply);
  const review=await call(service,'save-row',{expectedRevision:3,rowId:'office_reply',rowRevision:2,row:{...row,objections:'No objection',status:'resolved'}});assert.equal(review.workspace.rows.office_reply.reviewReplies[input.replyId].text,input.reply);assert.equal(officeHasObjection(review.workspace.rows.office_reply.objections),false);
@@ -100,8 +100,8 @@ test('office PIN login is throttled and teacher credentials cannot substitute fo
 
 test('ASO and JSA each open and save only their own dashboard with their own office PIN',async()=>{
  const {service}=officeFixture();for(const member of OFFICE_MEMBERS.filter(member=>member.id!==id)){
-  await setPIN(service,member.id,'456');const session=await login(service,member.id,'456');const result=await service('office-workspace',{memberId:member.id,operation:'read'},'','role-ip',session);assert.equal(result.actor.id,member.id);
-  const saved=await service('office-workspace',{memberId:member.id,operation:'save-row',rowId:'office_role',expectedRevision:0,row:member.id==='sumit-puri'?{task:member.title,fund:'VVN',voucherNo:'222',details:'Synthetic VVN entry',status:'pending',assignedIds:[]}:{...row,assignedIds:[]},pin:'456'},'','role-ip',session);assert.equal(saved.workspace.rows.office_role.updatedBy,member.id);
+  const pin=member.id==='arjun-bori'?'456':'789';await setPIN(service,member.id,pin);const session=await login(service,member.id,pin);const result=await service('office-workspace',{memberId:member.id,operation:'read'},'','role-ip',session);assert.equal(result.actor.id,member.id);
+  const saved=await service('office-workspace',{memberId:member.id,operation:'save-row',rowId:'office_role',expectedRevision:0,row:member.id==='sumit-puri'?{task:member.title,fund:'VVN',voucherNo:'222',details:'Synthetic VVN entry',status:'pending',assignedIds:[]}:{...row,assignedIds:[]},pin},'','role-ip',session);assert.equal(saved.workspace.rows.office_role.updatedBy,member.id);
   await assert.rejects(service('office-workspace',{memberId:id,operation:'read'},'','role-ip',session),/concerned office/);
  }
 });

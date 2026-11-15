@@ -4,13 +4,13 @@ import {OFFICE_MEMBERS,officeMember,emptyOfficeWorkspace,applyOfficeWorkspace,tr
 import {encryptDisplayPIN,decryptDisplayPIN} from './pin-vault.js';
 export const OFFICE_COOKIE='vidyalaya_office';
 const digest=value=>createHash('sha256').update(value).digest('hex');
-export function createOfficeService({db,read,principal,hashPIN,verifyPIN,throttle,clearAttempt,displayKey,now,directoryStaff,sharedView,AccessError}){
+export function createOfficeService({db,read,principal,hashPIN,verifyPIN,pinPolicy,throttle,clearAttempt,displayKey,now,directoryStaff,sharedView,AccessError}){
  const fail=(message,status=403)=>{throw new AccessError(message,status);};
  async function curtain(session){const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');if(access.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}
  const safeDirectory=async()=>officeRegularDirectory(await directoryStaff());
  async function confirmPIN(id,pin,ip){
   if(!officeMember(id))fail('Choose an office member.',400);const ticket=await throttle('office:'+id,'office|'+ip),access=await read('cbse/officeAccess/'+id);
-  if(!access?.enabled||!await verifyPIN(pin,access))fail('The office PIN is incorrect or access is disabled.',401);await clearAttempt(ticket);return access;
+  if(!access?.enabled||!await verifyPIN(pin,access))fail('The office PIN is incorrect or access is disabled.',401);await pinPolicy.assertSelected(pin,'office:'+id);await clearAttempt(ticket);return access;
  }
  async function actor(token,officeToken){
   if(token){await principal(token);return {id:'principal',principal:true};}
@@ -51,11 +51,11 @@ export function createOfficeService({db,read,principal,hashPIN,verifyPIN,throttl
   if(action==='office-pin-settings'){
    if(!who.principal)fail('Principal access required.');if(input.operation==='set-pin'){
     if(!officeMember(input.memberId))fail('Choose an office member.',400);const record={...await hashPIN(input.pin),...encryptDisplayPIN(input.pin,'office:'+input.memberId,displayKey),enabled:true,version:randomUUID(),updatedAt:now()};
-    await db.ref('cbse/officeAccess/'+input.memberId).set(record);
+    await pinPolicy.commit({updates:[{key:'office:'+input.memberId,pin:input.pin,record}]});
    }else if(input.operation==='disable'){
     if(!officeMember(input.memberId))fail('Choose an office member.',400);await db.ref('cbse/officeAccess/'+input.memberId).update({enabled:false,version:randomUUID(),updatedAt:now()});
    }else if(input.operation!==undefined&&input.operation!=='read')fail('Choose a PIN setting.',400);
-   const access=await read('cbse/officeAccess')||{};return {members:OFFICE_MEMBERS.map(member=>({...member,pinSet:!!access[member.id]?.hash,enabled:!!access[member.id]?.enabled,pin:decryptDisplayPIN(access[member.id],'office:'+member.id,displayKey)}))};
+   const access=await read('cbse/officeAccess')||{},pinAudit=await pinPolicy.audit(await directoryStaff());return {pinAudit,members:OFFICE_MEMBERS.map(member=>({...member,pinSet:!!access[member.id]?.hash,enabled:!!access[member.id]?.enabled,pin:pinAudit.unavailable.includes('office:'+member.id)?'':decryptDisplayPIN(access[member.id],'office:'+member.id,displayKey)}))};
   }
   if(action!=='office-workspace')fail('Unknown office action.',400);
   if(input.operation==='report-summary'){if(!who.principal)fail('Principal access required.');return {reports:await Promise.all(OFFICE_MEMBERS.map(async member=>({member,report:await read('cbse/office/workspaces/'+member.id+'/report')})))};}
