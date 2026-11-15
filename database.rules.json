@@ -8,6 +8,7 @@
       }
     },
     "cbse": {
+      "taskManager": {".read": false, ".write": false},
       "adminUid": {
         ".read": "auth != null && auth.uid === data.val()",
         ".write": false

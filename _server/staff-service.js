@@ -1,3 +1,5 @@
+import {TASK1} from './task-manager-seed.js';
+import {applyTask,taskView} from '../cbse-task-manager-model.js';
 import {createOfficeService} from './office-service.js';
 import {createRevisionReadCache} from './revision-read-cache.js';
 import {creditQuestions,creditPapers,creditEvaluations,creditPosts,creditMission} from './credit-source-data.js';
@@ -87,6 +89,16 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
  async function officeDirectoryStaff(){const[faculty,support]=await Promise.all([readVersioned('cbse/facultyDraft','cbse/facultyDraft/revision',{fresh:true}),readVersioned('cbse/mission/staff','cbse/mission/revision',{fresh:true})]);const mission={staff:support||{}};return Object.fromEntries(entries(staffIndex(faculty,mission,{includeRollOnly:true})).map(([id,p])=>[id,{...p,officeIdentityIds:teacherIdentityIds(id,faculty,mission)}]));}
  const officeService=createOfficeService({db,read,principal,hashPIN,verifyPIN,throttle,clearAttempt:ticket=>pinDatabase(()=>pinAttempts.clear(ticket)),displayKey,now,directoryStaff:officeDirectoryStaff,sharedView,AccessError});
  return async function handle(action,input={},token='',ip='unknown',session={}){
+  if(action==='task-principal'||action==='task-read'){
+   const admin=action==='task-principal';if(admin||token)await principal(token);else{const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');if(access?.error){const e=new AccessError(access.error,access.status);e.curtainRequired=access.curtainRequired;throw e;}}
+   const staff=await directoryStaff(),actor={principal:admin,ids:[]};
+   const directory=Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active').map(([id,p])=>[id,{name:p.name,status:p.status}]));
+   if(!admin||!input.operation||input.operation==='read')return {...taskView(await read('cbse/taskManager')||{},actor),staff:directory};
+   let reason='';const id='task_'+randomUUID().replaceAll('-',''),known=await read('cbse/taskManager');
+   const result=await mcqTransaction(db,'cbse/taskManager',current=>{if(current===null&&known!==null)return null;reason='';try{return applyTask(current,input.operation==='create-task1'?{...input,draft:TASK1}:input,actor,staff,now(),id);}catch(e){reason=e.message;return;}},{restTransaction});
+   if(!result.committed||!result.snapshot?.val())throw new AccessError(reason||'Task save was not confirmed. Refresh before retrying.',409);
+   return {...taskView(result.snapshot.val(),actor),staff:directory,taskId:input.operation==='create-task1'?'task1':input.taskId||id};
+  }
   if(action.startsWith('office-'))return officeService(action,input,token,ip,session);
   if(['view-login','view-data','view-version','view-student-photo','view-student-photos','view-logout'].includes(action)){const result=await sharedView(action,{...input,ip},session.viewerToken||'');if(result?.error){const error=new AccessError(result.error,result.status);error.curtainRequired=result.curtainRequired;throw error;}return result;}
   if(action==='mcq-read'||action==='news-read'){if(token)await principal(token);else{const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}if(action==='news-read'){const output=value=>{try{return readTeamNews(value,input);}catch(e){throw new AccessError(e.message,400);}};if(input.photoId){if(typeof input.photoId!=='string'||!/^news_[A-Za-z0-9_-]{8,80}$/.test(input.photoId))throw new AccessError('Choose a News photo.',400);const [post,photo]=await Promise.all([read('cbse/teamNews/posts/'+input.photoId),read('cbse/teamNews/photos/'+input.photoId)]);return output({posts:post?{[input.photoId]:post}:{},photos:{[input.photoId]:photo}});}const [posts,revision]=await Promise.all([read('cbse/teamNews/posts'),read('cbse/teamNews/revision')]);return output({posts:posts||{},revision:revision||0});}return publicMCQBank(await read('cbse/mcq')||{},input);}
@@ -143,7 +155,18 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    if(['roll-call','podcast-list','podcast-ack','exam-attendance-save'].includes(input.operation)){const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}
    const selectedId=String(input.staffId||'');if(!/^[a-zA-Z0-9_:-]{1,200}$/.test(selectedId))throw new AccessError('Choose your name and enter your PIN.',401);const directory=await directoryStaff(),id=directory[selectedId]?.pinOwnerId||selectedId,access=await read(`cbse/staffAccess/${id}`),person=directory[id];if(!access?.enabled||person?.status!=='active')throw new AccessError('Choose your name and enter the correct PIN.',401);
    await verifySubmissionPIN(id,input.pin,access,ip,person);
-   action=String(input.operation||'comment');if(!['comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply','news-create','news-comment','credit-claim','mcq-contribute','mcq-import-csv','mcq-question-edit','mcq-question-delete','mcq-paper-delete','mcq-paper','mcq-evaluate','mcq-answer-key','remedial-plan','roll-call','movement','podcast-list','podcast-ack','exam-attendance-save'].includes(action))throw new AccessError('This operation requires Principal access.',403);if(!['roll-call','movement','podcast-list','podcast-ack'].includes(action)&&!missionMemberAllowed(person))throw new AccessError('This staff member is not part of the Mission team.',403);pinIdentity={decoded:{staffId:id},access};
+   action=String(input.operation||'comment');if(!['task-manager','comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply','news-create','news-comment','credit-claim','mcq-contribute','mcq-import-csv','mcq-question-edit','mcq-question-delete','mcq-paper-delete','mcq-paper','mcq-evaluate','mcq-answer-key','remedial-plan','roll-call','movement','podcast-list','podcast-ack','exam-attendance-save'].includes(action))throw new AccessError('This operation requires Principal access.',403);if(!['task-manager','roll-call','movement','podcast-list','podcast-ack'].includes(action)&&!missionMemberAllowed(person))throw new AccessError('This staff member is not part of the Mission team.',403);pinIdentity={decoded:{staffId:id},access};
+  }
+  if(action==='task-manager'){
+   if(!pinIdentity)throw new AccessError('Verify your existing personal PIN.',403);
+   const id=pinIdentity.decoded.staffId,staff=await directoryStaff(),access=await read('cbse/staffAccess/'+id);
+   if(!access?.enabled||access.version!==pinIdentity.access.version||staff[id]?.status!=='active')throw new AccessError('Staff access changed. Verify your PIN again.',403);
+   const actor={id,ids:rollStaffIdentityIds(staff,id)},inputTask={...input,operation:input.taskOperation};
+   if(input.taskOperation==='read')return taskView(await read('cbse/taskManager')||{},actor);
+   if(input.taskOperation!=='submit')throw new AccessError('Teachers may only read and submit their assigned report.',403);
+   let reason='';const known=await read('cbse/taskManager');const result=await mcqTransaction(db,'cbse/taskManager',current=>{if(current===null&&known!==null)return null;reason='';try{return applyTask(current,inputTask,actor,staff,now());}catch(e){reason=e.message;return;}},{restTransaction});
+   if(!result.committed||!result.snapshot?.val())throw new AccessError(reason||'Report save was not confirmed. Refresh before retrying.',409);
+   return taskView(result.snapshot.val(),actor);
   }
   if(action==='movement'||action==='movement-principal'){
    const admin=action==='movement-principal';if(admin)await principal(token);else if(!pinIdentity)throw new AccessError('Verify your own staff PIN.',403);

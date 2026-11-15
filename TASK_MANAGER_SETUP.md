@@ -1,0 +1,125 @@
+# Task manager
+
+Open **Principal Chamber → Task manager**, or **Students feeding → Task manager**.
+The Chamber tile opens Principal view when the existing Principal session is
+verified. Principal view uses the same persistent Firebase session as the rest
+of the portal; it only asks for the existing password when signed out. Explicit
+Sign out clears protected task content. Staff use the **already generated portal
+PINs**, including existing linked staff identities. No new PIN is generated or
+reset by Task manager.
+
+## Task 1: private draft, no live creation assumed
+
+After deploying the code with the existing protected server credential, open
+Principal view and click **Create Task 1 unpublished draft**. This creates
+`cbse/taskManager/tasks/task1` through the Principal-authorized API. Repeating
+the action preserves an existing task, its publication state and all reports.
+The title is the requested HQ-meeting survey; priority is High priority / Most
+urgent. Deadline, assignments and class figures are unprovided. It is not
+published automatically. The instructions and title of this initial draft are
+kept in the server seed, outside the generated public website.
+
+For an administrator who needs a private import instead, the safe template is
+`private-templates/task1-draft.json`. It contains instructions and empty report
+containers only, with no student/staff records or credentials. In the Firebase
+Console select **exactly** `/cbse/taskManager/tasks/task1` and import this JSON
+only when that child does not already exist. Never import at the database root,
+at `/cbse`, or over an existing task. Console import is an administrator action;
+direct browser database writes are intentionally denied. Keep filled figures,
+reports and private backups out of Git and public hosting.
+
+## Principal workflow
+
+1. Open **Edit task, assignments and class figures**. Assign an active existing
+   teacher to each of the 18 listed classes (IX A–D, X A–D, XI A–E, XII A–E).
+   The corrected entry is **XI E**, not X E.
+2. Enter total students, Cat-V students and ST students, or import class figures
+   JSON. Missing values remain **Unprovided**; zero is an explicitly supplied
+   figure. Import validates the entire file before changing the form. For example
+   (illustrative structure only; use the actual figures privately):
+
+   ```json
+   {"IX A":{"total":null,"catV":null,"st":null}}
+   ```
+
+3. Choose instruction visibility: **All staff** means staff with the existing
+   remembered viewing curtain can read the instructions; **Concerned staff**
+   means only the assigned teachers, after verifying their personal PIN. This
+   choice never grants access to everybody's survey reports.
+4. **Save private draft**, then **Publish** when ready. Publishing uses the saved
+   draft. Further edits stay private until published again. Time-bound priority
+   requires a deadline; the first two priorities do not invent one.
+5. Review submitted/pending classes, per-class reports and per-field totals.
+   Every total lists its supplying and missing classes. Header totals use supplied
+   class figures; survey totals use the latest saved report per class. Categories
+   overlap and must not be added into a unique-student total. PTMs count meetings.
+   Examination context is visible on each class report.
+6. The Principal comment after the results is private. **Stop publication** hides
+   the task from staff while retaining reports and comments. Re-publishing the
+   saved task restores assigned-class access.
+
+## Staff workflow and validation
+
+Open Staff view, select an existing staff identity, and verify the existing PIN.
+Assigned classes appear in the dropdown. Each class has a read-only enrollment,
+Cat-V and ST header; teachers cannot submit header changes. Supply the latest
+examination's name/context and aggregate counts only. Each count can remain
+**Not available / unconfirmed**; unknown counts are excluded from totals rather
+than treated as zero. Do not enter student names, locations or identifying
+family/health information. The only text in a teacher report is the examination
+name/context; additional arbitrary report fields are rejected server-side.
+
+Student counts cannot exceed supplied enrollment; passed + failed cannot exceed
+it either. PTMs are independently validated meeting counts. Where enrollment is
+unprovided, the UI says enrollment checks are not yet possible. Later supplied
+enrollment is checked against existing reports before saving/publishing.
+
+Each save requires the existing PIN again. Updates replace the report keyed by
+class, with a revision check to reject stale saves. No duplicate class report is
+created. Current published assignments determine access; reassigning and
+publishing removes the old teacher's access and grants the new teacher access
+to the retained class report. Private draft edits/comments do not invalidate a
+teacher's currently published form. Publication changes require a refresh.
+Saves retain the relevant form. Unsaved forms participate in the existing
+deployment-update guard, navigation confirmations and before-unload protection.
+
+## Storage and deployment boundary
+
+Everything is under **`cbse/taskManager`**, outside `cbse/mission`, broad shared
+view payloads, public snapshots, and Office/SF/VVN, Roll Call and Leave/OD data.
+Realtime Database rules explicitly deny direct client reads and writes to this
+namespace. Existing default-deny rules also protect it when no broader ancestor
+grant exists. Merge the supplied deny-only child into your actual rules if
+needed; do not overwrite unrelated production rules. The server uses the
+existing `FIREBASE_SERVICE_ACCOUNT_JSON` credential and checks the configured
+Principal UID, existing enabled PIN, active staff identity, class assignment,
+publication state and report/task revisions. Existing PIN throttling applies.
+There is no new service account, auth provider, PIN system or environment variable.
+
+Vercel must deploy the updated `api/staff-access.js`, `_server` modules and the
+generated static site together. A Python static HTTP server cannot execute the
+real API. No live draft creation, rules publication, Git push or production
+deployment is implied by local validation. The onboarding machine has no live
+Firebase service-account credential, so Task 1 is delivered as the server-side
+creation operation plus the private importable template.
+
+## Local validation
+
+From the repository with Node 22 and locked dependencies installed:
+
+```sh
+export PATH=/workspace/.tooling/node_modules/node/bin:$PATH
+node --test --test-concurrency=2 tests/*.test.mjs
+npm run build
+python3 tests/task-manager-browser.py
+```
+
+The browser test starts and stops its own synthetic HTTP backend on port 8012,
+uses the real task service and PIN hashing with a synthetic database, and mocks
+only Firebase identity and the remembered curtain. It checks Principal session
+reuse, draft creation, assignments/figure import, publication, teacher PINs,
+read-only figures, report replacement, totals, comments, layout, unsaved code
+update protection and logout. Node tests cover invalid counts, wrong identities,
+unassigned classes, disabled PINs, stale writes, confidential payload filtering,
+publication retention, direct-client rule denial and build-output exclusions.
+These checks do not replace verification of a deployed Firebase/Vercel instance.

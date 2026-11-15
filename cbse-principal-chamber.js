@@ -37,3 +37,5 @@ window.addEventListener('chamber-principal-session',event=>{if(!event.detail.sig
 document.getElementById('open-short-movement').addEventListener('click',async event=>{event.preventDefault();const controller=await openRollWorkspace();await controller.openMovement();document.getElementById('roll-call-workspace').scrollIntoView({block:'start',behavior:'smooth'});});
 
 window.addEventListener('chamber-activity-changed',()=>principalNotificationsPanel?.refresh());
+
+window.addEventListener('chamber-principal-session',event=>{const tile=document.getElementById('open-task-manager');tile.href='cbse-task-manager.html'+(event.detail.signedIn?'#principal':'#staff');tile.querySelector('b').textContent=event.detail.signedIn?'Create / publish / stop publication →':'Staff view →';});
