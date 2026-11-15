@@ -34,9 +34,9 @@ try:
         card.get_by_text('Edit task, survey questions and teacher assignments',exact=True).click()
         card.get_by_label('Task title',exact=True).wait_for(state='visible');assert card.get_by_label('Deadline (leave blank if not provided)',exact=True).input_value()==''
         assert card.get_by_label('Teacher for IX A',exact=True).locator('option[value="X:one"]').inner_text()=='Synthetic Teacher one'
-        assert card.locator('.task-question-editor').count()==16
-        card.get_by_label('Question 10',exact=True).fill('Students frequently sleepy during class this week')
-        card.get_by_role('button',name='Add survey question',exact=True).click();card.get_by_label('Question 17',exact=True).fill('Synthetic additional student category')
+        assert card.locator('.task-question-editor').count()==16;assert card.locator('.task-question-editor select').count()==0;assert card.get_by_label('Question 4',exact=True).input_value()=='Number passed in the latest examination';assert card.locator('.task-fixed-editor [data-fixed-question]').count()==3
+        card.get_by_label('Question 13',exact=True).fill('Students frequently sleepy during class this week')
+        card.get_by_role('button',name='Add survey question',exact=True).click();card.get_by_label('Question 20',exact=True).fill('Synthetic additional student category')
         card.get_by_label('Teacher for IX A',exact=True).select_option('X:one')
         card.get_by_label('Teacher for XI E',exact=True).select_option('X:two')
         card.locator('[name=header-import]').set_input_files({'name':'synthetic-figures.json','mimeType':'application/json','buffer':json.dumps({'IX A':{'total':24,'catV':0,'st':None}}).encode()})
@@ -50,9 +50,9 @@ try:
         with urllib.request.urlopen(BASE+'synthetic-strength.xlsx') as response:workbook=response.read()
         card.locator('[name=header-import]').set_input_files({'name':'synthetic-strength.xlsx','mimeType':'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet','buffer':workbook})
         page.get_by_role('status').get_by_text('Figures imported into the form.',exact=False).wait_for()
-        assert card.get_by_label('Teacher for XI E',exact=True).input_value()=='X:two';assert card.get_by_label('Total students · XII E',exact=True).input_value()=='24'
+        assert card.get_by_label('Teacher for XI E',exact=True).input_value()=='X:two';assert card.get_by_label('Total students · XII E',exact=True).input_value()=='24';assert card.locator('.task-fixed-editor [data-fixed-question=total] strong').inner_text()=='24';assert card.locator('.task-fixed-editor [data-fixed-question=catV] strong').inner_text()=='0'
         card.get_by_role('button',name='Save private draft',exact=True).click();page.get_by_role('status').get_by_text('Private draft saved.',exact=False).wait_for()
-        assert card.locator('details').first.get_attribute('open') is not None;assert card.locator('.task-survey-preview .task-count').count()==17;assert card.get_by_label('Question 10',exact=True).input_value()=='Students frequently sleepy during class this week'
+        assert card.locator('details').first.get_attribute('open') is not None;assert card.locator('.task-survey-preview .task-count').count()==17;assert card.get_by_label('Question 13',exact=True).input_value()=='Students frequently sleepy during class this week'
         page.on('dialog',lambda d:d.accept())
         card.get_by_role('button',name='Publish',exact=True).click();page.get_by_role('status').get_by_text('Published. Reports remain restricted',exact=False).wait_for()
         page.reload();card.get_by_role('button',name='Stop publication',exact=True).wait_for();assert page.get_by_label('Principal password',exact=True).count()==0
@@ -65,10 +65,10 @@ try:
         teacher.set_viewport_size({'width':390,'height':844});teacher.screenshot(path='/tmp/task-manager-public-mobile.png',full_page=False)
         teacher.locator('[data-task-class="IX A"]').get_by_role('button',name='Start & Submit Now',exact=True).click();teacher.locator('[name=start-pin]').fill('000');teacher.get_by_role('button',name='Verify PIN and open survey',exact=True).click();teacher.locator('dialog [role=alert]').get_by_text('PIN does not match',exact=False).wait_for();assert teacher.locator('.task-count').count()==0
         teacher.locator('[name=start-pin]').fill('123');teacher.get_by_role('button',name='Verify PIN and open survey',exact=True).click()
-        teacher.get_by_role('heading',name='IX A',exact=True).wait_for();teacher.screenshot(path='/tmp/task-manager-survey-mobile.png',full_page=False);assert teacher.locator('.task-count').count()==17;assert teacher.get_by_label('Students frequently sleepy during class this week status',exact=True).count()==1;assert teacher.locator('.task-header').inner_text().count('Unprovided')==1;assert teacher.locator('.task-header input').count()==0
+        teacher.get_by_role('heading',name='IX A',exact=True).wait_for();teacher.screenshot(path='/tmp/task-manager-survey-mobile.png',full_page=False);assert teacher.locator('.task-count').count()==17;assert teacher.locator('.task-count select').count()==0;assert teacher.locator('.task-count label').first.inner_text()=='Q4. Number passed in the latest examination';assert teacher.locator('[data-fixed-question=total]').inner_text().startswith('Q1 · View only');assert teacher.locator('.task-header').inner_text().count('Unprovided')==1;assert teacher.locator('.task-header input').count()==0
         teacher.get_by_label('Latest examination name / context (no student details)',exact=True).fill('Synthetic preboard')
         for name,value in [('passed','20'),('failed','4'),('ptms','40')]:
-            row=teacher.locator('.task-count').filter(has=teacher.locator('[name='+name+']'));row.locator('select').select_option('known');row.locator('input').fill(value)
+            row=teacher.locator('.task-count').filter(has=teacher.locator('[name='+name+']'));row.locator('input').fill(value)
         teacher.locator('[name=teacher-remarks]').fill('Synthetic class observation: irregular practice.\nSuggested support: guided revision.')
         teacher.get_by_label('Your existing personal PIN to submit / update',exact=True).fill('000');teacher.get_by_role('button',name='Submit class report',exact=True).click();teacher.locator('.task-save-confirmation').get_by_text('PIN does not match',exact=False).wait_for();assert teacher.locator('[name=teacher-remarks]').input_value().startswith('Synthetic class observation')
         teacher.get_by_label('Your existing personal PIN to submit / update',exact=True).fill('123');teacher.get_by_role('button',name='Submit class report',exact=True).click();teacher.get_by_role('status').get_by_text('IX A report saved.',exact=False).wait_for()

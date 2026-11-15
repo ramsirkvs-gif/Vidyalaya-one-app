@@ -32,8 +32,11 @@ reports and private backups out of Git and public hosting.
 
 1. Open **Edit task, survey questions and teacher assignments**. All survey
    questions appear below the task instructions. Edit their full wording or use
-   **Add survey question** (up to 60). Select student count or meeting count;
-   responses remain aggregate counts, not personal narratives. Assign an active existing
+   **Add survey question** (up to 60). Q1–Q3 are the read-only class figures (total students, Cat-V and ST);
+   editable questions begin at Q4. Count-type dropdowns are not shown.
+   Existing meeting fields such as PTMs retain their meeting-count validation;
+   added questions default to student counts. Responses remain aggregate counts,
+   not personal narratives. Assign an active existing
    teacher to each of the 18 listed classes (IX A–D, X A–D, XI A–E, XII A–E).
    The corrected entry is **XI E**, not X E.
 2. Enter total students, Cat-V students and ST students, or click
@@ -103,8 +106,8 @@ full-width form with readable inputs and touch-sized action buttons.
 
 Each class form has a read-only enrollment, Cat-V and ST header. Teachers cannot
 submit header changes. Supply the latest
-examination's name/context and aggregate counts only. Each count can remain
-**Not available / unconfirmed**; unknown counts are excluded from totals rather
+examination's name/context and aggregate counts only. Teachers enter counts directly in plain number cells, without dropdowns.
+Leave a cell blank for **Not available / unconfirmed**; unknown counts are excluded from totals rather
 than treated as zero. Do not enter student names, locations or identifying
 family/health information. Teacher reports also have an optional remarks box at the end for class-level
 perspectives, reasons for difficulties in academic progress and suggested support
