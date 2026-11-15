@@ -1,3 +1,4 @@
+export const TASK1_TITLE='IX–XII: High-urgency survey for the HQ meeting — regional inputs relevant to our Vidyalaya — confidential data for higher-level submission.';
 // Public mentor/support list explicitly supplied by the Principal in prompt file.docx.
 // Support is informational; it does not grant report submission permissions.
 export const TASK1_ROSTER=[
@@ -22,7 +23,13 @@ export const TASK1_ROSTER=[
 ].map(([classId,mentor,support,names])=>({classId,mentor,support,names}));
 const nameKey=name=>String(name||'').toUpperCase().replace(/^(?:MR|MRS|MS|DR|SHRI|SMT)[.\s]+/,'').replace(/[^A-Z]/g,'');
 export function taskRosterStore(value,staff,identityIds=(_staff,id)=>[id]){
- const store=structuredClone(value||{}),task=store.tasks?.task1;if(!task||task.rosterAssignmentsApplied)return store;task.rosterAssignmentsApplied=true;
+ const store=structuredClone(value||{}),task=store.tasks?.task1;if(!task)return store;
+ // Apply the Principal's wording correction to this known survey, including
+ // already-published titles. Other task names and edited custom titles remain intact.
+ const titleKey=value=>String(value||'').toLowerCase().replace(/[^a-z0-9]/g,'').replace(/^ixxii/,'');
+ const legacy=/^highurgencysurveyfor(?:the)?hqmeetingregionalinputsrelevanttoourvidyalayaconfidential(?:student)?dataforhigherlevelsubmission$/;
+ for(const cfg of [task.draft,task.published])if(cfg&&legacy.test(titleKey(cfg.title)))cfg.title=TASK1_TITLE;
+ if(task.rosterAssignmentsApplied)return store;task.rosterAssignmentsApplied=true;
  // Existing explicit Principal assignments win. Fill only missing entries using
  // exact documented names/aliases and unambiguous existing linked identities.
  for(const config of [task.draft,task.published])if(config){config.assignments||={};for(const row of TASK1_ROSTER){if(config.assignments[row.classId])continue;const keys=row.names.map(nameKey),matches=Object.keys(staff).filter(id=>staff[id].status==='active'&&keys.includes(nameKey(staff[id].name))).sort();if(!matches.length)continue;const linked=identityIds(staff,matches[0]);if(matches.some(id=>!linked.includes(id)))continue;const prefix=/^(IX|X) /.test(row.classId)?'X:':'XII:';config.assignments[row.classId]=matches.find(id=>id.startsWith(prefix))||matches[0];}}
