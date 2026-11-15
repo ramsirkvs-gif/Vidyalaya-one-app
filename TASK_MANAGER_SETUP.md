@@ -87,8 +87,13 @@ Cat-V and ST header; teachers cannot submit header changes. Supply the latest
 examination's name/context and aggregate counts only. Each count can remain
 **Not available / unconfirmed**; unknown counts are excluded from totals rather
 than treated as zero. Do not enter student names, locations or identifying
-family/health information. The only text in a teacher report is the examination
-name/context; additional arbitrary report fields are rejected server-side.
+family/health information. Teacher reports also have an optional remarks box at the end for class-level
+perspectives, reasons for difficulties in academic progress and suggested support
+(up to 2,000 characters). Remarks must not contain student names or identifying
+family/health information. They remain private to the Principal and the currently
+assigned teacher, appear after the counts in each class report, and are excluded
+from totals and broad staff payloads. Teachers can edit or clear them using their
+existing PIN. Extra arbitrary report fields are rejected server-side.
 
 Student counts cannot exceed supplied enrollment; passed + failed cannot exceed
 it either. PTMs are independently validated meeting counts. Where enrollment is

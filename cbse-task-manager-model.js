@@ -21,8 +21,8 @@ export function taskCompatibleValues(report,config={}){
 export function taskHeader(value={}){if(!value||typeof value!=='object'||Array.isArray(value))fail('Invalid class figures.');const h=Object.fromEntries(Object.keys(TASK_HEADERS).map(k=>[k,count(value[k])]));for(const k of ['catV','st'])if(h.total!==null&&h[k]!==null&&h[k]>h.total)fail('Class figures cannot exceed enrollment.');return h;}
 export function taskReport(value,header={},config={}){
  if(!value||typeof value!=='object'||Array.isArray(value))fail('Enter aggregate report counts.');
- const questions=taskQuestions(config),ids=new Set(questions.map(q=>q.id));if(Object.keys(value).some(k=>!ids.has(k)&&k!=='examContext'))fail('Only aggregate survey fields are accepted.');
- const report={examContext:text(value.examContext,200,'latest examination name/context',true)};
+ const questions=taskQuestions(config),ids=new Set(questions.map(q=>q.id));if(Object.keys(value).some(k=>!ids.has(k)&&!['examContext','remarks'].includes(k)))fail('Only aggregate survey fields and teacher remarks are accepted.');
+ const report={examContext:text(value.examContext,200,'latest examination name/context',true),remarks:text(value.remarks===undefined?'':value.remarks,2000,'teacher remarks (up to 2,000 characters)')};
  for(const q of questions){report[q.id]=count(value[q.id]);if(q.kind==='students'&&header.total!=null&&report[q.id]!==null&&report[q.id]>header.total)fail(q.label+' cannot exceed enrollment.');}
  if(header.total!=null&&report.passed!=null&&report.failed!=null&&report.passed+report.failed>header.total)fail('Passed plus failed cannot exceed enrollment.');return report;
 }
@@ -64,7 +64,8 @@ export function applyTask(store,input,actor,staff,stamp,id){
   const c=input.classId,p=t.published;if(!p||!TASK_CLASSES.includes(c)||!actor.ids.includes(p.assignments?.[c]))fail('This published class report is not assigned to you.');
   if(input.expectedRevision!==t.publishedRevision)fail('Task instructions or assignments changed. Refresh before saving.');
   if(input.reportRevision!==(t.reports?.[c]?.revision||0))fail('Class report changed. Refresh before saving.');
-  t.reports||={};t.reports[c]={values:taskReport(input.report,p.headers?.[c],p),questions:taskQuestions(p),revision:(t.reports[c]?.revision||0)+1,submittedBy:actor.id,updatedAt:stamp};return next;
+  const report=input.report&&typeof input.report==='object'&&!Array.isArray(input.report)&&!own(input.report,'remarks')?{...input.report,remarks:t.reports?.[c]?.values?.remarks||''}:input.report;
+  t.reports||={};t.reports[c]={values:taskReport(report,p.headers?.[c],p),questions:taskQuestions(p),revision:(t.reports[c]?.revision||0)+1,submittedBy:actor.id,updatedAt:stamp};return next;
  }
  if(!actor.principal)fail('Principal access required.');
  if(input.expectedRevision!==t.revision)fail('Task changed. Refresh before saving.');

@@ -98,3 +98,15 @@ test('school-strength Excel import maps all task classes, ignores younger classe
  sheet.getRow(3).getCell(3).value=2;sheet.getRow(3).getCell(1).value='X E';await assert.rejects(importTaskStrengthWorkbook(await book.xlsx.writeBuffer(),ExcelJS,JSZip),/XI E/);
  sheet.getRow(3).getCell(1).value='';await assert.rejects(importTaskStrengthWorkbook(await book.xlsx.writeBuffer(),ExcelJS,JSZip),/missing task classes/);
 });
+test('teacher remarks are optional, bounded, editable and private to assigned class access',async()=>{
+ assert.equal(taskReport(report).remarks,'');assert.throws(()=>taskReport({...report,remarks:'x'.repeat(2001)}),/teacher remarks/);assert.throws(()=>taskReport({...report,remarks:42}),/teacher remarks/);
+ const f=await setup(),t=f.data.cbse.taskManager.tasks.task1,input={taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:t.publishedRevision,reportRevision:0,report:{...report,remarks:'Synthetic class perspective: irregular practice.\nSupport: guided revision.'}};
+ await f.teacher(input);assert.equal((await f.teacher()).tasks.task1.reports['IX A'].values.remarks,input.report.remarks);
+ await assert.rejects(f.teacher({...input,reportRevision:1},'X:two','456'),/not assigned/);await assert.rejects(f.teacher({...input,reportRevision:1},'X:one','000'),/PIN/);
+ const other=await f.teacher({},'X:two','456');assert.ok(!JSON.stringify(other).includes('irregular practice'));
+ let current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.reports['IX A'].values.remarks,input.report.remarks);assert.ok(!Object.hasOwn(current.summary.totals,'remarks'));
+ await f.admin({operation:'save',taskId:'task1',expectedRevision:current.revision,draft:{...current.draft,visibility:'all'}});current=(await f.admin({operation:'read'})).tasks.task1;await f.admin({operation:'publish',taskId:'task1',expectedRevision:current.revision});assert.ok(!JSON.stringify(taskView(f.data.cbse.taskManager)).includes('irregular practice'));
+ const published=(await f.teacher()).tasks.task1;await f.teacher({...input,expectedRevision:published.revision,reportRevision:1,report:{...report,remarks:'Synthetic updated perspective.'}});
+ await f.teacher({...input,expectedRevision:published.revision,reportRevision:2,report});assert.equal((await f.teacher()).tasks.task1.reports['IX A'].values.remarks,'Synthetic updated perspective.');
+ await f.teacher({...input,expectedRevision:published.revision,reportRevision:3,report:{...report,remarks:''}});current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.reports['IX A'].values.remarks,'');assert.equal(Object.keys(current.reports).length,1);
+});
