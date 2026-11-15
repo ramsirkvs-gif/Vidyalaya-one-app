@@ -27,6 +27,10 @@ try:
         page.get_by_label('Principal password',exact=True).fill('synthetic-password');page.get_by_role('button',name='Sign in here',exact=True).click()
         page.get_by_role('button',name='Create Task 1 unpublished draft',exact=True).click()
         card=page.locator('#task-task1');card.get_by_text('Unpublished — private to Principal',exact=True).wait_for()
+        assert card.locator('.task-class-status').count()==18;assert card.locator('.task-totals').count()==0;assert not card.locator('.task-consolidation').evaluate('(node)=>node.open')
+        for width in [360,768,1440]:
+            page.set_viewport_size({'width':width,'height':950});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        page.screenshot(path='/tmp/task-manager-principal-layout.png',full_page=True)
         card.get_by_text('Edit task, assignments and class figures',exact=True).click()
         card.get_by_label('Task title',exact=True).wait_for(state='visible');assert card.get_by_label('Deadline (leave blank if not provided)',exact=True).input_value()==''
         card.get_by_label('Teacher for IX A',exact=True).select_option('X:one')
@@ -55,7 +59,7 @@ try:
             teacher.set_viewport_size({'width':width,'height':900});assert teacher.evaluate('document.documentElement.scrollWidth<=innerWidth')
         teacher.locator('[name=passed]').fill('18');release['version']='synthetic-new-release';teacher.evaluate("document.dispatchEvent(new Event('visibilitychange'))");teacher.locator('#portal-update-notice').wait_for();assert teacher.locator('[name=passed]').input_value()=='18';assert teacher.locator('#portal-update-notice button').is_disabled();release['version']=json.loads((ROOT/'public/app-version.json').read_text())['version'];
         print('PASS existing PIN verification, read-only/unprovided figures, aggregate report submission/update without duplicate classes and responsive layout')
-        page.get_by_role('button',name='Refresh tasks',exact=True).click();card.get_by_text('Submitted: IX A',exact=True).wait_for();card.get_by_label('Principal comment (private, after results)',exact=True).fill('Synthetic private review');card.get_by_role('button',name='Save Principal comment',exact=True).click();page.get_by_role('status').get_by_text('Principal comment saved.',exact=True).wait_for()
+        page.get_by_role('button',name='Refresh tasks',exact=True).click();card.get_by_role('button',name='Open report for IX A',exact=True).wait_for();assert card.locator('.task-totals').count()==1;card.get_by_role('button',name='Open report for IX A',exact=True).click();assert card.locator('[data-report-class="IX A"]').evaluate('(node)=>node.open');card.get_by_label('Principal comment (private, after results)',exact=True).fill('Synthetic private review');card.get_by_role('button',name='Save Principal comment',exact=True).click();page.get_by_role('status').get_by_text('Principal comment saved.',exact=True).wait_for()
         card.get_by_role('button',name='Stop publication',exact=True).click();page.get_by_role('status').get_by_text('Publication stopped.',exact=False).wait_for()
         current=api({'action':'task-principal','operation':'read'})['tasks']['task1'];assert not current.get('published');assert len(current['reports'])==1;assert current['comment']=='Synthetic private review'
         page.get_by_role('button',name='Sign out',exact=True).click();page.get_by_label('Principal password',exact=True).wait_for();assert page.locator('#task-task1').count()==0
