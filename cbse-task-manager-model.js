@@ -78,11 +78,19 @@ export function applyTask(store,input,actor,staff,stamp,id){
   const report=input.report&&typeof input.report==='object'&&!Array.isArray(input.report)?{...input.report,...(!own(input.report,'remarks')?{remarks:t.reports?.[c]?.values?.remarks||''}:{}),...(!own(input.report,'examContext')?{examContext:t.reports?.[c]?.values?.examContext||''}:{})}:input.report;
   const previous=t.reports?.[c],questions=taskQuestions(p),activeIds=new Set(questions.map(q=>q.id)),retired=structuredClone(previous?.retiredAnswers||{});
   if(previous)for(const q of taskQuestions(previous))if((!activeIds.has(q.id)||questions.find(current=>current.id===q.id)?.kind!==q.kind)&&own(previous.values,q.id))retired[q.id]={...q,value:previous.values[q.id]??null,submittedBy:previous.submittedBy,updatedAt:previous.updatedAt};
-  t.reports||={};t.reports[c]={values:taskReport(report,p.headers?.[c],{...p,previousAnswers:previous?.values}),questions,revision:(previous?.revision||0)+1,submittedBy:actor.id,updatedAt:stamp,...(Object.keys(retired).length?{retiredAnswers:retired}:{})};return next;
+  t.reports||={};t.reports[c]={values:taskReport(report,p.headers?.[c],{...p,previousAnswers:previous?.values}),questions,revision:(previous?.revision||0)+1,submittedBy:actor.id,updatedAt:stamp,...(Object.keys(retired).length?{retiredAnswers:retired}:{}),...(previous?.principalEditHistory?{principalEditHistory:previous.principalEditHistory}:{})};return next;
  }
  if(!actor.principal)fail('Principal access required.');
  if(input.expectedRevision!==t.revision)fail('Task changed. Refresh before saving.');
- if(operation==='save'){t.draft=config({...input.draft,questions:input.draft.questions===undefined?t.draft.questions:input.draft.questions,selectedClasses:input.draft.selectedClasses===undefined?t.draft.selectedClasses:input.draft.selectedClasses},staff);for(const [c,r]of Object.entries(t.reports||{}))taskReport(r.values,t.draft.headers[c],r);if(input.rememberFigures){next.classFigures||={};for(const [c,h]of Object.entries(t.draft.headers))if(Object.values(h).some(v=>v!=null))next.classFigures[c]=structuredClone(h);next.classFiguresUpdatedAt=stamp;}}
+ if(operation==='edit-report'){
+  const c=input.classId;if(typeof c!=='string'||!own(t.reports,c))fail('Submitted class report not found.');const previous=t.reports[c];
+  if(input.reportRevision!==(previous.revision||0))fail('Class report changed. Refresh before saving.');
+  if(!input.report||typeof input.report!=='object'||Array.isArray(input.report))fail('Enter aggregate report counts.');
+  const values=taskReport({...previous.values,...input.report},t.published?.headers?.[c]||t.draft.headers?.[c]||{},{questions:taskQuestions(previous),previousAnswers:previous.values});
+  const history=structuredClone(previous.principalEditHistory||{});history['revision_'+(previous.revision||0)]={values:previous.values,questions:taskQuestions(previous),updatedAt:previous.updatedAt,editedAt:stamp};
+  t.reports[c]={...previous,values,revision:(previous.revision||0)+1,originalSubmittedAt:previous.originalSubmittedAt||previous.updatedAt,updatedAt:stamp,principalEditedAt:stamp,principalEditHistory:history};
+ }
+ else if(operation==='save'){t.draft=config({...input.draft,questions:input.draft.questions===undefined?t.draft.questions:input.draft.questions,selectedClasses:input.draft.selectedClasses===undefined?t.draft.selectedClasses:input.draft.selectedClasses},staff);for(const [c,r]of Object.entries(t.reports||{}))taskReport(r.values,t.draft.headers[c],r);if(input.rememberFigures){next.classFigures||={};for(const [c,h]of Object.entries(t.draft.headers))if(Object.values(h).some(v=>v!=null))next.classFigures[c]=structuredClone(h);next.classFiguresUpdatedAt=stamp;}}
  else if(operation==='publish'){t.published=config(t.draft,staff);t.publishedRevision=(t.publishedRevision||0)+1;for(const [c,r]of Object.entries(t.reports||{}))taskReport(r.values,t.published.headers[c],r);t.publishedAt=stamp;}
  else if(operation==='unpublish'){delete t.published;}
  else if(operation==='comment')t.comment=text(input.comment,4000,'Principal comment');

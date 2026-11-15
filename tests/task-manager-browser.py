@@ -97,6 +97,20 @@ try:
             assert question['width']>row.bounding_box()['width']*.55;assert answer['x']>question['x'];assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             assert report.locator('.task-report-answer-written dd').first.bounding_box()['width']>row.bounding_box()['width']*.9
         page.screenshot(path='/tmp/task-submitted-report-layout.png',full_page=True)
+        original_author=api({'action':'task-principal','operation':'read'})['tasks']['task1']['reports']['IX A']['submittedBy']
+        for value in ['18','19']:
+            report.get_by_role('button',name='Edit submitted answers — IX A',exact=True).click()
+            editor=report.locator('.task-principal-report-editor');assert editor.locator('[name=submission-pin]').count()==0
+            editor.locator('[name=passed]').fill(value);editor.get_by_role('button',name='Save submitted answers',exact=True).click()
+            page.get_by_role('status').get_by_text('IX A submitted answers saved successfully by Principal.',exact=True).wait_for()
+            edited=api({'action':'task-principal','operation':'read'})['tasks']['task1'];assert edited['reports']['IX A']['values']['passed']==int(value);assert edited['reports']['IX A']['submittedBy']==original_author;assert edited['summary']['totals']['passed']['total']==int(value)
+        assert report.locator('.task-save-confirmation').inner_text().startswith('Saved by Principal')
+        assert '✓ Submitted' in card.locator('.task-class-status').first.inner_text()
+        anonymous=browser.new_context();anonymous.route('https://www.gstatic.com/firebasejs/**',sdk);status_page=anonymous.new_page();status_page.goto(BASE+'cbse-task-manager.html')
+        status_page.locator('[data-task-class="IX A"] .task-row-submitted').wait_for();assert status_page.locator('[data-task-class="IX A"] .task-row-submitted').inner_text()=='✓ Submitted'
+        assert status_page.locator('[data-task-class="IX B"] .task-row-pending').evaluate('(node)=>getComputedStyle(node).color')=='rgb(180, 35, 41)';anonymous.close()
+        print('PASS green submitted ticks, red pending labels and Principal answer corrections with confirmed saves and updated totals')
+
         card.get_by_role('button',name='Prepare presentation report',exact=True).click()
         preview=page.locator('.task-presentation');preview.wait_for();assert preview.locator('.presentation-main-page').count()==4
         assert preview.locator('.presentation-main-page').first.get_by_role('heading',name='I · Class IX · Overview',exact=True).count()==1
