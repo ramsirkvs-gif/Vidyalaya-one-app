@@ -10,6 +10,7 @@ import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import {TASK1_ROSTER,taskRosterStore} from '../cbse-task-manager-roster.js';
 import {TASK_AVAILABLE_CLASSES,taskClasses} from '../cbse-task-manager-model.js';
+const remark=lead=>lead+" "+'These are synthetic class-level observations for testing the survey. Regular practice, accessible materials, guided revision, and coordinated support may improve participation. Teachers can review progress weekly, discuss general learning barriers, provide clear feedback, and adjust classroom activities. No student names, identifying family details, private health information, or real school records are included.';
 const report={examContext:'Synthetic preboard',passed:20,failed:4,ptms:40,firstGeneration:null};
 async function setup(){const f=taskFixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');await f.admin({operation:'create-task1'});let t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'save',taskId:'task1',expectedRevision:t.revision,draft:{...t.draft,assignments:{'IX A':'X:one','XI E':'X:two'},headers:{'IX A':{total:24,catV:0,st:null}}}});t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'publish',taskId:'task1',expectedRevision:t.revision});return f;}
 test('exact class catalogue, unknown figures, independent overlapping categories and meeting counts',()=>{
@@ -21,7 +22,7 @@ test('exact class catalogue, unknown figures, independent overlapping categories
  assert.throws(()=>taskReport({...report,sleepy:25},{total:24}),/enrollment/);
  assert.throws(()=>taskHeader({total:20,st:21}),/enrollment/);
  assert.throws(()=>taskReport({...report,studentNames:['Private']}),/Only aggregate/);
- assert.throws(()=>taskReport({...report,examContext:''}),/examination/);
+ assert.equal(taskReport({...report,examContext:''}).examContext,'');
  assert.equal(taskReport(report,{}).passed,20);
 });
 test('Task 1 creation is idempotent, unpublished, has no invented enrollment or deadline; outsiders denied',async()=>{
@@ -81,8 +82,8 @@ test('Principal can edit and add draft questions without changing published form
  await assert.rejects(f.teacher(input),/enrollment/);await assert.rejects(f.teacher({...input,report:{...report,forgedField:1}}),/Only aggregate/);
  await f.teacher({...input,report:{...input.report,q_additional_students:4}});current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.summary.totals.q_extra_meetings.total,50);assert.equal(current.summary.totals.q_additional_students.total,4);assert.equal(current.summary.totals.sleepy.total,2);assert.equal(Object.keys(current.reports).length,1);
 });
-test('question definitions reject duplicates, invalid identifiers, narrative types and loss of passed/failed count checks',()=>{
- const questions=taskQuestions();for(const invalid of [[],[...questions,questions[0]],[{id:'__proto__',label:'Invalid',kind:'students'}],[{id:'q_new_question',label:'',kind:'students'}],[{id:'q_new_question',label:'Names',kind:'text'}],[{id:'passed',label:'Passed',kind:'meetings'}]])assert.throws(()=>taskQuestions({questions:invalid}));
+test('question definitions reject duplicates, invalid identifiers, answer types and loss of passed/failed count checks',()=>{
+ const questions=taskQuestions();for(const invalid of [[],[...questions,questions[0]],[{id:'__proto__',label:'Invalid',kind:'students'}],[{id:'q_new_question',label:'',kind:'students'}],[{id:'q_new_question',label:'Invalid format',kind:'unsupported'}],[{id:'passed',label:'Passed',kind:'meetings'}]])assert.throws(()=>taskQuestions({questions:invalid}));
  assert.equal(taskQuestions({}).length,16);
 });
 test('one CSV imports all 18 classes, names and figures; blanks stay unknown and invalid rows reject the whole file',async()=>{
@@ -102,22 +103,22 @@ test('school-strength Excel import maps all task classes, ignores younger classe
 });
 test('teacher remarks are optional, bounded, editable and private to assigned class access',async()=>{
  assert.equal(taskReport(report).remarks,'');assert.throws(()=>taskReport({...report,remarks:'x'.repeat(2001)}),/teacher remarks/);assert.throws(()=>taskReport({...report,remarks:42}),/teacher remarks/);
- const f=await setup(),t=f.data.cbse.taskManager.tasks.task1,input={taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:t.publishedRevision,reportRevision:0,report:{...report,remarks:'Synthetic class perspective: irregular practice.\nSupport: guided revision.'}};
+ const f=await setup(),t=f.data.cbse.taskManager.tasks.task1,input={taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:t.publishedRevision,reportRevision:0,report:{...report,remarks:remark('Synthetic class perspective: irregular practice.\nSupport: guided revision.')}};
  await f.teacher(input);assert.equal((await f.teacher()).tasks.task1.reports['IX A'].values.remarks,input.report.remarks);
  await assert.rejects(f.teacher({...input,reportRevision:1},'X:two','456'),/not assigned/);await assert.rejects(f.teacher({...input,reportRevision:1},'X:one','000'),/PIN/);
  const other=await f.teacher({},'X:two','456');assert.ok(!JSON.stringify(other).includes('irregular practice'));
  let current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.reports['IX A'].values.remarks,input.report.remarks);assert.ok(!Object.hasOwn(current.summary.totals,'remarks'));
  await f.admin({operation:'save',taskId:'task1',expectedRevision:current.revision,draft:{...current.draft,visibility:'all'}});current=(await f.admin({operation:'read'})).tasks.task1;await f.admin({operation:'publish',taskId:'task1',expectedRevision:current.revision});assert.ok(!JSON.stringify(taskView(f.data.cbse.taskManager)).includes('irregular practice'));
- const published=(await f.teacher()).tasks.task1;await f.teacher({...input,expectedRevision:published.revision,reportRevision:1,report:{...report,remarks:'Synthetic updated perspective.'}});
- await f.teacher({...input,expectedRevision:published.revision,reportRevision:2,report});assert.equal((await f.teacher()).tasks.task1.reports['IX A'].values.remarks,'Synthetic updated perspective.');
+ const published=(await f.teacher()).tasks.task1;await f.teacher({...input,expectedRevision:published.revision,reportRevision:1,report:{...report,remarks:remark('Synthetic updated perspective.')}});
+ await f.teacher({...input,expectedRevision:published.revision,reportRevision:2,report});assert.equal((await f.teacher()).tasks.task1.reports['IX A'].values.remarks,remark('Synthetic updated perspective.'));
  await f.teacher({...input,expectedRevision:published.revision,reportRevision:3,report:{...report,remarks:''}});current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.reports['IX A'].values.remarks,'');assert.equal(Object.keys(current.reports).length,1);
 });
 test('public task list exposes published mentor/support/status only; questionnaires and all report data require assigned PIN',async()=>{
  const f=await setup(),t=f.data.cbse.taskManager.tasks.task1;
- await f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:t.publishedRevision,reportRevision:0,report:{...report,remarks:'PRIVATE_CLASS_REMARK'}});
+ await f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:t.publishedRevision,reportRevision:0,report:{...report,remarks:remark('PRIVATE_CLASS_REMARK')}});
  const output=await f.service('task-read');assert.equal(output.tasks.task1.rows.length,18);assert.equal(output.tasks.task1.rows[0].mentor,'Synthetic Teacher one');assert.equal(output.tasks.task1.rows[0].status,'Submitted');assert.equal(output.tasks.task1.rows[2].support,'Mr. Nitish Raj Sharma');assert.equal(output.tasks.task1.rows[1].status,'Pending');
  const json=JSON.stringify(output);for(const secret of ['PRIVATE_CLASS_REMARK','Synthetic preboard','firstGeneration','questions','headers','reports','instructions','summary','comment','salt','hash'])assert.ok(!json.includes(secret),secret);
- const mine=await f.teacher({taskId:'task1',classId:'IX A'});assert.deepEqual(mine.tasks.task1.classes,['IX A']);assert.equal(mine.tasks.task1.questions.length,16);assert.equal(mine.tasks.task1.reports['IX A'].values.remarks,'PRIVATE_CLASS_REMARK');
+ const mine=await f.teacher({taskId:'task1',classId:'IX A'});assert.deepEqual(mine.tasks.task1.classes,['IX A']);assert.equal(mine.tasks.task1.questions.length,16);assert.equal(mine.tasks.task1.reports['IX A'].values.remarks,remark('PRIVATE_CLASS_REMARK'));
  await assert.rejects(f.teacher({taskId:'task1',classId:'XI E'}),/not assigned/);await assert.rejects(f.teacher({taskId:'__proto__',classId:'IX A'}),/not assigned/);
  const current=(await f.admin({operation:'read'})).tasks.task1;await f.admin({operation:'unpublish',taskId:'task1',expectedRevision:current.revision});assert.deepEqual(await f.service('task-read'),{tasks:{}});await assert.rejects(f.teacher({taskId:'task1',classId:'IX A'}),/not assigned/);
 });
@@ -166,4 +167,23 @@ test('prepared figures payload accepts only valid aggregate class data and never
  assert.deepEqual(decodePreparedTaskFigures(encode({taskId:'task1',rows:[['IX A',24,0,null]]})),{taskId:'task1',headers:{'IX A':{total:24,catV:0,st:null}}});
  for(const value of [{taskId:'__proto__',rows:[['IX A',24,0,1]]},{taskId:'task1',rows:[['X E',24,0,1]]},{taskId:'task1',rows:[['IX A',24,0,25]]},{taskId:'task1',rows:[['IX A',-1,0,0]]},{taskId:'task1',rows:[['IX A',2.5,0,0]]},{taskId:'task1',rows:[['IX A',24,0,0],['IX A',24,0,0]]}])assert.throws(()=>decodePreparedTaskFigures(encode(value)));
  assert.throws(()=>decodePreparedTaskFigures('invalid!'));assert.throws(()=>decodePreparedTaskFigures('a'.repeat(10001)));
+});
+test('Counselor/Special Educator/Yoga remarks use private written answers, stay out of totals and preserve an older numeric answer',async()=>{
+ const f=await setup();let current=(await f.admin({operation:'read'})).tasks.task1;const question={id:'q_counselor_remarks',label:'Remarks / observations obtained from the Counselor, Special Educator, or Yoga Teacher',kind:'students'};
+ await f.admin({operation:'save',taskId:'task1',expectedRevision:current.revision,draft:{...current.draft,questions:[...taskQuestions(current.draft),question]}});current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.draft.questions.at(-1).kind,'text');await f.admin({operation:'publish',taskId:'task1',expectedRevision:current.revision});
+ const input={taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:(await f.teacher()).tasks.task1.revision,reportRevision:0,report:{...report,[question.id]:remark('Synthetic counselling observations.\nGuided revision recommended.')}};
+ await assert.rejects(f.teacher({...input,report:{...report,[question.id]:3}}),/written remarks answer/);await assert.rejects(f.teacher({...input,report:{...report,[question.id]:'x'.repeat(2001)}}),/written remarks answer/);await f.teacher(input);
+ current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.reports['IX A'].values[question.id],input.report[question.id]);assert.ok(!Object.hasOwn(current.summary.totals,question.id));assert.equal(current.summary.totals.passed.total,20);assert.ok(!JSON.stringify(await f.service('task-read')).includes('Guided revision'));assert.ok(!JSON.stringify(await f.teacher({},'X:two','456')).includes('Guided revision'));
+ // Simulate a report submitted by the older numeric-only questionnaire.
+ const legacy=f.data.cbse.taskManager.tasks.task1.reports['IX A'];legacy.questions=legacy.questions.map(q=>q.id===question.id?{...q,kind:'students'}:q);legacy.values[question.id]=2;
+ assert.equal(taskQuestions(legacy).at(-1).kind,'students');const mine=(await f.teacher()).tasks.task1;assert.equal(taskCompatibleValues(mine.reports['IX A'],mine)[question.id],null);
+ await f.teacher({...input,reportRevision:1});current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.reports['IX A'].retiredAnswers[question.id].value,2);assert.equal(current.reports['IX A'].values[question.id],input.report[question.id]);
+});
+test('new written comments require 50–100 words while blank answers and unchanged legacy comments remain valid',async()=>{
+ const words=n=>Array.from({length:n},(_,i)=>'word'+i).join(' ');
+ for(const n of [49,101])assert.throws(()=>taskReport({...report,remarks:words(n)}),/50–100 words/);
+ for(const n of [50,100])assert.equal(taskReport({...report,remarks:words(n)}).remarks,words(n));assert.equal(taskReport({...report,remarks:''}).remarks,'');
+ const f=await setup(),t=f.data.cbse.taskManager.tasks.task1;await f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:t.publishedRevision,reportRevision:0,report:{...report,remarks:words(50)}});
+ f.data.cbse.taskManager.tasks.task1.reports['IX A'].values.remarks='Older short comment';await f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:t.publishedRevision,reportRevision:1,report:{...report,remarks:'Older short comment'}});assert.equal((await f.teacher()).tasks.task1.reports['IX A'].values.remarks,'Older short comment');
+ await assert.rejects(f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:t.publishedRevision,reportRevision:2,report:{...report,remarks:'A newly written short comment'}}),/50–100 words/);
 });

@@ -127,14 +127,13 @@ questionnaire data. Mobile layout uses compact text, stacked list rows and a
 full-width form with readable inputs and touch-sized action buttons.
 
 Each class form has a read-only enrollment, Cat-V and ST header. Teachers cannot
-submit header changes. Supply the latest
-examination's name/context and aggregate counts only. Teachers enter counts directly in plain number cells, without dropdowns.
+submit header changes. Supply aggregate counts only; there is no latest-examination entry field. Teachers enter counts directly in plain number cells, without dropdowns.
 Leave a cell blank for **Not available / unconfirmed**; unknown counts are excluded from totals rather
 than treated as zero. Do not enter student names, locations or identifying
 family/health information. Teacher reports end with **Overall situation — comments by CT / Prime mentor /
 Survey IC**, an optional text box for class-level
 perspectives, reasons for difficulties in academic progress and suggested support
-(up to 2,000 characters). Remarks must not contain student names or identifying
+(50–100 words when filled). Remarks must not contain student names or identifying
 family/health information. They remain private to the Principal and the currently
 assigned teacher, appear after the counts in each class report, and are excluded
 from totals and broad staff payloads. Teachers can edit or clear them using their
@@ -205,3 +204,25 @@ The Principal reviews the figures and chooses Save private draft or Save and
 publish task, which uses their existing authenticated session. Figures stay out
 of repository files and HTTP query strings. Invalid class names, duplicate rows,
 negative/fractional counts and enrollment inconsistencies are rejected.
+
+## Written answer for Q20
+
+Custom remarks/observations questions about the Counselor, Special Educator or
+Yoga Teacher automatically use a multiline written answer (50–100 words when filled), even if an earlier draft stored that question as a student count.
+This follows the question wording, so its position can change without losing
+its answer type. The Principal editor shows the answer format beside the
+question; no count-type dropdown is required. Other numeric questions retain
+their student/meeting validation. Written answers remain private, are excluded
+from numeric totals and appear under their own question in the class report,
+separately from the final CT/Prime mentor overall comment. Previously submitted
+numeric answers keep their original format and are retained as earlier answers
+when a teacher resubmits the corrected written question. Use class-level
+observations only, without identifying student/family/health details.
+
+New Q20 written remarks and the final overall comment show a live word counter
+and accept 50–100 words when filled. Blank optional comments remain allowed.
+Previously saved short comments remain visible and may be retained unchanged;
+a new or edited comment must meet the word range. The latest-examination entry
+field has been removed; legacy examination metadata is preserved internally.
+Number cells have no “Unconfirmed” placeholder or related instruction text.
+Empty cells remain missing rather than becoming zero.

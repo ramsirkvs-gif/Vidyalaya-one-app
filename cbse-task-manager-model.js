@@ -10,12 +10,15 @@ const own=(o,k)=>Object.hasOwn(o||{},k);
 function fail(message){throw Error(message);}
 function text(value,max,label,required=false){if(typeof value!=='string'||value.length>max||required&&!value.trim())fail('Enter a valid '+label+'.');return value.trim();}
 function count(value){if(value===null||value===undefined||value==='')return null;if(typeof value!=='number'||!Number.isSafeInteger(value)||value<0||value>1000000)fail('Counts must be non-negative whole numbers or unconfirmed.');return value;}
+export function taskRemarkWordCount(value){return typeof value==='string'&&value.trim()?value.trim().split(/\s+/u).length:0;}
+function remarkAnswer(value,label,config,key){const answer=text(value??'',10000,label),words=taskRemarkWordCount(answer),legacy=own(config,'values')||answer===config.previousAnswers?.[key];if(answer&&!legacy&&(words<50||words>100))fail(label+' must contain 50–100 words, or be left blank.');return answer;}
+export function taskQuestionIsWritten(q){return q.kind==='text'||(!own(TASK_FIELDS,q.id)&&/^(remarks?|observations?)\b/i.test(String(q.label||'').trim())&&/(counsell?or|special\s+educator|yoga\s+teacher)/i.test(q.label));}
 export function taskQuestions(config={}){
  const questions=config.questions===undefined?Object.entries(TASK_FIELDS).map(([id,label])=>({id,label,kind:id==='ptms'?'meetings':'students'})):config.questions;
  if(!Array.isArray(questions)||!questions.length||questions.length>60)fail('Provide between 1 and 60 survey questions.');const ids=new Set();
- return questions.map(q=>{if(!q||typeof q!=='object'||typeof q.id!=='string'||(!own(TASK_FIELDS,q.id)&&!/^q_[a-zA-Z0-9_]{8,50}$/.test(q.id))||ids.has(q.id))fail('Each question needs a unique valid ID.');ids.add(q.id);if(!['students','meetings'].includes(q.kind)||(['passed','failed'].includes(q.id)&&q.kind!=='students')||(q.id==='ptms'&&q.kind!=='meetings'))fail('Choose a valid count type. Passed/failed count students; PTMs count meetings.');return {id:q.id,label:text(q.label,600,'survey question',true),kind:q.kind};});
+ return questions.map(q=>{if(!q||typeof q!=='object'||typeof q.id!=='string'||(!own(TASK_FIELDS,q.id)&&!/^q_[a-zA-Z0-9_]{8,50}$/.test(q.id))||ids.has(q.id))fail('Each question needs a unique valid ID.');ids.add(q.id);if(!['students','meetings','text'].includes(q.kind))fail('Choose a valid answer format.');const label=text(q.label,600,'survey question',true),kind=!own(config,'values')&&taskQuestionIsWritten({...q,label})?'text':q.kind;if((own(TASK_FIELDS,q.id)&&kind==='text')||(['passed','failed'].includes(q.id)&&kind!=='students')||(q.id==='ptms'&&kind!=='meetings'))fail('Passed/failed count students; PTMs count meetings.');return {id:q.id,label,kind};});
 }
-export function taskQuestionLabels(config={}){return Object.fromEntries(taskQuestions(config).map(q=>[q.id,q.label]));}
+export function taskQuestionLabels(config={}, {countsOnly=false}={}){return Object.fromEntries(taskQuestions(config).filter(q=>!countsOnly||q.kind!=='text').map(q=>[q.id,q.label]));}
 export function taskCompatibleValues(report,config={}){
  if(!report)return {};const old=new Map(taskQuestions(report).map(q=>[q.id,q]));
  return Object.fromEntries(taskQuestions(config).map(q=>{const previous=old.get(q.id);return [q.id,previous?.label===q.label&&previous?.kind===q.kind?report.values?.[q.id]??null:null];}));
@@ -24,8 +27,8 @@ export function taskHeader(value={}){if(!value||typeof value!=='object'||Array.i
 export function taskReport(value,header={},config={}){
  if(!value||typeof value!=='object'||Array.isArray(value))fail('Enter aggregate report counts.');
  const questions=taskQuestions(config),ids=new Set(questions.map(q=>q.id));if(Object.keys(value).some(k=>!ids.has(k)&&!['examContext','remarks'].includes(k)))fail('Only aggregate survey fields and teacher remarks are accepted.');
- const report={examContext:text(value.examContext,200,'latest examination name/context',true),remarks:text(value.remarks===undefined?'':value.remarks,2000,'teacher remarks (up to 2,000 characters)')};
- for(const q of questions){report[q.id]=count(value[q.id]);if(q.kind==='students'&&header.total!=null&&report[q.id]!==null&&report[q.id]>header.total)fail(q.label+' cannot exceed enrollment.');}
+ const report={examContext:text(value.examContext??'',200,'examination context'),remarks:remarkAnswer(value.remarks,'teacher remarks',config,'remarks')};
+ for(const q of questions){report[q.id]=q.kind==='text'?remarkAnswer(value[q.id],'written remarks answer',config,q.id):count(value[q.id]);if(q.kind==='students'&&header.total!=null&&report[q.id]!==null&&report[q.id]>header.total)fail(q.label+' cannot exceed enrollment.');}
  if(header.total!=null&&report.passed!=null&&report.failed!=null&&report.passed+report.failed>header.total)fail('Passed plus failed cannot exceed enrollment.');return report;
 }
 function config(value,staff){
@@ -39,7 +42,7 @@ function config(value,staff){
 export function taskSummary(task){
  const reports=task.reports||{},selectedClasses=taskClasses(task.draft),submitted=selectedClasses.filter(c=>own(reports,c)),pending=selectedClasses.filter(c=>!own(reports,c));
  const compatible=Object.fromEntries(submitted.map(c=>[c,taskCompatibleValues(reports[c],task.draft)]));
- const totals={};for(const k of [...Object.keys(TASK_HEADERS),...taskQuestions(task.draft).map(q=>q.id)]){
+ const totals={};for(const k of [...Object.keys(TASK_HEADERS),...taskQuestions(task.draft).filter(q=>q.kind!=='text').map(q=>q.id)]){
   const classes=selectedClasses.filter(c=>{const value=own(TASK_HEADERS,k)?task.draft.headers?.[c]?.[k]:compatible[c]?.[k];return value!=null;});
   totals[k]={total:classes.length?classes.reduce((sum,c)=>sum+(own(TASK_HEADERS,k)?task.draft.headers[c][k]:compatible[c][k]),0):null,classes,missing:selectedClasses.filter(c=>!classes.includes(c))};
  }return {submitted,pending,totals,selectedClasses,archivedClasses:Object.keys(reports).filter(c=>!selectedClasses.includes(c))};
@@ -72,10 +75,10 @@ export function applyTask(store,input,actor,staff,stamp,id){
   const c=input.classId,p=t.published;if(!p||!taskClasses(p).includes(c)||!actor.ids.includes(p.assignments?.[c]))fail('This published class report is not assigned to you.');
   if(input.expectedRevision!==t.publishedRevision)fail('Task instructions or assignments changed. Refresh before saving.');
   if(input.reportRevision!==(t.reports?.[c]?.revision||0))fail('Class report changed. Refresh before saving.');
-  const report=input.report&&typeof input.report==='object'&&!Array.isArray(input.report)&&!own(input.report,'remarks')?{...input.report,remarks:t.reports?.[c]?.values?.remarks||''}:input.report;
+  const report=input.report&&typeof input.report==='object'&&!Array.isArray(input.report)?{...input.report,...(!own(input.report,'remarks')?{remarks:t.reports?.[c]?.values?.remarks||''}:{}),...(!own(input.report,'examContext')?{examContext:t.reports?.[c]?.values?.examContext||''}:{})}:input.report;
   const previous=t.reports?.[c],questions=taskQuestions(p),activeIds=new Set(questions.map(q=>q.id)),retired=structuredClone(previous?.retiredAnswers||{});
-  if(previous)for(const q of taskQuestions(previous))if(!activeIds.has(q.id)&&own(previous.values,q.id))retired[q.id]={...q,value:previous.values[q.id]??null,submittedBy:previous.submittedBy,updatedAt:previous.updatedAt};
-  t.reports||={};t.reports[c]={values:taskReport(report,p.headers?.[c],p),questions,revision:(previous?.revision||0)+1,submittedBy:actor.id,updatedAt:stamp,...(Object.keys(retired).length?{retiredAnswers:retired}:{})};return next;
+  if(previous)for(const q of taskQuestions(previous))if((!activeIds.has(q.id)||questions.find(current=>current.id===q.id)?.kind!==q.kind)&&own(previous.values,q.id))retired[q.id]={...q,value:previous.values[q.id]??null,submittedBy:previous.submittedBy,updatedAt:previous.updatedAt};
+  t.reports||={};t.reports[c]={values:taskReport(report,p.headers?.[c],{...p,previousAnswers:previous?.values}),questions,revision:(previous?.revision||0)+1,submittedBy:actor.id,updatedAt:stamp,...(Object.keys(retired).length?{retiredAnswers:retired}:{})};return next;
  }
  if(!actor.principal)fail('Principal access required.');
  if(input.expectedRevision!==t.revision)fail('Task changed. Refresh before saving.');
