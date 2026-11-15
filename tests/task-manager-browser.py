@@ -119,12 +119,12 @@ try:
         card.get_by_role('button',name='Class-wise survey PDF',exact=True).click();class_preview=page.locator('.task-presentation');class_preview.locator('[data-export-class="IX A"]').wait_for()
         assert class_preview.locator('.presentation-main-page').count()==0;assert '19' in class_preview.locator('.presentation-class-report').inner_text()
         page.emulate_media(media='print');page.pdf(path='/tmp/task-class-report-synthetic.pdf',prefer_css_page_size=True,print_background=True)
-        class_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-class-report-synthetic.pdf','-'],text=True);assert 'Q1. Total students' in class_text;assert 'Q4. Number of students who passed' in class_text;assert 'Synthetic revised perspective' in class_text
+        class_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-class-report-synthetic.pdf','-'],text=True);assert 'Total students' in class_text;assert 'Number of students who passed' in class_text;assert 'Q1.' in class_text;assert 'Synthetic revised perspective' in class_text
         page.emulate_media(media='screen');class_preview.get_by_role('checkbox',name='Include class report IX A',exact=True).uncheck();assert class_preview.get_by_role('button',name='Print / Save PDF',exact=True).is_disabled();class_preview.get_by_role('checkbox',name='Include class report IX A',exact=True).check()
         class_preview.get_by_role('button',name='Close report',exact=True).click()
         card.get_by_role('button',name='Prepare presentation report',exact=True).click()
         preview=page.locator('.task-presentation');preview.wait_for();assert preview.locator('.presentation-main-page').count()==4
-        chart_questions=preview.locator('.presentation-point h4').all_text_contents();assert len([q for q in chart_questions if q.startswith('Q7 + Q8.')])==2;assert not any(q.startswith('Q8.') for q in chart_questions);assert len([q for q in chart_questions if q.startswith('Q6.') and '(either one or both parents are uneducated)' in q])==2
+        chart_questions=preview.locator('.presentation-point h4').all_text_contents();assert len([q for q in chart_questions if 'living in hostels /' in q])==2;assert not any(q.startswith('Q') for q in chart_questions);assert len([q for q in chart_questions if '(either one or both parents are uneducated)' in q])==2
         assert preview.locator('.presentation-main-page').first.get_by_role('heading',name='I · Class IX · Overview',exact=True).count()==1
         assert preview.locator('.presentation-main-page').nth(2).get_by_role('heading',name='II · Classes IX–XII consolidated · Overview',exact=True).count()==1
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count').first.inner_text()=='96'
@@ -136,44 +136,47 @@ try:
         preview.get_by_role('button',name='Clear question selection',exact=True).click();assert preview.get_by_role('button',name='Print / Save PDF',exact=True).is_disabled()
         preview.get_by_role('checkbox',name='Include Q4. Number of students who passed the latest examination',exact=True).check()
         assert preview.locator('.presentation-main-page').count()==2
-        assert preview.locator('.presentation-main-page .presentation-point h4').all_text_contents()==['Q4. Number of students who passed the latest examination']*2
-        assert preview.locator('.presentation-appendix').get_by_text(OVERALL_UPDATED,exact=True).count()==1
+        assert preview.locator('.presentation-main-page .presentation-point h4').all_text_contents()==['Number of students who passed the latest examination']*2
+        assert preview.locator('.presentation-appendix').count()==0;assert preview.locator('.presentation-overview').count()==1
         assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).fontWeight')=='500'
         assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).backgroundColor')=='rgb(241, 246, 243)'
         page.emulate_media(media='print');page.pdf(path='/tmp/task-presentation-selected-synthetic.pdf',prefer_css_page_size=True,print_background=True)
-        selected_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-selected-synthetic.pdf','-'],text=True).split('\f');assert 'Main report' in selected_text[0] and 'Main report' in selected_text[1] and 'Appendix A' in selected_text[2];assert 'Q2. Cat-V students' not in ''.join(selected_text)
+        selected_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-selected-synthetic.pdf','-'],text=True).split('\f');assert 'Main report' in selected_text[0] and 'Main report' in selected_text[1] and len([p for p in selected_text if p.strip()])==2;assert 'Cat-V students' not in ''.join(selected_text)
         page.emulate_media(media='screen');preview.get_by_role('button',name='Select all questions',exact=True).click();assert preview.locator('.presentation-main-page').count()==4
         preview.get_by_text('Select presentation questions',exact=True).click()
-        preview.get_by_role('checkbox',name='Attach class-wise survey reports',exact=True).check();assert preview.locator('.presentation-class-report').count()==1
-        assert preview.locator('.presentation-closing').inner_text().count('Synthetic closing comment for ')==5
+        preview.get_by_role('checkbox',name='Include teacher comments appendix in PDF',exact=True).check();assert preview.locator('.presentation-closing').inner_text().count('Synthetic closing comment for ')==5
         with page.expect_download() as download_info:
             preview.get_by_role('button',name='Download PPTX',exact=True).click()
         download=download_info.value;download.save_as('/tmp/task-presentation-browser-synthetic.pptx')
         with zipfile.ZipFile('/tmp/task-presentation-browser-synthetic.pptx') as deck:
             slide_xml='\n'.join(deck.read(name).decode() for name in deck.namelist() if name.startswith('ppt/slides/slide') and name.endswith('.xml'))
-            assert '79.2%' in slide_xml;assert 'Synthetic closing comment for ro.' in slide_xml;assert 'Class-wise survey report' in slide_xml
+            assert '79.2%' in slide_xml;assert 'Report overview' in slide_xml;assert 'Synthetic closing comment for ro.' not in slide_xml;assert 'Class-wise survey report' not in slide_xml;assert 'Synthetic revised perspective' not in slide_xml
             assert any(name.startswith('ppt/charts/chart') and name.endswith('.xml') for name in deck.namelist())
         preview.get_by_role('status').get_by_text('PowerPoint download prepared.',exact=True).wait_for()
-        preview.get_by_role('checkbox',name='Attach class-wise survey reports',exact=True).uncheck()
+        preview.get_by_role('checkbox',name='Include teacher comments appendix in PDF',exact=True).uncheck()
         preview.get_by_role('textbox').fill('Counsellor — Synthetic Co-opted Member');preview.get_by_role('button',name='Update participant list',exact=True).click()
         assert 'Synthetic Co-opted Member' in preview.locator('.presentation-main-page').last.inner_text()
-        assert OVERALL_UPDATED in preview.locator('.presentation-appendix').first.inner_text();assert WRITTEN in preview.locator('.presentation-appendix').first.inner_text()
+        assert preview.locator('.presentation-appendix').count()==0;assert 'Classes covered: 1 of 18' in preview.locator('.presentation-overview').inner_text();assert 'Students covered by submitted reports: 24' in preview.locator('.presentation-overview').inner_text()
         page.emulate_media(media='print')
-        assert preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point")].every(c=>c.scrollHeight<=c.clientHeight+1))'),preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.map(p=>({height:p.clientHeight,scroll:p.scrollHeight,cards:[...p.querySelectorAll(".presentation-point")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight}))}))')
+        assert preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview")].every(c=>c.scrollHeight<=c.clientHeight+1))'),preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.map(p=>({height:p.clientHeight,scroll:p.scrollHeight,cards:[...p.querySelectorAll(".presentation-point,.presentation-overview")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight}))}))')
         page.pdf(path='/tmp/task-presentation-synthetic.pdf',prefer_css_page_size=True,print_background=True)
         pdftext=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-synthetic.pdf','-'],text=True).split('\f')
-        assert len([p for p in pdftext if p.strip()])>=5
+        assert len([p for p in pdftext if p.strip()])==4
         for i in range(4):assert 'Main report' in pdftext[i],(i,pdftext[i])
-        assert 'Appendix A' in pdftext[4];assert 'Synthetic Co-opted Member' in pdftext[3]
+        assert 'Report overview' in pdftext[3];assert 'Synthetic Co-opted Member' in pdftext[3]
+        page.emulate_media(media='screen');preview.get_by_role('checkbox',name='Include teacher comments appendix in PDF',exact=True).check()
+        page.emulate_media(media='print');page.pdf(path='/tmp/task-presentation-with-comments-synthetic.pdf',prefer_css_page_size=True,print_background=True)
+        with_comments=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-with-comments-synthetic.pdf','-'],text=True).split('\f');assert 'Report overview' in with_comments[3];assert 'Teacher comments' in with_comments[4];assert 'Synthetic revised perspective' in ''.join(with_comments[4:])
         page.emulate_media(media='screen');preview.get_by_role('button',name='Close report',exact=True).click();assert page.locator('.task-presentation').count()==0
+        card.get_by_role('button',name='Comments annexure PDF',exact=True).click();comments_preview=page.locator('.task-presentation');assert comments_preview.get_by_role('button',name='Download PPTX',exact=True).count()==0;assert OVERALL_UPDATED in comments_preview.locator('.presentation-appendix').first.inner_text();comments_preview.get_by_role('button',name='Close report',exact=True).click()
         print('PASS four-page private presentation, chart coverage, participant list and separate comments appendix in PDF')
         # Full completion and every participating teacher must still fit four main pages.
         page.evaluate("""async task=>{const {openTaskPresentation}=await import('/cbse-task-presentation.js');const people={};task.reports={};task.comment='Synthetic Principal summary.';for(const [i,c] of task.published.selectedClasses.entries()){const id='synthetic_'+i;people[id]={name:'Synthetic Participating Teacher '+(i+1)};task.published.headers[c]={total:24,catV:12,st:6};task.reports[c]={submittedBy:id,questions:task.published.questions,values:Object.fromEntries(task.published.questions.map(q=>[q.id,q.kind==='text'?'Synthetic written observations.':q.kind==='meetings'?2:10]))};task.reports[c].values.remarks='Synthetic class comments.';}openTaskPresentation(task,people);} """,current)
         page.emulate_media(media='print')
-        assert page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point")].every(c=>c.scrollHeight<=c.clientHeight+1))')
+        assert page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview")].every(c=>c.scrollHeight<=c.clientHeight+1))')
         page.pdf(path='/tmp/task-presentation-complete-synthetic.pdf',prefer_css_page_size=True,print_background=True)
         complete_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-complete-synthetic.pdf','-'],text=True).split('\f')
-        assert all('Main report' in complete_text[i] for i in range(4));assert 'Appendix A' in complete_text[4]
+        assert all('Main report' in complete_text[i] for i in range(4));assert len([p for p in complete_text if p.strip()])==4;assert 'Report overview' in complete_text[3]
         page.emulate_media(media='screen');page.set_viewport_size({'width':360,'height':900});assert page.locator('.task-presentation').evaluate('(node)=>node.scrollWidth<=node.clientWidth')
         page.get_by_role('button',name='Close report',exact=True).click();page.set_viewport_size({'width':1440,'height':950})
 
