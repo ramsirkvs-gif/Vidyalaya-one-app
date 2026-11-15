@@ -5,7 +5,7 @@ import {taskFixture} from './task-manager-fixture.mjs';
 import {applyTask,taskView,taskHeader,taskReport,TASK_CLASSES,TASK_PRIORITIES,TASK_FIELDS} from '../cbse-task-manager-model.js';
 import {TASK1} from '../_server/task-manager-seed.js';
 import {taskQuestions,taskCompatibleValues} from '../cbse-task-manager-model.js';
-import {taskFiguresTemplate,importTaskFiguresCSV,importTaskStrengthWorkbook} from '../cbse-task-manager-import.js';
+import {taskFiguresTemplate,importTaskFiguresCSV,importTaskStrengthWorkbook,decodePreparedTaskFigures} from '../cbse-task-manager-import.js';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import {TASK1_ROSTER,taskRosterStore} from '../cbse-task-manager-roster.js';
@@ -160,4 +160,10 @@ test('an authenticated figures import saves private defaults for later tasks wit
  await f.admin({operation:'save',taskId:'task1',expectedRevision:t.revision,rememberFigures:true,draft:{...t.draft,headers:{'IX A':{total:30,catV:4,st:5},'VI A':{total:24,catV:2,st:3}}}});
  const current=await f.admin({operation:'read'});assert.equal(current.classFigures['IX A'].total,30);assert.equal(current.tasks.task1.published.headers['IX A'].total,24);assert.equal(current.tasks.task1.draft.headers['IX A'].total,30);
  const created=await f.admin({operation:'create',draft:{...TASK1,title:'Another synthetic shared survey'}});assert.equal(created.tasks[created.taskId].draft.headers['IX A'].total,30);assert.equal(created.tasks[created.taskId].draft.headers['VI A'].total,24);assert.ok(!JSON.stringify(await f.service('task-read')).includes('classFigures'));
+});
+test('prepared figures payload accepts only valid aggregate class data and never includes credentials or report fields',()=>{
+ const encode=value=>Buffer.from(JSON.stringify(value)).toString('base64url');
+ assert.deepEqual(decodePreparedTaskFigures(encode({taskId:'task1',rows:[['IX A',24,0,null]]})),{taskId:'task1',headers:{'IX A':{total:24,catV:0,st:null}}});
+ for(const value of [{taskId:'__proto__',rows:[['IX A',24,0,1]]},{taskId:'task1',rows:[['X E',24,0,1]]},{taskId:'task1',rows:[['IX A',24,0,25]]},{taskId:'task1',rows:[['IX A',-1,0,0]]},{taskId:'task1',rows:[['IX A',2.5,0,0]]},{taskId:'task1',rows:[['IX A',24,0,0],['IX A',24,0,0]]}])assert.throws(()=>decodePreparedTaskFigures(encode(value)));
+ assert.throws(()=>decodePreparedTaskFigures('invalid!'));assert.throws(()=>decodePreparedTaskFigures('a'.repeat(10001)));
 });

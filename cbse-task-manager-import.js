@@ -2,6 +2,15 @@ import {parseCSVRows} from './cbse-basic-import.js';
 import {TASK_CLASSES,TASK_AVAILABLE_CLASSES,taskHeader} from './cbse-task-manager-model.js';
 export const TASK_CSV_COLUMNS=['Class','AssignedTeacher','TotalStudents','CatVStudents','STStudents'];
 export function taskFiguresTemplate(classes=TASK_CLASSES){return TASK_CSV_COLUMNS.join(',')+'\r\n'+classes.map(c=>c+',,,,').join('\r\n')+'\r\n';}
+// A prepared link carries aggregate figures in the URL fragment (not an HTTP
+// query or repository file). It never grants access or automatically saves data.
+export function decodePreparedTaskFigures(encoded){
+ if(typeof encoded!=='string'||encoded.length>10000||!/^[A-Za-z0-9_-]+$/.test(encoded))throw Error('Invalid prepared figures link.');
+ let data;try{data=JSON.parse(atob(encoded.replace(/-/g,'+').replace(/_/g,'/')));}catch{throw Error('Invalid prepared figures link.');}
+ if(!data||!/^task(?:1|_[A-Za-z0-9_]{8,80})$/.test(data.taskId)||!Array.isArray(data.rows)||!data.rows.length||data.rows.length>30)throw Error('Invalid prepared figures.');const headers={};
+ for(const row of data.rows){if(!Array.isArray(row)||row.length!==4||!TASK_AVAILABLE_CLASSES.includes(row[0])||Object.hasOwn(headers,row[0]))throw Error('Invalid or duplicate class in prepared figures.');headers[row[0]]=taskHeader({total:row[1],catV:row[2],st:row[3]});}
+ return {taskId:data.taskId,headers};
+}
 export function importTaskFiguresCSV(text,staff){
  const rows=parseCSVRows(text.replace(/^\uFEFF/,'')),columns=rows.shift()||[];
  if(columns.join(',')!==TASK_CSV_COLUMNS.join(','))throw Error('Use the class figures CSV template columns without changing their names.');

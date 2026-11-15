@@ -38,4 +38,4 @@ document.getElementById('open-short-movement').addEventListener('click',async ev
 
 window.addEventListener('chamber-activity-changed',()=>principalNotificationsPanel?.refresh());
 
-window.addEventListener('chamber-principal-session',event=>{const tile=document.getElementById('open-task-manager');tile.href='cbse-task-manager.html'+(event.detail.signedIn?'#principal':'#staff');tile.querySelector('b').textContent=event.detail.signedIn?'Create / publish / stop publication →':'Staff view →';});
+window.addEventListener('chamber-principal-session',event=>{const tile=document.getElementById('open-task-manager');tile.href='cbse-task-manager.html'+(event.detail.signedIn?'#principal':'#staff');tile.querySelector('b').textContent=event.detail.signedIn?'Manage tasks and submissions →':'Open task manager →';});

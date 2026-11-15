@@ -1,8 +1,10 @@
 # Task manager
 
 Open **Principal Chamber → Task manager**, or **Students feeding → Task manager**.
-The Chamber tile opens Principal view when the existing Principal session is
-verified. Principal view uses the same persistent Firebase session as the rest
+The task page has one flow: create task, select classes, assign teachers, prepare
+shared questions, save/publish, then track submissions. Signed-in Principals see
+the management controls automatically, without Staff/Principal view tabs or a
+separate per-class questionnaire preview. The page uses the same persistent Firebase session as the rest
 of the portal; it only asks for the existing password when signed out. Explicit
 Sign out clears protected task content. Staff use the **already generated portal
 PINs**, including existing linked staff identities. No new PIN is generated or
@@ -10,8 +12,8 @@ reset by Task manager.
 
 ## Task 1: private draft, no live creation assumed
 
-After deploying the code with the existing protected server credential, open
-Principal view and click **Create Task 1 unpublished draft**. This creates
+After deploying the code with the existing protected server credential, sign in
+as Principal and click **Create Task 1 unpublished draft**. This creates
 `cbse/taskManager/tasks/task1` through the Principal-authorized API. Repeating
 the action preserves an existing task, its publication state and all reports.
 The title is the requested HQ-meeting survey; priority is High priority / Most
@@ -45,7 +47,10 @@ reports and private backups out of Git and public hosting.
    teacher to each concerned class. Use **Applies to selected classes** to add or
    remove classes from the task. Available classes are VI–XII; existing tasks
    default to the original 18 IX–XII classes. Questions are shared task-wide: edit
-   once and publish once for every selected class. Q1–Q3 and assigned teachers
+   once and publish once for every selected class. Teacher assignments appear
+   immediately below class selection. **Save private draft** and **Save and publish
+   task** are at the end of the single editor; the latter saves current changes
+   and publishes them in one user action. Q1–Q3 and assigned teachers
    vary per class. Removing a class preserves its reports for Principal review
    but excludes it from current totals, the public list and staff submission access.
    Re-selecting and publishing restores permitted access to its retained report.
@@ -104,7 +109,7 @@ reports and private backups out of Git and public hosting.
 
 ## Staff workflow and validation
 
-Open Staff view to see published titles and the public class table without a
+Open Task manager to see published titles and the public class table without a
 curtain password or PIN. The Task 1 prime mentor / survey IC and technical support
 list comes from the Principal's supplied document. Click **Start & Submit Now**
 for your class and enter that assigned mentor's existing personal PIN. The
@@ -189,3 +194,14 @@ update protection and logout. Node tests cover invalid counts, wrong identities,
 unassigned classes, disabled PINs, stale writes, confidential payload filtering,
 publication retention, direct-client rule denial and build-output exclusions.
 These checks do not replace verification of a deployed Firebase/Vercel instance.
+
+## Prepared figures link
+
+Aggregate class figures supplied in chat can be prepared as a URL-fragment link
+with a validated task ID and class/count rows. The fragment is removed from the
+address bar before authentication/network calls. Only an authorized Principal
+can see the staged values; opening the link does not write or publish anything.
+The Principal reviews the figures and chooses Save private draft or Save and
+publish task, which uses their existing authenticated session. Figures stay out
+of repository files and HTTP query strings. Invalid class names, duplicate rows,
+negative/fractional counts and enrollment inconsistencies are rejected.
