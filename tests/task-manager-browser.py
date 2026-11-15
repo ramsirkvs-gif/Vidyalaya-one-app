@@ -124,6 +124,7 @@ try:
         class_preview.get_by_role('button',name='Close report',exact=True).click()
         card.get_by_role('button',name='Prepare presentation report',exact=True).click()
         preview=page.locator('.task-presentation');preview.wait_for();assert preview.locator('.presentation-main-page').count()==4
+        chart_questions=preview.locator('.presentation-point h4').all_text_contents();assert len([q for q in chart_questions if q.startswith('Q7 + Q8.')])==2;assert not any(q.startswith('Q8.') for q in chart_questions);assert len([q for q in chart_questions if q.startswith('Q6.') and '(either one or both parents are uneducated)' in q])==2
         assert preview.locator('.presentation-main-page').first.get_by_role('heading',name='I · Class IX · Overview',exact=True).count()==1
         assert preview.locator('.presentation-main-page').nth(2).get_by_role('heading',name='II · Classes IX–XII consolidated · Overview',exact=True).count()==1
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count').first.inner_text()=='96'
