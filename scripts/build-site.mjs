@@ -29,6 +29,9 @@ for(const name of (await fs.readdir(root)).sort()){
 }
 await copy('cbse-team-x-weekly');
 await copy('vendor');
+// PptxGenJS is bundled locally so report exports do not send school data to a third party.
+await fs.mkdir(path.join(output,'vendor/pptxgenjs'),{recursive:true});
+for(const [source,name]of [['dist/pptxgen.bundle.js','pptxgen.bundle.js'],['LICENSE','LICENSE']]){const bytes=await fs.readFile(path.join(root,'node_modules/pptxgenjs',source));hash.update('pptxgenjs/'+name);hash.update(bytes);await fs.writeFile(path.join(output,'vendor/pptxgenjs',name),bytes);}
 const version=hash.digest('hex');
 for(const name of await fs.readdir(output))if(name.endsWith('.html')){
  const p=path.join(output,name);const html=await fs.readFile(p,'utf8');

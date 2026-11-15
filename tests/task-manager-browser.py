@@ -1,7 +1,7 @@
 """Generated-site UI against the real task/PIN service with synthetic database/auth.
 Run after npm run build. No real Firebase access or school records are used.
 """
-import json, subprocess, urllib.request, base64
+import json, subprocess, urllib.request, base64, zipfile
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parent.parent
@@ -38,7 +38,7 @@ try:
         if not card.locator('.task-editor').evaluate('(node)=>node.open'):card.get_by_text('Edit task, survey questions and teacher assignments',exact=True).click()
         card.get_by_label('Task title',exact=True).wait_for(state='visible');assert card.get_by_label('Deadline (leave blank if not provided)',exact=True).input_value()==''
         assert card.get_by_label('Teacher for IX A',exact=True).locator('option[value="X:one"]').inner_text()=='Synthetic Teacher one'
-        assert card.locator('[name=fixed-class]').count()==0;assert card.locator('.task-class-choices input:checked').count()==18;card.get_by_label('Apply task to VI A',exact=True).check();assert card.locator('[data-assignment-class="VI A"]').is_visible();card.get_by_label('Apply task to VI A',exact=True).uncheck();assert card.locator('[data-assignment-class="VI A"]').is_hidden();assert card.locator('.task-question-editor').count()==16;assert card.locator('.task-question-editor select').count()==0;assert card.locator('.task-final-comment').count()==1;assert card.get_by_label('Overall situation — comments by CT / Prime mentor / Survey IC',exact=True).is_disabled();assert card.get_by_label('Question 4',exact=True).input_value()=='Number passed in the latest examination';assert card.locator('.task-fixed-editor [data-fixed-question]').count()==3
+        assert card.locator('[name=fixed-class]').count()==0;assert card.locator('.task-class-choices input:checked').count()==18;card.get_by_label('Apply task to VI A',exact=True).check();assert card.locator('[data-assignment-class="VI A"]').is_visible();card.get_by_label('Apply task to VI A',exact=True).uncheck();assert card.locator('[data-assignment-class="VI A"]').is_hidden();assert card.locator('.task-question-editor').count()==16;assert card.locator('.task-question-editor select').count()==0;assert card.locator('.task-final-comment').count()==1;assert card.get_by_label('Overall situation — comments by CT / Prime mentor / Survey IC',exact=True).is_disabled();assert card.get_by_label('Question 4',exact=True).input_value()=='Number of students who passed the latest examination';assert card.locator('.task-fixed-editor [data-fixed-question]').count()==3
         card.get_by_label('Question 13',exact=True).fill('Students frequently sleepy during class this week')
         card.get_by_role('button',name='Add survey question',exact=True).click();card.get_by_label('Question 20',exact=True).fill('Remarks / observations obtained from the Counselor, Special Educator, or Yoga Teacher')
         card.get_by_role('button',name='Add survey question',exact=True).click();card.get_by_label('Question 21',exact=True).fill('Temporary synthetic question');page.once('dialog',lambda dialog:dialog.accept());card.get_by_role('button',name='Delete Question 20',exact=True).click();assert card.locator('.task-question-editor').count()==17;assert card.get_by_label('Question 21',exact=True).count()==0;assert card.get_by_label('Question 20',exact=True).input_value()=='Temporary synthetic question';card.get_by_label('Question 20',exact=True).fill('Remarks / observations obtained from the Counselor, Special Educator, or Yoga Teacher')
@@ -71,7 +71,7 @@ try:
         teacher.set_viewport_size({'width':390,'height':844});teacher.screenshot(path='/tmp/task-manager-public-mobile.png',full_page=False)
         teacher.locator('[data-task-class="IX A"]').get_by_role('button',name='Start & Submit Now',exact=True).click();teacher.locator('[name=start-pin]').fill('000');teacher.get_by_role('button',name='Verify PIN and open survey',exact=True).click();teacher.locator('dialog [role=alert]').get_by_text('PIN does not match',exact=False).wait_for();assert teacher.locator('.task-count').count()==0
         teacher.locator('[name=start-pin]').fill('123');teacher.get_by_role('button',name='Verify PIN and open survey',exact=True).click()
-        teacher.get_by_role('heading',name='IX A',exact=True).wait_for();teacher.screenshot(path='/tmp/task-manager-survey-mobile.png',full_page=False);assert teacher.locator('.task-form-heading .task-urgent-heading').count()==1;assert teacher.locator('.task-count').count()==17;assert teacher.locator('.task-count select').count()==0;assert teacher.locator('.task-count label').first.inner_text()=='Q4. Number passed in the latest examination';assert teacher.locator('[data-fixed-question=total]').inner_text().startswith('Q1 · View only');assert teacher.locator('.task-header').inner_text().count('Unprovided')==1;assert teacher.locator('.task-header input').count()==0
+        teacher.get_by_role('heading',name='IX A',exact=True).wait_for();teacher.screenshot(path='/tmp/task-manager-survey-mobile.png',full_page=False);assert teacher.locator('.task-form-heading .task-urgent-heading').count()==1;assert teacher.locator('.task-count').count()==17;assert teacher.locator('.task-count select').count()==0;assert teacher.locator('.task-count label').first.inner_text()=='Q4. Number of students who passed the latest examination';assert teacher.locator('[data-fixed-question=total]').inner_text().startswith('Q1 · View only');assert teacher.locator('.task-header').inner_text().count('Unprovided')==1;assert teacher.locator('.task-header input').count()==0
         assert teacher.locator('[name=examContext]').count()==0;assert teacher.locator('input[placeholder=Unconfirmed]').count()==0;assert teacher.locator('.task-written-answer textarea').count()==1;teacher.locator('.task-written-answer textarea').fill('Too short');assert not teacher.locator('.task-written-answer textarea').evaluate('(input)=>input.checkValidity()');teacher.locator('.task-written-answer textarea').fill(WRITTEN);assert teacher.locator('.task-written-answer textarea').evaluate('(input)=>input.checkValidity()');assert '50–100 words' in teacher.locator('.task-written-answer .task-word-count').inner_text()
         for name,value in [('passed','20'),('failed','4'),('ptms','40')]:
             row=teacher.locator('.task-count').filter(has=teacher.locator('[name='+name+']'));row.locator('input').fill(value)
@@ -111,6 +111,17 @@ try:
         assert status_page.locator('[data-task-class="IX B"] .task-row-pending').evaluate('(node)=>getComputedStyle(node).color')=='rgb(180, 35, 41)';anonymous.close()
         print('PASS green submitted ticks, red pending labels and Principal answer corrections with confirmed saves and updated totals')
 
+        card.get_by_text('Closing comments for the whole report',exact=True).click()
+        for key in ['ro','deputyCommissioner','assistantCommissioner','principalAction','higherOfficials']:
+            card.locator('[name=closing-'+key+']').fill('Synthetic closing comment for '+key+'.')
+        card.get_by_role('button',name='Save closing report comments',exact=True).click();page.get_by_role('status').get_by_text('Closing report comments saved successfully.',exact=False).wait_for()
+        assert api({'action':'task-principal','operation':'read'})['tasks']['task1']['reportComments']['ro']=='Synthetic closing comment for ro.'
+        card.get_by_role('button',name='Class-wise survey PDF',exact=True).click();class_preview=page.locator('.task-presentation');class_preview.locator('[data-export-class="IX A"]').wait_for()
+        assert class_preview.locator('.presentation-main-page').count()==0;assert '19' in class_preview.locator('.presentation-class-report').inner_text()
+        page.emulate_media(media='print');page.pdf(path='/tmp/task-class-report-synthetic.pdf',prefer_css_page_size=True,print_background=True)
+        class_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-class-report-synthetic.pdf','-'],text=True);assert 'Q1. Total students' in class_text;assert 'Q4. Number of students who passed' in class_text;assert 'Synthetic revised perspective' in class_text
+        page.emulate_media(media='screen');class_preview.get_by_role('checkbox',name='Include class report IX A',exact=True).uncheck();assert class_preview.get_by_role('button',name='Print / Save PDF',exact=True).is_disabled();class_preview.get_by_role('checkbox',name='Include class report IX A',exact=True).check()
+        class_preview.get_by_role('button',name='Close report',exact=True).click()
         card.get_by_role('button',name='Prepare presentation report',exact=True).click()
         preview=page.locator('.task-presentation');preview.wait_for();assert preview.locator('.presentation-main-page').count()==4
         assert preview.locator('.presentation-main-page').first.get_by_role('heading',name='I · Class IX · Overview',exact=True).count()==1
@@ -122,19 +133,30 @@ try:
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count-context').nth(1).inner_text()=='19 out of 24 students'
         preview.get_by_text('Select presentation questions',exact=True).click()
         preview.get_by_role('button',name='Clear question selection',exact=True).click();assert preview.get_by_role('button',name='Print / Save PDF',exact=True).is_disabled()
-        preview.get_by_role('checkbox',name='Include Q4. Number passed in the latest examination',exact=True).check()
+        preview.get_by_role('checkbox',name='Include Q4. Number of students who passed the latest examination',exact=True).check()
         assert preview.locator('.presentation-main-page').count()==2
-        assert preview.locator('.presentation-main-page .presentation-point h4').all_text_contents()==['Q4. Number passed in the latest examination']*2
+        assert preview.locator('.presentation-main-page .presentation-point h4').all_text_contents()==['Q4. Number of students who passed the latest examination']*2
         assert preview.locator('.presentation-appendix').get_by_text(OVERALL_UPDATED,exact=True).count()==1
-        assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).fontWeight')=='800'
-        assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).backgroundColor')=='rgb(232, 243, 237)'
+        assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).fontWeight')=='500'
+        assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).backgroundColor')=='rgb(241, 246, 243)'
         page.emulate_media(media='print');page.pdf(path='/tmp/task-presentation-selected-synthetic.pdf',prefer_css_page_size=True,print_background=True)
         selected_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-selected-synthetic.pdf','-'],text=True).split('\f');assert 'Main report' in selected_text[0] and 'Main report' in selected_text[1] and 'Appendix A' in selected_text[2];assert 'Q2. Cat-V students' not in ''.join(selected_text)
         page.emulate_media(media='screen');preview.get_by_role('button',name='Select all questions',exact=True).click();assert preview.locator('.presentation-main-page').count()==4
         preview.get_by_text('Select presentation questions',exact=True).click()
+        preview.get_by_role('checkbox',name='Attach class-wise survey reports',exact=True).check();assert preview.locator('.presentation-class-report').count()==1
+        assert preview.locator('.presentation-closing').inner_text().count('Synthetic closing comment for ')==5
+        with page.expect_download() as download_info:
+            preview.get_by_role('button',name='Download PPTX',exact=True).click()
+        download=download_info.value;download.save_as('/tmp/task-presentation-browser-synthetic.pptx')
+        with zipfile.ZipFile('/tmp/task-presentation-browser-synthetic.pptx') as deck:
+            slide_xml='\n'.join(deck.read(name).decode() for name in deck.namelist() if name.startswith('ppt/slides/slide') and name.endswith('.xml'))
+            assert '79.2%' in slide_xml;assert 'Synthetic closing comment for ro.' in slide_xml;assert 'Class-wise survey report' in slide_xml
+            assert any(name.startswith('ppt/charts/chart') and name.endswith('.xml') for name in deck.namelist())
+        preview.get_by_role('status').get_by_text('PowerPoint download prepared.',exact=True).wait_for()
+        preview.get_by_role('checkbox',name='Attach class-wise survey reports',exact=True).uncheck()
         preview.get_by_role('textbox').fill('Counsellor — Synthetic Co-opted Member');preview.get_by_role('button',name='Update participant list',exact=True).click()
         assert 'Synthetic Co-opted Member' in preview.locator('.presentation-main-page').last.inner_text()
-        assert OVERALL_UPDATED in preview.locator('.presentation-appendix').inner_text();assert WRITTEN in preview.locator('.presentation-appendix').inner_text()
+        assert OVERALL_UPDATED in preview.locator('.presentation-appendix').first.inner_text();assert WRITTEN in preview.locator('.presentation-appendix').first.inner_text()
         page.emulate_media(media='print')
         assert preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point")].every(c=>c.scrollHeight<=c.clientHeight+1))'),preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.map(p=>({height:p.clientHeight,scroll:p.scrollHeight,cards:[...p.querySelectorAll(".presentation-point")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight}))}))')
         page.pdf(path='/tmp/task-presentation-synthetic.pdf',prefer_css_page_size=True,print_background=True)

@@ -15,3 +15,15 @@ Choose **Print / Save PDF**, use the supplied A4 landscape page size, and disabl
 Submitted classes display a green **✓ Submitted** label; pending classes display **Pending** in red. In **Submission status and results**, choose **Open report**, then **Edit submitted answers — class**. Edit the submitted questionnaire answers or teacher remarks and choose **Save submitted answers**. Principal authentication authorizes this action without a teacher PIN. Q1–Q3 remain read-only; update those through the shared class-figures editor.
 
 Corrections retain the original submitting teacher and submitted question wording. They update totals and subsequent presentations, retain a private previous-answer history, and show a confirmed Principal-save message. Changes to the same report reject stale saves instead of overwriting a newer submission. Teacher PIN permissions and public visibility remain unchanged.
+
+# Closing comments and class-wise attachments
+
+The Principal can open **Closing comments for the whole report** below the results and save five separate notes: RO efforts, Deputy Commissioner guidance, Assistant Commissioner guidance, Principal action, and higher KVS officials' visits/guidance. **Save closing report comments** persists these privately for the task. Non-empty notes are included at the very end of the presentation export, after attachments. They do not expand the two/four main chart pages and are excluded from public and teacher views.
+
+Choose **Class-wise survey PDF** next to the task heading for a separate export. Select one or more submitted classes, then **Print / Save PDF**. Each selected class starts on a new page and includes all Q1–Q3 figures, its full submitted questionnaire, written answers, overall comments and any retained answers to changed/deleted questions. In the presentation preview, select **Attach class-wise survey reports** and choose classes to include the same reports after the teacher-comment appendix. These complete attachments are independent of the selected presentation questions.
+
+# PowerPoint and wording
+
+**Download PPTX** creates a real PowerPoint file locally, with editable text and native pie charts. It includes your selected presentation points, teacher comments, optional full class reports and saved closing comments. **Print / Save PDF** provides the corresponding PDF route. PptxGenJS and its licence are delivered with the app; report content is not sent to an external export service. Browser downloads go to the user's chosen download location.
+
+Question headings use medium-weight text and a pale background strip. Known grammatical errors in question wording are corrected for display and in the shared editor without changing meaning; original submitted wording is retained in stored report snapshots. Grammar-equivalent edits preserve compatibility of earlier numeric answers, while substantive wording changes still require teacher confirmation.
