@@ -11,6 +11,17 @@ try:
     assert 'READY' in server.stdout.readline(),server.stderr.read()
     with sync_playwright() as p:
         browser=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox'])
+        # Enter as staff first: no Principal screen or PIN Settings has run yet.
+        direct=browser.new_page(viewport={'width':390,'height':844})
+        direct.goto(BASE+'cbse-primary-roster.js');direct.set_content('<main id="root"></main>')
+        direct.evaluate('''async()=>{const {renderRollCall}=await import('/cbse-roll-call-view.js');renderRollCall(document.querySelector('#root'));}''')
+        direct.locator('[name=roll-view-password]').fill('synthetic-view');direct.get_by_role('button',name='Open Roll Call',exact=True).click()
+        direct.get_by_role('button',name='Morning Roll Call reporting',exact=True).click();direct.locator('[name=roll-reporting-wing]').select_option('primary')
+        direct_rows=direct.locator('.roll-daily-register .roll-staff-row');direct_rows.first.wait_for();assert direct_rows.count()==29
+        assert direct_rows.first.locator('strong').inner_text()=='Mr. Rohtash'
+        assert direct_rows.last.locator('strong').inner_text()=='Mr. Bibek Kumar Dubey'
+        direct_rows.first.get_by_role('button',name='Submit Roll Call for Mr. Rohtash',exact=True).click();direct.locator('[name=roll-morning-mode]').wait_for()
+        direct.close()
         page=browser.new_page(viewport={'width':390,'height':844});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
         page.goto(BASE+'cbse-primary-roster.js');page.set_content('<link rel="stylesheet" href="/cbse.css"><link rel="stylesheet" href="/cbse-roll-call.css"><main class="roll-workspace" id="root"></main>')
         page.evaluate('''async()=>{const {renderRollPrincipalDashboard}=await import('/cbse-roll-call-principal.js');window.primaryApi=async body=>{const r=await fetch('/api/staff-access',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer principal'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(data.error);return data;};window.drawPrimary=()=>{document.querySelector('#root').replaceChildren();renderRollPrincipalDashboard(document.querySelector('#root'),{data:{rollCall:{reports:{}},serverDate:'2026-11-15'},state:{scope:'settings',tab:'pins'},api:window.primaryApi,run:async fn=>fn(),refresh:async()=>{},close:()=>{},signout:()=>{}});};window.drawPrimary();}''')
