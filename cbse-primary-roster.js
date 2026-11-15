@@ -1,3 +1,4 @@
+import {isAvinashGuestProfile} from './cbse-faculty-guest.js';
 // Primary Wing roster supplied by the Principal. Names never contain PINs.
 export const PRIMARY_ROSTER=[
  ['Mr. Rohtash','Headmaster (HM)',['Rohatsh','Rothash','Rohtas','Rohtash Virat','HM Rohtash','HM Rohatsh']],
@@ -16,8 +17,8 @@ export const PRIMARY_ROSTER=[
  ['Ms. Meena Chettry','PRT',[]],['Ms. Priyanka Gupta','PRT',[]],
  ['Mr. Pankaj Pandey','PRT',[]],['Ms. Kime Muni','PRT',[]],['Ms. Punyo Rinyo','PRT',[]],
  ['Ralo Ripa','PRT',[]],['Ms. Sonam Kumari','PRT Music',[]],['Mr. Panjib Sarkar','Art Instructor',[]],
- ['Mr. Bibek Kumar Dubey','Computer Instructor',['Bibek','Bibek Kumar','AVINASH/Bibek','Avinash','Avinash Singh']]
+ ['Mr. Bibek Kumar Dubey','Computer Instructor',['Bibek','Bibek Kumar']]
 ].map(([name,designation,aliases],index)=>({name,designation,serial:index+1,aliases:[name,...aliases]}));
 export const primaryNameKey=value=>String(value||'').normalize('NFKC').toUpperCase().replace(/\b(MR|MRS|MS|DR|SHRI|SMT|MISS)\b\.?\s*/g,'').replace(/[^A-Z]/g,'');
 export function primaryStaffEntry(person){if(!person||/\b(PGT|TGT)\b/i.test(person.designation||''))return;const key=primaryNameKey(person.name);if(key==='SUSHIL'&&person.kind!=='prt'&&person.wing!=='primary'&&!/\bPRT\b/i.test(person.designation||''))return;return PRIMARY_ROSTER.find(p=>p.aliases.some(name=>primaryNameKey(name)===key));}
-export function primaryDirectory(staff){return Object.fromEntries(Object.entries(staff||{}).map(([id,p])=>{const entry=primaryStaffEntry(p);return [id,entry?{...p,name:entry.name,wing:'primary',designation:entry.designation}:p];}));}
+export function primaryDirectory(staff){return Object.fromEntries(Object.entries(staff||{}).map(([id,p])=>{const entry=primaryStaffEntry(p);return [id,entry?{...p,name:entry.name,wing:'primary',designation:entry.designation}:isAvinashGuestProfile(p)?{...p,wing:'secondary'}:p];}));}

@@ -1,7 +1,7 @@
 // A guest works through the existing faculty identity, assignments and PIN.
 // This display mapping never creates an account or copies/resets credentials.
 const nameKey=value=>String(value||'').replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS)\b\.?\s*/gi,'').toUpperCase().replace(/[^A-Z]/g,'');
-export const isAvinashGuestProfile=person=>['AVINASH','AVINASHSINGH','AVINASHBIBEK','BIBEK','BIBEKKUMAR','BIBEKKUMARDUBEY'].includes(nameKey(person?.name));
+export const isAvinashGuestProfile=person=>['AVINASH','AVINASHSINGH','AVINASHBIBEK'].includes(nameKey(person?.name));
 export const isBamangMehaProfile=person=>['BAMANGMEHA','BAMAMGMEHA','DAMIANGMEHA'].includes(nameKey(person?.name));
 export const isGangaDeviProfile=person=>['LGANGADEVI','LAISHRAMGANGADEVI'].includes(nameKey(person?.name));
 export const guestFacultyName=name=>isAvinashGuestProfile({name})?'AVINASH/Bibek':isBamangMehaProfile({name})?'BAMANG MEHA':isGangaDeviProfile({name})?'LAISHRAM GANGA DEVI':name;
@@ -21,7 +21,7 @@ export function gangaDeviIdentityIds(id,faculty,mission={}){
  return rows.filter(([,p])=>p.status==='active'&&isGangaDeviProfile(p)).sort((a,b)=>(a[0].startsWith('support:')?1:0)-(b[0].startsWith('support:')?1:0)||(nameKey(a[1].name)==='LAISHRAMGANGADEVI'?0:1)-(nameKey(b[1].name)==='LAISHRAMGANGADEVI'?0:1)||a[0].localeCompare(b[0])).map(([key])=>key);
 }
 
-// Principal-confirmed guest identity: retain saved IDs/history and prefer Avinash's existing PIN owner.
+// Legacy Avinash display aliases only. Bibek is a separate Primary employee.
 export function avinashBibekIdentityIds(id,faculty,mission={}){
  const rows=[...Object.entries(faculty?.classes||{}).flatMap(([cl,c])=>Object.entries(c.teachers||{}).map(([key,p])=>[cl+':'+key,p])),...Object.entries(mission.staff||{}).map(([key,p])=>['support:'+key,p])];
  if(!rows.some(([key,p])=>key===id&&isAvinashGuestProfile(p)))return null;

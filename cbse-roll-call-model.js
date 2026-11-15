@@ -1,3 +1,4 @@
+import {isAvinashGuestProfile} from './cbse-faculty-guest.js';
 import {primaryStaffEntry} from './cbse-primary-roster.js';
 import {snapshotQuestionComments} from './cbse-roll-call-checklist.js';
 import {applyAdvanceLeave} from './cbse-advance-leave-model.js';
@@ -7,7 +8,7 @@ import {ROLL_CHECKS,LEAVE_CHECKS} from './cbse-roll-call-defaults.js';
 export {ROLL_CHECKS,LEAVE_CHECKS} from './cbse-roll-call-defaults.js';
 import {publishedReporting,reportingQuestions,snapshotAnswers} from './cbse-reporting-model.js';
 export const rollToday=(now=Date.now())=>new Date(now+19800000).toISOString().slice(0,10);
-export function rollWing(p){if(primaryStaffEntry(p))return 'primary';if(['primary','secondary'].includes(p?.wing))return p.wing;if(secondaryStaffEntry(p))return 'secondary';if(p?.wing==='primary'||p?.kind==='prt'||/\bPRT\b/i.test(p?.designation||''))return 'primary';if(p?.wing==='secondary'||p?.kind==='faculty'||/\b(?:TGT|PGT)\b/i.test(p?.designation||''))return 'secondary';return '';}
+export function rollWing(p){if(isAvinashGuestProfile(p))return 'secondary';if(primaryStaffEntry(p))return 'primary';if(['primary','secondary'].includes(p?.wing))return p.wing;if(secondaryStaffEntry(p))return 'secondary';if(p?.wing==='primary'||p?.kind==='prt'||/\bPRT\b/i.test(p?.designation||''))return 'primary';if(p?.wing==='secondary'||p?.kind==='faculty'||/\b(?:TGT|PGT)\b/i.test(p?.designation||''))return 'secondary';return '';}
 const text=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.length<=max;
 const validDate=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
 export const rollReasonWordCount=value=>String(value||'').trim().split(/\s+/).filter(Boolean).length;
