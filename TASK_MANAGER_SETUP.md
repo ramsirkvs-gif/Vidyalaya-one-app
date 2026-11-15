@@ -109,7 +109,8 @@ submit header changes. Supply the latest
 examination's name/context and aggregate counts only. Teachers enter counts directly in plain number cells, without dropdowns.
 Leave a cell blank for **Not available / unconfirmed**; unknown counts are excluded from totals rather
 than treated as zero. Do not enter student names, locations or identifying
-family/health information. Teacher reports also have an optional remarks box at the end for class-level
+family/health information. Teacher reports end with **Overall situation — comments by CT / Prime mentor /
+Survey IC**, an optional text box for class-level
 perspectives, reasons for difficulties in academic progress and suggested support
 (up to 2,000 characters). Remarks must not contain student names or identifying
 family/health information. They remain private to the Principal and the currently
