@@ -3,8 +3,11 @@ import http from 'node:http';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {taskFixture} from './task-manager-fixture.mjs';
+import ExcelJS from 'exceljs';
+import {TASK_CLASSES} from '../cbse-task-manager-model.js';
 const f=taskFixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');
 const server=http.createServer(async(req,res)=>{try{
+ if(req.url==='/synthetic-strength.xlsx'){const book=new ExcelJS.Workbook(),sheet=book.addWorksheet('Class Strength Data');sheet.addRow(['CLASS','TOTAL STUDENTS','CAT-V STUDENTS','TOTAL ST STUDENTS']);sheet.addRow(['VI A',24,0,null]);for(const c of TASK_CLASSES)sheet.addRow([c,24,0,null]);res.setHeader('Content-Type','application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');res.end(Buffer.from(await book.xlsx.writeBuffer()));return;}
  if(req.url==='/api/staff-access'){
   let body='';for await(const chunk of req)body+=chunk;const input=JSON.parse(body),token=(req.headers.authorization||'').replace(/^Bearer /,'');
   // Only the curtain is stubbed. Task permissions and PIN verification use the real service.

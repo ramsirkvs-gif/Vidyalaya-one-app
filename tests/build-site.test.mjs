@@ -16,7 +16,7 @@ test('static build is repeatable, includes working app assets, and excludes priv
   }
  }
  for(const excluded of ['AGENTS.md','CBSE_SETUP.md','README.md','firebase.json','.firebaserc','tests','cbse-private','faculty.pdf','firebase-applications.json','api','_server','package.json','package-lock.json','MISSION_SETUP.md','TASK_MANAGER_SETUP.md','private-templates'])assert.ok(!names.includes(excluded),excluded);
- for(const file of ['cbse-task-manager.html','cbse-task-manager.js','cbse-task-manager-model.js','cbse-task-manager.css'])await fs.access(path.join(root,'public',file));
+ for(const file of ['cbse-task-manager.html','cbse-task-manager.js','cbse-task-manager-model.js','cbse-task-manager.css','cbse-task-manager-import.js','Task_Class_Figures_Template.csv'])await fs.access(path.join(root,'public',file));
  const taskModel=await fs.readFile(path.join(root,'public/cbse-task-manager-model.js'),'utf8');assert.ok(!taskModel.includes('High-urgency survey for HQ meeting'));
  assert.ok(names.includes('database.rules.json'));await fs.access(path.join(root,'public/vendor/pdfjs/pdf.worker.min.mjs'));
  const missionPage=await fs.readFile(path.join(root,'public/cbse-mission.html'),'utf8');

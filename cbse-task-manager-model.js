@@ -8,16 +8,26 @@ const own=(o,k)=>Object.hasOwn(o||{},k);
 function fail(message){throw Error(message);}
 function text(value,max,label,required=false){if(typeof value!=='string'||value.length>max||required&&!value.trim())fail('Enter a valid '+label+'.');return value.trim();}
 function count(value){if(value===null||value===undefined||value==='')return null;if(typeof value!=='number'||!Number.isSafeInteger(value)||value<0||value>1000000)fail('Counts must be non-negative whole numbers or unconfirmed.');return value;}
+export function taskQuestions(config={}){
+ const questions=config.questions===undefined?Object.entries(TASK_FIELDS).map(([id,label])=>({id,label,kind:id==='ptms'?'meetings':'students'})):config.questions;
+ if(!Array.isArray(questions)||!questions.length||questions.length>60)fail('Provide between 1 and 60 survey questions.');const ids=new Set();
+ return questions.map(q=>{if(!q||typeof q!=='object'||typeof q.id!=='string'||(!own(TASK_FIELDS,q.id)&&!/^q_[a-zA-Z0-9_]{8,50}$/.test(q.id))||ids.has(q.id))fail('Each question needs a unique valid ID.');ids.add(q.id);if(!['students','meetings'].includes(q.kind)||(['passed','failed'].includes(q.id)&&q.kind!=='students')||(q.id==='ptms'&&q.kind!=='meetings'))fail('Choose a valid count type. Passed/failed count students; PTMs count meetings.');return {id:q.id,label:text(q.label,600,'survey question',true),kind:q.kind};});
+}
+export function taskQuestionLabels(config={}){return Object.fromEntries(taskQuestions(config).map(q=>[q.id,q.label]));}
+export function taskCompatibleValues(report,config={}){
+ if(!report)return {};const old=new Map(taskQuestions(report).map(q=>[q.id,q]));
+ return Object.fromEntries(taskQuestions(config).map(q=>{const previous=old.get(q.id);return [q.id,previous?.label===q.label&&previous?.kind===q.kind?report.values?.[q.id]??null:null];}));
+}
 export function taskHeader(value={}){if(!value||typeof value!=='object'||Array.isArray(value))fail('Invalid class figures.');const h=Object.fromEntries(Object.keys(TASK_HEADERS).map(k=>[k,count(value[k])]));for(const k of ['catV','st'])if(h.total!==null&&h[k]!==null&&h[k]>h.total)fail('Class figures cannot exceed enrollment.');return h;}
-export function taskReport(value,header={}){
+export function taskReport(value,header={},config={}){
  if(!value||typeof value!=='object'||Array.isArray(value))fail('Enter aggregate report counts.');
- if(Object.keys(value).some(k=>!own(TASK_FIELDS,k)&&k!=='examContext'))fail('Only aggregate survey fields are accepted.');
+ const questions=taskQuestions(config),ids=new Set(questions.map(q=>q.id));if(Object.keys(value).some(k=>!ids.has(k)&&k!=='examContext'))fail('Only aggregate survey fields are accepted.');
  const report={examContext:text(value.examContext,200,'latest examination name/context',true)};
- for(const k of Object.keys(TASK_FIELDS)){report[k]=count(value[k]);if(k!=='ptms'&&header.total!=null&&report[k]!==null&&report[k]>header.total)fail(TASK_FIELDS[k]+' cannot exceed enrollment.');}
- if(header.total!=null&&report.passed!==null&&report.failed!==null&&report.passed+report.failed>header.total)fail('Passed plus failed cannot exceed enrollment.');return report;
+ for(const q of questions){report[q.id]=count(value[q.id]);if(q.kind==='students'&&header.total!=null&&report[q.id]!==null&&report[q.id]>header.total)fail(q.label+' cannot exceed enrollment.');}
+ if(header.total!=null&&report.passed!=null&&report.failed!=null&&report.passed+report.failed>header.total)fail('Passed plus failed cannot exceed enrollment.');return report;
 }
 function config(value,staff){
- const c={title:text(value.title,240,'title',true),instructions:text(value.instructions,3000,'instructions'),priority:value.priority,deadline:text(value.deadline||'',10,'deadline'),visibility:value.visibility,assignments:{},headers:{}};
+ const c={title:text(value.title,240,'title',true),instructions:text(value.instructions,3000,'instructions'),priority:value.priority,deadline:text(value.deadline||'',10,'deadline'),visibility:value.visibility,questions:taskQuestions(value),assignments:{},headers:{}};
  if(!TASK_PRIORITIES.includes(c.priority)||!['all','concerned'].includes(c.visibility))fail('Choose priority and visibility.');
  if(c.deadline&&(!/^\d{4}-\d{2}-\d{2}$/.test(c.deadline)||new Date(c.deadline).toISOString().slice(0,10)!==c.deadline))fail('Enter a valid deadline.');
  if(c.priority===TASK_PRIORITIES[2]&&!c.deadline)fail('Time-bound tasks require a deadline.');
@@ -26,9 +36,10 @@ function config(value,staff){
 }
 export function taskSummary(task){
  const reports=task.reports||{},submitted=TASK_CLASSES.filter(c=>own(reports,c)),pending=TASK_CLASSES.filter(c=>!own(reports,c));
- const totals={};for(const k of [...Object.keys(TASK_HEADERS),...Object.keys(TASK_FIELDS)]){
-  const classes=TASK_CLASSES.filter(c=>{const value=own(TASK_HEADERS,k)?task.draft.headers?.[c]?.[k]:reports[c]?.values?.[k];return value!=null;});
-  totals[k]={total:classes.length?classes.reduce((sum,c)=>sum+(own(TASK_HEADERS,k)?task.draft.headers[c][k]:reports[c].values[k]),0):null,classes,missing:TASK_CLASSES.filter(c=>!classes.includes(c))};
+ const compatible=Object.fromEntries(submitted.map(c=>[c,taskCompatibleValues(reports[c],task.draft)]));
+ const totals={};for(const k of [...Object.keys(TASK_HEADERS),...taskQuestions(task.draft).map(q=>q.id)]){
+  const classes=TASK_CLASSES.filter(c=>{const value=own(TASK_HEADERS,k)?task.draft.headers?.[c]?.[k]:compatible[c]?.[k];return value!=null;});
+  totals[k]={total:classes.length?classes.reduce((sum,c)=>sum+(own(TASK_HEADERS,k)?task.draft.headers[c][k]:compatible[c][k]),0):null,classes,missing:TASK_CLASSES.filter(c=>!classes.includes(c))};
  }return {submitted,pending,totals};
 }
 export function taskView(store={},actor={ids:[]}){
@@ -37,7 +48,7 @@ export function taskView(store={},actor={ids:[]}){
   const p=t.published;if(!p)continue;
   const classes=TASK_CLASSES.filter(c=>actor.ids.includes(p.assignments?.[c]));
   if(p.visibility==='concerned'&&!classes.length)continue;
-  tasks[id]={revision:t.publishedRevision,title:p.title,priority:p.priority,deadline:p.deadline,instructions:p.instructions,visibility:p.visibility,classes,headers:Object.fromEntries(classes.map(c=>[c,p.headers?.[c]||taskHeader()])),reports:Object.fromEntries(classes.filter(c=>own(t.reports,c)).map(c=>[c,structuredClone(t.reports[c])]))};
+  tasks[id]={revision:t.publishedRevision,title:p.title,priority:p.priority,deadline:p.deadline,instructions:p.instructions,questions:taskQuestions(p),visibility:p.visibility,classes,headers:Object.fromEntries(classes.map(c=>[c,p.headers?.[c]||taskHeader()])),reports:Object.fromEntries(classes.filter(c=>own(t.reports,c)).map(c=>[c,structuredClone(t.reports[c])]))};
  }return {tasks};
 }
 export function applyTask(store,input,actor,staff,stamp,id){
@@ -53,12 +64,12 @@ export function applyTask(store,input,actor,staff,stamp,id){
   const c=input.classId,p=t.published;if(!p||!TASK_CLASSES.includes(c)||!actor.ids.includes(p.assignments?.[c]))fail('This published class report is not assigned to you.');
   if(input.expectedRevision!==t.publishedRevision)fail('Task instructions or assignments changed. Refresh before saving.');
   if(input.reportRevision!==(t.reports?.[c]?.revision||0))fail('Class report changed. Refresh before saving.');
-  t.reports||={};t.reports[c]={values:taskReport(input.report,p.headers?.[c]),revision:(t.reports[c]?.revision||0)+1,submittedBy:actor.id,updatedAt:stamp};return next;
+  t.reports||={};t.reports[c]={values:taskReport(input.report,p.headers?.[c],p),questions:taskQuestions(p),revision:(t.reports[c]?.revision||0)+1,submittedBy:actor.id,updatedAt:stamp};return next;
  }
  if(!actor.principal)fail('Principal access required.');
  if(input.expectedRevision!==t.revision)fail('Task changed. Refresh before saving.');
- if(operation==='save'){t.draft=config(input.draft,staff);for(const [c,r]of Object.entries(t.reports||{}))taskReport(r.values,t.draft.headers[c]);}
- else if(operation==='publish'){t.published=config(t.draft,staff);t.publishedRevision=(t.publishedRevision||0)+1;for(const [c,r]of Object.entries(t.reports||{}))taskReport(r.values,t.published.headers[c]);t.publishedAt=stamp;}
+ if(operation==='save'){t.draft=config({...input.draft,questions:input.draft.questions===undefined?t.draft.questions:input.draft.questions},staff);for(const [c,r]of Object.entries(t.reports||{}))taskReport(r.values,t.draft.headers[c],r);}
+ else if(operation==='publish'){t.published=config(t.draft,staff);t.publishedRevision=(t.publishedRevision||0)+1;for(const [c,r]of Object.entries(t.reports||{}))taskReport(r.values,t.published.headers[c],r);t.publishedAt=stamp;}
  else if(operation==='unpublish'){delete t.published;}
  else if(operation==='comment')t.comment=text(input.comment,4000,'Principal comment');
  else fail('Unknown task operation.');

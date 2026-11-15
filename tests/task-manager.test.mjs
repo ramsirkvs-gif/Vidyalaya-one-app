@@ -4,6 +4,10 @@ import fs from 'node:fs/promises';
 import {taskFixture} from './task-manager-fixture.mjs';
 import {applyTask,taskView,taskHeader,taskReport,TASK_CLASSES,TASK_PRIORITIES,TASK_FIELDS} from '../cbse-task-manager-model.js';
 import {TASK1} from '../_server/task-manager-seed.js';
+import {taskQuestions,taskCompatibleValues} from '../cbse-task-manager-model.js';
+import {taskFiguresTemplate,importTaskFiguresCSV,importTaskStrengthWorkbook} from '../cbse-task-manager-import.js';
+import ExcelJS from 'exceljs';
+import JSZip from 'jszip';
 const report={examContext:'Synthetic preboard',passed:20,failed:4,ptms:40,firstGeneration:null};
 async function setup(){const f=taskFixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');await f.admin({operation:'create-task1'});let t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'save',taskId:'task1',expectedRevision:t.revision,draft:{...t.draft,assignments:{'IX A':'X:one','XI E':'X:two'},headers:{'IX A':{total:24,catV:0,st:null}}}});t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'publish',taskId:'task1',expectedRevision:t.revision});return f;}
 test('exact class catalogue, unknown figures, independent overlapping categories and meeting counts',()=>{
@@ -61,4 +65,36 @@ test('private Task 1 import is safe and Task manager namespace defaults to no cl
  const imported=JSON.parse(await fs.readFile(new URL('../private-templates/task1-draft.json',import.meta.url)));assert.equal(imported.draft.title,TASK1.title);assert.ok(!imported.published);assert.deepEqual(imported.reports,{});
  const rules=JSON.parse(await fs.readFile(new URL('../database.rules.json',import.meta.url))).rules;assert.equal(rules.cbse.taskManager['.read'],false);assert.equal(rules.cbse.taskManager['.write'],false);assert.equal(rules.cbse['.read'],undefined);
  const result=applyTask(null,{operation:'create-task1',draft:TASK1},{principal:true},{},100,'task1');assert.deepEqual(taskView(result,{ids:['X:one']}).tasks,{});assert.equal(Object.keys(TASK_FIELDS).length,16);
+});
+test('Principal can edit and add draft questions without changing published forms or reinterpreting old reports',async()=>{
+ const f=await setup();let t=f.data.cbse.taskManager.tasks.task1;
+ await f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:t.publishedRevision,reportRevision:0,report:{...report,sleepy:3}});
+ t=f.data.cbse.taskManager.tasks.task1;const original=structuredClone(t.reports['IX A']);
+ const questions=taskQuestions(t.draft).map(q=>q.id==='sleepy'?{...q,label:'Students sleepy in at least three lessons this week'}:q);questions.push({id:'q_additional_students',label:'Additional synthetic student category',kind:'students'},{id:'q_extra_meetings',label:'Additional synthetic meetings',kind:'meetings'});
+ await f.admin({operation:'save',taskId:'task1',expectedRevision:t.revision,draft:{...t.draft,questions}});
+ let current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.summary.totals.sleepy.total,null);assert.equal(current.summary.totals.passed.total,20);assert.equal(current.summary.totals.q_additional_students.total,null);assert.deepEqual(current.reports['IX A'],original);
+ assert.equal((await f.teacher()).tasks.task1.questions.length,16);
+ await f.admin({operation:'publish',taskId:'task1',expectedRevision:current.revision});const mine=(await f.teacher()).tasks.task1;assert.equal(mine.questions.length,18);assert.equal(taskCompatibleValues(mine.reports['IX A'],mine).sleepy,null);assert.equal(taskCompatibleValues(mine.reports['IX A'],mine).passed,20);
+ const input={taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:mine.revision,reportRevision:1,report:{...report,sleepy:2,q_additional_students:25,q_extra_meetings:50}};
+ await assert.rejects(f.teacher(input),/enrollment/);await assert.rejects(f.teacher({...input,report:{...report,forgedField:1}}),/Only aggregate/);
+ await f.teacher({...input,report:{...input.report,q_additional_students:4}});current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.summary.totals.q_extra_meetings.total,50);assert.equal(current.summary.totals.q_additional_students.total,4);assert.equal(current.summary.totals.sleepy.total,2);assert.equal(Object.keys(current.reports).length,1);
+});
+test('question definitions reject duplicates, invalid identifiers, narrative types and loss of passed/failed count checks',()=>{
+ const questions=taskQuestions();for(const invalid of [[],[...questions,questions[0]],[{id:'__proto__',label:'Invalid',kind:'students'}],[{id:'q_new_question',label:'',kind:'students'}],[{id:'q_new_question',label:'Names',kind:'text'}],[{id:'passed',label:'Passed',kind:'meetings'}]])assert.throws(()=>taskQuestions({questions:invalid}));
+ assert.equal(taskQuestions({}).length,16);
+});
+test('one CSV imports all 18 classes, names and figures; blanks stay unknown and invalid rows reject the whole file',async()=>{
+ const staff={'X:one':{name:'Synthetic Teacher one',status:'active'},'X:two':{name:'Synthetic Teacher two',status:'active'}};
+ const template=taskFiguresTemplate(),blank=importTaskFiguresCSV(template,staff);assert.equal(Object.keys(blank.headers).length,18);assert.deepEqual(blank.headers['XI E'],{total:null,catV:null,st:null});assert.deepEqual(blank.assignments,{});
+ assert.equal((await fs.readFile(new URL('../Task_Class_Figures_Template.csv',import.meta.url),'utf8')).replaceAll('\r',''),template.replaceAll('\r',''));
+ const filled=template.replace('IX A,,,,','IX A,Synthetic Teacher one,24,0,5').replace('XI E,,,,','XI E,Synthetic Teacher two,30,,');const imported=importTaskFiguresCSV(filled,staff);assert.equal(Object.keys(imported.headers).length,18);assert.equal(imported.assignments['IX A'],'X:one');assert.equal(imported.assignments['XI E'],'X:two');assert.equal(imported.headers['IX A'].catV,0);assert.equal(imported.headers['XI E'].catV,null);
+ for(const invalid of [filled.replace('24,0,5','24,0,25'),filled.replace('24,0,5','-1,0,5'),filled.replace('24,0,5','2.5,0,1'),filled.replace('XI E,Synthetic Teacher two,30,,','X E,Synthetic Teacher two,30,,'),filled.replace('Synthetic Teacher one','Unknown Teacher'),filled+'IX A,,,,\r\n'])assert.throws(()=>importTaskFiguresCSV(invalid,staff));
+ assert.throws(()=>importTaskFiguresCSV(filled,{...staff,duplicate:staff['X:one']}),/ambiguous/);
+});
+test('school-strength Excel import maps all task classes, ignores younger classes and summary sheets, and rejects incomplete/invalid sheets',async()=>{
+ const book=new ExcelJS.Workbook(),sheet=book.addWorksheet('Class Strength Data');sheet.addRow(['CLASS','TOTAL STUDENTS','CAT-V STUDENTS','TOTAL ST STUDENTS']);sheet.addRow(['VI A',24,2,3]);for(const c of TASK_CLASSES)sheet.addRow([c,24,2,3]);sheet.addRow(['TOTAL (VI-A to XII-E)',null,null,null]);book.addWorksheet('Summary & Chart').addRow(['CLASS GROUP','TOTAL STUDENTS','CAT-V STUDENTS','TOTAL ST STUDENTS']);
+ const value=await importTaskStrengthWorkbook(await book.xlsx.writeBuffer(),ExcelJS,JSZip);assert.equal(Object.keys(value.headers).length,18);assert.deepEqual(value.headers['XI E'],{total:24,catV:2,st:3});assert.deepEqual(value.ignored,['VI A']);assert.deepEqual(value.assignments,{});
+ sheet.getRow(3).getCell(3).value=25;await assert.rejects(importTaskStrengthWorkbook(await book.xlsx.writeBuffer(),ExcelJS,JSZip),/enrollment/);
+ sheet.getRow(3).getCell(3).value=2;sheet.getRow(3).getCell(1).value='X E';await assert.rejects(importTaskStrengthWorkbook(await book.xlsx.writeBuffer(),ExcelJS,JSZip),/XI E/);
+ sheet.getRow(3).getCell(1).value='';await assert.rejects(importTaskStrengthWorkbook(await book.xlsx.writeBuffer(),ExcelJS,JSZip),/missing task classes/);
 });

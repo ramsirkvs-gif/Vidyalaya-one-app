@@ -30,17 +30,38 @@ reports and private backups out of Git and public hosting.
 
 ## Principal workflow
 
-1. Open **Edit task, assignments and class figures**. Assign an active existing
+1. Open **Edit task, survey questions and teacher assignments**. All survey
+   questions appear below the task instructions. Edit their full wording or use
+   **Add survey question** (up to 60). Select student count or meeting count;
+   responses remain aggregate counts, not personal narratives. Assign an active existing
    teacher to each of the 18 listed classes (IX A–D, X A–D, XI A–E, XII A–E).
    The corrected entry is **XI E**, not X E.
-2. Enter total students, Cat-V students and ST students, or import class figures
-   JSON. Missing values remain **Unprovided**; zero is an explicitly supplied
+2. Enter total students, Cat-V students and ST students, or click
+   **Download class figures CSV template** beside the import control. The file
+   has all 18 classes and columns `Class,AssignedTeacher,TotalStudents,CatVStudents,STStudents`.
+   Fill exact existing teacher names and class counts, then use **Import class
+   figures CSV, Excel or JSON** to stage all classes and assignments at once. Blank
+   teacher cells preserve current assignments; blank counts remain unprovided.
+   Unknown or ambiguous teacher names and invalid rows reject the entire import,
+   so choose ambiguous identities directly in the form. JSON is still supported
+   for class figures without teacher assignments. The Excel importer also accepts
+   a school-strength workbook with columns CLASS, TOTAL STUDENTS, CAT-V STUDENTS
+   and TOTAL ST STUDENTS. It selects all 18 IX–XII classes, excludes VI–VIII and
+   summary/chart rows, and preserves teacher assignments. Counts are parsed locally;
+   only saving the draft sends the validated figures to the protected API. Missing values remain **Unprovided**; zero is an explicitly supplied
    figure. Import validates the entire file before changing the form. For example
    (illustrative structure only; use the actual figures privately):
 
    ```json
    {"IX A":{"total":null,"catV":null,"st":null}}
    ```
+
+   Question edits and new questions are saved with the draft and require Publish.
+   Older reports retain the question wording/count type captured at submission;
+   legacy reports without a captured question list use the original 16 questions.
+   Consolidated totals follow saved draft questions and exclude earlier answers
+   to changed questions until the assigned teacher reviews and resubmits them.
+   Unchanged answers remain available; newly added questions start unconfirmed.
 
 3. Choose instruction visibility: **All staff** means staff with the existing
    remembered viewing curtain can read the instructions; **Concerned staff**
