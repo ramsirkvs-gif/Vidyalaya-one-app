@@ -89,6 +89,8 @@ try:
         print('PASS existing PIN verification, read-only/unprovided figures, aggregate report submission/update without duplicate classes and responsive layout')
         page.get_by_role('button',name='Refresh tasks',exact=True).click();card.get_by_role('button',name='Open report for IX A',exact=True).wait_for();assert card.locator('.task-totals').count()==1;card.get_by_role('button',name='Open report for IX A',exact=True).click();assert card.locator('[data-report-class="IX A"]').evaluate('(node)=>node.open');assert card.locator('[data-report-class="IX A"] .task-teacher-remarks').inner_text()==OVERALL_UPDATED;assert 'Synthetic counselling observation' in card.locator('[data-report-class="IX A"]').inner_text();assert card.locator('.task-final-comment textarea').is_disabled();card.get_by_label('Principal comment (private, after results)',exact=True).fill('Synthetic private review');card.get_by_role('button',name='Save Principal comment',exact=True).click();page.get_by_role('status').get_by_text('Principal comment saved.',exact=True).wait_for()
         report=card.locator('[data-report-class="IX A"]');report.locator('summary').first.click() if not report.evaluate('(node)=>node.open') else None
+        assert report.locator('.task-report-answer dt').all_text_contents()[:3]==['Q1. Total students · View only','Q2. Cat-V students · View only','Q3. Total ST students · View only']
+        assert report.locator('.task-report-answer dd').all_text_contents()[:4]==['24','0','Unprovided','19']
         for width in [360,768,1440]:
             page.set_viewport_size({'width':width,'height':950})
             row=report.locator('.task-report-answer').first;question=row.locator('dt').bounding_box();answer=row.locator('dd').bounding_box()
