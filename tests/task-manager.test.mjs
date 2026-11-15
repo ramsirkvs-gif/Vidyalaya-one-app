@@ -9,6 +9,7 @@ import {taskFiguresTemplate,importTaskFiguresCSV,importTaskStrengthWorkbook} fro
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import {TASK1_ROSTER,taskRosterStore} from '../cbse-task-manager-roster.js';
+import {TASK_AVAILABLE_CLASSES,taskClasses} from '../cbse-task-manager-model.js';
 const report={examContext:'Synthetic preboard',passed:20,failed:4,ptms:40,firstGeneration:null};
 async function setup(){const f=taskFixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');await f.admin({operation:'create-task1'});let t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'save',taskId:'task1',expectedRevision:t.revision,draft:{...t.draft,assignments:{'IX A':'X:one','XI E':'X:two'},headers:{'IX A':{total:24,catV:0,st:null}}}});t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'publish',taskId:'task1',expectedRevision:t.revision});return f;}
 test('exact class catalogue, unknown figures, independent overlapping categories and meeting counts',()=>{
@@ -129,4 +130,34 @@ test('supplied roster maps documented mentor names safely, retains explicit assi
  resolved.tasks.task1.published.assignments={};assert.deepEqual(taskRosterStore(resolved,staff).tasks.task1.published.assignments,{});
  const f=taskFixture();f.data.cbse.facultyDraft.classes.X.teachers.one.name='MR. ABHISHEK SINGH';f.data.cbse.facultyDraft.classes.X.teachers.two.name='MR. NITISH RAJ SHARMA';await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');await f.admin({operation:'create-task1'});await f.admin({operation:'publish',taskId:'task1',expectedRevision:1});
  assert.equal((await f.service('task-read')).tasks.task1.rows[0].staffId,'X:one');assert.equal((await f.teacher({taskId:'task1',classId:'IX A'})).tasks.task1.classes[0],'IX A');await assert.rejects(f.teacher({taskId:'task1',classId:'IX C'},'X:two','456'),/not assigned/);
+});
+test('Principal deletes questions in a private draft; publishing updates forms while original answers survive resubmission',async()=>{
+ const f=await setup();let t=f.data.cbse.taskManager.tasks.task1;
+ await f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:t.publishedRevision,reportRevision:0,report:{...report,hostel:3}});
+ t=f.data.cbse.taskManager.tasks.task1;const previous=structuredClone(t.reports['IX A']),questions=taskQuestions(t.draft).filter(q=>q.id!=='hostel');
+ await assert.rejects(f.service('task-principal',{operation:'save',taskId:'task1',expectedRevision:t.revision,draft:{...t.draft,questions}},'outsider'),/Principal/);
+ await f.admin({operation:'save',taskId:'task1',expectedRevision:t.revision,draft:{...t.draft,questions}});assert.deepEqual(f.data.cbse.taskManager.tasks.task1.reports['IX A'],previous);assert.ok((await f.teacher()).tasks.task1.questions.some(q=>q.id==='hostel'));
+ t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'publish',taskId:'task1',expectedRevision:t.revision});let mine=(await f.teacher()).tasks.task1;assert.ok(!mine.questions.some(q=>q.id==='hostel'));assert.equal(mine.reports['IX A'].values.hostel,3);
+ await assert.rejects(f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:mine.revision,reportRevision:1,report:{...report,hostel:4}}),/Only aggregate/);
+ await f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:mine.revision,reportRevision:1,report});
+ let current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.reports['IX A'].retiredAnswers.hostel.value,3);assert.equal(current.reports['IX A'].retiredAnswers.hostel.label,TASK_FIELDS.hostel);assert.ok(!Object.hasOwn(current.summary.totals,'hostel'));assert.equal(Object.keys(current.reports).length,1);
+ mine=(await f.teacher()).tasks.task1;await f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:mine.revision,reportRevision:2,report:{...report,passed:19}});current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.reports['IX A'].retiredAnswers.hostel.value,3);assert.ok(!JSON.stringify(await f.service('task-read')).includes('retiredAnswers'));assert.ok(!JSON.stringify(await f.teacher({},'X:two','456')).includes('retiredAnswers'));
+});
+test('one shared questionnaire applies to selected classes; class removal hides access but retains reports and excludes them from totals',async()=>{
+ const f=await setup();let t=f.data.cbse.taskManager.tasks.task1;const questions=taskQuestions(t.draft).map(q=>q.id==='passed'?{...q,label:'Shared passed count for every concerned class'}:q);
+ await f.admin({operation:'save',taskId:'task1',expectedRevision:t.revision,draft:{...t.draft,questions,selectedClasses:['IX A','XI E']}});assert.equal((await f.service('task-read')).tasks.task1.rows.length,18);
+ t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'publish',taskId:'task1',expectedRevision:t.revision});assert.deepEqual((await f.service('task-read')).tasks.task1.rows.map(r=>r.classId),['IX A','XI E']);
+ const first=(await f.teacher()).tasks.task1,second=(await f.teacher({},'X:two','456')).tasks.task1;assert.deepEqual(first.questions,second.questions);assert.equal(first.questions[0].label,'Shared passed count for every concerned class');
+ await f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:first.revision,reportRevision:0,report});await f.teacher({taskOperation:'submit',taskId:'task1',classId:'XI E',expectedRevision:second.revision,reportRevision:0,report:{...report,passed:3,failed:1}},'X:two','456');
+ let current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.summary.totals.passed.total,23);await f.admin({operation:'save',taskId:'task1',expectedRevision:current.revision,draft:{...current.draft,selectedClasses:['XI E']}});current=(await f.admin({operation:'read'})).tasks.task1;await f.admin({operation:'publish',taskId:'task1',expectedRevision:current.revision});
+ await assert.rejects(f.teacher({taskId:'task1',classId:'IX A'}),/not assigned/);current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.reports['IX A'].values.passed,20);assert.deepEqual(current.summary.archivedClasses,['IX A']);assert.equal(current.summary.totals.passed.total,3);assert.equal((await f.service('task-read')).tasks.task1.rows.length,1);
+ await f.admin({operation:'save',taskId:'task1',expectedRevision:current.revision,draft:{...current.draft,selectedClasses:['VI A','IX A','XI E'],assignments:{...current.draft.assignments,'VI A':'X:one'},headers:{...current.draft.headers,'VI A':{total:30,catV:0,st:5}}}});current=(await f.admin({operation:'read'})).tasks.task1;await f.admin({operation:'publish',taskId:'task1',expectedRevision:current.revision});assert.deepEqual((await f.teacher()).tasks.task1.classes,['VI A','IX A']);assert.equal((await f.teacher()).tasks.task1.reports['IX A'].values.passed,20);
+ current=(await f.admin({operation:'read'})).tasks.task1;const oldClient={...current.draft};delete oldClient.selectedClasses;await f.admin({operation:'save',taskId:'task1',expectedRevision:current.revision,draft:oldClient});assert.deepEqual(f.data.cbse.taskManager.tasks.task1.draft.selectedClasses,['VI A','IX A','XI E']);
+ for(const selectedClasses of [[],['X E'],['IX A','IX A']])assert.throws(()=>taskClasses({selectedClasses}),/Select/);assert.equal(TASK_AVAILABLE_CLASSES.length,30);
+});
+test('an authenticated figures import saves private defaults for later tasks without changing existing published figures',async()=>{
+ const f=await setup(),t=f.data.cbse.taskManager.tasks.task1;
+ await f.admin({operation:'save',taskId:'task1',expectedRevision:t.revision,rememberFigures:true,draft:{...t.draft,headers:{'IX A':{total:30,catV:4,st:5},'VI A':{total:24,catV:2,st:3}}}});
+ const current=await f.admin({operation:'read'});assert.equal(current.classFigures['IX A'].total,30);assert.equal(current.tasks.task1.published.headers['IX A'].total,24);assert.equal(current.tasks.task1.draft.headers['IX A'].total,30);
+ const created=await f.admin({operation:'create',draft:{...TASK1,title:'Another synthetic shared survey'}});assert.equal(created.tasks[created.taskId].draft.headers['IX A'].total,30);assert.equal(created.tasks[created.taskId].draft.headers['VI A'].total,24);assert.ok(!JSON.stringify(await f.service('task-read')).includes('classFigures'));
 });

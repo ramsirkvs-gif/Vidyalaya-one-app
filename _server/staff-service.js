@@ -95,11 +95,11 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    const staff=await directoryStaff(),actor={principal:admin,ids:[]};
    const directory=Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active').map(([id,p])=>[id,{name:p.name,status:p.status}]));
    const stored=taskRosterStore(await read('cbse/taskManager'),staff,rollStaffIdentityIds);if(!admin)return taskCatalogue(stored,staff,TASK1_ROSTER);
-   if(!input.operation||input.operation==='read')return {...taskView(stored,actor),staff:directory};
+   if(!input.operation||input.operation==='read')return {...taskView(stored,actor),staff:directory,classFigures:stored.classFigures||{}};
    let reason='';const id='task_'+randomUUID().replaceAll('-',''),known=await read('cbse/taskManager');
    const result=await mcqTransaction(db,'cbse/taskManager',current=>{if(current===null&&known!==null)return null;reason='';try{return applyTask(taskRosterStore(current,staff,rollStaffIdentityIds),input.operation==='create-task1'?{...input,draft:TASK1}:input,actor,staff,now(),id);}catch(e){reason=e.message;return;}},{restTransaction});
    if(!result.committed||!result.snapshot?.val())throw new AccessError(reason||'Task save was not confirmed. Refresh before retrying.',409);
-   return {...taskView(result.snapshot.val(),actor),staff:directory,taskId:input.operation==='create-task1'?'task1':input.taskId||id};
+   return {...taskView(result.snapshot.val(),actor),staff:directory,classFigures:result.snapshot.val().classFigures||{},taskId:input.operation==='create-task1'?'task1':input.taskId||id};
   }
   if(action.startsWith('office-'))return officeService(action,input,token,ip,session);
   if(['view-login','view-data','view-version','view-student-photo','view-student-photos','view-logout'].includes(action)){const result=await sharedView(action,{...input,ip},session.viewerToken||'');if(result?.error){const error=new AccessError(result.error,result.status);error.curtainRequired=result.curtainRequired;throw error;}return result;}

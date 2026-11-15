@@ -31,26 +31,43 @@ reports and private backups out of Git and public hosting.
 ## Principal workflow
 
 1. Open **Edit task, survey questions and teacher assignments**. All survey
-   questions appear below the task instructions. Edit their full wording or use
-   **Add survey question** (up to 60). Q1–Q3 are the read-only class figures (total students, Cat-V and ST);
+   questions appear below the task instructions. Edit their full wording, use **Add survey question** (up to 60), or click
+   **Delete question** beside a fillable question and confirm. Save the private
+   draft and Publish to apply deletions. Q1–Q3 and the final comment stay fixed;
+   keep at least one fillable question. Earlier submitted answers are preserved,
+   including answers to deleted questions when teachers submit an updated report.
+   The Principal can expand **Earlier answers to deleted questions** inside the
+   class report. Q1–Q3 are the read-only class figures (total students, Cat-V and ST);
    editable questions begin at Q4. Count-type dropdowns are not shown.
    Existing meeting fields such as PTMs retain their meeting-count validation;
    added questions default to student counts. Responses remain aggregate counts,
    not personal narratives. Assign an active existing
-   teacher to each of the 18 listed classes (IX A–D, X A–D, XI A–E, XII A–E).
+   teacher to each concerned class. Use **Applies to selected classes** to add or
+   remove classes from the task. Available classes are VI–XII; existing tasks
+   default to the original 18 IX–XII classes. Questions are shared task-wide: edit
+   once and publish once for every selected class. Q1–Q3 and assigned teachers
+   vary per class. Removing a class preserves its reports for Principal review
+   but excludes it from current totals, the public list and staff submission access.
+   Re-selecting and publishing restores permitted access to its retained report.
    The corrected entry is **XI E**, not X E.
 2. Enter total students, Cat-V students and ST students, or click
    **Download class figures CSV template** beside the import control. The file
-   has all 18 classes and columns `Class,AssignedTeacher,TotalStudents,CatVStudents,STStudents`.
-   Fill exact existing teacher names and class counts, then use **Import class
-   figures CSV, Excel or JSON** to stage all classes and assignments at once. Blank
+   contains the currently selected classes and columns `Class,AssignedTeacher,TotalStudents,CatVStudents,STStudents`.
+   Fill exact existing teacher names and class counts, then use **Import class figures and save shared draft** to import and save all class
+   rows and the shared draft in one authenticated Principal action. The same
+   import button sits directly beside the class-wise Q1–Q3 table. New unsaved
+   tasks stage imports until created. Imported figures remain private until Publish. The last imported class figures
+   are retained privately as defaults for newly prepared tasks; importing new
+   defaults does not change the figures in existing published task snapshots. Blank
    teacher cells preserve current assignments; blank counts remain unprovided.
    Unknown or ambiguous teacher names and invalid rows reject the entire import,
    so choose ambiguous identities directly in the form. JSON is still supported
    for class figures without teacher assignments. The Excel importer also accepts
    a school-strength workbook with columns CLASS, TOTAL STUDENTS, CAT-V STUDENTS
-   and TOTAL ST STUDENTS. It selects all 18 IX–XII classes, excludes VI–VIII and
-   summary/chart rows, and preserves teacher assignments. Counts are parsed locally;
+   and TOTAL ST STUDENTS. It reads class figures for VI–XII, ignores summary/chart rows, requires
+   every currently selected class and preserves teacher assignments. Only selected
+   classes appear in the task; figures for other imported classes remain available
+   if the Principal later selects them. Counts are parsed locally;
    only saving the draft sends the validated figures to the protected API. Missing values remain **Unprovided**; zero is an explicitly supplied
    figure. Import validates the entire file before changing the form. For example
    (illustrative structure only; use the actual figures privately):
