@@ -1,3 +1,4 @@
+import {PRIMARY_ROSTER,primaryStaffEntry} from './cbse-primary-roster.js';
 // Approved office-assignment roster. These references never grant login or PIN access.
 export const OFFICE_REGULAR_EMPLOYEES=[
  ['MR. RAMKUMAR SINGH SIKARWAR','Principal'],
@@ -22,7 +23,7 @@ export const OFFICE_REGULAR_EMPLOYEES=[
 ];
 export const officeEmployeeKey=name=>String(name).normalize('NFKC').toUpperCase().replace(/\b(MR|MRS|MS|DR|SMT|SHRI|SMT|MISS)\b/g,'').replace(/[^A-Z0-9]/g,'');
 export function officeRegularDirectory(staff={}){
- const roster=OFFICE_REGULAR_EMPLOYEES.map(([name,...aliases],index)=>({name,aliases:[name,...aliases],order:index+1})),output={};
+ const roster=OFFICE_REGULAR_EMPLOYEES.map(([name,...aliases],index)=>({name,aliases:[name,...aliases],order:index+1})),output={};for(const entry of PRIMARY_ROSTER){const existing=roster.find(p=>primaryStaffEntry({name:p.name,designation:'PRT'})?.serial===entry.serial);if(existing)existing.aliases=[...new Set([...existing.aliases,...entry.aliases])];else roster.push({name:entry.name,aliases:entry.aliases,order:roster.length+1});}
  const owners=new Map();for(const person of roster)for(const name of person.aliases){const key=officeEmployeeKey(name);if(!owners.has(key))owners.set(key,new Set());owners.get(key).add(person.order);}
  const officeIds={'ARJUNBORI':'office:arjun-bori','PRAMODPASWAN':'office:pramod-paswan','SUMITPURI':'office:sumit-puri'};
  for(const person of roster){

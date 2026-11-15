@@ -126,10 +126,10 @@ test('editing one remarks field preserves source responsibility and previous rem
  assert.throws(()=>applyOfficeWorkspace(current,{memberId:id,operation:'save-row',rowId:old.id,rowRevision:1,expectedRevision:1,row:{...old,assignedIds:['new-unknown-id']}},{id,principal:true},{},1),/directory/);
 });
 
-test('office assignment dropdown is exactly the approved 51 regular employees, without creating login identities',async()=>{
+test('office assignment dropdown retains approved regular employees and adds the Primary Wing, without creating login identities',async()=>{
  const {OFFICE_REGULAR_EMPLOYEES,officeRegularDirectory}=await import('../cbse-office-regular.js');const directory=officeRegularDirectory({'X:one':{name:'Jitendra Paul',designation:'TGT'},contract:{name:'Contractual Teacher',designation:'Instructor'}});
- assert.equal(Object.keys(directory).length,51);assert.deepEqual(Object.values(directory).map(person=>person.name),OFFICE_REGULAR_EMPLOYEES.map(([name])=>name));assert.equal(directory.contract,undefined);assert.equal(directory['X:one'].name,'MR. JITENDER PAUL');
- const {service,data}=officeFixture(),before=structuredClone(data.cbse.staffAccess),result=await call(service,'read');assert.equal(Object.keys(result.directory).length,51);assert.deepEqual(data.cbse.staffAccess,before);
+ assert.equal(Object.keys(directory).length,59);assert.deepEqual(Object.values(directory).slice(0,51).map(person=>person.name),OFFICE_REGULAR_EMPLOYEES.map(([name])=>name));assert.equal(directory.contract,undefined);assert.equal(directory['X:one'].name,'MR. JITENDER PAUL');
+ const {service,data}=officeFixture(),before=structuredClone(data.cbse.staffAccess),result=await call(service,'read');assert.equal(Object.keys(result.directory).length,59);assert.deepEqual(data.cbse.staffAccess,before);
 });
 
 test('a staff viewing session never authorizes voucher status changes',async()=>{

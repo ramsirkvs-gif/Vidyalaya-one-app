@@ -1,6 +1,7 @@
 // Aggregate survey only. Never store student names or identifying narratives here.
 export const TASK_CLASSES=['IX A','IX B','IX C','IX D','X A','X B','X C','X D','XI A','XI B','XI C','XI D','XI E','XII A','XII B','XII C','XII D','XII E'];
-export const TASK_AVAILABLE_CLASSES=['VI A','VI B','VI C','VI D','VII A','VII B','VII C','VII D','VIII A','VIII B','VIII C','VIII D',...TASK_CLASSES];
+export const TASK_PRIMARY_CLASSES=['I','II','III','IV','V'];
+export const TASK_AVAILABLE_CLASSES=[...TASK_PRIMARY_CLASSES,'VI A','VI B','VI C','VI D','VII A','VII B','VII C','VII D','VIII A','VIII B','VIII C','VIII D',...TASK_CLASSES];
 export function taskClasses(config={}){const selected=config.selectedClasses===undefined?TASK_CLASSES:config.selectedClasses;if(!Array.isArray(selected)||!selected.length||selected.length>TASK_AVAILABLE_CLASSES.length||new Set(selected).size!==selected.length||selected.some(c=>!TASK_AVAILABLE_CLASSES.includes(c)))throw Error('Select at least one valid class, without duplicates.');return TASK_AVAILABLE_CLASSES.filter(c=>selected.includes(c));}
 export const TASK_PRIORITIES=['High priority / Most urgent','Urgent / Priority','Priority / Time bound, with deadline'];
 export const TASK_REPORT_COMMENTS={ro:'Efforts by Regional Office (RO)',deputyCommissioner:'Efforts / guidance by Deputy Commissioner',assistantCommissioner:'Efforts / guidance by Assistant Commissioner (AC)',principalAction:'Action taken by the Principal',higherOfficials:'Visits and guidance by higher KVS officials'};

@@ -5,4 +5,4 @@ const excludedNames=new Set([
  'SURAJ DAHAL','MITI RATAN','SAMIRAN BORAGOHAIN','TADO KARNIK','TAGE YASUNG','ZEEME GIASING'
 ].map(nameKey));
 function nameKey(name){return String(name||'').toUpperCase().replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS)\b\.?\s*/g,'').replace(/[^A-Z]/g,'');}
-export function missionMemberAllowed(person){return !excludedNames.has(nameKey(person?.name));}
+export function missionMemberAllowed(person){return person?.chamberOnly!==true&&!excludedNames.has(nameKey(person?.name));}
