@@ -51,6 +51,12 @@ export function taskView(store={},actor={ids:[]}){
   tasks[id]={revision:t.publishedRevision,title:p.title,priority:p.priority,deadline:p.deadline,instructions:p.instructions,questions:taskQuestions(p),visibility:p.visibility,classes,headers:Object.fromEntries(classes.map(c=>[c,p.headers?.[c]||taskHeader()])),reports:Object.fromEntries(classes.filter(c=>own(t.reports,c)).map(c=>[c,structuredClone(t.reports[c])]))};
  }return {tasks};
 }
+export function taskCatalogue(store={},staff={},roster=[]){
+ const tasks={};for(const [id,t]of Object.entries(store.tasks||{})){
+  const p=t.published;if(!p)continue;
+  tasks[id]={title:p.title,priority:p.priority,deadline:p.deadline,rows:TASK_CLASSES.map((classId,index)=>{const reference=id==='task1'?roster.find(row=>row.classId===classId):null,staffId=p.assignments?.[classId]||'',person=staff[staffId];return {number:index+1,classId,mentor:person?.name||reference?.mentor||'Not assigned',support:reference?.support||'',staffId:person?.status==='active'?staffId:'',status:t.reports?.[classId]?'Submitted':'Pending'};})};
+ }return {tasks};
+}
 export function applyTask(store,input,actor,staff,stamp,id){
  const next=structuredClone(store||{tasks:{}});next.tasks||={};
  const operation=input.operation;

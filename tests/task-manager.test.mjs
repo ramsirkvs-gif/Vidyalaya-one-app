@@ -8,6 +8,7 @@ import {taskQuestions,taskCompatibleValues} from '../cbse-task-manager-model.js'
 import {taskFiguresTemplate,importTaskFiguresCSV,importTaskStrengthWorkbook} from '../cbse-task-manager-import.js';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
+import {TASK1_ROSTER,taskRosterStore} from '../cbse-task-manager-roster.js';
 const report={examContext:'Synthetic preboard',passed:20,failed:4,ptms:40,firstGeneration:null};
 async function setup(){const f=taskFixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');await f.admin({operation:'create-task1'});let t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'save',taskId:'task1',expectedRevision:t.revision,draft:{...t.draft,assignments:{'IX A':'X:one','XI E':'X:two'},headers:{'IX A':{total:24,catV:0,st:null}}}});t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'publish',taskId:'task1',expectedRevision:t.revision});return f;}
 test('exact class catalogue, unknown figures, independent overlapping categories and meeting counts',()=>{
@@ -24,7 +25,7 @@ test('exact class catalogue, unknown figures, independent overlapping categories
 });
 test('Task 1 creation is idempotent, unpublished, has no invented enrollment or deadline; outsiders denied',async()=>{
  const f=taskFixture();await assert.rejects(f.service('task-principal',{operation:'create-task1'},'outsider'),/Principal/);
- await assert.rejects(f.service('task-read'),/viewing password/);
+ assert.deepEqual(await f.service('task-read'),{tasks:{}});
  const a=await f.admin({operation:'create-task1'});assert.equal(a.tasks.task1.draft.title,TASK1.title);assert.equal(a.tasks.task1.draft.deadline,'');assert.deepEqual(a.tasks.task1.draft.headers,{});assert.ok(!a.tasks.task1.published);
  assert.deepEqual(taskView(f.data.cbse.taskManager).tasks,{});await f.admin({operation:'create-task1'});assert.equal(Object.keys(f.data.cbse.taskManager.tasks).length,1);
 });
@@ -109,4 +110,23 @@ test('teacher remarks are optional, bounded, editable and private to assigned cl
  const published=(await f.teacher()).tasks.task1;await f.teacher({...input,expectedRevision:published.revision,reportRevision:1,report:{...report,remarks:'Synthetic updated perspective.'}});
  await f.teacher({...input,expectedRevision:published.revision,reportRevision:2,report});assert.equal((await f.teacher()).tasks.task1.reports['IX A'].values.remarks,'Synthetic updated perspective.');
  await f.teacher({...input,expectedRevision:published.revision,reportRevision:3,report:{...report,remarks:''}});current=(await f.admin({operation:'read'})).tasks.task1;assert.equal(current.reports['IX A'].values.remarks,'');assert.equal(Object.keys(current.reports).length,1);
+});
+test('public task list exposes published mentor/support/status only; questionnaires and all report data require assigned PIN',async()=>{
+ const f=await setup(),t=f.data.cbse.taskManager.tasks.task1;
+ await f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:t.publishedRevision,reportRevision:0,report:{...report,remarks:'PRIVATE_CLASS_REMARK'}});
+ const output=await f.service('task-read');assert.equal(output.tasks.task1.rows.length,18);assert.equal(output.tasks.task1.rows[0].mentor,'Synthetic Teacher one');assert.equal(output.tasks.task1.rows[0].status,'Submitted');assert.equal(output.tasks.task1.rows[2].support,'Mr. Nitish Raj Sharma');assert.equal(output.tasks.task1.rows[1].status,'Pending');
+ const json=JSON.stringify(output);for(const secret of ['PRIVATE_CLASS_REMARK','Synthetic preboard','firstGeneration','questions','headers','reports','instructions','summary','comment','salt','hash'])assert.ok(!json.includes(secret),secret);
+ const mine=await f.teacher({taskId:'task1',classId:'IX A'});assert.deepEqual(mine.tasks.task1.classes,['IX A']);assert.equal(mine.tasks.task1.questions.length,16);assert.equal(mine.tasks.task1.reports['IX A'].values.remarks,'PRIVATE_CLASS_REMARK');
+ await assert.rejects(f.teacher({taskId:'task1',classId:'XI E'}),/not assigned/);await assert.rejects(f.teacher({taskId:'__proto__',classId:'IX A'}),/not assigned/);
+ const current=(await f.admin({operation:'read'})).tasks.task1;await f.admin({operation:'unpublish',taskId:'task1',expectedRevision:current.revision});assert.deepEqual(await f.service('task-read'),{tasks:{}});await assert.rejects(f.teacher({taskId:'task1',classId:'IX A'}),/not assigned/);
+});
+test('supplied roster maps documented mentor names safely, retains explicit assignments, and does not authorize technical support',async()=>{
+ assert.deepEqual(TASK1_ROSTER.map(r=>r.classId),TASK_CLASSES);assert.equal(TASK1_ROSTER.at(-1).mentor,'Dr. Mohan Singh');assert.equal(TASK1_ROSTER.find(r=>r.classId==='X B').support,'Ms. Monika');
+ const source={tasks:{task1:{draft:{assignments:{}},published:{assignments:{'IX B':'explicit'}}}}},staff={mentor:{name:'MR. ABHISHEK SINGH',status:'active'},support:{name:'MR. NITISH RAJ SHARMA',status:'active'}};
+ const resolved=taskRosterStore(source,staff);assert.equal(resolved.tasks.task1.published.assignments['IX A'],'mentor');assert.equal(resolved.tasks.task1.published.assignments['IX B'],'explicit');assert.equal(resolved.tasks.task1.published.assignments['IX C'],undefined);assert.deepEqual(source.tasks.task1.draft.assignments,{});
+ const ambiguous=taskRosterStore(source,{...staff,another:{...staff.mentor}});assert.equal(ambiguous.tasks.task1.published.assignments['IX A'],undefined);
+ const linked=taskRosterStore(source,{...staff,another:{...staff.mentor}},()=>['mentor','another']);assert.ok(['mentor','another'].includes(linked.tasks.task1.published.assignments['IX A']));
+ resolved.tasks.task1.published.assignments={};assert.deepEqual(taskRosterStore(resolved,staff).tasks.task1.published.assignments,{});
+ const f=taskFixture();f.data.cbse.facultyDraft.classes.X.teachers.one.name='MR. ABHISHEK SINGH';f.data.cbse.facultyDraft.classes.X.teachers.two.name='MR. NITISH RAJ SHARMA';await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');await f.admin({operation:'create-task1'});await f.admin({operation:'publish',taskId:'task1',expectedRevision:1});
+ assert.equal((await f.service('task-read')).tasks.task1.rows[0].staffId,'X:one');assert.equal((await f.teacher({taskId:'task1',classId:'IX A'})).tasks.task1.classes[0],'IX A');await assert.rejects(f.teacher({taskId:'task1',classId:'IX C'},'X:two','456'),/not assigned/);
 });

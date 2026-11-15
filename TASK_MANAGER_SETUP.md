@@ -63,10 +63,13 @@ reports and private backups out of Git and public hosting.
    to changed questions until the assigned teacher reviews and resubmits them.
    Unchanged answers remain available; newly added questions start unconfirmed.
 
-3. Choose instruction visibility: **All staff** means staff with the existing
-   remembered viewing curtain can read the instructions; **Concerned staff**
-   means only the assigned teachers, after verifying their personal PIN. This
-   choice never grants access to everybody's survey reports.
+3. Instruction visibility remains a draft setting. The public Task manager list
+   now shows every published task's title, mentor/support list and class status,
+   including concerned-staff tasks, as explicitly requested by the Principal.
+   The **questionnaire and instructions require the assigned mentor's PIN** in
+   both visibility modes. This list never exposes class figures, answers,
+   remarks, Principal comments or private draft changes. Stop publication hides
+   the task and its list entirely.
 4. **Save private draft**, then **Publish** when ready. Publishing uses the saved
    draft. Further edits stay private until published again. Time-bound priority
    requires a deadline; the first two priorities do not invent one.
@@ -81,9 +84,25 @@ reports and private backups out of Git and public hosting.
 
 ## Staff workflow and validation
 
-Open Staff view, select an existing staff identity, and verify the existing PIN.
-Assigned classes appear in the dropdown. Each class has a read-only enrollment,
-Cat-V and ST header; teachers cannot submit header changes. Supply the latest
+Open Staff view to see published titles and the public class table without a
+curtain password or PIN. The Task 1 prime mentor / survey IC and technical support
+list comes from the Principal's supplied document. Click **Start & Submit Now**
+for your class and enter that assigned mentor's existing personal PIN. The
+questionnaire then opens as a full-page form with a Back to task list button.
+Only the selected class is returned by the scoped PIN-read request. Technical
+support names are informational and do not independently authorize submissions.
+
+Existing explicit Principal assignments take precedence. For Task 1 only, missing
+assignments can be resolved from the supplied mentor list using exact documented
+names/aliases and verified linked identities; ambiguous matches require Principal
+assignment. On the first authorized save those defaults are retained; subsequent
+explicit assignment removals are respected. No new PINs or staff profiles are
+created. The public task list reports submitted/pending status without showing
+questionnaire data. Mobile layout uses compact text, stacked list rows and a
+full-width form with readable inputs and touch-sized action buttons.
+
+Each class form has a read-only enrollment, Cat-V and ST header. Teachers cannot
+submit header changes. Supply the latest
 examination's name/context and aggregate counts only. Each count can remain
 **Not available / unconfirmed**; unknown counts are excluded from totals rather
 than treated as zero. Do not enter student names, locations or identifying
@@ -142,7 +161,7 @@ python3 tests/task-manager-browser.py
 
 The browser test starts and stops its own synthetic HTTP backend on port 8012,
 uses the real task service and PIN hashing with a synthetic database, and mocks
-only Firebase identity and the remembered curtain. It checks Principal session
+only Firebase identity. Task-list, PIN-read and submission calls use the real service. It checks Principal session
 reuse, draft creation, assignments/figure import, publication, teacher PINs,
 read-only figures, report replacement, totals, comments, layout, unsaved code
 update protection and logout. Node tests cover invalid counts, wrong identities,
