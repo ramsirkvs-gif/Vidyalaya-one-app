@@ -97,6 +97,34 @@ try:
             assert question['width']>row.bounding_box()['width']*.55;assert answer['x']>question['x'];assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
             assert report.locator('.task-report-answer-written dd').first.bounding_box()['width']>row.bounding_box()['width']*.9
         page.screenshot(path='/tmp/task-submitted-report-layout.png',full_page=True)
+        card.get_by_role('button',name='Prepare presentation report',exact=True).click()
+        preview=page.locator('.task-presentation');preview.wait_for();assert preview.locator('.presentation-main-page').count()==4
+        assert preview.locator('.presentation-main-page').first.get_by_role('heading',name='I · Class IX · Overview',exact=True).count()==1
+        assert preview.locator('.presentation-main-page').nth(2).get_by_role('heading',name='II · Classes IX–XII consolidated · Overview',exact=True).count()==1
+        assert preview.locator('.presentation-main-page').first.locator('.presentation-count').first.inner_text()=='96'
+        preview.get_by_role('textbox').fill('Counsellor — Synthetic Co-opted Member');preview.get_by_role('button',name='Update participant list',exact=True).click()
+        assert 'Synthetic Co-opted Member' in preview.locator('.presentation-main-page').last.inner_text()
+        assert OVERALL_UPDATED in preview.locator('.presentation-appendix').inner_text();assert WRITTEN in preview.locator('.presentation-appendix').inner_text()
+        page.emulate_media(media='print')
+        assert preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point")].every(c=>c.scrollHeight<=c.clientHeight+1))'),preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.map(p=>({height:p.clientHeight,scroll:p.scrollHeight,cards:[...p.querySelectorAll(".presentation-point")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight}))}))')
+        page.pdf(path='/tmp/task-presentation-synthetic.pdf',prefer_css_page_size=True,print_background=True)
+        pdftext=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-synthetic.pdf','-'],text=True).split('\f')
+        assert len([p for p in pdftext if p.strip()])>=5
+        for i in range(4):assert 'Main report' in pdftext[i],(i,pdftext[i])
+        assert 'Appendix A' in pdftext[4];assert 'Synthetic Co-opted Member' in pdftext[3]
+        page.emulate_media(media='screen');preview.get_by_role('button',name='Close report',exact=True).click();assert page.locator('.task-presentation').count()==0
+        print('PASS four-page private presentation, chart coverage, participant list and separate comments appendix in PDF')
+        # Full completion and every participating teacher must still fit four main pages.
+        page.evaluate("""async task=>{const {openTaskPresentation}=await import('/cbse-task-presentation.js');const people={};task.reports={};task.comment='Synthetic Principal summary.';for(const [i,c] of task.published.selectedClasses.entries()){const id='synthetic_'+i;people[id]={name:'Synthetic Participating Teacher '+(i+1)};task.published.headers[c]={total:24,catV:12,st:6};task.reports[c]={submittedBy:id,questions:task.published.questions,values:Object.fromEntries(task.published.questions.map(q=>[q.id,q.kind==='text'?'Synthetic written observations.':q.kind==='meetings'?2:10]))};task.reports[c].values.remarks='Synthetic class comments.';}openTaskPresentation(task,people);} """,current)
+        page.emulate_media(media='print')
+        assert page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point")].every(c=>c.scrollHeight<=c.clientHeight+1))')
+        page.pdf(path='/tmp/task-presentation-complete-synthetic.pdf',prefer_css_page_size=True,print_background=True)
+        complete_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-complete-synthetic.pdf','-'],text=True).split('\f')
+        assert all('Main report' in complete_text[i] for i in range(4));assert 'Appendix A' in complete_text[4]
+        page.emulate_media(media='screen');page.set_viewport_size({'width':360,'height':900});assert page.locator('.task-presentation').evaluate('(node)=>node.scrollWidth<=node.clientWidth')
+        page.get_by_role('button',name='Close report',exact=True).click();page.set_viewport_size({'width':1440,'height':950})
+
+
         if not card.locator('.task-editor').evaluate('(node)=>node.open'):card.get_by_text('Edit task, survey questions and teacher assignments',exact=True).click()
         card.get_by_role('button',name='Clear class selection',exact=True).click();card.get_by_label('Apply task to IX A',exact=True).check();card.get_by_label('Apply task to XI E',exact=True).check();card.get_by_role('button',name='Save private draft',exact=True).click();page.get_by_role('status').get_by_text('Private draft saved.',exact=False).wait_for()
         assert len(api({'action':'task-read'},token='')['tasks']['task1']['rows'])==18
@@ -109,7 +137,8 @@ try:
         page.get_by_role('button',name='Refresh tasks',exact=True).click();card.get_by_role('button',name='Stop publication',exact=True).wait_for()
         card.get_by_role('button',name='Stop publication',exact=True).click();page.get_by_role('status').get_by_text('Publication stopped.',exact=False).wait_for()
         current=api({'action':'task-principal','operation':'read'})['tasks']['task1'];assert not current.get('published');assert len(current['reports'])==1;assert current['comment']=='Synthetic private review'
-        page.get_by_role('button',name='Sign out',exact=True).click();page.get_by_label('Principal password',exact=True).wait_for();assert page.locator('#task-task1').count()==0
+        card.get_by_role('button',name='Prepare presentation report',exact=True).click();page.locator('.task-presentation').wait_for()
+        page.locator('#task-nav button').evaluate('(button)=>button.click()');page.get_by_label('Principal password',exact=True).wait_for();assert page.locator('#task-task1').count()==0;assert page.locator('.task-presentation').count()==0;assert not page.locator('.task-app').evaluate('(node)=>node.inert')
         assert not errors,errors
         print('PASS Principal totals/comment, stop publication retains reports, and explicit logout clears protected DOM')
         browser.close()
