@@ -25,9 +25,9 @@ export function renderDailyRollRegister(parent,data,wing,period,onOpen){
  section.append(table);parent.append(section);
 }
 export function renderReportedLeaveRegister(parent,data,wing='',onRefresh){
- const section=el('section',undefined,'roll-leave-register');section.append(el('h3','All Leave / OD outside submissions'),el('p','For Samagam, timetable arrangements and CT / Co-CT accountability. This is not an office leave application or sanction.'));
+ const section=el('section',undefined,'roll-leave-register');section.append(el('h3',(wing==='primary'?'Primary wing · ':wing==='secondary'?'Secondary wing · ':'All ' )+'Leave / OD outside submissions'),el('p','For Samagam, timetable arrangements and CT / Co-CT accountability. This is not an office leave application or sanction.'));
  if(onRefresh){const refresh=el('button','Refresh submission list');refresh.type='button';refresh.onclick=onRefresh;section.append(refresh);}const table=el('table',undefined,'roll-staff-table'),head=el('thead'),tr=el('tr'),body=el('tbody');for(const label of ['S.No.','Name and designation','Leave / OD outside dates','Type of Leave / OD outside','Status','Principal comment'])tr.append(el('th',label));head.append(tr);table.append(head,body);
- const records=Object.values(data.rollCall?.advanceLeaves||{}).filter(r=>(!wing||r.wing===wing)&&r.dates?.length).sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
+ const records=Object.values(data.rollCall?.advanceLeaves||{}).filter(r=>(!wing||(data.staff[r.staffId]?.wing||r.wing)===wing)&&r.dates?.length).sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
  records.forEach((r,i)=>{const row=el('tr',undefined,'roll-staff-row'),person=data.staff[r.staffId],dates=r.dates;for(const [label,value]of [['S.No.',String(i+1)],['Name and designation',rollDisplayName(r.name)+(person?.designation?' · '+person.designation:'')],['Leave / OD outside dates',dates.map(date=>rollDateText(date)+(r.cancelledDates?.includes(date)?' (cancelled)':'')).join(', ')],['Type of Leave / OD outside',r.leaveKind||'Not specified (earlier report)'],['Status',advanceLeaveStatus(r)],['Principal comment',r.reviewComment||'—']]){const td=el('td',value);td.dataset.label=label;row.append(td);}body.append(row);});
  section.append(table);if(!records.length)section.append(el('p','No Leave / OD outside submissions yet.'));parent.append(section);
 }

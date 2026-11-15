@@ -30,7 +30,7 @@ test('only Principal deletes a selected unchanged record; afternoon dependency a
 });
 test('only Roll Call display excludes the three employees; Avinash and Ganga aliases preserve identity',()=>{
  const people={...staff,ipi:{name:'MS. IPI RIBA',wing:'secondary'},jen:{name:'MR. JENLAN MONYAK',wing:'secondary'},miti:{name:'MR. MITI RATAN',wing:'secondary'},avi:{name:'AVINASH/Bibek',wing:'secondary'},ganga:{name:'LAISHRAM GANGA DEVI',wing:'secondary'}};
- const rows=rollRoster(people,'secondary');assert.ok(!rows.some(r=>/IPI RIBA|JENLAN MONYAK|MITI RATAN/.test(r.name)));assert.equal(rows.find(r=>r.ids.includes('avi')).name,'AVINASH');assert.equal(rollDisplayName('MR. AVINASH SINGH'),'AVINASH');assert.equal(rows.filter(r=>r.ids.includes('ganga')).length,1);assert.equal(people.avi.name,'AVINASH/Bibek');
+ const rows=rollRoster(people,'secondary');assert.ok(!rows.some(r=>/IPI RIBA|JENLAN MONYAK|MITI RATAN/.test(r.name)));assert.equal(rollRoster(people,'primary').find(r=>r.ids.includes('avi')).name,'Mr. Bibek Kumar Dubey');assert.equal(rollDisplayName('MR. AVINASH SINGH'),'AVINASH');assert.equal(rows.filter(r=>r.ids.includes('ganga')).length,1);assert.equal(people.avi.name,'AVINASH/Bibek');
 });
 test('CT picker uses exact section roles and propagates aliases, without guessing unassigned staff',()=>{
  const faculty={classes:{X:{teachers:{one:{...staff.a}},roles:{A:{classTeacher:'one',coClassTeacher:''}}},XII:{teachers:{},roles:{}}}},people={'X:one':staff.a,'support:alias':{...staff.a},'support:none':{...staff.a,name:'Other Teacher'}};

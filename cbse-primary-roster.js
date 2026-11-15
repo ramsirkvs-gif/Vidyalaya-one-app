@@ -15,8 +15,9 @@ export const PRIMARY_ROSTER=[
  ['Mr. S. William L.','PRT',['S William','Sankhil William','Sankhil William Lamkang']],
  ['Ms. Meena Chettry','PRT',[]],['Ms. Priyanka Gupta','PRT',[]],
  ['Mr. Pankaj Pandey','PRT',[]],['Ms. Kime Muni','PRT',[]],['Ms. Punyo Rinyo','PRT',[]],
- ['Ralo Ripa','PRT',[]],['Ms. Sonam Kumari','PRT Music',[]],['Mr. Panjib Sarkar','Art Instructor',[]]
+ ['Ralo Ripa','PRT',[]],['Ms. Sonam Kumari','PRT Music',[]],['Mr. Panjib Sarkar','Art Instructor',[]],
+ ['Mr. Bibek Kumar Dubey','Computer Instructor',['Bibek','Bibek Kumar','AVINASH/Bibek','Avinash','Avinash Singh']]
 ].map(([name,designation,aliases],index)=>({name,designation,serial:index+1,aliases:[name,...aliases]}));
 export const primaryNameKey=value=>String(value||'').normalize('NFKC').toUpperCase().replace(/\b(MR|MRS|MS|DR|SHRI|SMT|MISS)\b\.?\s*/g,'').replace(/[^A-Z]/g,'');
 export function primaryStaffEntry(person){if(!person||/\b(PGT|TGT)\b/i.test(person.designation||''))return;const key=primaryNameKey(person.name);if(key==='SUSHIL'&&person.kind!=='prt'&&person.wing!=='primary'&&!/\bPRT\b/i.test(person.designation||''))return;return PRIMARY_ROSTER.find(p=>p.aliases.some(name=>primaryNameKey(name)===key));}
-export function primaryDirectory(staff){return Object.fromEntries(Object.entries(staff||{}).map(([id,p])=>{const entry=primaryStaffEntry(p);return [id,entry?{...p,wing:'primary',designation:p.designation||entry.designation}:p];}));}
+export function primaryDirectory(staff){return Object.fromEntries(Object.entries(staff||{}).map(([id,p])=>{const entry=primaryStaffEntry(p);return [id,entry?{...p,name:entry.name,wing:'primary',designation:entry.designation}:p];}));}
