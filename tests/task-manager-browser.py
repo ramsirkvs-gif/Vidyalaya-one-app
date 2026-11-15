@@ -132,6 +132,19 @@ try:
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count-context').first.inner_text()=='0 out of 96 students'
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count').nth(3).inner_text()=='79.2%'
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count-context').nth(1).inner_text()=='19 out of 24 students'
+        preview.get_by_role('combobox',name='Report class grouping',exact=True).select_option('custom');preview.get_by_role('button',name='IX + XI',exact=True).click()
+        group_scope=[c for c in current['published']['selectedClasses'] if c.split()[0] in ['IX','XI']]
+        assert preview.locator('.presentation-main-page').count()==2;assert preview.locator('.presentation-main-page h2').first.inner_text().startswith('Combined report · IX + XI')
+        assert 'Classes covered: 1 of '+str(len(group_scope)) in preview.locator('.presentation-overview').inner_text()
+        assert preview.locator('.presentation-count').first.inner_text()==str(sum(current['published']['headers'][c]['total'] for c in group_scope))
+        preview.get_by_role('button',name='X + XII',exact=True).click();assert 'Classes covered: 0 of ' in preview.locator('.presentation-overview').inner_text()
+        with page.expect_download() as group_deck_info:preview.get_by_role('button',name='Download PPTX',exact=True).click()
+        group_deck_info.value.save_as('/tmp/task-custom-group-synthetic.pptx')
+        with zipfile.ZipFile('/tmp/task-custom-group-synthetic.pptx') as deck:
+            group_xml='\n'.join(deck.read(name).decode() for name in deck.namelist() if name.startswith('ppt/slides/slide') and name.endswith('.xml'))
+            assert 'Combined report · X + XII' in group_xml;assert 'I · Class IX' not in group_xml
+        preview.get_by_role('button',name='Clear class group',exact=True).click();assert preview.get_by_role('button',name='Print / Save PDF',exact=True).is_disabled()
+        preview.get_by_role('combobox',name='Report class grouping',exact=True).select_option('standard');assert preview.locator('.presentation-main-page').count()==4
         preview.get_by_text('Select presentation questions',exact=True).click()
         preview.get_by_role('button',name='Clear question selection',exact=True).click();assert preview.get_by_role('button',name='Print / Save PDF',exact=True).is_disabled()
         preview.get_by_role('checkbox',name='Include Q4. Number of students who passed the latest examination',exact=True).check()
