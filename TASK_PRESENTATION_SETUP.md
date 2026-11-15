@@ -10,13 +10,13 @@ Q7 and Q8 are merged when both selected questions count students. The Principal 
 
 # PDF, PowerPoint and annexures
 
-**Print / Save PDF** prints the preview using A4 landscape. Disable browser-added headers/footers. **Include teacher comments appendix in PDF** is optional and off by default. When selected, written observations, overall teacher comments, the Principal's review and saved closing comments follow the main report. Empty comment sections are omitted.
+**PDF options** and **PPTX options** each provide independent choices for class-wise reports, teacher comments, and closing remarks. Every option is off by default. The preview follows the PDF choices; **Download PPTX** follows only the PPTX choices. Charts and the final overview are always included in the main presentation. Selected attachments follow in class-wise, teacher-comment, closing-remark order. The main chart report remains at most four pages; attachments may add pages/slides.
 
-**Download PPTX** creates a real PowerPoint file with editable text and native pie charts. The main PPTX always ends at the overview and excludes detailed class lists and comments, regardless of the PDF appendix checkbox. PptxGenJS and its licence are bundled locally; export content is not sent to an external service.
+If either format includes class-wise reports, open **Select classes for annexure** and check the submitted classes to include. This shared class selection applies to both formats. The existing class-wise table layout and numbering are retained. Comments and closing remarks are independent: selecting one does not automatically select the other. Empty comment sections are skipped.
 
-**Class-wise survey PDF** opens a separate annexure preview. Select submitted classes, then print/save PDF or download a class-report PPTX. The existing table layout and numbering are retained, including Q1–Q3 figures, all submitted answers, written responses, overall comments and retained earlier answers. Each selected class starts separately. These complete reports are independent of presentation-question selection.
+**Print / Save PDF** prints the preview using A4 landscape. Disable browser-added headers/footers. **Download PPTX** creates a real PowerPoint file with editable text and native pie charts. PptxGenJS and its licence are bundled locally; export content is not sent to an external service.
 
-**Comments annexure PDF** opens the comments as a separate PDF preview; it has no PPTX download. It includes teacher observations and saved whole-report comments, skipping empty sections.
+**Class-wise survey PDF** and **Comments annexure PDF** open separate annexure previews, each with PDF and PPTX export available. Full class reports retain Q1–Q3 figures, all submitted answers, written responses, overall comments and retained earlier answers. These complete reports are independent of presentation-question selection.
 
 # Whole-report comments and corrections
 

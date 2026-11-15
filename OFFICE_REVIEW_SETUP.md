@@ -7,3 +7,7 @@ Open **Principal review & replies** on the office dashboard. Filter by **Open ob
 # Task submission status
 
 In Principal Task Manager, published tasks show **Submission status and results** above the editor. **View submission status** jumps there. The section shows submitted and pending totals, teacher assignments, and each class's status. Choose **Open report** for a submitted class to read its answers.
+
+# Immediate voucher search
+
+Typing in the register's search box shows the first five matches immediately beneath it, with voucher details and an **Open voucher** action for authorized editors. Searches still match exact voucher numbers. If an existing match is hidden by filters, the result explains this and offers **Clear filters and show voucher**. If the current register has no match, it identifies that scope and offers **Search all accessible registers**, using the existing access permissions. No edits or publication are performed by searching.
