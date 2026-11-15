@@ -27,12 +27,13 @@ try:
         page.get_by_label('Principal password',exact=True).fill('synthetic-password');page.get_by_role('button',name='Sign in here',exact=True).click()
         page.get_by_role('button',name='Create Task 1 unpublished draft',exact=True).click()
         card=page.locator('#task-task1');card.get_by_text('Unpublished — private to Principal',exact=True).wait_for()
-        assert card.locator('.task-class-status').count()==18;assert card.locator('.task-totals').count()==0;assert not card.locator('.task-consolidation').evaluate('(node)=>node.open')
+        assert card.locator('.task-survey-preview').evaluate('(node)=>node.open');assert card.locator('.task-survey-preview .task-count').count()==16;assert card.locator('.task-survey-preview [name=passed]').is_disabled();assert card.locator('.task-class-status').count()==18;assert card.locator('.task-totals').count()==0;assert not card.locator('.task-consolidation').evaluate('(node)=>node.open')
         for width in [360,768,1440]:
             page.set_viewport_size({'width':width,'height':950});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
         page.screenshot(path='/tmp/task-manager-principal-layout.png',full_page=True)
         card.get_by_text('Edit task, assignments and class figures',exact=True).click()
         card.get_by_label('Task title',exact=True).wait_for(state='visible');assert card.get_by_label('Deadline (leave blank if not provided)',exact=True).input_value()==''
+        assert card.get_by_label('Teacher for IX A',exact=True).locator('option[value="X:one"]').inner_text()=='Synthetic Teacher one'
         card.get_by_label('Teacher for IX A',exact=True).select_option('X:one')
         card.get_by_label('Teacher for XI E',exact=True).select_option('X:two')
         card.locator('[name=header-import]').set_input_files({'name':'synthetic-figures.json','mimeType':'application/json','buffer':json.dumps({'IX A':{'total':24,'catV':0,'st':None}}).encode()})
@@ -46,6 +47,7 @@ try:
         release={'version':json.loads((ROOT/'public/app-version.json').read_text())['version']}
         staffctx=browser.new_context();staffctx.route('**/app-version.json',lambda route:route.fulfill(json=release));staffctx.route('https://www.gstatic.com/firebasejs/**',sdk);teacher=staffctx.new_page();teacher.on('pageerror',lambda e:errors.append(str(e)))
         teacher.goto(BASE+'cbse-task-manager.html#staff');teacher.get_by_label('Your existing staff identity',exact=True).select_option('X:one');teacher.get_by_label('Existing personal portal PIN',exact=True).fill('000');teacher.get_by_role('button',name='Verify PIN and open my tasks',exact=True).click();teacher.get_by_role('status').get_by_text('PIN does not match',exact=False).wait_for();assert teacher.locator('.task-card').count()==0
+        assert teacher.get_by_label('Your existing staff identity',exact=True).locator('option[value="X:one"]').inner_text()=='Synthetic Teacher one'
         teacher.get_by_label('Existing personal portal PIN',exact=True).fill('123');teacher.get_by_role('button',name='Verify PIN and open my tasks',exact=True).click()
         teacher.get_by_role('heading',name='IX A',exact=True).wait_for();assert teacher.locator('.task-header').inner_text().count('Unprovided')==1;assert teacher.locator('.task-header input').count()==0
         teacher.get_by_label('Latest examination name / context (no student details)',exact=True).fill('Synthetic preboard')
@@ -59,7 +61,7 @@ try:
             teacher.set_viewport_size({'width':width,'height':900});assert teacher.evaluate('document.documentElement.scrollWidth<=innerWidth')
         teacher.locator('[name=passed]').fill('18');release['version']='synthetic-new-release';teacher.evaluate("document.dispatchEvent(new Event('visibilitychange'))");teacher.locator('#portal-update-notice').wait_for();assert teacher.locator('[name=passed]').input_value()=='18';assert teacher.locator('#portal-update-notice button').is_disabled();release['version']=json.loads((ROOT/'public/app-version.json').read_text())['version'];
         print('PASS existing PIN verification, read-only/unprovided figures, aggregate report submission/update without duplicate classes and responsive layout')
-        page.get_by_role('button',name='Refresh tasks',exact=True).click();card.get_by_role('button',name='Open report for IX A',exact=True).wait_for();assert card.locator('.task-totals').count()==1;card.get_by_role('button',name='Open report for IX A',exact=True).click();assert card.locator('[data-report-class="IX A"]').evaluate('(node)=>node.open');card.get_by_label('Principal comment (private, after results)',exact=True).fill('Synthetic private review');card.get_by_role('button',name='Save Principal comment',exact=True).click();page.get_by_role('status').get_by_text('Principal comment saved.',exact=True).wait_for()
+        page.get_by_role('button',name='Refresh tasks',exact=True).click();card.get_by_role('button',name='Open report for IX A',exact=True).wait_for();assert card.locator('.task-totals').count()==1;assert card.locator('.task-survey-preview [name=passed]').input_value()=='19';card.get_by_role('button',name='Open report for IX A',exact=True).click();assert card.locator('[data-report-class="IX A"]').evaluate('(node)=>node.open');card.get_by_label('Principal comment (private, after results)',exact=True).fill('Synthetic private review');card.get_by_role('button',name='Save Principal comment',exact=True).click();page.get_by_role('status').get_by_text('Principal comment saved.',exact=True).wait_for()
         card.get_by_role('button',name='Stop publication',exact=True).click();page.get_by_role('status').get_by_text('Publication stopped.',exact=False).wait_for()
         current=api({'action':'task-principal','operation':'read'})['tasks']['task1'];assert not current.get('published');assert len(current['reports'])==1;assert current['comment']=='Synthetic private review'
         page.get_by_role('button',name='Sign out',exact=True).click();page.get_by_label('Principal password',exact=True).wait_for();assert page.locator('#task-task1').count()==0
