@@ -17,9 +17,10 @@ export function officeRow(input,directory,retainedIds=[]){
  check(['pending','in-progress','resolved','not-applicable'].includes(input.status),'Choose a valid status.');row.status=input.status;
  check(Array.isArray(input.assignedIds)&&input.assignedIds.length<=100&&new Set(input.assignedIds).size===input.assignedIds.length&&input.assignedIds.every(id=>typeof id==='string'&&(Object.hasOwn(directory,id)||retainedIds.includes(id))),'Choose responsible members from the directory.');row.assignedIds=[...input.assignedIds];return row;
 }
+export const officeHasObjection=value=>{const text=String(value||'').trim();return !!text&&!/^(?:n\/?a|nas|not applicable|none|nil|no|no objections?(?:[ .—–-]*done)?|no observations?|[-—])\.?$/i.test(text);};
 export function applyOfficeWorkspace(current,input,actor,directory,now){
  const prior=current||emptyOfficeWorkspace(input.memberId);check(actor.principal||actor.id===input.memberId,'Use the concerned office member’s PIN.');
- check(input.expectedRevision===prior.revision,'These office records changed. Refresh before saving; your entries are retained.');const next=structuredClone(prior),operation=input.operation;next.rows||={};
+ const rowSave=['save-row','reply-review'].includes(input.operation);check(input.expectedRevision===prior.revision||rowSave&&Number.isSafeInteger(input.expectedRevision)&&input.expectedRevision>=0&&input.expectedRevision<=prior.revision,'These office records changed. Refresh before saving; your entries are retained.');const next=structuredClone(prior),operation=input.operation;next.rows||={};
  if(operation==='save-row'){
   check(typeof input.rowId==='string'&&/^office_[a-zA-Z0-9_-]{1,90}$/.test(input.rowId),'Choose a valid record.');
   const old=prior.rows?.[input.rowId];check((input.rowRevision??0)===(old?.revision||0),'This record changed. Refresh before saving.');let source=input.row;const auditSubmission=!actor.principal&&['pramod-paswan','sumit-puri'].includes(input.memberId);if(auditSubmission){
@@ -27,7 +28,15 @@ export function applyOfficeWorkspace(current,input,actor,directory,now){
    for(const key of Object.keys(OFFICE_FIELDS).filter(key=>!editable.includes(key)))if(input.row[key]!==undefined)check(input.row[key]===(source[key]||''),'Only the Principal can update the final review fields or task settings.');
    check((input.row.status??'pending')===source.status&&JSON.stringify(input.row.assignedIds||[])===JSON.stringify(source.assignedIds),'Only the Principal can update responsible persons or final status.');for(const key of editable)source[key]=input.row[key]??'';
   }const row=officeRow(source,directory,old?.assignedIds||[]);checkOfficeAuditOwner(row,input.memberId);
-  next.rows[input.rowId]={...row,...(old?.submittedAt?{submittedAt:old.submittedAt,submittedBy:old.submittedBy}:{}),...(auditSubmission?{submittedAt:now,submittedBy:actor.id}:{}),id:input.rowId,revision:(old?.revision||0)+1,createdAt:old?.createdAt||now,createdBy:old?.createdBy||actor.id,updatedAt:now,updatedBy:actor.id};
+  next.rows[input.rowId]={...row,...(old?.reviewReplies?{reviewReplies:structuredClone(old.reviewReplies)}:{}),...(old?.principalReviewedAt?{principalReviewedAt:old.principalReviewedAt,principalReviewedBy:old.principalReviewedBy}:{}),...(actor.principal?{principalReviewedAt:now,principalReviewedBy:actor.id}:{}),...(old?.submittedAt?{submittedAt:old.submittedAt,submittedBy:old.submittedBy}:{}),...(auditSubmission?{submittedAt:now,submittedBy:actor.id}:{}),id:input.rowId,revision:(old?.revision||0)+1,createdAt:old?.createdAt||now,createdBy:old?.createdBy||actor.id,updatedAt:now,updatedBy:actor.id};
+ }else if(operation==='reply-review'){
+  check(!actor.principal&&actor.id===input.memberId,'Use the concerned office member’s PIN to reply.');
+  check(typeof input.rowId==='string'&&Object.hasOwn(prior.rows||{},input.rowId),'Choose an existing voucher.');const old=prior.rows[input.rowId];
+  check(old.status!=='resolved','The Principal has marked this voucher Done. No reply is needed.');check(officeHasObjection(old.objections),'No open Principal objection is recorded for this voucher.');
+  const reply=text(input.reply,3000);check(reply,'Enter your response to the Principal objection.');check(typeof input.replyId==='string'&&/^reply_[A-Za-z0-9_-]{8,80}$/.test(input.replyId),'Reopen the reply form and retry.');
+  const priorReply=old.reviewReplies?.[input.replyId];if(priorReply){check(priorReply.submittedBy===actor.id&&priorReply.text===reply,'This reply was already submitted with different text. Refresh and review it.');return prior;}
+  check(input.rowRevision===(old.revision||0),'The Principal review or this voucher changed. Refresh before replying.');
+  next.rows[input.rowId]={...old,reviewReplies:{...(old.reviewReplies||{}),[input.replyId]:{text:reply,objection:old.objections,submittedAt:now,submittedBy:actor.id}},revision:(old.revision||0)+1,updatedAt:now,updatedBy:actor.id};
  }else if(operation==='import'){
   check(Array.isArray(input.rows)&&input.rows.length>0&&input.rows.length<=1000,'Import between 1 and 1000 records.');
   const keys=new Set(Object.values(next.rows).map(row=>row.sourceKey).filter(Boolean));for(const [index,source] of input.rows.entries()){
@@ -50,7 +59,7 @@ export function applyOfficeWorkspace(current,input,actor,directory,now){
  }else if(operation==='publish'){
   check(actor.principal,'Only the Principal can publish office work to staff.');
   const tasks=[...new Set(Object.values(prior.rows||{}).map(row=>String(row.task||prior.title).trim()))],selectedTask=text(input.taskTitle??(tasks.length===1?tasks[0]:prior.title),5000);check(tasks.includes(selectedTask)||!tasks.length&&selectedTask===prior.title,'Choose the task to publish.');const selectedRows=Object.entries(prior.rows||{}).filter(([,row])=>String(row.task||prior.title).trim()===selectedTask);
-  next.published={summary:{title:selectedTask,memberId:input.memberId,count:selectedRows.length,publishedAt:now,revision:prior.revision+1},title:selectedTask,notes:prior.notes||'',rows:Object.fromEntries(selectedRows.map(([id,row])=>{const {reviewNote,...staffRow}=row,people=officeVoucherPeople(row,directory,input.memberId),assignedIds=people.defaulted?people.responsible.map(person=>person.id):Array.isArray(row.assignedIds)?row.assignedIds:[];return [id,{...staffRow,assignedIds,assignedNames:assignedIds.map(key=>directory[key]?.name||people.responsible.find(person=>person.id===key)?.name||Object.values(directory).find(person=>person.identityIds?.includes(key))?.name||key)}];}))};
+  next.published={summary:{title:selectedTask,memberId:input.memberId,count:selectedRows.length,publishedAt:now,revision:prior.revision+1},title:selectedTask,notes:prior.notes||'',rows:Object.fromEntries(selectedRows.map(([id,row])=>{const {reviewNote,reviewReplies,...staffRow}=row,people=officeVoucherPeople(row,directory,input.memberId),assignedIds=people.defaulted?people.responsible.map(person=>person.id):Array.isArray(row.assignedIds)?row.assignedIds:[];return [id,{...staffRow,assignedIds,assignedNames:assignedIds.map(key=>directory[key]?.name||people.responsible.find(person=>person.id===key)?.name||Object.values(directory).find(person=>person.identityIds?.includes(key))?.name||key)}];}))};
  }else if(operation==='unpublish'){
   check(actor.principal,'Only the Principal can withdraw published office work.');delete next.published;
  }else throw Error('Choose a valid office operation.');

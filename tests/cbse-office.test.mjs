@@ -3,11 +3,33 @@ import assert from 'node:assert/strict';
 import {officeFixture} from './office-fixture.mjs';
 import {OFFICE_MEMBERS,applyOfficeWorkspace,emptyOfficeWorkspace,matchOfficeResponsibility,searchOfficeRows} from '../cbse-office-model.js';
 import {mergeOfficeAuditSheets} from '../cbse-office-import.js';
+import {officeHasObjection} from '../cbse-office-model.js';
 const principal='principal',id='pramod-paswan';
 const row={task:'Audit',fund:'SF',voucherNo:'222',voucherDate:'2026-03-01',amount:'4,38,000',details:'Synthetic audit record',objections:'Need receipt',assignedIds:['X:one'],status:'pending',sourceKey:'synthetic:row1'};
 const setPIN=(service,memberId=id,pin='123')=>service('office-pin-settings',{operation:'set-pin',memberId,pin},principal);
 async function login(service,memberId=id,pin='123'){const viewer=await service('view-login',{password:'synthetic-view'},'','office-view');const result=await service('office-login',{memberId,pin},'','office-test',{viewerToken:viewer.viewerToken});return {officeToken:result.officeToken,viewerToken:viewer.viewerToken};}
 const call=(service,operation,values={},token=principal,session={})=>service('office-workspace',{memberId:id,operation,...values},token,'office-test',session);
+test('unrelated register changes do not block voucher saves; stale edits to the same voucher still reject',async()=>{
+ const {service}=officeFixture();await call(service,'save-row',{expectedRevision:0,rowId:'office_first',rowRevision:0,row});
+ const second=await call(service,'save-row',{expectedRevision:0,rowId:'office_other',rowRevision:0,row:{...row,sourceKey:'synthetic:other',voucherNo:'999'}});assert.equal(Object.keys(second.workspace.rows).length,2);
+ const edited=await call(service,'save-row',{expectedRevision:0,rowId:'office_first',rowRevision:1,row:{...row,details:'Safely updated while other vouchers changed'}});assert.equal(edited.workspace.rows.office_other.voucherNo,'999');assert.equal(edited.workspace.rows.office_first.revision,2);
+ await assert.rejects(call(service,'save-row',{expectedRevision:0,rowId:'office_first',rowRevision:1,row:{...row,details:'Stale overwrite'}}),/record changed/);
+});
+test('office members can answer Principal objections with fresh PIN; replies are idempotent, private, and cannot close final status',async()=>{
+ const {service,db}=officeFixture();await call(service,'save-row',{expectedRevision:0,rowId:'office_reply',row});await setPIN(service);const session=await login(service),input={expectedRevision:0,rowId:'office_reply',rowRevision:1,replyId:'reply_synthetic_001',reply:'Synthetic receipt has been attached for review.'};
+ await assert.rejects(call(service,'reply-review',input,'',session),/incorrect/);await assert.rejects(call(service,'reply-review',{...input,pin:'999'},'',session),/incorrect/);await assert.rejects(call(service,'reply-review',input),/office member/);
+ const result=await call(service,'reply-review',{...input,pin:'123'},'',session);assert.equal(result.workspace.rows.office_reply.status,'pending');assert.equal(result.workspace.rows.office_reply.reviewReplies[input.replyId].objection,row.objections);
+ const retry=await call(service,'reply-review',{...input,pin:'123'},'',session);assert.equal(retry.workspace.revision,result.workspace.revision);assert.equal(Object.keys(retry.workspace.rows.office_reply.reviewReplies).length,1);
+ await assert.rejects(call(service,'reply-review',{...input,pin:'123',reply:'Changed duplicate text'},'',session),/different text/);await assert.rejects(call(service,'set-voucher-status',{expectedRevision:2,rowId:'office_reply',rowRevision:2,status:'resolved',pin:'123'},'',session),/Principal/);
+ await setPIN(service,'sumit-puri');const other=await login(service,'sumit-puri');await assert.rejects(call(service,'reply-review',{...input,pin:'123'},'',other),/concerned office/);
+ const published=await call(service,'publish',{expectedRevision:2});assert.equal(published.workspace.published.rows.office_reply.reviewReplies,undefined);
+ const privateRead=await call(service,'read',{},'',session);assert.equal(privateRead.workspace.rows.office_reply.reviewReplies[input.replyId].text,input.reply);
+ const review=await call(service,'save-row',{expectedRevision:3,rowId:'office_reply',rowRevision:2,row:{...row,objections:'No objection',status:'resolved'}});assert.equal(review.workspace.rows.office_reply.reviewReplies[input.replyId].text,input.reply);assert.equal(officeHasObjection(review.workspace.rows.office_reply.objections),false);
+ await assert.rejects(call(service,'reply-review',{expectedRevision:4,rowId:'office_reply',rowRevision:3,replyId:'reply_synthetic_002',reply:'Unneeded response',pin:'123'},'',session),/marked this voucher Done/);
+ // Legacy publications must not expose a private conversation either.
+ await db.ref('cbse/office/workspaces/'+id+'/published/rows/office_reply/reviewReplies').set(review.workspace.rows.office_reply.reviewReplies);
+ const staffRead=await service('office-staff-read',{memberId:id},'','viewer',session);assert.ok(!JSON.stringify(staffRead).includes('receipt has been attached'));
+});
 test('office membership has exactly three separate office identities',()=>{assert.deepEqual(OFFICE_MEMBERS.map(p=>p.designation),['ASO','SSA','JSA']);assert.equal(OFFICE_MEMBERS[1].name,'Mr. Pramod Paswan');});
 test('office PIN setup is Principal-only and does not modify Mission PINs or records',async()=>{
  const {service,data}=officeFixture(),before=structuredClone(data.cbse.staffAccess);
