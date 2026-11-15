@@ -9,3 +9,5 @@ Automatic generation, manual staff/Office changes, PIN imports and faculty creat
 Some older encrypted display values may be unavailable. Settings reports these as not fully verified rather than claiming a clean live audit. Legacy-hash comparisons still protect every PIN assignment and every submitted name/PIN pair. The bounded Settings audit also checks legacy records against available display values; it does not recover or expose undisplayed PINs.
 
 PIN audit names and identifiers are restricted to Principal Settings. Public catalogues and staff views do not receive PIN audit data, hashes or PIN values. Local verification uses synthetic accounts; actual conflicts must be reviewed in the authenticated live Settings screen after deployment.
+
+Roll Call prepares the approved Primary staff names without generating PINs. Principal entry also uses this names-only path. Missing PIN generation remains in protected Shared PINs Settings and uses conditional REST writes in production, checking both registries against the same saved version. The SDK fallback permits Firebase to populate a cold local transaction cache before checking that version.

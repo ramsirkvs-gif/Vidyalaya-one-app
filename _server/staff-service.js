@@ -70,7 +70,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
 
  async function directoryStaff(){const[faculty,support,draft]=await Promise.all([read('cbse/facultyDraft'),read('cbse/mission/staff'),read('cbse/draft')]);const staff=primaryDirectory(rollRoleDirectory(staffIndex(faculty,{staff:support||{}},{includeRollOnly:true}),faculty,draft?.classes));return Object.fromEntries(entries(staff).map(([id,p])=>{const owner=avinashBibekIdentityIds(id,faculty,{staff:support||{}})?.[0];return [id,owner?{...p,pinOwnerId:owner}:p];}));}
  const pinPolicy=createPINPolicy({db,read,getStaff:async()=>primaryDirectory(await officeDirectoryStaff()),displayKey,verifyPIN,AccessError});
- const generateMissingPINs=createMissingStaffPINGenerator({db,read,displayKey,hashPIN,verifyPIN,now,identityIds:rollStaffIdentityIds,AccessError});
+ const generateMissingPINs=createMissingStaffPINGenerator({db,read,restTransaction,displayKey,hashPIN,verifyPIN,now,identityIds:rollStaffIdentityIds,AccessError});
  // Fixed, Principal-approved roster migration; no request-supplied names, roles or PINs.
  // Staff may enter Roll Call without first visiting the Principal's Settings.
  async function preparePrimaryRoster(){
@@ -79,8 +79,6 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    const result=await db.ref('cbse/mission').transaction(current=>planPrimaryRosterProfiles(current,faculty||emptyFaculty(),now()).next);
    if(!result.committed||!result.snapshot.val())throw new AccessError('The Primary staff list could not be prepared. Refresh Roll Call to retry.',409);
   }
-  const eligible=Object.fromEntries(entries(await directoryStaff()).filter(([,p])=>primaryStaffEntry(p)&&p.status==='active'));
-  await generateMissingPINs(eligible);
  }
  async function principal(token){const decoded=await auth.verifyIdToken(token,true),uid=await read('cbse/adminUid');if(decoded.uid!==uid)throw new AccessError('Principal access required.');return decoded;}
  async function staffUser(token){const decoded=await auth.verifyIdToken(token,true);if(decoded.missionStaff!==true||typeof decoded.staffId!=='string')throw new AccessError('Staff access required.');const access=await read(`cbse/staffAccess/${decoded.staffId}`);if(!access?.enabled||decoded.pinVersion!==access.version)throw new AccessError('Staff access has been disabled or reset. Sign in again.');return {decoded,access};}
@@ -143,7 +141,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    let reason='',result;const id='podcast_'+randomUUID().replaceAll('-','');if(['reporting-save','reporting-publish'].includes(operation)){const known=await read('cbse/chamber/reporting');result=await db.ref('cbse/chamber/reporting').transaction(current=>{if(current===null&&known!==null)return null;try{return applyReporting(current,input,now());}catch(e){reason=e.message;return;}});}else if(['podcast-save','podcast-publish','podcast-unpublish','podcast-delete','podcast-pending-publish','podcast-pending-hide'].includes(operation)){const known=await read('cbse/chamber/podcasts');result=await db.ref('cbse/chamber/podcasts').transaction(current=>{if(current===null&&known!==null)return null;try{return applyPodcast(current,input,staff,now(),id).next;}catch(e){reason=e.message;return;}});}else throw new AccessError('Unknown Chamber operation.',400);if(!result.committed||result.snapshot.val()===null)throw new AccessError(reason||'Content changed. Reload and retry.',409);return {ok:true,id:input.id||id};
   }
   if(action==='primary-staff-setup'){
-   const admin=await principal(token);let created=0,matched=0;const result=await db.ref('cbse').transaction(current=>{if(!current||current.adminUid!==admin.uid)return;const plan=planPrimaryRosterProfiles(current.mission,current.facultyDraft||emptyFaculty(),now());created=plan.created.length;matched=plan.matched.length;return {...current,mission:plan.next};});if(!result.committed||!result.snapshot.val())throw new AccessError('Primary Wing setup could not be saved. Retry.',409);
+   const admin=await principal(token);if(input.prepareOnly){await preparePrimaryRoster();return {ok:true};}let created=0,matched=0;const result=await db.ref('cbse').transaction(current=>{if(current===null)return null;if(!current||current.adminUid!==admin.uid)return;const plan=planPrimaryRosterProfiles(current.mission,current.facultyDraft||emptyFaculty(),now());created=plan.created.length;matched=plan.matched.length;return {...current,mission:plan.next};});if(!result.committed||!result.snapshot.val())throw new AccessError('Primary Wing setup could not be saved. Retry.',409);
    const eligible=Object.fromEntries(entries(await directoryStaff()).filter(([,p])=>primaryStaffEntry(p)&&p.status==='active'));const pins=await generateMissingPINs(eligible);return {ok:true,createdStaff:created,matchedStaff:matched,createdPins:pins.created.length};
   }
   if(action==='roll-call-setup'){

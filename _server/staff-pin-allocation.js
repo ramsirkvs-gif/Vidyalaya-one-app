@@ -3,7 +3,7 @@ import {randomInt,randomUUID,createHash} from 'node:crypto';
 import {encryptDisplayPIN} from './pin-vault.js';
 const entries=value=>Object.entries(value||{});
 const signature=(staff,office)=>createHash('sha256').update(JSON.stringify([staff,office].map(group=>entries(group).sort(([a],[b])=>a.localeCompare(b)).map(([id,r])=>[id,r?.salt||'',r?.hash||'',r?.enabled,r?.version||'',r?.displayPIN?[r.displayPIN.version,r.displayPIN.iv,r.displayPIN.tag,r.displayPIN.ciphertext]:null])))).digest('hex');
-export function createMissingStaffPINGenerator({db,read,displayKey,hashPIN,verifyPIN,now,identityIds,AccessError}){
+export function createMissingStaffPINGenerator({db,read,restTransaction,displayKey,hashPIN,verifyPIN,now,identityIds,AccessError}){
  const trustedPIN=createTrustedPINReader({displayKey,verifyPIN});
  return async staff=>{
   for(let retry=0;retry<4;retry++){
@@ -18,7 +18,7 @@ export function createMissingStaffPINGenerator({db,read,displayKey,hashPIN,verif
     if(!pin)throw new AccessError('No unused three-digit PIN remains across staff and office accounts. Existing PINs were not changed.',409);
     prepared.set(id,{name:p.name,pin,record:{...await hashPIN(pin),...encryptDisplayPIN(pin,id,displayKey),temporary:true,enabled:true,version:randomUUID(),updatedAt:now()}});
    }
-   const before=signature(access,office);const result=await db.ref('cbse').transaction(current=>{if(!current||signature(current.staffAccess,current.officeAccess)!==before)return;const next={...current,staffAccess:{...(current.staffAccess||{})}};for(const [id,p]of prepared)if(!next.staffAccess[id]?.hash&&next.staffAccess[id]?.enabled!==false)next.staffAccess[id]=p.record;return next;});
+   const before=signature(access,office);const transact=restTransaction?update=>restTransaction('cbse',update):update=>db.ref('cbse').transaction(update);const result=await transact(current=>{if(current===null)return null;if(!current||signature(current.staffAccess,current.officeAccess)!==before)return;const next={...current,staffAccess:{...(current.staffAccess||{})}};for(const [id,p]of prepared)if(!next.staffAccess[id]?.hash&&next.staffAccess[id]?.enabled!==false)next.staffAccess[id]=p.record;return next;});
    if(result.committed&&result.snapshot?.val())return {created:[...prepared].map(([staffId,p])=>({staffId,name:p.name,pin:p.pin})),staff:active};
   }
   throw new AccessError('Staff or office PIN records changed while generating unique PINs. Existing PINs were retained; retry setup.',409);
