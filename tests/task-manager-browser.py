@@ -155,12 +155,14 @@ try:
         preview.get_by_role('status').get_by_text('PowerPoint download prepared.',exact=True).wait_for()
         preview.get_by_role('checkbox',name='Include class-wise reports in PPTX',exact=True).check();preview.get_by_role('checkbox',name='Include teacher comments in PPTX',exact=True).check();preview.get_by_role('checkbox',name='Include closing remarks in PPTX',exact=True).check()
         assert preview.locator('.presentation-class-report').count()==0
+        preview.get_by_role('checkbox',name='Include Efforts / guidance by Deputy Commissioner in PPTX',exact=True).uncheck()
         with page.expect_download() as full_deck_info:preview.get_by_role('button',name='Download PPTX',exact=True).click()
         full_deck_info.value.save_as('/tmp/task-presentation-with-all-options-synthetic.pptx')
         with zipfile.ZipFile('/tmp/task-presentation-with-all-options-synthetic.pptx') as deck:
             full_xml='\n'.join(deck.read(name).decode() for name in deck.namelist() if name.startswith('ppt/slides/slide') and name.endswith('.xml'))
-            assert 'Class-wise survey report' in full_xml;assert 'Synthetic closing comment for ro.' in full_xml;assert 'Synthetic revised perspective' in full_xml
+            assert 'Class-wise survey report' in full_xml;assert 'Synthetic closing comment for ro.' in full_xml;assert 'Synthetic revised perspective' in full_xml;assert 'Synthetic closing comment for deputyCommissioner.' not in full_xml
         preview.get_by_role('checkbox',name='Include class-wise reports in PDF',exact=True).check();preview.get_by_role('checkbox',name='Include closing remarks in PDF',exact=True).check();assert preview.locator('.presentation-class-report').count()==1;assert preview.locator('.presentation-closing').count()==1
+        preview.get_by_role('checkbox',name='Include Efforts by Regional Office (RO) in PDF',exact=True).uncheck();assert 'Synthetic closing comment for ro.' not in preview.locator('.presentation-closing').inner_text();assert 'Synthetic closing comment for deputyCommissioner.' in preview.locator('.presentation-closing').inner_text()
         preview.get_by_role('checkbox',name='Include class-wise reports in PDF',exact=True).uncheck();preview.get_by_role('checkbox',name='Include closing remarks in PDF',exact=True).uncheck()
 
         preview.get_by_role('checkbox',name='Include teacher comments appendix in PDF',exact=True).uncheck()
