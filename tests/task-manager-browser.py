@@ -116,6 +116,10 @@ try:
         assert preview.locator('.presentation-main-page').first.get_by_role('heading',name='I · Class IX · Overview',exact=True).count()==1
         assert preview.locator('.presentation-main-page').nth(2).get_by_role('heading',name='II · Classes IX–XII consolidated · Overview',exact=True).count()==1
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count').first.inner_text()=='96'
+        assert preview.locator('.presentation-main-page').first.locator('.presentation-count').nth(1).inner_text()=='0.0%'
+        assert preview.locator('.presentation-main-page').first.locator('.presentation-count-context').first.inner_text()=='0 out of 96 students'
+        assert preview.locator('.presentation-main-page').first.locator('.presentation-count').nth(3).inner_text()=='79.2%'
+        assert preview.locator('.presentation-main-page').first.locator('.presentation-count-context').nth(1).inner_text()=='19 out of 24 students'
         preview.get_by_role('textbox').fill('Counsellor — Synthetic Co-opted Member');preview.get_by_role('button',name='Update participant list',exact=True).click()
         assert 'Synthetic Co-opted Member' in preview.locator('.presentation-main-page').last.inner_text()
         assert OVERALL_UPDATED in preview.locator('.presentation-appendix').inner_text();assert WRITTEN in preview.locator('.presentation-appendix').inner_text()
