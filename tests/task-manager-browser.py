@@ -120,6 +120,18 @@ try:
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count-context').first.inner_text()=='0 out of 96 students'
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count').nth(3).inner_text()=='79.2%'
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count-context').nth(1).inner_text()=='19 out of 24 students'
+        preview.get_by_text('Select presentation questions',exact=True).click()
+        preview.get_by_role('button',name='Clear question selection',exact=True).click();assert preview.get_by_role('button',name='Print / Save PDF',exact=True).is_disabled()
+        preview.get_by_role('checkbox',name='Include Q4. Number passed in the latest examination',exact=True).check()
+        assert preview.locator('.presentation-main-page').count()==2
+        assert preview.locator('.presentation-main-page .presentation-point h4').all_text_contents()==['Q4. Number passed in the latest examination']*2
+        assert preview.locator('.presentation-appendix').get_by_text(OVERALL_UPDATED,exact=True).count()==1
+        assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).fontWeight')=='800'
+        assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).backgroundColor')=='rgb(232, 243, 237)'
+        page.emulate_media(media='print');page.pdf(path='/tmp/task-presentation-selected-synthetic.pdf',prefer_css_page_size=True,print_background=True)
+        selected_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-selected-synthetic.pdf','-'],text=True).split('\f');assert 'Main report' in selected_text[0] and 'Main report' in selected_text[1] and 'Appendix A' in selected_text[2];assert 'Q2. Cat-V students' not in ''.join(selected_text)
+        page.emulate_media(media='screen');preview.get_by_role('button',name='Select all questions',exact=True).click();assert preview.locator('.presentation-main-page').count()==4
+        preview.get_by_text('Select presentation questions',exact=True).click()
         preview.get_by_role('textbox').fill('Counsellor — Synthetic Co-opted Member');preview.get_by_role('button',name='Update participant list',exact=True).click()
         assert 'Synthetic Co-opted Member' in preview.locator('.presentation-main-page').last.inner_text()
         assert OVERALL_UPDATED in preview.locator('.presentation-appendix').inner_text();assert WRITTEN in preview.locator('.presentation-appendix').inner_text()
