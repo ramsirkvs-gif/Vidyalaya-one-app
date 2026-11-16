@@ -253,3 +253,12 @@ full-width **Teaching vacancy** card after its student charts: **31.34%** in
 large type and **21 out of 67 sanctioned teaching posts** in smaller type.
 It appears once per group in HTML, PDF and PPTX, not as a repeated header.
 The institution-wide figures remain separate from student-survey answers.
+
+
+Main presentation groups containing IX or XI also include a compact historical
+**Three-year comparative results — Overall** table on a separate comparison page
+(and slide in PPTX), keeping the existing student cards and final vacancy card.
+Only the included grades appear, once per group: IX = 36.36%, 55.49%, 60.12%;
+XI = 51.53%, 61.08%, 76.71%, for sessions 2023–24, 2024–25 and 2025–26.
+These Principal-supplied overall figures do not change current exam answers,
+exam denominators or survey totals. Stream-wise results are excluded.

@@ -156,7 +156,7 @@ try:
         assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).fontWeight')=='500'
         assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).backgroundColor')=='rgb(241, 246, 243)'
         page.emulate_media(media='print');page.pdf(path='/tmp/task-presentation-selected-synthetic.pdf',prefer_css_page_size=True,print_background=True)
-        selected_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-selected-synthetic.pdf','-'],text=True).split('\f');assert 'Main report' in selected_text[0] and 'Main report' in selected_text[1] and len([p for p in selected_text if p.strip()])==2;assert 'Cat-V students' not in ''.join(selected_text)
+        selected_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-selected-synthetic.pdf','-'],text=True).split('\f');assert 'Main report' in selected_text[0] and 'Main report' in selected_text[2] and len([p for p in selected_text if p.strip()])==4;assert 'Cat-V students' not in ''.join(selected_text)
         page.emulate_media(media='screen');preview.get_by_role('button',name='Select all questions',exact=True).click();assert preview.locator('.presentation-main-page').count()==4
         preview.get_by_text('Select presentation questions',exact=True).click()
         preview.get_by_role('checkbox',name='Include teacher comments appendix in PDF',exact=True).check();assert preview.locator('.presentation-closing').count()==0
@@ -188,12 +188,12 @@ try:
         assert preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview")].every(c=>c.scrollHeight<=c.clientHeight+1))'),preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.map(p=>({height:p.clientHeight,scroll:p.scrollHeight,cards:[...p.querySelectorAll(".presentation-point,.presentation-overview")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight}))}))')
         page.pdf(path='/tmp/task-presentation-synthetic.pdf',prefer_css_page_size=True,print_background=True)
         pdftext=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-synthetic.pdf','-'],text=True).split('\f')
-        assert len([p for p in pdftext if p.strip()])==4
-        for i in range(4):assert 'Main report' in pdftext[i],(i,pdftext[i])
-        assert 'Report overview' in pdftext[3];assert 'Synthetic Co-opted Member' in pdftext[3]
+        assert len([p for p in pdftext if p.strip()])==6
+        for i in [0,1,3,4]:assert 'Main report' in pdftext[i],(i,pdftext[i])
+        assert 'Report overview' in pdftext[4];assert 'Synthetic Co-opted Member' in pdftext[4]
         page.emulate_media(media='screen');preview.get_by_role('checkbox',name='Include teacher comments appendix in PDF',exact=True).check()
         page.emulate_media(media='print');page.pdf(path='/tmp/task-presentation-with-comments-synthetic.pdf',prefer_css_page_size=True,print_background=True)
-        with_comments=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-with-comments-synthetic.pdf','-'],text=True).split('\f');assert 'Report overview' in with_comments[3];assert 'Teacher comments' in with_comments[4];assert 'Synthetic revised perspective' in ''.join(with_comments[4:])
+        with_comments=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-with-comments-synthetic.pdf','-'],text=True).split('\f');assert 'Report overview' in with_comments[4];assert 'Teacher comments' in with_comments[6];assert 'Synthetic revised perspective' in ''.join(with_comments[6:])
         page.emulate_media(media='screen');preview.get_by_role('button',name='Close report',exact=True).click();assert page.locator('.task-presentation').count()==0
         card.get_by_role('button',name='Comments annexure PDF',exact=True).click();comments_preview=page.locator('.task-presentation');comments_preview.get_by_role('button',name='Download PPTX',exact=True).wait_for();assert comments_preview.get_by_role('button',name='Download PPTX',exact=True).count()==1;assert OVERALL_UPDATED in comments_preview.locator('.presentation-appendix').first.inner_text();comments_preview.get_by_role('button',name='Close report',exact=True).click()
         print('PASS four-page private presentation, chart coverage, participant list and separate comments appendix in PDF')
@@ -203,7 +203,7 @@ try:
         assert page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview")].every(c=>c.scrollHeight<=c.clientHeight+1))'),page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.flatMap(p=>[...p.querySelectorAll(".presentation-point,.presentation-overview")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight}))))')
         page.pdf(path='/tmp/task-presentation-complete-synthetic.pdf',prefer_css_page_size=True,print_background=True)
         complete_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-complete-synthetic.pdf','-'],text=True).split('\f')
-        assert all('Main report' in complete_text[i] for i in range(4));assert len([p for p in complete_text if p.strip()])==4;assert 'Report overview' in complete_text[3]
+        assert all('Main report' in complete_text[i] for i in [0,1,3,4]);assert len([p for p in complete_text if p.strip()])==6;assert 'Report overview' in complete_text[4]
         page.emulate_media(media='screen');page.set_viewport_size({'width':360,'height':900});assert page.locator('.task-presentation').evaluate('(node)=>node.scrollWidth<=node.clientWidth')
         page.get_by_role('button',name='Close report',exact=True).click();page.set_viewport_size({'width':1440,'height':950})
 
