@@ -248,20 +248,30 @@ section percentages are never averaged. Other student-survey fields continue to
 use enrollment; PTMs remain meeting counts. HTML, printed PDF and PowerPoint use
 the same denominator, with two decimals for exam pass rates.
 
-Each main presentation group (Class IX, IX–XII or a custom group) ends with a
+Each main presentation group ends with a
 full-width **Teaching vacancy** card after its student charts: **31.34%** in
 large type and **21 out of 67 sanctioned teaching posts** in smaller type.
 It appears once per group in HTML, PDF and PPTX, not as a repeated header.
 The institution-wide figures remain separate from student-survey answers.
 
 
-Main presentation groups containing IX or XI also include a compact historical
-**Three-year comparative results — Overall** table on a separate comparison page
-(and slide in PPTX), keeping the existing student cards and final vacancy card.
-Only the included grades appear, once per group: IX = 36.36%, 55.49%, 60.12%;
-XI = 51.53%, 61.08%, 76.71%, for sessions 2023–24, 2024–25 and 2025–26.
-These Principal-supplied overall figures do not change current exam answers,
-exam denominators or survey totals. Stream-wise results are excluded.
+The single main report contains these groups in order: IX, XI, IX + XI, X,
+XII, X + XII, and IX–XII consolidated. Groups unavailable in the task are
+omitted; combined groups require all their grades. Every group has its own
+coverage, totals, exam denominator, participants and overview. The grouping
+picker and mixed attachment options are removed.
+
+Only the individual IX and XI groups include a **Three-year comparative
+results — Overall** table on a separate page/slide. No combined or other-grade
+group repeats it. Principal-supplied percentages for 2023–24, 2024–25, 2025–26:
+IX = 36.36%, 55.49%, 60.12%; XI = 51.53%, 61.08%, 76.71%.
+These historical figures do not change current exam answers or survey totals;
+stream-wise results are excluded.
+
+The main report has no annexures. Separate PDF/PPTX downloads are provided for
+(1) RO/DC/AC remarks (with saved additional official/Principal remarks selectable),
+(2) teachers’ comments/written observations, and (3) class-wise reports.
+Principal review is kept with remarks, never in the teachers’ comments annexure.
 
 Each main group ends with a short attendance-initiatives strip: PTMs, home visits,
 mapping students’ residential locations (cottages), and counselling students

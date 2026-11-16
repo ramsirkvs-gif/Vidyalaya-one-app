@@ -118,95 +118,68 @@ try:
             card.locator('[name=closing-'+key+']').fill('Synthetic closing comment for '+key+'.')
         card.get_by_role('button',name='Save closing report comments',exact=True).click();page.get_by_role('status').get_by_text('Closing report comments saved successfully.',exact=False).wait_for()
         assert api({'action':'task-principal','operation':'read'})['tasks']['task1']['reportComments']['ro']=='Synthetic closing comment for ro.'
-        card.get_by_role('button',name='Class-wise survey PDF',exact=True).click();class_preview=page.locator('.task-presentation');class_preview.locator('[data-export-class="IX A"]').wait_for()
+        card.get_by_role('button',name='Class-wise reports annexure',exact=True).click();class_preview=page.locator('.task-presentation');class_preview.locator('[data-export-class="IX A"]').wait_for()
         assert class_preview.locator('.presentation-main-page').count()==0;assert '19' in class_preview.locator('.presentation-class-report').inner_text()
         page.emulate_media(media='print');page.pdf(path='/tmp/task-class-report-synthetic.pdf',prefer_css_page_size=True,print_background=True)
         class_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-class-report-synthetic.pdf','-'],text=True);assert 'Total students' in class_text;assert 'Number of students who passed' in class_text;assert 'Q1.' in class_text;assert 'Synthetic revised perspective' in class_text
         page.emulate_media(media='screen');class_preview.get_by_role('checkbox',name='Include class report IX A',exact=True).uncheck();assert class_preview.get_by_role('button',name='Print / Save PDF',exact=True).is_disabled();class_preview.get_by_role('checkbox',name='Include class report IX A',exact=True).check()
         class_preview.get_by_role('button',name='Close report',exact=True).click()
         card.get_by_role('button',name='Prepare presentation report',exact=True).click()
-        preview=page.locator('.task-presentation');preview.wait_for();assert preview.locator('.presentation-main-page').count()==4
-        chart_questions=preview.locator('.presentation-point h4').all_text_contents();assert len([q for q in chart_questions if 'living in hostels /' in q])==2;assert not any(q.startswith('Q') for q in chart_questions);assert len([q for q in chart_questions if '(either one or both parents are uneducated)' in q])==2
-        assert preview.locator('.presentation-main-page').first.get_by_role('heading',name='I · Class IX · Overview',exact=True).count()==1
-        assert preview.locator('.presentation-main-page').nth(2).get_by_role('heading',name='II · Classes IX–XII consolidated · Overview',exact=True).count()==1
+        preview=page.locator('.task-presentation');preview.wait_for()
+        titles=['1 · Class IX','2 · Class XI','3 · Classes IX + XI','4 · Class X','5 · Class XII','6 · Classes X + XII','7 · Classes IX–XII consolidated']
+        assert preview.locator('.presentation-main-page').count()==14
+        assert preview.locator('.presentation-main-page h2').all_text_contents()==[title+' · '+suffix for title in titles for suffix in ['Overview','Continued']]
+        assert preview.locator('.presentation-comparison-page>p:not(.presentation-attendance-strip)').all_text_contents()==titles[:2]
+        assert preview.locator('.presentation-overview').count()==7;assert preview.locator('.presentation-attendance-strip').count()==7;assert preview.locator('.presentation-staffing-card').count()==7
+        assert preview.get_by_role('combobox',name='Report class grouping',exact=True).count()==0
+        assert preview.locator('.presentation-appendix').count()==0
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count').first.inner_text()=='96'
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count').nth(1).inner_text()=='0.0%'
-        assert preview.locator('.presentation-main-page').first.locator('.presentation-count-context').first.inner_text()=='0 out of 96 students'
-        assert preview.locator('.presentation-main-page').first.locator('.presentation-count').nth(3).inner_text()=='19'
         assert 'matching appeared counts are missing' in preview.locator('.presentation-main-page').first.inner_text()
-        preview.get_by_role('combobox',name='Report class grouping',exact=True).select_option('custom');preview.get_by_role('button',name='IX + XI',exact=True).click()
-        group_scope=[c for c in current['published']['selectedClasses'] if c.split()[0] in ['IX','XI']]
-        assert preview.locator('.presentation-main-page').count()==2;assert preview.locator('.presentation-main-page h2').first.inner_text().startswith('Combined report · IX + XI')
-        assert 'Classes covered: 1 of '+str(len(group_scope)) in preview.locator('.presentation-overview').inner_text()
-        assert preview.locator('.presentation-count').first.inner_text()==str(sum(current['published']['headers'][c]['total'] for c in group_scope))
-        preview.get_by_role('button',name='X + XII',exact=True).click();assert 'Classes covered: 0 of ' in preview.locator('.presentation-overview').inner_text()
-        with page.expect_download() as group_deck_info:preview.get_by_role('button',name='Download PPTX',exact=True).click()
-        group_deck_info.value.save_as('/tmp/task-custom-group-synthetic.pptx')
-        with zipfile.ZipFile('/tmp/task-custom-group-synthetic.pptx') as deck:
-            group_xml='\n'.join(deck.read(name).decode() for name in deck.namelist() if name.startswith('ppt/slides/slide') and name.endswith('.xml'))
-            assert 'Combined report · X + XII' in group_xml;assert 'I · Class IX' not in group_xml
-        preview.get_by_role('button',name='Clear class group',exact=True).click();assert preview.get_by_role('button',name='Print / Save PDF',exact=True).is_disabled()
-        preview.get_by_role('combobox',name='Report class grouping',exact=True).select_option('standard');assert preview.locator('.presentation-main-page').count()==4
-        preview.get_by_text('Select presentation questions',exact=True).click()
-        preview.get_by_role('button',name='Clear question selection',exact=True).click();assert preview.get_by_role('button',name='Print / Save PDF',exact=True).is_disabled()
-        preview.get_by_role('checkbox',name='Include Q4. Number of students who passed the latest examination',exact=True).check()
-        assert preview.locator('.presentation-main-page').count()==2
-        assert preview.locator('.presentation-main-page .presentation-point h4').all_text_contents()==['Number of students who passed the latest examination','Teaching vacancy']*2
-        assert preview.locator('.presentation-appendix').count()==0;assert preview.locator('.presentation-overview').count()==1
-        assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).fontWeight')=='500'
-        assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).backgroundColor')=='rgb(241, 246, 243)'
-        page.emulate_media(media='print');page.pdf(path='/tmp/task-presentation-selected-synthetic.pdf',prefer_css_page_size=True,print_background=True)
-        selected_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-selected-synthetic.pdf','-'],text=True).split('\f');assert 'Main report' in selected_text[0] and 'Main report' in selected_text[2] and len([p for p in selected_text if p.strip()])==4;assert 'Cat-V students' not in ''.join(selected_text)
-        page.emulate_media(media='screen');preview.get_by_role('button',name='Select all questions',exact=True).click();assert preview.locator('.presentation-main-page').count()==4
-        preview.get_by_text('Select presentation questions',exact=True).click()
-        preview.get_by_role('checkbox',name='Include teacher comments appendix in PDF',exact=True).check();assert preview.locator('.presentation-closing').count()==0
-        with page.expect_download() as download_info:
-            preview.get_by_role('button',name='Download PPTX',exact=True).click()
-        download=download_info.value;download.save_as('/tmp/task-presentation-browser-synthetic.pptx')
-        with zipfile.ZipFile('/tmp/task-presentation-browser-synthetic.pptx') as deck:
-            slide_xml='\n'.join(deck.read(name).decode() for name in deck.namelist() if name.startswith('ppt/slides/slide') and name.endswith('.xml'))
-            assert '79.2%' not in slide_xml;assert 'Report overview' in slide_xml;assert 'Synthetic closing comment for ro.' not in slide_xml;assert 'Class-wise survey report' not in slide_xml;assert 'Synthetic revised perspective' not in slide_xml
-            assert any(name.startswith('ppt/charts/chart') and name.endswith('.xml') for name in deck.namelist())
-        preview.get_by_role('status').get_by_text('PowerPoint download prepared.',exact=True).wait_for()
-        preview.get_by_role('checkbox',name='Include class-wise reports in PPTX',exact=True).check();preview.get_by_role('checkbox',name='Include teacher comments in PPTX',exact=True).check();preview.get_by_role('checkbox',name='Include closing remarks in PPTX',exact=True).check()
-        assert preview.locator('.presentation-class-report').count()==0
-        preview.get_by_role('checkbox',name='Include Efforts / guidance by Deputy Commissioner in PPTX',exact=True).uncheck()
-        with page.expect_download() as full_deck_info:preview.get_by_role('button',name='Download PPTX',exact=True).click()
-        full_deck_info.value.save_as('/tmp/task-presentation-with-all-options-synthetic.pptx')
-        with zipfile.ZipFile('/tmp/task-presentation-with-all-options-synthetic.pptx') as deck:
-            full_xml='\n'.join(deck.read(name).decode() for name in deck.namelist() if name.startswith('ppt/slides/slide') and name.endswith('.xml'))
-            assert 'Class-wise survey report' in full_xml;assert 'Synthetic closing comment for ro.' in full_xml;assert 'Synthetic revised perspective' in full_xml;assert 'Synthetic closing comment for deputyCommissioner.' not in full_xml
-        preview.get_by_role('checkbox',name='Include class-wise reports in PDF',exact=True).check();preview.get_by_role('checkbox',name='Include closing remarks in PDF',exact=True).check();assert preview.locator('.presentation-class-report').count()==1;assert preview.locator('.presentation-closing').count()==1
-        preview.get_by_role('checkbox',name='Include Efforts by Regional Office (RO) in PDF',exact=True).uncheck();assert 'Synthetic closing comment for ro.' not in preview.locator('.presentation-closing').inner_text();assert 'Synthetic closing comment for deputyCommissioner.' in preview.locator('.presentation-closing').inner_text()
-        preview.get_by_role('checkbox',name='Include class-wise reports in PDF',exact=True).uncheck();preview.get_by_role('checkbox',name='Include closing remarks in PDF',exact=True).uncheck()
-
-        preview.get_by_role('checkbox',name='Include teacher comments appendix in PDF',exact=True).uncheck()
+        preview.get_by_text('Select presentation questions',exact=True).click();preview.get_by_role('button',name='Clear question selection',exact=True).click();assert preview.get_by_role('button',name='Print / Save PDF',exact=True).is_disabled()
+        preview.get_by_role('checkbox',name='Include Q4. Number of students who passed the latest examination',exact=True).check();assert preview.locator('.presentation-main-page').count()==7
+        assert preview.locator('.presentation-main-page .presentation-point h4').all_text_contents()==['Number of students who passed the latest examination','Teaching vacancy']*7
+        preview.get_by_role('button',name='Select all questions',exact=True).click();preview.get_by_text('Select presentation questions',exact=True).click()
         preview.get_by_role('textbox').fill('Counsellor — Synthetic Co-opted Member');preview.get_by_role('button',name='Update participant list',exact=True).click()
-        assert 'Synthetic Co-opted Member' in preview.locator('.presentation-main-page').last.inner_text()
-        assert preview.locator('.presentation-appendix').count()==0;assert 'Classes covered: 1 of 18' in preview.locator('.presentation-overview').inner_text();assert 'Students covered by submitted reports: 24' in preview.locator('.presentation-overview').inner_text()
         page.emulate_media(media='print')
-        assert preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview")].every(c=>c.scrollHeight<=c.clientHeight+1))'),preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.map(p=>({height:p.clientHeight,scroll:p.scrollHeight,cards:[...p.querySelectorAll(".presentation-point,.presentation-overview")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight}))}))')
+        assert preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview")].every(c=>c.scrollHeight<=c.clientHeight+1))'),preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.flatMap(p=>[...p.querySelectorAll(".presentation-point,.presentation-overview")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight})))')
         page.pdf(path='/tmp/task-presentation-synthetic.pdf',prefer_css_page_size=True,print_background=True)
-        pdftext=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-synthetic.pdf','-'],text=True).split('\f')
-        assert len([p for p in pdftext if p.strip()])==6
-        for i in [0,1,3,4]:assert 'Main report' in pdftext[i],(i,pdftext[i])
-        assert 'Report overview' in pdftext[4];assert 'Synthetic Co-opted Member' in pdftext[4]
-        page.emulate_media(media='screen');preview.get_by_role('checkbox',name='Include teacher comments appendix in PDF',exact=True).check()
-        page.emulate_media(media='print');page.pdf(path='/tmp/task-presentation-with-comments-synthetic.pdf',prefer_css_page_size=True,print_background=True)
-        with_comments=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-with-comments-synthetic.pdf','-'],text=True).split('\f');assert 'Report overview' in with_comments[4];assert 'Teacher comments' in with_comments[6];assert 'Synthetic revised perspective' in ''.join(with_comments[6:])
-        page.emulate_media(media='screen');preview.get_by_role('button',name='Close report',exact=True).click();assert page.locator('.task-presentation').count()==0
-        card.get_by_role('button',name='Comments annexure PDF',exact=True).click();comments_preview=page.locator('.task-presentation');comments_preview.get_by_role('button',name='Download PPTX',exact=True).wait_for();assert comments_preview.get_by_role('button',name='Download PPTX',exact=True).count()==1;assert OVERALL_UPDATED in comments_preview.locator('.presentation-appendix').first.inner_text();comments_preview.get_by_role('button',name='Close report',exact=True).click()
-        print('PASS four-page private presentation, chart coverage, participant list and separate comments appendix in PDF')
-        # Full completion and every participating teacher must still fit four main pages.
-        page.evaluate("""async task=>{const {openTaskPresentation}=await import('/cbse-task-presentation.js');const people={};task.reports={};task.comment='Synthetic Principal summary.';for(const [i,c] of task.published.selectedClasses.entries()){const id='synthetic_'+i;people[id]={name:'Synthetic Participating Teacher '+(i+1)};task.published.headers[c]={total:24,catV:12,st:6};task.reports[c]={submittedBy:id,questions:task.published.questions,values:Object.fromEntries(task.published.questions.map(q=>[q.id,q.kind==='text'?'Synthetic written observations.':q.kind==='meetings'?2:10]))};task.reports[c].values.remarks='Synthetic class comments.';}openTaskPresentation(task,people);} """,current)
+        pdftext=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-synthetic.pdf','-'],text=True)
+        assert len([p for p in pdftext.split('\f') if p.strip()])==16
+        assert pdftext.count('Three-year comparative results')==2;assert pdftext.count('Main report ·')==14
+        assert 'Synthetic closing comment' not in pdftext;assert 'Synthetic revised perspective' not in pdftext
+        page.emulate_media(media='screen')
+        with page.expect_download() as download_info:preview.get_by_role('button',name='Download PPTX',exact=True).click()
+        download_info.value.save_as('/tmp/task-presentation-browser-synthetic.pptx')
+        with zipfile.ZipFile('/tmp/task-presentation-browser-synthetic.pptx') as deck:
+            paths=sorted([n for n in deck.namelist() if n.startswith('ppt/slides/slide') and n.endswith('.xml')],key=lambda n:int(n.split('slide')[-1].split('.')[0]))
+            slides=[deck.read(n).decode() for n in paths];xml='\n'.join(slides)
+            assert len(slides)==16;assert xml.count('Three-year comparative results')==2
+            assert 'Synthetic closing comment' not in xml;assert 'Synthetic revised perspective' not in xml
+            assert [next(title for title in titles if title in slide) for slide in slides if 'Main report ·' in slide]==[title for title in titles for _ in range(2)]
+        for mode,expected,excluded in [('remarks','Synthetic closing comment for ro.','Synthetic revised perspective'),('teachers','Synthetic revised perspective','Synthetic closing comment for ro.'),('classes','Synthetic revised perspective','Synthetic closing comment for ro.')]:
+            preview.get_by_role('combobox',name='Report content',exact=True).select_option(mode)
+            assert preview.locator('.presentation-main-page').count()==0;assert expected in preview.locator('.presentation-pages').inner_text();assert excluded not in preview.locator('.presentation-pages').inner_text()
+            with page.expect_download() as annexure_info:preview.get_by_role('button',name='Download PPTX',exact=True).click()
+            annexure_info.value.save_as('/tmp/task-'+mode+'-annexure.pptx')
+            with zipfile.ZipFile('/tmp/task-'+mode+'-annexure.pptx') as deck:
+                xml='\n'.join(deck.read(n).decode() for n in deck.namelist() if n.startswith('ppt/slides/slide') and n.endswith('.xml'));assert expected in xml;assert excluded not in xml;assert 'Main report ·' not in xml
+            page.emulate_media(media='print');page.pdf(path='/tmp/task-'+mode+'-annexure.pdf',prefer_css_page_size=True,print_background=True)
+            text=subprocess.check_output(['pdftotext','-layout','/tmp/task-'+mode+'-annexure.pdf','-'],text=True);assert expected in text;assert excluded not in text;assert 'Main report ·' not in text;page.emulate_media(media='screen')
+        preview.get_by_role('combobox',name='Report content',exact=True).select_option('remarks');preview.get_by_role('checkbox',name='Include Efforts by Regional Office (RO)',exact=True).uncheck();assert 'Synthetic closing comment for ro.' not in preview.locator('.presentation-pages').inner_text()
+        preview.get_by_role('combobox',name='Report content',exact=True).select_option('main')
+        page.set_viewport_size({'width':360,'height':900});assert preview.evaluate('(node)=>node.scrollWidth<=node.clientWidth');page.screenshot(path='/tmp/seven-report-mobile.png',full_page=False)
+        preview.get_by_role('button',name='Close report',exact=True).click();page.set_viewport_size({'width':1440,'height':950})
+        # Fully completed survey still fits two chart pages per group plus two comparison pages.
+        page.evaluate("""async task=>{const {openTaskPresentation}=await import('/cbse-task-presentation.js');const people={};task.reports={};for(const [i,c]of task.published.selectedClasses.entries()){const id='synthetic_'+i;people[id]={name:'Synthetic Participating Teacher '+(i+1)};task.published.headers[c]={total:24,catV:12,st:6};task.reports[c]={submittedBy:id,questions:task.published.questions,values:Object.fromEntries(task.published.questions.map(q=>[q.id,q.kind==='text'?'Synthetic written observations.':q.kind==='meetings'?2:10]))};}openTaskPresentation(task,people);}""",current)
         page.emulate_media(media='print')
-        assert page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview")].every(c=>c.scrollHeight<=c.clientHeight+1))'),page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.flatMap(p=>[...p.querySelectorAll(".presentation-point,.presentation-overview")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight}))))')
+        assert page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview")].every(c=>c.scrollHeight<=c.clientHeight+1))'),page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.flatMap(p=>[...p.querySelectorAll(".presentation-point,.presentation-overview")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight})))')
         page.pdf(path='/tmp/task-presentation-complete-synthetic.pdf',prefer_css_page_size=True,print_background=True)
-        complete_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-complete-synthetic.pdf','-'],text=True).split('\f')
-        assert all('Main report' in complete_text[i] for i in [0,1,3,4]);assert len([p for p in complete_text if p.strip()])==6;assert 'Report overview' in complete_text[4]
-        page.emulate_media(media='screen');page.set_viewport_size({'width':360,'height':900});assert page.locator('.task-presentation').evaluate('(node)=>node.scrollWidth<=node.clientWidth')
-        page.get_by_role('button',name='Close report',exact=True).click();page.set_viewport_size({'width':1440,'height':950})
-
+        text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-complete-synthetic.pdf','-'],text=True);assert len([p for p in text.split('\f') if p.strip()])==16
+        page.emulate_media(media='screen');page.get_by_role('button',name='Close report',exact=True).click()
+        for name,mode in [('RO / DC / AC remarks annexure','remarks'),('Teachers’ comments annexure','teachers'),('Class-wise reports annexure','classes')]:
+            card.get_by_role('button',name=name,exact=True).click();assert page.get_by_role('combobox',name='Report content',exact=True).input_value()==mode;page.get_by_role('button',name='Close report',exact=True).click()
+        print('PASS seven ordered main-report groups, IX/XI-only comparisons, separate PDF/PPTX annexures and mobile layout')
 
         if not card.locator('.task-editor').evaluate('(node)=>node.open'):card.get_by_text('Edit task, survey questions and teacher assignments',exact=True).click()
         card.get_by_role('button',name='Clear class selection',exact=True).click();card.get_by_label('Apply task to IX A',exact=True).check();card.get_by_label('Apply task to XI E',exact=True).check();card.get_by_role('button',name='Save private draft',exact=True).click();page.get_by_role('status').get_by_text('Private draft saved.',exact=False).wait_for()

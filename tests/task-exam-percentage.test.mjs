@@ -13,7 +13,7 @@ test('all four screenshot exam percentages use appeared students; other surveys 
  const t=task();for(const [grade,passed,appeared,percentage]of [['IX',54,158,34.18],['X',53,94,56.38],['XI',72,177,40.68],['XII',58,133,43.61]]){
   const classes=rows.map(r=>r[0]).filter(c=>c.split(' ')[0]===grade),section=presentationData(t,{},'',undefined,{classes}).sections[0],p=section.points.find(p=>p.id==='passed');assert.equal(p.total,passed);assert.equal(p.base,appeared);assert.equal(Number((100*p.total/p.base).toFixed(2)),percentage);assert.equal(p.basis,'Exam pass rate among appeared students');assert.equal(p.segments[0].label,'Passed');assert.equal(p.segments[1].label,'Other appeared students');assert.equal(section.points.find(p=>p.id==='firstGeneration').base,classes.reduce((n,c)=>n+t.published.headers[c].total,0));assert.equal(section.points.find(p=>p.id==='ptms').base,null);
  }
- const all=presentationData(t).sections[1].points.find(p=>p.id==='passed');assert.equal(all.total,237);assert.equal(all.base,562);assert.equal((100*all.total/all.base).toFixed(2),'42.17');
+ const all=presentationData(t).sections.at(-1).points.find(p=>p.id==='passed');assert.equal(all.total,237);assert.equal(all.base,562);assert.equal((100*all.total/all.base).toFixed(2),'42.17');
 });
 test('partial reports use matching participation only; missing, stale or invalid participation never falls back to enrollment',()=>{
  const t=task(),scope=['IX A','IX B'];t.reports['IX B'].values.passed=null;let p=presentationData(t,{},'',undefined,{classes:scope}).sections[0].points.find(point=>point.id==='passed');assert.equal(p.base,39);assert.equal(p.total,13);
