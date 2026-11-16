@@ -44,8 +44,12 @@ try:
         direct.close()
         page=browser.new_page(viewport={'width':390,'height':844});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
         page.goto(BASE+'cbse-primary-roster.js');page.set_content('<link rel="stylesheet" href="/cbse.css"><link rel="stylesheet" href="/cbse-roll-call.css"><main class="roll-workspace" id="root"></main>')
-        page.evaluate('''async()=>{const {renderRollPrincipalDashboard}=await import('/cbse-roll-call-principal.js');window.primaryApi=async body=>{const r=await fetch('/api/staff-access',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer principal'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(data.error);return data;};window.drawPrimary=()=>{document.querySelector('#root').replaceChildren();renderRollPrincipalDashboard(document.querySelector('#root'),{data:{rollCall:{reports:{}},serverDate:'2026-11-15'},state:{scope:'settings',tab:'pins'},api:window.primaryApi,run:async fn=>fn(),refresh:async()=>{},close:()=>{},signout:()=>{}});};window.drawPrimary();}''')
-        page.locator('[name=principal-pin-wing]').wait_for();page.locator('[name=principal-pin-wing]').select_option('primary')
+        page.evaluate('''async()=>{const {renderRollPrincipalDashboard}=await import('/cbse-roll-call-principal.js');window.holdPINGeneration=true;window.primaryApi=async body=>{if(body.generateMissing&&window.holdPINGeneration)await new Promise(resolve=>window.releasePINGeneration=()=>{window.holdPINGeneration=false;resolve();});const r=await fetch('/api/staff-access',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer principal'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(data.error);return data;};window.drawPrimary=()=>{document.querySelector('#root').replaceChildren();renderRollPrincipalDashboard(document.querySelector('#root'),{data:{rollCall:{reports:{}},serverDate:'2026-11-15'},state:{scope:'settings',tab:'pins'},api:window.primaryApi,run:async fn=>fn(),refresh:async()=>{},close:()=>{},signout:()=>{}});};window.drawPrimary();}''')
+        page.locator('[name=principal-pin-wing]').wait_for()
+        assert page.locator('.roll-status-card').count()>0
+        assert 'Generating only missing staff PINs' in page.locator('#root').inner_text()
+        page.evaluate('window.releasePINGeneration()')
+        page.get_by_text('missing staff PIN(s) prepared.',exact=False).wait_for();page.locator('[name=principal-pin-wing]').select_option('primary')
         cards=page.locator('.roll-status-card');assert cards.count()==29;assert cards.first.locator('strong').inner_text()=='1. Mr. Rohtash';assert cards.last.locator('strong').inner_text().endswith('Mr. Bibek Kumar Dubey')
         assert cards.first.locator('input').get_attribute('type')=='password';assert len(cards.first.locator('input').input_value())==3
         cards.first.get_by_role('button',name='Show PIN',exact=True).click();assert cards.first.locator('input').get_attribute('type')=='text';cards.first.get_by_role('button',name='Hide PIN',exact=True).click()
@@ -65,11 +69,16 @@ try:
             request=route.request.post_data_json
             if request.get('action')=='list' and request.get('generateMissing'):
                 route.fulfill(status=503,json={'error':'Synthetic generation unavailable'})
+            elif request.get('action')=='list':
+                response=route.fetch();payload=response.json()
+                primary_id=next(id for id,p in payload['staff'].items() if p.get('wing')=='primary')
+                payload['access'].pop(primary_id,None)
+                route.fulfill(response=response,json=payload)
             else:
                 route.continue_()
         page.route('**/api/staff-access',fail_generation)
         page.evaluate('window.drawPrimary()');page.locator('[name=principal-pin-wing]').wait_for()
-        assert 'missing PINs could not be generated' in page.locator('#root').inner_text()
+        page.get_by_text('Existing PINs are shown, but missing PINs could not be generated:',exact=False).wait_for()
         page.locator('[name=principal-pin-wing]').select_option('primary')
         assert page.locator('.roll-status-card').count()==29
         page.unroute('**/api/staff-access',fail_generation)
