@@ -1,3 +1,4 @@
+import {ATTENDANCE_INITIATIVES} from '../cbse-task-attendance-initiatives.js';
 import {resultComparisonRows} from '../cbse-task-result-comparison.js';
 import {TEACHING_VACANCY_PERCENT} from '../cbse-task-staffing.js';
 import test from 'node:test';
@@ -29,6 +30,6 @@ test('historical overall tables follow IX and XI scope without streams or changi
  for(const [classes,grades]of [[['IX A'],['IX']],[['XI A'],['XI']],[['IX A','XI A'],['IX','XI']],[['X A'],[]]]){
  const data=presentationData(t,{},'',undefined,{classes});assert.deepEqual(data.sections[0].comparison.map(r=>r.grade),grades);
  const deck=buildSurveyPptx(PptxGenJS,data),zip=await JSZip.loadAsync(await deck.write({outputType:'nodebuffer'}));const xml=(await Promise.all(Object.keys(zip.files).filter(p=>/^ppt\/slides\/slide\d+\.xml$/.test(p)).map(p=>zip.file(p).async('string')))).join('');
- assert.equal(xml.includes('36.36%'),grades.includes('IX'));assert.equal(xml.includes('76.71%'),grades.includes('XI'));assert.ok(!xml.includes('Science Stream'));
+ assert.equal(xml.includes('36.36%'),grades.includes('IX'));assert.equal(xml.includes('76.71%'),grades.includes('XI'));assert.ok(!xml.includes('Science Stream'));assert.equal(xml.split(ATTENDANCE_INITIATIVES).length-1,1);
  }assert.deepEqual(t,before);
 });

@@ -262,3 +262,7 @@ Only the included grades appear, once per group: IX = 36.36%, 55.49%, 60.12%;
 XI = 51.53%, 61.08%, 76.71%, for sessions 2023–24, 2024–25 and 2025–26.
 These Principal-supplied overall figures do not change current exam answers,
 exam denominators or survey totals. Stream-wise results are excluded.
+
+Each main group ends with a short attendance-initiatives strip: PTMs, home visits,
+mapping students’ residential locations (cottages), and counselling students
+living away from their families. It follows the historical table where present.
