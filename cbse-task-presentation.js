@@ -7,10 +7,10 @@ const palette=['#13786b','#d4e5df','#e8b14e','#567fb0','#a56b94','#699a53'];
 function distribution(entries){const groups=new Map(),grades=new Set(entries.map(([c])=>c.split(' ')[0]));for(const [c,v]of entries){const label=grades.size>1?c.split(' ')[0]:c;groups.set(label,(groups.get(label)||0)+v);}return [...groups].map(([label,value])=>({label,value}));}
 export function presentationFields(config){return [...Object.entries(TASK_HEADERS).map(([id,label])=>({id,label,kind:'students',header:true})),...taskQuestions(config)].map((q,index)=>({...q,label:taskQuestionWording(q.label),number:index+1}));}
 function presentationPoints(fields){
- const first=fields.find(q=>q.number===7),second=fields.find(q=>q.number===8);
+ const first=fields.find(q=>q.id==='hostel'),second=fields.find(q=>q.id==='familyChallenges');
  if(!first||!second||first.kind!=='students'||second.kind!=='students')return fields;
  const short=label=>label.replace(/^Number of students\s+/i,'').replace(/^Students\s+/i,'');
- const merged={id:'merged_q7_q8',number:'7 + Q8',label:'Students '+short(first.label)+' / '+short(second.label),kind:'students',mergedFrom:[first.id,second.id]};
+ const merged={id:'merged_q7_q8',number:first.number+' + Q'+second.number,label:'Students '+short(first.label)+' / '+short(second.label),kind:'students',mergedFrom:[first.id,second.id]};
  return fields.flatMap(q=>q===first?[merged]:q===second?[]:[q]);
 }
 export function reportScope(config,selected){const available=taskClasses(config);if(selected===undefined){const secondary=available.filter(c=>/^(IX|X|XI|XII) /.test(c));return secondary.length?secondary:available;}if(!Array.isArray(selected)||!selected.length||new Set(selected).size!==selected.length||selected.some(c=>!available.includes(c)))throw Error('Select at least one class belonging to this task for the combined report.');return available.filter(c=>selected.includes(c));}

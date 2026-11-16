@@ -1,3 +1,4 @@
+import {taskQuestions} from './cbse-task-manager-model.js';
 export const TASK1_TITLE='IX–XII: High-urgency survey for the HQ meeting — regional inputs relevant to our Vidyalaya — confidential data for higher-level submission.';
 // Public mentor/support list explicitly supplied by the Principal in prompt file.docx.
 // Support is informational; it does not grant report submission permissions.
@@ -29,11 +30,15 @@ export function taskRosterStore(value,staff,identityIds=(_staff,id)=>[id]){
  const titleKey=value=>String(value||'').toLowerCase().replace(/[^a-z0-9]/g,'').replace(/^ixxii/,'');
  const legacy=/^highurgencysurveyfor(?:the)?hqmeetingregionalinputsrelevanttoourvidyalayaconfidential(?:student)?dataforhigherlevelsubmission$/;
  for(const cfg of [task.draft,task.published])if(cfg&&legacy.test(titleKey(cfg.title)))cfg.title=TASK1_TITLE;
- // One-time move away from teacher-supplied exam answers. Preserve originals
- // in Principal history; blank the two current fields for Principal entry.
+ // Keep exam entry under Principal control. Preserve existing Passed values
+ // and archive legacy answers before retiring Failed below.
  if(!task.principalExamOnly){task.principalExamOnly=true;task.revision=(task.revision||0)+1;if(task.published)task.publishedRevision=(task.publishedRevision||0)+1;
   if(task.examPassReference){task.previousExamPassReference=task.examPassReference;delete task.examPassReference;}
-  for(const report of Object.values(task.reports||{})){if(!report.values)continue;const revision=report.revision||0;report.principalEditHistory||={};report.principalEditHistory['exam_policy_'+revision]={values:structuredClone(report.values),questions:report.questions||[],updatedAt:report.updatedAt,reason:'Passed and Failed moved to blank Principal-only entry'};report.values={...report.values,...(Object.hasOwn(report.values,'passed')?{passed:null}:{}),...(Object.hasOwn(report.values,'failed')?{failed:null}:{})};report.revision=revision+1;}
+  for(const report of Object.values(task.reports||{})){if(!report.values)continue;const revision=report.revision||0;report.principalEditHistory||={};report.principalEditHistory['exam_policy_'+revision]={values:structuredClone(report.values),questions:report.questions||[],updatedAt:report.updatedAt,reason:'Exam entry moved to Principal control; original answers retained'};report.values={...report.values};report.revision=revision+1;}
+ }
+ if(!task.passedOnly){task.passedOnly=true;task.revision=(task.revision||0)+1;if(task.published)task.publishedRevision=(task.publishedRevision||0)+1;
+  for(const cfg of [task.draft,task.published])if(cfg)cfg.questions=taskQuestions(cfg).filter(q=>q.id!=='failed');
+  for(const report of Object.values(task.reports||{})){if(!report.values)continue;const revision=report.revision||0;report.principalEditHistory||={};report.principalEditHistory['failed_removed_'+revision]={values:structuredClone(report.values),questions:taskQuestions(report),...(report.retiredAnswers?.failed?{retiredFailed:structuredClone(report.retiredAnswers.failed)}:{}),updatedAt:report.updatedAt,reason:'Failed entry removed; Passed retained'};report.values={...report.values};delete report.values.failed;report.questions=taskQuestions(report).filter(q=>q.id!=='failed');if(report.retiredAnswers)delete report.retiredAnswers.failed;report.revision=revision+1;}
  }
  if(task.rosterAssignmentsApplied)return store;task.rosterAssignmentsApplied=true;
  // Existing explicit Principal assignments win. Fill only missing entries using

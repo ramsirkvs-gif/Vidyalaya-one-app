@@ -71,7 +71,7 @@ export function applyTask(store,input,actor,staff,stamp,id){
  if(operation==='create'||operation==='create-task1'){
   if(!actor.principal)fail('Principal access required.');
   if(operation==='create-task1'){id='task1';if(own(next.tasks,id))return next;}
-  next.tasks[id]={revision:1,...(id==='task1'?{principalExamOnly:true}:{}),draft:config({...input.draft,headers:{...next.classFigures,...input.draft.headers}},staff),reports:{},comment:'',createdAt:stamp,updatedAt:stamp};return next;
+  next.tasks[id]={revision:1,...(id==='task1'?{principalExamOnly:true,passedOnly:true}:{}),draft:config({...input.draft,headers:{...next.classFigures,...input.draft.headers}},staff),reports:{},comment:'',createdAt:stamp,updatedAt:stamp};if(id==='task1')next.tasks[id].draft.questions=next.tasks[id].draft.questions.filter(q=>q.id!=='failed');return next;
  }
  if(typeof input.taskId!=='string'||!own(next.tasks,input.taskId))fail('Task not found.');const t=next.tasks[input.taskId];
  if(operation==='submit'){
@@ -90,12 +90,12 @@ export function applyTask(store,input,actor,staff,stamp,id){
   const c=input.classId;if(typeof c!=='string'||!own(t.reports,c))fail('Submitted class report not found.');const previous=t.reports[c];
   if(input.reportRevision!==(previous.revision||0))fail('Class report changed. Refresh before saving.');
   if(!input.report||typeof input.report!=='object'||Array.isArray(input.report))fail('Enter aggregate report counts.');
-  const values=taskReport({...previous.values,...input.report},t.published?.headers?.[c]||t.draft.headers?.[c]||{},{questions:taskQuestions(previous),previousAnswers:previous.values});
+  const correction={...previous.values,...input.report};if(t.passedOnly)delete correction.failed;const values=taskReport(correction,t.published?.headers?.[c]||t.draft.headers?.[c]||{},{questions:taskQuestions(previous),previousAnswers:previous.values});
   const history=structuredClone(previous.principalEditHistory||{});history['revision_'+(previous.revision||0)]={values:previous.values,questions:taskQuestions(previous),updatedAt:previous.updatedAt,editedAt:stamp};
   t.reports[c]={...previous,values,revision:(previous.revision||0)+1,originalSubmittedAt:previous.originalSubmittedAt||previous.updatedAt,updatedAt:stamp,principalEditedAt:stamp,principalEditHistory:history};
  }
- else if(operation==='save'){t.draft=config({...input.draft,questions:input.draft.questions===undefined?t.draft.questions:input.draft.questions,selectedClasses:input.draft.selectedClasses===undefined?t.draft.selectedClasses:input.draft.selectedClasses},staff);for(const [c,r]of Object.entries(t.reports||{}))taskReport(r.values,t.draft.headers[c],r);if(input.rememberFigures){next.classFigures||={};for(const [c,h]of Object.entries(t.draft.headers))if(Object.values(h).some(v=>v!=null))next.classFigures[c]=structuredClone(h);next.classFiguresUpdatedAt=stamp;}}
- else if(operation==='publish'){t.published=config(t.draft,staff);t.publishedRevision=(t.publishedRevision||0)+1;for(const [c,r]of Object.entries(t.reports||{}))taskReport(r.values,t.published.headers[c],r);t.publishedAt=stamp;}
+ else if(operation==='save'){t.draft=config({...input.draft,questions:input.draft.questions===undefined?t.draft.questions:input.draft.questions,selectedClasses:input.draft.selectedClasses===undefined?t.draft.selectedClasses:input.draft.selectedClasses},staff);if(t.passedOnly)t.draft.questions=t.draft.questions.filter(q=>q.id!=='failed');for(const [c,r]of Object.entries(t.reports||{}))taskReport(r.values,t.draft.headers[c],r);if(input.rememberFigures){next.classFigures||={};for(const [c,h]of Object.entries(t.draft.headers))if(Object.values(h).some(v=>v!=null))next.classFigures[c]=structuredClone(h);next.classFiguresUpdatedAt=stamp;}}
+ else if(operation==='publish'){t.published=config(t.draft,staff);if(t.passedOnly)t.published.questions=t.published.questions.filter(q=>q.id!=='failed');t.publishedRevision=(t.publishedRevision||0)+1;for(const [c,r]of Object.entries(t.reports||{}))taskReport(r.values,t.published.headers[c],r);t.publishedAt=stamp;}
  else if(operation==='unpublish'){delete t.published;}
  else if(operation==='report-comments'){
   if(!input.comments||typeof input.comments!=='object'||Array.isArray(input.comments)||Object.keys(input.comments).some(key=>!own(TASK_REPORT_COMMENTS,key)))fail('Enter valid closing report comments.');

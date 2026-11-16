@@ -227,11 +227,10 @@ field has been removed; legacy examination metadata is preserved internally.
 Number cells have no “Unconfirmed” placeholder or related instruction text.
 Empty cells remain missing rather than becoming zero.
 
-High Task-1 now reserves Passed and Failed for Principal entry. Teachers do not
-see these two survey questions, and teacher submissions cannot alter them.
-The Principal uses **Edit submitted answers — [class]** in each submitted report
-to fill the two initially blank fields, with enrollment validation and the existing
-revision checks. A one-time policy transition archives older answers in private
-Principal edit history and blanks only the current Passed/Failed values; other
-responses, identities and remarks remain intact. Later teacher updates preserve
-the Principal’s values. No automatic exam-count application is available.
+High Task-1 reserves **Passed students** for Principal entry through
+**Edit submitted answers — [class]**. Failed is removed from the active schema,
+Principal form, totals, charts and class-wise reports. Existing Passed figures
+are retained; old Failed values remain in private Principal edit history.
+Teachers see neither exam-count question and cannot change Principal figures.
+No Failed value is calculated from enrollment, absence or Passed. Generic other
+surveys retain their own question schemas. No automatic exam-fill option exists.
