@@ -20,7 +20,27 @@ try:
         direct_rows=direct.locator('.roll-daily-register .roll-staff-row');direct_rows.first.wait_for();assert direct_rows.count()==29
         assert direct_rows.first.locator('strong').inner_text()=='Mr. Rohtash'
         assert direct_rows.last.locator('strong').inner_text()=='Mr. Bibek Kumar Dubey'
+        search=direct.get_by_role('searchbox',name='Search by name')
+        search.fill('bibek');assert direct.locator('.roll-daily-register .roll-staff-row:visible').count()==1
+        assert 'Bibek Kumar Dubey' in direct.locator('.roll-daily-register .roll-staff-row:visible').inner_text()
+        search.fill('NO SUCH NAME');assert direct.locator('.roll-daily-register .roll-staff-row:visible').count()==0
+        search.fill('')
+        assert direct.locator('.roll-leave-register').count()==0
+
         direct_rows.first.get_by_role('button',name='Submit Roll Call for Mr. Rohtash',exact=True).click();direct.locator('[name=roll-morning-mode]').wait_for()
+        direct.get_by_role('button',name='← Back to staff list',exact=True).last.click()
+        direct.get_by_role('button',name='← Back to Roll Call menu',exact=True).click()
+        direct.get_by_role('button',name='Afternoon Roll Call',exact=True).click()
+        for wing,query in [('primary','bibek'),('secondary','avinash')]:
+            direct.locator('[name=roll-reporting-wing]').select_option(wing)
+            direct.get_by_role('searchbox',name='Search by name').fill(query)
+            visible=direct.locator('.roll-daily-register .roll-staff-row:visible')
+            assert visible.count()==1;assert query in visible.inner_text().lower()
+            assert direct.locator('.roll-leave-register').count()==0
+        direct.get_by_role('button',name='← Back to Roll Call menu',exact=True).click()
+        direct.get_by_role('button',name='Morning Roll Call reporting',exact=True).click()
+        direct.get_by_role('searchbox',name='Search by name').fill('avinash')
+        assert direct.locator('.roll-daily-register .roll-staff-row:visible').count()==1
         direct.close()
         page=browser.new_page(viewport={'width':390,'height':844});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
         page.goto(BASE+'cbse-primary-roster.js');page.set_content('<link rel="stylesheet" href="/cbse.css"><link rel="stylesheet" href="/cbse-roll-call.css"><main class="roll-workspace" id="root"></main>')

@@ -7,16 +7,20 @@ export function renderDailyRollRegister(parent,data,wing,period,onOpen){
  const section=el('section',undefined,'roll-daily-register'),table=el('table',undefined,'roll-staff-table'),head=el('thead'),heading=el('tr'),body=el('tbody');
  section.append(el('h3',period==='morning'?'Morning Roll Call · '+rollDateText(data.serverDate):'Afternoon Roll Call · '+rollDateText(data.serverDate)));
  for(const text of ['S.No.','Name and designation','Roll Call / present in Vidyalaya','Status / submit'])heading.append(el('th',text));head.append(heading);table.append(head,body);
- for(const p of rollStaffStatus(data,wing,{includeLongLeave:true})){
+ const people=rollStaffStatus(data,wing,{includeLongLeave:true});
+ const leaveToday=p=>!!(p.advanceLeave||p.longLeave)||p.morningExcused||p.afternoonLeave||[p.morning,p.afternoon].some(r=>r?.status==='approved'&&r.leaveType&&r.leaveType!=='none');
+ // Stable partition preserves the roster order within each group.
+ for(const p of [...people.filter(leaveToday),...people.filter(p=>!leaveToday(p))]){
   const row=el('tr',undefined,'roll-staff-row');row.dataset.staffId=p.id;
   const cell=(label)=>{const td=el('td');td.dataset.label=label;row.append(td);return td;};
   cell('S.No.').textContent=String(p.serial);const name=cell('Name and designation');name.append(el('strong',p.name),el('small',p.designation||''));
   const r=p[period],leave=p.advanceLeave||p.longLeave,excused=!!leave||(period==='morning'?p.morningExcused:p.afternoonLeave),present=r&&(r.reported==='yes'||period==='afternoon'&&!r.reported);
   cell('Roll Call / present in Vidyalaya').append(el('span',excused?'Leave / OD outside · exempt from Roll Call':present?'Yes · Roll Call submitted':r?'Roll Call submitted · Leave / OD outside':'No · not submitted',excused?'roll-rc-leave':present?'roll-rc-reported':'roll-rc-missing'));
   const status=cell('Status / submit');
-  if(excused){const dates=leave?.dates?.filter(d=>!leave.cancelledDates?.includes(d))||[],till=leave?.to||dates.filter(d=>d>=data.serverDate).sort().at(-1);status.append(el('span',p.advanceLeave?'Already on '+(leave.leaveKind==='OD outside'?'OD outside':'Leave / OD outside')+' · recorded dates: '+dates.map(rollDateText).join(', '):till?'Leave / OD outside · recorded dates through '+rollDateText(till):'Leave / OD outside · Roll Call not required','roll-rc-leave'));}
+  if(leaveToday(p))status.append(el('strong','Leave/OD today','roll-rc-leave'));
+  if(excused){status.append(el('span',leave?(leave.leaveKind||'Leave / OD outside')+' · recorded for today':period==='morning'?'First-half leave recorded · afternoon Roll Call required':'Approved leave · afternoon Roll Call not required','roll-rc-leave'));}
   else if(r)status.append(el('span',r.status==='approved'?'Approved':r.status==='not-approved'?'Not approved · discuss with Principal':'Submitted · waiting for Principal review',r.status==='approved'?'roll-rc-approved':'roll-rc-status'));
-  else status.append(el('span','No recorded Leave / OD outside · Roll Call not submitted','roll-rc-missing'));
+  else status.append(el('span',leaveToday(p)?'Roll Call required for this period · not submitted':'No recorded Leave / OD outside · Roll Call not submitted','roll-rc-missing'));
   const halfRecord=p.morning?.workflowVersion>=4&&p.morning.leaveType==='half'?p.morning:null;if(excused&&halfRecord)status.append(el('small',halfRecord.status==='approved'?'Half-day leave approved':halfRecord.status==='blocked'?'IC clearance required · departure not approved':halfRecord.status==='not-approved'?'Leave not approved · discuss with Principal':'Half-day leave reported · Principal approval awaited'));
   if(p.id&&r&&r.status!=='approved'&&!r.teacherEditLockedAt){const b=el('button','Edit with PIN');b.type='button';b.setAttribute('aria-label','Edit Roll Call for '+p.name);b.onclick=()=>onOpen(r.staffId||p.id,true);status.append(b);}else if(p.id&&!r&&!excused){const b=el('button','Submit Roll Call','roll-submit-missing');b.type='button';b.setAttribute('aria-label','Submit Roll Call for '+p.name);b.onclick=()=>onOpen(p.id,false);status.append(b);}else if(!p.id)status.append(el('small','Staff profile setup pending'));
 
