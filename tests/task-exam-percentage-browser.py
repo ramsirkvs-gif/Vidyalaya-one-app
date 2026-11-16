@@ -33,19 +33,22 @@ try:
         assert vacancy.locator('small').all_text_contents()==['21 out of 67 sanctioned teaching posts']
         assert page.locator('.presentation-staffing-strip,.presentation-staffing-print').count()==0
         assert vacancy.evaluate_all('(cards)=>cards.every(card=>card.parentElement.lastElementChild===card)')
-        comparison=page.locator('.presentation-comparison-page');assert comparison.count()==1
+        assert page.locator('.presentation-comparison-page').count()==0
+        comparison=page.locator('.presentation-comparison-box');assert comparison.count()==1
         assert page.locator('.presentation-attendance-strip').count()==1
-        assert comparison.evaluate_all('(pages)=>pages.every(p=>p.lastElementChild.classList.contains("presentation-attendance-strip"))')
+        assert page.locator('.presentation-summary-row').evaluate_all('(rows)=>rows.every(row=>row.children.length===(row.classList.contains("has-comparison")?3:2))')
         assert comparison.first.locator('tbody tr').all_text_contents()==['IX36.36%55.49%60.12%']
         page.pdf(path='/tmp/task-exam-percentage.pdf',print_background=True,prefer_css_page_size=True)
-        pdf_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-exam-percentage.pdf','-'],text=True);assert 'Attendance initiatives:' in pdf_text;assert 'Home visits' in pdf_text;assert 'Counselling students' in pdf_text;assert '34.18%' in pdf_text;assert len([text for text in pdf_text.split('\f') if text.strip()])>page.locator('.presentation-main-page').count();assert pdf_text.count('31.34%')==1;assert '21 out of 67 sanctioned teaching posts' in pdf_text;assert re.search(r'54\s+out\s+of\s+158\s+appeared\s+students',pdf_text)
+        pdf_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-exam-percentage.pdf','-'],text=True);assert 'Attendance initiatives' in pdf_text;assert 'Home visits' in pdf_text;assert 'Counselling students' in pdf_text;assert '34.18%' in pdf_text;assert len([text for text in pdf_text.split('\f') if text.strip()])==page.locator('.presentation-main-page').count();assert pdf_text.count('31.34%')==1;assert '21 out of 67 sanctioned teaching posts' in pdf_text;assert re.search(r'54\s+out\s+of\s+158\s+appeared\s+students',pdf_text)
         for selected,expected in [(['IX A'],['IX']),(['XI A'],['XI']),(['IX A','XI A'],['IX','XI']),(['X A'],[])]:
             page.evaluate("""async selected=>{const {openTaskPresentation}=await import('/cbse-task-presentation.js');const cfg={title:'Synthetic historical comparison',selectedClasses:selected,headers:{},questions:[{id:'passed',label:'Passed',kind:'students'}]};openTaskPresentation({draft:cfg,reports:{}},{});}""",selected)
-            assert page.locator('.presentation-comparison-page tbody th').all_text_contents()==expected
+            assert page.locator('.presentation-comparison-box tbody th').all_text_contents()==expected
             assert page.locator('.presentation-attendance-strip').count()==(3 if len(selected)==2 else 1)
         page.evaluate("""async()=>{const {openTaskPresentation}=await import('/cbse-task-presentation.js');const cfg={title:'Synthetic historical comparison',selectedClasses:['IX A','XI A'],headers:{},questions:[{id:'passed',label:'Passed',kind:'students'}]};openTaskPresentation({draft:cfg,reports:{}},{});}""")
         page.set_viewport_size({'width':360,'height':900});assert page.locator('.task-presentation').evaluate('(node)=>node.scrollWidth<=node.clientWidth')
-        page.locator('.presentation-comparison-page').last.screenshot(path='/tmp/comparison-mobile.png')
+        summary=page.locator('.presentation-summary-row').first
+        assert summary.evaluate('(row)=>[...row.children].every((box,i,boxes)=>!i||box.getBoundingClientRect().top>=boxes[i-1].getBoundingClientRect().bottom)')
+        summary.screenshot(path='/tmp/summary-mobile.png')
         assert not errors,errors;browser.close()
     print('PASS authenticated presentation and PDF show 54/158 = 34.18%; other survey percentages retain enrollment and no Fail entry returns')
 finally:

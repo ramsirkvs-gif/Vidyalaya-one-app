@@ -129,7 +129,10 @@ try:
         titles=['1 · Class IX','2 · Class XI','3 · Classes IX + XI','4 · Class X','5 · Class XII','6 · Classes X + XII','7 · Classes IX–XII consolidated']
         assert preview.locator('.presentation-main-page').count()==14
         assert preview.locator('.presentation-main-page h2').all_text_contents()==[title+' · '+suffix for title in titles for suffix in ['Overview','Continued']]
-        assert preview.locator('.presentation-comparison-page>p:not(.presentation-attendance-strip)').all_text_contents()==titles[:2]
+        assert preview.locator('.presentation-comparison-box').count()==2
+        assert preview.locator('.presentation-comparison-box').evaluate_all('(boxes)=>boxes.map(box=>box.closest(".presentation-main-page").querySelector("h2").textContent)')==[title+' · Continued' for title in titles[:2]]
+        assert preview.locator('.presentation-summary-row').evaluate_all('(rows)=>rows.map(row=>row.children.length)')==[3,3,2,2,2,2,2]
+        assert preview.locator('.presentation-summary-row').evaluate_all('(rows)=>rows.every(row=>[...row.children].every(box=>Math.abs(box.getBoundingClientRect().top-row.firstElementChild.getBoundingClientRect().top)<1))')
         assert preview.locator('.presentation-overview').count()==7;assert preview.locator('.presentation-attendance-strip').count()==7;assert preview.locator('.presentation-staffing-card').count()==7
         assert preview.get_by_role('combobox',name='Report class grouping',exact=True).count()==0
         assert preview.locator('.presentation-appendix').count()==0
@@ -142,10 +145,10 @@ try:
         preview.get_by_role('button',name='Select all questions',exact=True).click();preview.get_by_text('Select presentation questions',exact=True).click()
         preview.get_by_role('textbox').fill('Counsellor — Synthetic Co-opted Member');preview.get_by_role('button',name='Update participant list',exact=True).click()
         page.emulate_media(media='print')
-        assert preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview")].every(c=>c.scrollHeight<=c.clientHeight+1))'),preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.flatMap(p=>[...p.querySelectorAll(".presentation-point,.presentation-overview")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight})))')
+        assert preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview,.presentation-summary-row,.presentation-summary-box")].every(c=>c.scrollHeight<=c.clientHeight+1))'),preview.locator('.presentation-main-page').evaluate_all('(pages)=>pages.flatMap(p=>[...p.querySelectorAll(".presentation-point,.presentation-overview,.presentation-summary-row,.presentation-summary-box")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight})))')
         page.pdf(path='/tmp/task-presentation-synthetic.pdf',prefer_css_page_size=True,print_background=True)
         pdftext=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-synthetic.pdf','-'],text=True)
-        assert len([p for p in pdftext.split('\f') if p.strip()])==16
+        assert len([p for p in pdftext.split('\f') if p.strip()])==14
         assert pdftext.count('Three-year comparative results')==2;assert pdftext.count('Main report ·')==14
         assert 'Synthetic closing comment' not in pdftext;assert 'Synthetic revised perspective' not in pdftext
         page.emulate_media(media='screen')
@@ -154,7 +157,7 @@ try:
         with zipfile.ZipFile('/tmp/task-presentation-browser-synthetic.pptx') as deck:
             paths=sorted([n for n in deck.namelist() if n.startswith('ppt/slides/slide') and n.endswith('.xml')],key=lambda n:int(n.split('slide')[-1].split('.')[0]))
             slides=[deck.read(n).decode() for n in paths];xml='\n'.join(slides)
-            assert len(slides)==16;assert xml.count('Three-year comparative results')==2
+            assert len(slides)==14;assert xml.count('Three-year comparative results')==2
             assert 'Synthetic closing comment' not in xml;assert 'Synthetic revised perspective' not in xml
             assert [next(title for title in titles if title in slide) for slide in slides if 'Main report ·' in slide]==[title for title in titles for _ in range(2)]
         for mode,expected,excluded in [('remarks','Synthetic closing comment for ro.','Synthetic revised perspective'),('teachers','Synthetic revised perspective','Synthetic closing comment for ro.'),('classes','Synthetic revised perspective','Synthetic closing comment for ro.')]:
@@ -170,12 +173,12 @@ try:
         preview.get_by_role('combobox',name='Report content',exact=True).select_option('main')
         page.set_viewport_size({'width':360,'height':900});assert preview.evaluate('(node)=>node.scrollWidth<=node.clientWidth');page.screenshot(path='/tmp/seven-report-mobile.png',full_page=False)
         preview.get_by_role('button',name='Close report',exact=True).click();page.set_viewport_size({'width':1440,'height':950})
-        # Fully completed survey still fits two chart pages per group plus two comparison pages.
+        # Fully completed survey still fits two chart pages per group with comparison boxes on the same page.
         page.evaluate("""async task=>{const {openTaskPresentation}=await import('/cbse-task-presentation.js');const people={};task.reports={};for(const [i,c]of task.published.selectedClasses.entries()){const id='synthetic_'+i;people[id]={name:'Synthetic Participating Teacher '+(i+1)};task.published.headers[c]={total:24,catV:12,st:6};task.reports[c]={submittedBy:id,questions:task.published.questions,values:Object.fromEntries(task.published.questions.map(q=>[q.id,q.kind==='text'?'Synthetic written observations.':q.kind==='meetings'?2:10]))};}openTaskPresentation(task,people);}""",current)
         page.emulate_media(media='print')
-        assert page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview")].every(c=>c.scrollHeight<=c.clientHeight+1))'),page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.flatMap(p=>[...p.querySelectorAll(".presentation-point,.presentation-overview")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight})))')
+        assert page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview,.presentation-summary-row,.presentation-summary-box")].every(c=>c.scrollHeight<=c.clientHeight+1))'),page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.flatMap(p=>[...p.querySelectorAll(".presentation-point,.presentation-overview,.presentation-summary-row,.presentation-summary-box")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight})))')
         page.pdf(path='/tmp/task-presentation-complete-synthetic.pdf',prefer_css_page_size=True,print_background=True)
-        text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-complete-synthetic.pdf','-'],text=True);assert len([p for p in text.split('\f') if p.strip()])==16
+        text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-complete-synthetic.pdf','-'],text=True);assert len([p for p in text.split('\f') if p.strip()])==14
         page.emulate_media(media='screen');page.get_by_role('button',name='Close report',exact=True).click()
         for name,mode in [('RO / DC / AC remarks annexure','remarks'),('Teachers’ comments annexure','teachers'),('Class-wise reports annexure','classes')]:
             card.get_by_role('button',name=name,exact=True).click();assert page.get_by_role('combobox',name='Report content',exact=True).input_value()==mode;page.get_by_role('button',name='Close report',exact=True).click()

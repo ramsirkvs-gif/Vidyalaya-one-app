@@ -249,7 +249,7 @@ use enrollment; PTMs remain meeting counts. HTML, printed PDF and PowerPoint use
 the same denominator, with two decimals for exam pass rates.
 
 Each main presentation group ends with a
-full-width **Teaching vacancy** card after its student charts: **31.34%** in
+**Teaching vacancy** box beside the other summary boxes after its student charts: **31.34%** in
 large type and **21 out of 67 sanctioned teaching posts** in smaller type.
 It appears once per group in HTML, PDF and PPTX, not as a repeated header.
 The institution-wide figures remain separate from student-survey answers.
@@ -262,7 +262,7 @@ coverage, totals, exam denominator, participants and overview. The grouping
 picker and mixed attachment options are removed.
 
 Only the individual IX and XI groups include a **Three-year comparative
-results — Overall** table on a separate page/slide. No combined or other-grade
+results — Overall** table in a compact box on the final chart page/slide. No combined or other-grade
 group repeats it. Principal-supplied percentages for 2023–24, 2024–25, 2025–26:
 IX = 36.36%, 55.49%, 60.12%; XI = 51.53%, 61.08%, 76.71%.
 These historical figures do not change current exam answers or survey totals;
@@ -273,6 +273,9 @@ The main report has no annexures. Separate PDF/PPTX downloads are provided for
 (2) teachers’ comments/written observations, and (3) class-wise reports.
 Principal review is kept with remarks, never in the teachers’ comments annexure.
 
-Each main group ends with a short attendance-initiatives strip: PTMs, home visits,
+Each main group ends with neighbouring summary boxes for attendance initiatives
+and teaching vacancy, with the comparison box first for individual IX/XI.
+Attendance initiatives include: PTMs, home visits,
 mapping students’ residential locations (cottages), and counselling students
-living away from their families. It follows the historical table where present.
+living away from their families. The desktop/PDF/PPTX boxes share one row; mobile stacks them.
+No separate comparison page or oversized full-width vacancy strip is added.
