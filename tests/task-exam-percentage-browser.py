@@ -18,6 +18,7 @@ try:
     for c,n,passed in sections:
         api({'action':'pin-submit','operation':'task-manager','taskOperation':'submit','staffId':'X:one','pin':'123','taskId':'task1','classId':c,'expectedRevision':task['publishedRevision'],'reportRevision':0,'report':{'firstGeneration':1}})
         task=api({'action':'task-principal','operation':'read'})['tasks']['task1'];task=api({'action':'task-principal','operation':'edit-report','taskId':'task1','classId':c,'expectedRevision':task['revision'],'reportRevision':task['reports'][c]['revision'],'report':{'passed':passed}})['tasks']['task1']
+    api({'action':'task-principal','operation':'comment','taskId':'task1','expectedRevision':task['revision'],'comment':'Synthetic continuation note.\n'*120})
     with sync_playwright() as p:
         browser=p.chromium.launch(executable_path='/usr/bin/chromium',args=['--no-sandbox']);page=browser.new_page(viewport={'width':1440,'height':1000});errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
         page.route('**/firebase-client.js*',lambda r:r.fulfill(content_type='application/javascript',body="export const auth={currentUser:{uid:'principal-uid',getIdToken:async()=> 'principal'}};"))
@@ -27,8 +28,11 @@ try:
         expect(card.locator('.presentation-count')).to_have_text('34.18%');expect(card).to_contain_text('54 out of 158 appeared students');expect(card).to_contain_text('Exam pass rate among appeared students');assert '32.0%' not in card.inner_text()
         other=page.locator('.presentation-point').filter(has=page.get_by_role('heading',name='First-generation learners (either one or both parents are uneducated)',exact=True)).first
         expect(other).to_contain_text('4 out of 169 students')
+        assert page.locator('.presentation-main-page > .presentation-staffing-strip').count()==page.locator('.presentation-main-page').count()
+        assert all('31.34%' in text for text in page.locator('.presentation-main-page > .presentation-staffing-strip').all_text_contents())
+        page.get_by_role('checkbox',name='Include teacher comments appendix in PDF',exact=True).check()
         page.pdf(path='/tmp/task-exam-percentage.pdf',print_background=True,prefer_css_page_size=True)
-        pdf_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-exam-percentage.pdf','-'],text=True);assert '34.18%' in pdf_text;assert re.search(r'54\s+out\s+of\s+158\s+appeared\s+students',pdf_text)
+        pdf_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-exam-percentage.pdf','-'],text=True);assert '34.18%' in pdf_text;assert len([text for text in pdf_text.split('\f') if text.strip()])>page.locator('.presentation-main-page').count();assert all('31.34%' in text and 'Teaching posts sanctioned: 67' in text for text in pdf_text.split('\f') if text.strip());assert re.search(r'54\s+out\s+of\s+158\s+appeared\s+students',pdf_text)
         assert not errors,errors;browser.close()
     print('PASS authenticated presentation and PDF show 54/158 = 34.18%; other survey percentages retain enrollment and no Fail entry returns')
 finally:
