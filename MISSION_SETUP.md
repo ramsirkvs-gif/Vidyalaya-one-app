@@ -1437,3 +1437,20 @@ An objection raised after submission marks it blocked; clearing the final open
 objection restores the recorded status without Principal approval. Leave/OD
 recording, date cancellation and approval rules remain separate. Principal-only
 comments require a matching record version and keep prior comments/history.
+
+Principal Roll Call monitoring includes **Principal holds / NOC**. The Principal
+can hold selected employees or all active employees in one or both wings, with a
+status remark of up to 120 characters. Holds persist until explicitly released
+by the Principal. Attendance is saved; a held afternoon record does not grant
+departure clearance. Staff see the short remark and, after their own submission,
+a popup asking them to meet the Principal for NOC before leaving the Vidyalaya.
+The open daily register refreshes periodically and checks for newly placed holds
+after the employee has submitted. IC objections and Principal holds are separate:
+clearing one cannot release another open requirement, and staff/ICs cannot clear
+Principal holds. Existing PINs, identities and reporting history are retained.
+
+Selecting **OD outside** in Leave/OD feeding reveals an optional two-line
+**On-duty details for Samagam** field (up to 300 characters). The details are
+saved with the report, included in the shared leave list, restored for correction,
+and available in Principal review/edit. They do not change date exemptions,
+cancellation or leave approval rules. Other leave types omit these duty details.

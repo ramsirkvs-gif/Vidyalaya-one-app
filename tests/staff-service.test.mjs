@@ -662,3 +662,14 @@ test('Roll Call records without approval and accepts Principal-only comments on 
  const reviewed=await f.service('roll-call-principal',input,'principal');assert.equal(reviewed.rollCall.reports[reportId].status,'recorded');assert.equal(Object.values(reviewed.rollCall.reports[reportId].principalComments)[0].text,input.comment);
  const board=await f.service('roll-call-read',{},'','direct-rc',session);assert.equal(Object.values(board.rollCall.reports[reportId].principalComments)[0].text,input.comment);assert.equal(board.rollCall.reports[reportId].answers,undefined);
 });
+
+test('Principal holds require Principal access, save held attendance, and cannot be cleared by staff',async()=>{
+ const f=fixture(),{ROLL_CHECKS}=await import('../cbse-roll-call-model.js');await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');const view=await f.service('view-login',{password:'synthetic-curtain'}),session={viewerToken:view.viewerToken},hold={rollOperation:'principal-hold',targetMode:'selected',wing:'secondary',targets:['X:one'],remark:'Meet Principal for NOC'};
+ await assert.rejects(f.service('roll-call-principal',hold,'outsider'),/Principal/);await assert.rejects(f.service('pin-submit',{operation:'roll-call',staffId:'X:one',pin:'123',...hold},'','hold-test',session),/Only the Principal/);
+ const held=await f.service('roll-call-principal',hold,'principal'),[holdId]=Object.keys(held.rollCall.objections),morning={operation:'roll-call',staffId:'X:one',pin:'123',rollOperation:'report',wing:'secondary',period:'morning',reported:'yes',answers:Object.fromEntries(ROLL_CHECKS.map(([key])=>[key,'yes']))};
+ const reported=await f.service('pin-submit',morning,'','hold-test',session);assert.equal(Object.values(reported.rollCall.reports)[0].status,'recorded');assert.equal(reported.rollCall.objections[holdId].remark,hold.remark);
+ const afternoon=await f.service('pin-submit',{...morning,period:'afternoon'},'','hold-test',session);assert.equal(Object.values(afternoon.rollCall.reports).find(r=>r.period==='afternoon').status,'blocked');
+ await assert.rejects(f.service('pin-submit',{...morning,rollOperation:'clear',objectionId:holdId},'','hold-test',session),/Only/);
+ const publicBoard=await f.service('roll-call-read',{},'','hold-test',session);assert.equal(publicBoard.rollCall.objections[holdId].kind,'principal-hold');assert.equal(Object.values(publicBoard.rollCall.reports)[0].answers,undefined);
+ const released=await f.service('roll-call-principal',{rollOperation:'clear',objectionId:holdId},'principal');assert.equal(Object.values(released.rollCall.reports).find(r=>r.period==='afternoon').status,'recorded');
+});

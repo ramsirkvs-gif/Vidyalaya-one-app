@@ -39,3 +39,19 @@ test('IC objections block an already submitted linked identity until all NOCs ar
  for(const id of ['first','second'])s=applyRollCall(s,{rollOperation:'object',wing:'secondary',targets:['alias'],remark:'Pending task'},ic,directory,now+2,id);
  assert.equal(s.reports[key].status,'blocked');s=applyRollCall(s,{rollOperation:'clear',objectionId:'first_alias'},ic,directory,now+3);assert.equal(s.reports[key].status,'blocked');s=applyRollCall(s,{rollOperation:'clear',objectionId:'second_alias'},ic,directory,now+4);assert.equal(s.reports[key].status,'recorded');
 });
+
+test('Principal holds cover selected/all staff, retain attendance, and require Principal release independently of IC NOC',()=>{
+ const directory={...staff,alias:{...staff.a}};let s=applyRollCall({},morning,actor,directory,now);s=applyRollCall(s,afternoon,actor,directory,now+1);
+ const hold={rollOperation:'principal-hold',targetMode:'selected',wing:'',targets:['alias'],remark:'Meet Principal before leaving'};
+ assert.throws(()=>applyRollCall(s,hold,ic,directory,now+2,'hold'),/Only the Principal/);
+ s=applyRollCall(s,hold,principal,directory,now+2,'hold');assert.equal(s.reports[key].status,'blocked');assert.equal(s.reports['2026-11-09_morning_a'].status,'recorded');assert.equal(s.objections.hold_alias.kind,'principal-hold');
+ assert.throws(()=>applyRollCall(s,{rollOperation:'clear',objectionId:'hold_alias'},ic,directory,now+3),/Only/);
+ // A Principal hold records an afternoon submission but withholds departure clearance.
+ s=applyRollCall(s,afternoon,actor,directory,now+4);assert.equal(s.reports[key].status,'blocked');
+ s=applyRollCall(s,{rollOperation:'object',wing:'secondary',targets:['a'],remark:'IC task pending'},ic,directory,now+5,'ic');
+ s=applyRollCall(s,{rollOperation:'clear',objectionId:'hold_alias'},principal,directory,now+6);assert.equal(s.reports[key].status,'blocked');
+ s=applyRollCall(s,{rollOperation:'clear',objectionId:'ic_a'},ic,directory,now+7);assert.equal(s.reports[key].status,'recorded');
+ const all=applyRollCall(s,{rollOperation:'principal-hold',targetMode:'all',wing:'',remark:'Meet Principal for NOC'},principal,directory,now+8,'all');assert.equal(Object.values(all.objections).filter(o=>o.kind==='principal-hold'&&o.status==='open').length,3);assert.ok(all.objections.all_b);assert.ok(all.objections.all_a);assert.equal(all.objections.all_alias,undefined);
+ const primary=applyRollCall(s,{rollOperation:'principal-hold',targetMode:'all',wing:'primary',remark:'Meet Principal'},principal,directory,now+9,'primary');assert.ok(primary.objections.primary_b);assert.equal(primary.objections.primary_a,undefined);
+ assert.throws(()=>applyRollCall(s,{...hold,remark:'x'.repeat(121)},principal,directory,now+10,'bad'),/120/);
+});
