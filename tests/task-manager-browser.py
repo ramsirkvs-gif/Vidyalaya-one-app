@@ -151,7 +151,7 @@ try:
         preview.get_by_role('button',name='Clear question selection',exact=True).click();assert preview.get_by_role('button',name='Print / Save PDF',exact=True).is_disabled()
         preview.get_by_role('checkbox',name='Include Q4. Number of students who passed the latest examination',exact=True).check()
         assert preview.locator('.presentation-main-page').count()==2
-        assert preview.locator('.presentation-main-page .presentation-point h4').all_text_contents()==['Number of students who passed the latest examination']*2
+        assert preview.locator('.presentation-main-page .presentation-point h4').all_text_contents()==['Number of students who passed the latest examination','Teaching vacancy']*2
         assert preview.locator('.presentation-appendix').count()==0;assert preview.locator('.presentation-overview').count()==1
         assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).fontWeight')=='500'
         assert preview.locator('.presentation-point h4').first.evaluate('(node)=>getComputedStyle(node).backgroundColor')=='rgb(241, 246, 243)'
@@ -200,7 +200,7 @@ try:
         # Full completion and every participating teacher must still fit four main pages.
         page.evaluate("""async task=>{const {openTaskPresentation}=await import('/cbse-task-presentation.js');const people={};task.reports={};task.comment='Synthetic Principal summary.';for(const [i,c] of task.published.selectedClasses.entries()){const id='synthetic_'+i;people[id]={name:'Synthetic Participating Teacher '+(i+1)};task.published.headers[c]={total:24,catV:12,st:6};task.reports[c]={submittedBy:id,questions:task.published.questions,values:Object.fromEntries(task.published.questions.map(q=>[q.id,q.kind==='text'?'Synthetic written observations.':q.kind==='meetings'?2:10]))};task.reports[c].values.remarks='Synthetic class comments.';}openTaskPresentation(task,people);} """,current)
         page.emulate_media(media='print')
-        assert page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview")].every(c=>c.scrollHeight<=c.clientHeight+1))')
+        assert page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.every(p=>p.scrollHeight<=p.clientHeight+1 && [...p.querySelectorAll(".presentation-point,.presentation-overview")].every(c=>c.scrollHeight<=c.clientHeight+1))'),page.locator('.presentation-main-page').evaluate_all('(pages)=>pages.flatMap(p=>[...p.querySelectorAll(".presentation-point,.presentation-overview")].filter(c=>c.scrollHeight>c.clientHeight+1).map(c=>({text:c.innerText,height:c.clientHeight,scroll:c.scrollHeight}))))')
         page.pdf(path='/tmp/task-presentation-complete-synthetic.pdf',prefer_css_page_size=True,print_background=True)
         complete_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-complete-synthetic.pdf','-'],text=True).split('\f')
         assert all('Main report' in complete_text[i] for i in range(4));assert len([p for p in complete_text if p.strip()])==4;assert 'Report overview' in complete_text[3]

@@ -248,8 +248,8 @@ section percentages are never averaged. Other student-survey fields continue to
 use enrollment; PTMs remain meeting counts. HTML, printed PDF and PowerPoint use
 the same denominator, with two decimals for exam pass rates.
 
-Every presentation page and PowerPoint slide carries the Principal-supplied
-institutional staffing strip: **Teaching posts sanctioned: 67 · Vacant: 21 ·
-Vacancy: 31.34%** (21 / 67 × 100). It is separate from student-survey answers and
-appears on main charts, class reports, teacher comments and closing remarks.
-The printed PDF repeats it on continuation pages as well.
+Each main presentation group (Class IX, IX–XII or a custom group) ends with a
+full-width **Teaching vacancy** card after its student charts: **31.34%** in
+large type and **21 out of 67 sanctioned teaching posts** in smaller type.
+It appears once per group in HTML, PDF and PPTX, not as a repeated header.
+The institution-wide figures remain separate from student-survey answers.

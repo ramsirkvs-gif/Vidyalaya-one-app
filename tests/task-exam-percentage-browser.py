@@ -28,11 +28,14 @@ try:
         expect(card.locator('.presentation-count')).to_have_text('34.18%');expect(card).to_contain_text('54 out of 158 appeared students');expect(card).to_contain_text('Exam pass rate among appeared students');assert '32.0%' not in card.inner_text()
         other=page.locator('.presentation-point').filter(has=page.get_by_role('heading',name='First-generation learners (either one or both parents are uneducated)',exact=True)).first
         expect(other).to_contain_text('4 out of 169 students')
-        assert page.locator('.presentation-main-page > .presentation-staffing-strip').count()==page.locator('.presentation-main-page').count()
-        assert all('31.34%' in text for text in page.locator('.presentation-main-page > .presentation-staffing-strip').all_text_contents())
+        vacancy=page.locator('.presentation-staffing-card');assert vacancy.count()==2
+        assert vacancy.locator('.presentation-count').all_text_contents()==['31.34%','31.34%']
+        assert vacancy.locator('small').all_text_contents()==['21 out of 67 sanctioned teaching posts']*2
+        assert page.locator('.presentation-staffing-strip,.presentation-staffing-print').count()==0
+        assert vacancy.evaluate_all('(cards)=>cards.every(card=>card.parentElement.lastElementChild===card)')
         page.get_by_role('checkbox',name='Include teacher comments appendix in PDF',exact=True).check()
         page.pdf(path='/tmp/task-exam-percentage.pdf',print_background=True,prefer_css_page_size=True)
-        pdf_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-exam-percentage.pdf','-'],text=True);assert '34.18%' in pdf_text;assert len([text for text in pdf_text.split('\f') if text.strip()])>page.locator('.presentation-main-page').count();assert all('31.34%' in text and 'Teaching posts sanctioned: 67' in text for text in pdf_text.split('\f') if text.strip());assert re.search(r'54\s+out\s+of\s+158\s+appeared\s+students',pdf_text)
+        pdf_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-exam-percentage.pdf','-'],text=True);assert '34.18%' in pdf_text;assert len([text for text in pdf_text.split('\f') if text.strip()])>page.locator('.presentation-main-page').count();assert pdf_text.count('31.34%')==2;assert '21 out of 67 sanctioned teaching posts' in pdf_text;assert re.search(r'54\s+out\s+of\s+158\s+appeared\s+students',pdf_text)
         assert not errors,errors;browser.close()
     print('PASS authenticated presentation and PDF show 54/158 = 34.18%; other survey percentages retain enrollment and no Fail entry returns')
 finally:
