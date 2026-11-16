@@ -4,7 +4,7 @@ import {principalNotifications} from '../cbse-principal-notifications.js';
 import {decoratePrincipalNotifications,applyNotificationSeen} from '../_server/principal-notification-state.js';
 const now=Date.parse('2026-11-12T04:00:00Z');
 test('each page filters current and archived notifications, and counts only its unseen entities',()=>{
- const chamber={key:'chamber',kind:'Today’s Roll Call approvals',href:'index.html#principal-chamber',seen:false},mission={key:'mission',kind:'Team News',href:'cbse-mission.html#tab=news',seen:false},past={...mission,key:'past',seen:true},summary={pending:[chamber],recent:[chamber,mission],news:[mission],archivedSeen:[past]};
+ const chamber={key:'chamber',kind:'Today’s Roll Call submissions',href:'index.html#principal-chamber',seen:false},mission={key:'mission',kind:'Team News',href:'cbse-mission.html#tab=news',seen:false},past={...mission,key:'past',seen:true},summary={pending:[chamber],recent:[chamber,mission],news:[mission],archivedSeen:[past]};
  const c=notificationsForScope(summary,'chamber'),m=notificationsForScope(summary,'mission');assert.equal(c.unseenCount,1);assert.equal(c.pendingCount,1);assert.equal(c.archivedSeen.length,0);assert.equal(c.news.length,0);assert.equal(m.unseenCount,1);assert.equal(m.pendingCount,0);assert.deepEqual(m.archivedSeen,[past]);
 });
 test('podcast and NOC events belong to Chamber; a changed source resurfaces after Seen',()=>{

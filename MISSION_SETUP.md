@@ -946,7 +946,7 @@ Principal class cards use **Review attendance & evidence**. The dialog defaults 
 
 ### Principal notifications and latest activity
 
-A private **Latest notifications** panel opens after verified Principal access in Mission 100, directly below the status line, and in the Principal Chamber. It uses the existing Firebase session and protected `principal-notifications` endpoint; guests and teacher PINs cannot read Principal notifications. It lists all current pending remedial approvals, past scheduled classes with no submitted completion, today’s actionable Roll Call approvals, advance leave reviews, open objections, unread conversation feedback, teacher report follow-ups and explicitly Principal-assigned tasks. Future classes are not counted as missed. It does not approve anything or mark conversations read merely by opening the panel.
+A private **Latest notifications** panel opens after verified Principal access in Mission 100, directly below the status line, and in the Principal Chamber. It uses the existing Firebase session and protected `principal-notifications` endpoint; guests and teacher PINs cannot read Principal notifications. It lists all current pending remedial approvals, past scheduled classes with no submitted completion, today’s Roll Call submissions available for optional review, advance leave reviews, open objections, unread conversation feedback, teacher report follow-ups and explicitly Principal-assigned tasks. Future classes are not counted as missed. It does not approve anything or mark conversations read merely by opening the panel.
 
 Latest recorded activity covers the last seven days, newest first, from teachers and the Principal: MCQ uploads/evaluations, general progress remarks, remedial plans/changes/cancellations/approvals/returns, Team News/posts/comments, Roll Call, advance leave, recorded student attendance and contact field updates. Latest five Team News posts are included, including older posts if necessary; repeated notices for the same record are merged. Activity links open existing record areas; remedial links open the exact plan/date review. Evidence photos, PINs/hashes, answer keys, contact old/new values and restricted counselling notes are not included in the summary. Refresh is manual or every 60 seconds while the panel is expanded and the page is visible. Sign-out removes the panel and its data. This is an in-app panel, not push/email delivery or an audit of unrecorded browsing actions.
 
@@ -1355,8 +1355,8 @@ in individual selections prompt a reminder that intermediate days are excluded.
 Saved data continues to use explicit dates; no existing endpoint-only records
 are automatically expanded.
 
-The staff Roll Call menu, daily RC view and Leave/OD area include a shared list
-of all wings' submissions: name, explicit dates, type, status and Principal review
+The separate Leave/OD area includes a shared list
+of all wings' leave submissions: name, explicit dates, type, status and Principal review
 comment. Fully cancelled submissions remain labelled Cancelled; deleted records
 are removed and retained in private audit history. Refresh submission list updates
 only the list, preserving entry forms; visible staff lists also refresh every
@@ -1426,3 +1426,14 @@ year and source; authorised users can open Edit voucher directly. Searches do no
 publish drafts. A saved-record preview appears near the header after entry, with
 no scroll down to the register. Search requests ignore stale responses after
 query/navigation changes.
+
+Morning and afternoon Roll Call are recorded directly and show **Present** in the
+daily list, without Principal approval. Principal Monitoring lists all submitted
+records and provides optional review comments on each record; comments retain
+server timestamps and remain visible with that report. Existing ordinary pending
+records also display Present; historical records and credentials are preserved.
+Open IC objections still block afternoon submission across linked identities.
+An objection raised after submission marks it blocked; clearing the final open
+objection restores the recorded status without Principal approval. Leave/OD
+recording, date cancellation and approval rules remain separate. Principal-only
+comments require a matching record version and keep prior comments/history.
