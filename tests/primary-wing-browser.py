@@ -47,9 +47,6 @@ try:
         page.evaluate('''async()=>{const {renderRollPrincipalDashboard}=await import('/cbse-roll-call-principal.js');window.primaryApi=async body=>{const r=await fetch('/api/staff-access',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer principal'},body:JSON.stringify(body)});const data=await r.json();if(!r.ok)throw Error(data.error);return data;};window.drawPrimary=()=>{document.querySelector('#root').replaceChildren();renderRollPrincipalDashboard(document.querySelector('#root'),{data:{rollCall:{reports:{}},serverDate:'2026-11-15'},state:{scope:'settings',tab:'pins'},api:window.primaryApi,run:async fn=>fn(),refresh:async()=>{},close:()=>{},signout:()=>{}});};window.drawPrimary();}''')
         page.locator('[name=principal-pin-wing]').wait_for();page.locator('[name=principal-pin-wing]').select_option('primary')
         cards=page.locator('.roll-status-card');assert cards.count()==29;assert cards.first.locator('strong').inner_text()=='1. Mr. Rohtash';assert cards.last.locator('strong').inner_text().endswith('Mr. Bibek Kumar Dubey')
-        assert cards.first.locator('input').input_value()==''
-        page.get_by_role('button',name='Generate missing staff / PINs',exact=True).click()
-        page.wait_for_function("document.querySelector('[name=principal-pin-0]').value.length===3")
         assert cards.first.locator('input').get_attribute('type')=='password';assert len(cards.first.locator('input').input_value())==3
         cards.first.get_by_role('button',name='Show PIN',exact=True).click();assert cards.first.locator('input').get_attribute('type')=='text';cards.first.get_by_role('button',name='Hide PIN',exact=True).click()
         preserved=page.evaluate("async()=>{const r=await primaryApi({action:'list'});return r.access['X:one'].pin==='123'&&r.access['X:two'].pin==='456';}");assert preserved
@@ -62,7 +59,20 @@ try:
             page.get_by_role('button',name='Download PIN list (CSV)',exact=True).click()
         csv_text=Path(download_info.value.path()).read_text(encoding='utf-8-sig')
         assert 'Mr. Bibek Kumar Dubey' in csv_text;assert len(csv_text.splitlines())==30
-        page.evaluate('window.drawPrimary()');page.locator('[name=principal-pin-wing]').wait_for();assert 'Existing PINs load without generating' in page.locator('#root').inner_text()
+        page.evaluate('window.drawPrimary()');page.locator('[name=principal-pin-wing]').wait_for();assert 'Existing portal PINs are kept unchanged' in page.locator('#root').inner_text()
+        # A generation failure must leave the existing PIN list available.
+        def fail_generation(route):
+            request=route.request.post_data_json
+            if request.get('action')=='list' and request.get('generateMissing'):
+                route.fulfill(status=503,json={'error':'Synthetic generation unavailable'})
+            else:
+                route.continue_()
+        page.route('**/api/staff-access',fail_generation)
+        page.evaluate('window.drawPrimary()');page.locator('[name=principal-pin-wing]').wait_for()
+        assert 'missing PINs could not be generated' in page.locator('#root').inner_text()
+        page.locator('[name=principal-pin-wing]').select_option('primary')
+        assert page.locator('.roll-status-card').count()==29
+        page.unroute('**/api/staff-access',fail_generation)
         page.set_content('<link rel="stylesheet" href="/cbse.css"><link rel="stylesheet" href="/cbse-roll-call.css"><main id="root"></main>')
         page.evaluate('''async()=>{const {renderRollCall}=await import('/cbse-roll-call-view.js');renderRollCall(document.querySelector('#root'));}''')
         page.locator('[name=roll-view-password]').fill('synthetic-view');page.get_by_role('button',name='Open Roll Call',exact=True).click()
