@@ -56,7 +56,7 @@ export function taskView(store={},actor={ids:[]}){
   const p=t.published;if(!p)continue;
   const classes=taskClasses(p).filter(c=>actor.ids.includes(p.assignments?.[c]));
   if(p.visibility==='concerned'&&!classes.length)continue;
-  tasks[id]={revision:t.publishedRevision,title:p.title,priority:p.priority,deadline:p.deadline,instructions:p.instructions,questions:taskQuestions(p),visibility:p.visibility,classes,headers:Object.fromEntries(classes.map(c=>[c,p.headers?.[c]||taskHeader()])),reports:Object.fromEntries(classes.filter(c=>own(t.reports,c)).map(c=>[c,structuredClone(t.reports[c])]))};
+  tasks[id]={revision:t.publishedRevision,title:p.title,priority:p.priority,deadline:p.deadline,instructions:p.instructions,questions:taskQuestions(p).filter(q=>!t.principalExamOnly||!['passed','failed'].includes(q.id)),principalExamOnly:!!t.principalExamOnly,visibility:p.visibility,classes,headers:Object.fromEntries(classes.map(c=>[c,p.headers?.[c]||taskHeader()])),reports:Object.fromEntries(classes.filter(c=>own(t.reports,c)).map(c=>[c,structuredClone(t.reports[c])]))};
  }return {tasks};
 }
 export function taskCatalogue(store={},staff={},roster=[]){
@@ -71,7 +71,7 @@ export function applyTask(store,input,actor,staff,stamp,id){
  if(operation==='create'||operation==='create-task1'){
   if(!actor.principal)fail('Principal access required.');
   if(operation==='create-task1'){id='task1';if(own(next.tasks,id))return next;}
-  next.tasks[id]={revision:1,draft:config({...input.draft,headers:{...next.classFigures,...input.draft.headers}},staff),reports:{},comment:'',createdAt:stamp,updatedAt:stamp};return next;
+  next.tasks[id]={revision:1,...(id==='task1'?{principalExamOnly:true}:{}),draft:config({...input.draft,headers:{...next.classFigures,...input.draft.headers}},staff),reports:{},comment:'',createdAt:stamp,updatedAt:stamp};return next;
  }
  if(typeof input.taskId!=='string'||!own(next.tasks,input.taskId))fail('Task not found.');const t=next.tasks[input.taskId];
  if(operation==='submit'){
@@ -79,6 +79,7 @@ export function applyTask(store,input,actor,staff,stamp,id){
   if(input.expectedRevision!==t.publishedRevision)fail('Task instructions or assignments changed. Refresh before saving.');
   if(input.reportRevision!==(t.reports?.[c]?.revision||0))fail('Class report changed. Refresh before saving.');
   const report=input.report&&typeof input.report==='object'&&!Array.isArray(input.report)?{...input.report,...(!own(input.report,'remarks')?{remarks:t.reports?.[c]?.values?.remarks||''}:{}),...(!own(input.report,'examContext')?{examContext:t.reports?.[c]?.values?.examContext||''}:{})}:input.report;
+  if(t.principalExamOnly&&report&&typeof report==='object')for(const key of ['passed','failed']){if(taskQuestions(p).some(q=>q.id===key))report[key]=t.reports?.[c]?.values?.[key]??null;else delete report[key];}
   const previous=t.reports?.[c],questions=taskQuestions(p),activeIds=new Set(questions.map(q=>q.id)),retired=structuredClone(previous?.retiredAnswers||{});
   if(previous)for(const q of taskQuestions(previous))if((!activeIds.has(q.id)||questions.find(current=>current.id===q.id)?.kind!==q.kind)&&own(previous.values,q.id))retired[q.id]={...q,value:previous.values[q.id]??null,submittedBy:previous.submittedBy,updatedAt:previous.updatedAt};
   t.reports||={};t.reports[c]={values:taskReport(report,p.headers?.[c],{...p,previousAnswers:previous?.values}),questions,revision:(previous?.revision||0)+1,submittedBy:actor.id,updatedAt:stamp,...(Object.keys(retired).length?{retiredAnswers:retired}:{}),...(previous?.principalEditHistory?{principalEditHistory:previous.principalEditHistory}:{})};return next;

@@ -227,18 +227,11 @@ field has been removed; legacy examination metadata is preserved internally.
 Number cells have no “Unconfirmed” placeholder or related instruction text.
 Empty cells remain missing rather than becoming zero.
 
-Task 1's Principal toolbar includes **Apply supplied exam pass counts** for the
-four exam screenshots supplied by the Principal (IX PT-2, X September monthly,
-XI PT-1 and XII September monthly). Opening the preview is read-only. It compares
-the live reports with the 18 section reference rows and shows the exam Pass %.
-Explicit confirmation corrects only Passed, retaining Failed, other answers,
-teacher remarks, identities and the Principal edit history. Missing submissions
-are not created; enrollment, questionnaire and pass/fail validation conflicts are
-shown and skipped. A changed task or teacher report invalidates the entire
-preview, requiring a fresh preview. Reapplying matching figures is idempotent.
-The source reference is server-only and requires Principal authorization; it is
-not bundled in the public site or exposed in the staff catalogue. It is a fixed
-supplied exam snapshot, not an automatic feed of future examination results.
-After applying, reopen the presentation to use the saved counts. Pie charts keep
-their enrollment denominator; a separate verified-exam note uses appeared
-students when all contributing pass counts still match the applied reference.
+High Task-1 now reserves Passed and Failed for Principal entry. Teachers do not
+see these two survey questions, and teacher submissions cannot alter them.
+The Principal uses **Edit submitted answers — [class]** in each submitted report
+to fill the two initially blank fields, with enrollment validation and the existing
+revision checks. A one-time policy transition archives older answers in private
+Principal edit history and blanks only the current Passed/Failed values; other
+responses, identities and remarks remain intact. Later teacher updates preserve
+the Principal’s values. No automatic exam-count application is available.

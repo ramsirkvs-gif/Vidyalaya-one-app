@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {taskFixture} from './task-manager-fixture.mjs';
+async function fixture(){const f=taskFixture();await f.admin({operation:'create-task1'});let t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'save',taskId:'task1',expectedRevision:t.revision,draft:{...t.draft,selectedClasses:['IX A'],headers:{'IX A':{total:43}},assignments:{'IX A':'X:one'}}});t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'publish',taskId:'task1',expectedRevision:t.revision});await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');return f;}
+test('teachers see no Passed/Failed questions; fields start blank and only Principal edits can fill them',async()=>{
+ const f=await fixture(),mine=(await f.teacher()).tasks.task1;assert.ok(mine.principalExamOnly);assert.ok(!mine.questions.some(q=>['passed','failed'].includes(q.id)));
+ await f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:mine.revision,reportRevision:0,report:{passed:999,failed:999,firstGeneration:4}});
+ let t=(await f.admin({operation:'read'})).tasks.task1;assert.equal(t.reports['IX A'].values.passed,null);assert.equal(t.reports['IX A'].values.failed,null);assert.equal(t.reports['IX A'].values.firstGeneration,4);assert.equal(t.summary.totals.passed.total,null);
+ await assert.rejects(f.service('task-principal',{operation:'edit-report',taskId:'task1',expectedRevision:t.revision,classId:'IX A',reportRevision:1,report:{passed:20,failed:23}},'outsider'),/Principal/);
+ await f.admin({operation:'edit-report',taskId:'task1',expectedRevision:t.revision,classId:'IX A',reportRevision:1,report:{passed:20,failed:23}});
+ let teacher=(await f.teacher()).tasks.task1;await f.teacher({taskOperation:'submit',taskId:'task1',classId:'IX A',expectedRevision:teacher.revision,reportRevision:2,report:{passed:1,failed:1,firstGeneration:6}});
+ t=(await f.admin({operation:'read'})).tasks.task1;assert.equal(t.reports['IX A'].values.passed,20);assert.equal(t.reports['IX A'].values.failed,23);assert.equal(t.reports['IX A'].values.firstGeneration,6);assert.equal(t.summary.totals.passed.total,20);assert.equal(t.reports['IX A'].principalEditHistory.revision_1.values.passed,null);
+ await assert.rejects(f.admin({operation:'edit-report',taskId:'task1',expectedRevision:t.revision,classId:'IX A',reportRevision:3,report:{passed:30,failed:23}}),/Passed plus failed/);
+ await assert.rejects(f.admin({operation:'exam-pass-apply',taskId:'task1',expectedRevision:t.revision,confirmApply:true}),/Unknown task operation/);
+});
+test('legacy teacher/automatic exam counts are archived once, cleared for Principal entry and not cleared again',async()=>{
+ const f=await fixture(),raw=f.data.cbse.taskManager.tasks.task1;delete raw.principalExamOnly;raw.reports={'IX A':{values:{passed:13,failed:29,firstGeneration:7,remarks:''},submittedBy:'X:one',revision:1,updatedAt:123}};raw.examPassReference={version:'old',rows:{'IX A':{passed:13}}};const old=structuredClone(raw);
+ const t=(await f.admin({operation:'read'})).tasks.task1;assert.equal(t.reports['IX A'].values.passed,null);assert.equal(t.reports['IX A'].values.failed,null);assert.equal(t.reports['IX A'].values.firstGeneration,7);assert.equal(t.reports['IX A'].principalEditHistory.exam_policy_1.values.passed,13);assert.equal(t.reports['IX A'].principalEditHistory.exam_policy_1.values.failed,29);assert.equal(t.examPassReference,undefined);assert.deepEqual(t.previousExamPassReference,old.examPassReference);assert.deepEqual(raw,old);
+ await f.admin({operation:'edit-report',taskId:'task1',expectedRevision:t.revision,classId:'IX A',reportRevision:2,report:{passed:18,failed:25}});const saved=(await f.admin({operation:'read'})).tasks.task1;assert.equal(saved.reports['IX A'].values.passed,18);assert.equal(saved.reports['IX A'].values.failed,25);assert.equal(saved.reports['IX A'].values.firstGeneration,7);assert.equal(saved.reports['IX A'].principalEditHistory.exam_policy_1.values.passed,13);assert.equal(saved.reports['IX A'].submittedBy,'X:one');assert.equal(f.data.cbse.taskManager.tasks.task1.principalExamOnly,true);
+ const again=(await f.admin({operation:'read'})).tasks.task1;assert.equal(again.reports['IX A'].values.passed,18);assert.equal(again.revision,saved.revision);
+});

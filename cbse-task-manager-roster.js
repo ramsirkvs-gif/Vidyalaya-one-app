@@ -29,6 +29,12 @@ export function taskRosterStore(value,staff,identityIds=(_staff,id)=>[id]){
  const titleKey=value=>String(value||'').toLowerCase().replace(/[^a-z0-9]/g,'').replace(/^ixxii/,'');
  const legacy=/^highurgencysurveyfor(?:the)?hqmeetingregionalinputsrelevanttoourvidyalayaconfidential(?:student)?dataforhigherlevelsubmission$/;
  for(const cfg of [task.draft,task.published])if(cfg&&legacy.test(titleKey(cfg.title)))cfg.title=TASK1_TITLE;
+ // One-time move away from teacher-supplied exam answers. Preserve originals
+ // in Principal history; blank the two current fields for Principal entry.
+ if(!task.principalExamOnly){task.principalExamOnly=true;task.revision=(task.revision||0)+1;if(task.published)task.publishedRevision=(task.publishedRevision||0)+1;
+  if(task.examPassReference){task.previousExamPassReference=task.examPassReference;delete task.examPassReference;}
+  for(const report of Object.values(task.reports||{})){if(!report.values)continue;const revision=report.revision||0;report.principalEditHistory||={};report.principalEditHistory['exam_policy_'+revision]={values:structuredClone(report.values),questions:report.questions||[],updatedAt:report.updatedAt,reason:'Passed and Failed moved to blank Principal-only entry'};report.values={...report.values,...(Object.hasOwn(report.values,'passed')?{passed:null}:{}),...(Object.hasOwn(report.values,'failed')?{failed:null}:{})};report.revision=revision+1;}
+ }
  if(task.rosterAssignmentsApplied)return store;task.rosterAssignmentsApplied=true;
  // Existing explicit Principal assignments win. Fill only missing entries using
  // exact documented names/aliases and unambiguous existing linked identities.

@@ -1,4 +1,3 @@
-import {examPassPreview,applyExamPassReference} from './task-exam-reference.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
 import {primaryDirectory,primaryStaffEntry} from '../cbse-primary-roster.js';
@@ -102,9 +101,8 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    const directory=Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active').map(([id,p])=>[id,{name:p.name,status:p.status}]));
    const stored=taskRosterStore(await read('cbse/taskManager'),staff,rollStaffIdentityIds);if(!admin)return taskCatalogue(stored,staff,TASK1_ROSTER);
    if(!input.operation||input.operation==='read')return {...taskView(stored,actor),staff:directory,classFigures:stored.classFigures||{}};
-   if(input.operation==='exam-pass-preview')return {preview:examPassPreview(stored,input,actor,staff)};
    let reason='';const id='task_'+randomUUID().replaceAll('-',''),known=await read('cbse/taskManager');
-   const result=await mcqTransaction(db,'cbse/taskManager',current=>{if(current===null&&known!==null)return null;reason='';try{const normalized=taskRosterStore(current,staff,rollStaffIdentityIds);return input.operation==='exam-pass-apply'?applyExamPassReference(normalized,input,actor,staff,now()):applyTask(normalized,input.operation==='create-task1'?{...input,draft:TASK1}:input,actor,staff,now(),id);}catch(e){reason=e.message;return;}},{restTransaction});
+   const result=await mcqTransaction(db,'cbse/taskManager',current=>{if(current===null&&known!==null)return null;reason='';try{const normalized=taskRosterStore(current,staff,rollStaffIdentityIds);return applyTask(normalized,input.operation==='create-task1'?{...input,draft:TASK1}:input,actor,staff,now(),id);}catch(e){reason=e.message;return;}},{restTransaction});
    if(!result.committed||!result.snapshot?.val())throw new AccessError(reason||'Task save was not confirmed. Refresh before retrying.',409);
    return {...taskView(result.snapshot.val(),actor),staff:directory,classFigures:result.snapshot.val().classFigures||{},taskId:input.operation==='create-task1'?'task1':input.taskId||id};
   }
