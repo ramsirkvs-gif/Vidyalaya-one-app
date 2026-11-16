@@ -91,6 +91,7 @@ export function applyTask(store,input,actor,staff,stamp,id){
   if(input.reportRevision!==(previous.revision||0))fail('Class report changed. Refresh before saving.');
   if(!input.report||typeof input.report!=='object'||Array.isArray(input.report))fail('Enter aggregate report counts.');
   const correction={...previous.values,...input.report};if(t.passedOnly)delete correction.failed;const values=taskReport(correction,t.published?.headers?.[c]||t.draft.headers?.[c]||{},{questions:taskQuestions(previous),previousAnswers:previous.values});
+  const participation=t.examParticipation?.rows?.[c];if(participation&&participation.enrolled===(t.published?.headers?.[c]||t.draft.headers?.[c])?.total&&values.passed!=null&&values.passed>participation.appeared)fail('Passed students cannot exceed the confirmed appeared count.');
   const history=structuredClone(previous.principalEditHistory||{});history['revision_'+(previous.revision||0)]={values:previous.values,questions:taskQuestions(previous),updatedAt:previous.updatedAt,editedAt:stamp};
   t.reports[c]={...previous,values,revision:(previous.revision||0)+1,originalSubmittedAt:previous.originalSubmittedAt||previous.updatedAt,updatedAt:stamp,principalEditedAt:stamp,principalEditHistory:history};
  }

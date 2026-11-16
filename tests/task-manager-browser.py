@@ -132,8 +132,8 @@ try:
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count').first.inner_text()=='96'
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count').nth(1).inner_text()=='0.0%'
         assert preview.locator('.presentation-main-page').first.locator('.presentation-count-context').first.inner_text()=='0 out of 96 students'
-        assert preview.locator('.presentation-main-page').first.locator('.presentation-count').nth(3).inner_text()=='79.2%'
-        assert preview.locator('.presentation-main-page').first.locator('.presentation-count-context').nth(1).inner_text()=='19 out of 24 students'
+        assert preview.locator('.presentation-main-page').first.locator('.presentation-count').nth(3).inner_text()=='19'
+        assert 'matching appeared counts are missing' in preview.locator('.presentation-main-page').first.inner_text()
         preview.get_by_role('combobox',name='Report class grouping',exact=True).select_option('custom');preview.get_by_role('button',name='IX + XI',exact=True).click()
         group_scope=[c for c in current['published']['selectedClasses'] if c.split()[0] in ['IX','XI']]
         assert preview.locator('.presentation-main-page').count()==2;assert preview.locator('.presentation-main-page h2').first.inner_text().startswith('Combined report · IX + XI')
@@ -165,7 +165,7 @@ try:
         download=download_info.value;download.save_as('/tmp/task-presentation-browser-synthetic.pptx')
         with zipfile.ZipFile('/tmp/task-presentation-browser-synthetic.pptx') as deck:
             slide_xml='\n'.join(deck.read(name).decode() for name in deck.namelist() if name.startswith('ppt/slides/slide') and name.endswith('.xml'))
-            assert '79.2%' in slide_xml;assert 'Report overview' in slide_xml;assert 'Synthetic closing comment for ro.' not in slide_xml;assert 'Class-wise survey report' not in slide_xml;assert 'Synthetic revised perspective' not in slide_xml
+            assert '79.2%' not in slide_xml;assert 'Report overview' in slide_xml;assert 'Synthetic closing comment for ro.' not in slide_xml;assert 'Class-wise survey report' not in slide_xml;assert 'Synthetic revised perspective' not in slide_xml
             assert any(name.startswith('ppt/charts/chart') and name.endswith('.xml') for name in deck.namelist())
         preview.get_by_role('status').get_by_text('PowerPoint download prepared.',exact=True).wait_for()
         preview.get_by_role('checkbox',name='Include class-wise reports in PPTX',exact=True).check();preview.get_by_role('checkbox',name='Include teacher comments in PPTX',exact=True).check();preview.get_by_role('checkbox',name='Include closing remarks in PPTX',exact=True).check()

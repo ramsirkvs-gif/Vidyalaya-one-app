@@ -234,3 +234,16 @@ are retained; old Failed values remain in private Principal edit history.
 Teachers see neither exam-count question and cannot change Principal figures.
 No Failed value is calculated from enrollment, absence or Passed. Generic other
 surveys retain their own question schemas. No automatic exam-fill option exists.
+
+The Passed presentation card uses **Passed / appeared students**, not enrollment.
+Read-only participation figures for the supplied IX PT-2, X September monthly,
+XI PT-1 and XII September monthly exams are attached by the protected service
+when the section enrollment matches that reference. Passed remains the only
+editable exam count; Failed is not restored or populated. The Principal editor
+shows the reference appeared count and exam name. A new exam needs an updated
+participation reference. Missing/mismatched participation suppresses the exam
+percentage rather than falling back to enrollment. Combined rates divide summed
+Passed by summed appeared for exactly the classes with confirmed Passed answers;
+section percentages are never averaged. Other student-survey fields continue to
+use enrollment; PTMs remain meeting counts. HTML, printed PDF and PowerPoint use
+the same denominator, with two decimals for exam pass rates.

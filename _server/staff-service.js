@@ -1,3 +1,4 @@
+import {withTaskExamParticipation} from './task-exam-participation.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
 import {primaryDirectory,primaryStaffEntry} from '../cbse-primary-roster.js';
@@ -99,12 +100,12 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    const admin=action==='task-principal';if(admin)await principal(token);
    const staff=await directoryStaff(),actor={principal:admin,ids:[]};
    const directory=Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active').map(([id,p])=>[id,{name:p.name,status:p.status}]));
-   const stored=taskRosterStore(await read('cbse/taskManager'),staff,rollStaffIdentityIds);if(!admin)return taskCatalogue(stored,staff,TASK1_ROSTER);
+   const stored=withTaskExamParticipation(taskRosterStore(await read('cbse/taskManager'),staff,rollStaffIdentityIds));if(!admin)return taskCatalogue(stored,staff,TASK1_ROSTER);
    if(!input.operation||input.operation==='read')return {...taskView(stored,actor),staff:directory,classFigures:stored.classFigures||{}};
    let reason='';const id='task_'+randomUUID().replaceAll('-',''),known=await read('cbse/taskManager');
-   const result=await mcqTransaction(db,'cbse/taskManager',current=>{if(current===null&&known!==null)return null;reason='';try{const normalized=taskRosterStore(current,staff,rollStaffIdentityIds);return applyTask(normalized,input.operation==='create-task1'?{...input,draft:TASK1}:input,actor,staff,now(),id);}catch(e){reason=e.message;return;}},{restTransaction});
+   const result=await mcqTransaction(db,'cbse/taskManager',current=>{if(current===null&&known!==null)return null;reason='';try{const normalized=withTaskExamParticipation(taskRosterStore(current,staff,rollStaffIdentityIds));return applyTask(normalized,input.operation==='create-task1'?{...input,draft:TASK1}:input,actor,staff,now(),id);}catch(e){reason=e.message;return;}},{restTransaction});
    if(!result.committed||!result.snapshot?.val())throw new AccessError(reason||'Task save was not confirmed. Refresh before retrying.',409);
-   return {...taskView(result.snapshot.val(),actor),staff:directory,classFigures:result.snapshot.val().classFigures||{},taskId:input.operation==='create-task1'?'task1':input.taskId||id};
+   return {...taskView(withTaskExamParticipation(result.snapshot.val()),actor),staff:directory,classFigures:result.snapshot.val().classFigures||{},taskId:input.operation==='create-task1'?'task1':input.taskId||id};
   }
   if(action.startsWith('office-'))return officeService(action,input,token,ip,session);
   if(['view-login','view-data','view-version','view-student-photo','view-student-photos','view-logout'].includes(action)){const result=await sharedView(action,{...input,ip},session.viewerToken||'');if(result?.error){const error=new AccessError(result.error,result.status);error.curtainRequired=result.curtainRequired;throw error;}return result;}
@@ -174,10 +175,10 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    const id=pinIdentity.decoded.staffId,staff=await directoryStaff(),access=await read('cbse/staffAccess/'+id);
    if(!access?.enabled||access.version!==pinIdentity.access.version||staff[id]?.status!=='active')throw new AccessError('Staff access changed. Verify your PIN again.',403);
    const actor={id,ids:rollStaffIdentityIds(staff,id)},inputTask={...input,operation:input.taskOperation};
-   const viewTask=value=>{const output=taskView(taskRosterStore(value,staff,rollStaffIdentityIds),actor);if(input.taskId){const t=Object.hasOwn(output.tasks,input.taskId)?output.tasks[input.taskId]:null;if(!t||!t.classes.includes(input.classId))throw new AccessError('This published class report is not assigned to you.',403);return {tasks:{[input.taskId]:{...t,classes:[input.classId],headers:{[input.classId]:t.headers[input.classId]},reports:t.reports[input.classId]?{[input.classId]:t.reports[input.classId]}:{}}}};}return output;};
+   const viewTask=value=>{const output=taskView(withTaskExamParticipation(taskRosterStore(value,staff,rollStaffIdentityIds)),actor);if(input.taskId){const t=Object.hasOwn(output.tasks,input.taskId)?output.tasks[input.taskId]:null;if(!t||!t.classes.includes(input.classId))throw new AccessError('This published class report is not assigned to you.',403);return {tasks:{[input.taskId]:{...t,classes:[input.classId],headers:{[input.classId]:t.headers[input.classId]},reports:t.reports[input.classId]?{[input.classId]:t.reports[input.classId]}:{}}}};}return output;};
    if(input.taskOperation==='read')return viewTask(await read('cbse/taskManager'));
    if(input.taskOperation!=='submit')throw new AccessError('Teachers may only read and submit their assigned report.',403);
-   let reason='';const known=await read('cbse/taskManager');const result=await mcqTransaction(db,'cbse/taskManager',current=>{if(current===null&&known!==null)return null;reason='';try{return applyTask(taskRosterStore(current,staff,rollStaffIdentityIds),inputTask,actor,staff,now());}catch(e){reason=e.message;return;}},{restTransaction});
+   let reason='';const known=await read('cbse/taskManager');const result=await mcqTransaction(db,'cbse/taskManager',current=>{if(current===null&&known!==null)return null;reason='';try{return applyTask(withTaskExamParticipation(taskRosterStore(current,staff,rollStaffIdentityIds)),inputTask,actor,staff,now());}catch(e){reason=e.message;return;}},{restTransaction});
    if(!result.committed||!result.snapshot?.val())throw new AccessError(reason||'Report save was not confirmed. Refresh before retrying.',409);
    return viewTask(result.snapshot.val());
   }
