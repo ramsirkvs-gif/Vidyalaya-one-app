@@ -281,3 +281,5 @@ living away from their families. The desktop/PDF/PPTX boxes share one row; mobil
 No separate comparison page or oversized full-width vacancy strip is added.
 
 Task 1 uses the Principal’s corrected Vidyalaya-level confidential survey title, with Prime Mentor Teachers and Naharlagun (Itanagar, Arunachal Pradesh). Known legacy Task 1 titles are corrected on read; custom titles and submitted answers are preserved.
+
+Principal Task Manager offers **Download Excel · IX–X–XI–XII**. The workbook has four grade worksheets, one row per question, section answer columns, totals, denominators and presentation-based percentages. Written responses and overall remarks are retained as text. All questions are exported individually (including the two questions combined in presentation charts); missing or inapplicable percentages are labelled. Historical overall results are included per grade. The export uses the saved published questionnaire when available and does not alter reports.

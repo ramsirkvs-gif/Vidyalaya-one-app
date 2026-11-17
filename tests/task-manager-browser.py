@@ -124,6 +124,14 @@ try:
         class_text=subprocess.check_output(['pdftotext','-layout','/tmp/task-class-report-synthetic.pdf','-'],text=True);assert 'Total students' in class_text;assert 'Number of students who passed' in class_text;assert 'Q1.' in class_text;assert 'Synthetic revised perspective' in class_text
         page.emulate_media(media='screen');class_preview.get_by_role('checkbox',name='Include class report IX A',exact=True).uncheck();assert class_preview.get_by_role('button',name='Print / Save PDF',exact=True).is_disabled();class_preview.get_by_role('checkbox',name='Include class report IX A',exact=True).check()
         class_preview.get_by_role('button',name='Close report',exact=True).click()
+        with page.expect_download() as excel_download:
+            card.get_by_role('button',name='Download Excel · IX–X–XI–XII',exact=True).click()
+        downloaded=excel_download.value
+        assert downloaded.suggested_filename.endswith('-IX-X-XI-XII.xlsx')
+        with zipfile.ZipFile(downloaded.path()) as workbook:
+            names=workbook.read('xl/workbook.xml').decode()
+            assert all('name="'+grade+'"' in names for grade in ['IX','X','XI','XII'])
+            assert len([name for name in workbook.namelist() if name.startswith('xl/worksheets/sheet') and name.endswith('.xml')])==4
         card.get_by_role('button',name='Prepare presentation report',exact=True).click()
         preview=page.locator('.task-presentation');preview.wait_for()
         titles=['1 · Class IX','2 · Class XI','3 · Classes IX + XI','4 · Class X','5 · Class XII','6 · Classes X + XII','7 · Classes IX–XII consolidated']
