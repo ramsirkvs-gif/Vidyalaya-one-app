@@ -8,29 +8,31 @@ export function buildTaskWorkbook(ExcelJS,task){
  workbook.creator='Vidyalaya One';
  for(const grade of ['IX','X','XI','XII']){
   const classes=taskClasses(config).filter(c=>c.split(' ')[0]===grade),sheet=workbook.addWorksheet(grade);
-  sheet.addRow([config.title]);sheet.addRow(['Class '+grade,task.published?'Published questionnaire':'Saved private draft questionnaire']);
-  sheet.addRow(['Percentages match the presentation: Passed / appeared; other student counts / covered enrolment. Meetings and written answers have no percentage.']);
-  sheet.addRow(['Question','Question / description',...classes,'Total answer','Denominator','Percentage','Basis / missing data']);
-  const header=sheet.rowCount;
-  if(!classes.length)sheet.addRow(['','No sections selected for this class.']);
+  sheet.columns=[{width:78},{width:62}];
+  sheet.addRow(['Class '+grade+' — Survey Report']);sheet.mergeCells('A1:B1');
+  sheet.getRow(1).font={bold:true,size:16};sheet.getRow(1).height=28;
+  sheet.addRow([config.title]);sheet.mergeCells('A2:B2');sheet.getRow(2).height=46;
+  sheet.addRow(['Question','Answer / %']);
+  if(!classes.length)sheet.addRow(['Class '+grade,'No sections selected for this class.']);
   for(const q of classes.length?presentationFields(config):[]){
    const point=presentationData(task,{},'',[q.id],{classes}).sections[0].points[0];
    const values=classes.map(c=>q.header?config.headers?.[c]?.[q.id]:task.reports?.[c]?taskCompatibleValues(task.reports[c],config)[q.id]:undefined);
    const missing=classes.filter((c,i)=>values[i]==null||values[i]==='');
-   const percentage=point.base>0?point.total/point.base:null;
-   const row=sheet.addRow(['Q'+q.number,q.label,...values.map(v=>v==null||v===''?'Not provided':v),point.written?'Written answers by section':point.total??'Not provided',point.base??'Not applicable',percentage??'Not applicable',[point.basis,point.note,missing.length?'Missing: '+missing.join(', '):''].filter(Boolean).join(' · ')]);
-   if(percentage!==null)row.getCell(classes.length+5).numFmt=q.id==='passed'?'0.00%':'0.0%';
+   let answer=point.written?classes.map((c,i)=>c+': '+(values[i]||'Not provided')).join('\n'):point.total===null?'Not provided':String(point.total)+(point.base>0?' ('+(100*point.total/point.base).toFixed(q.id==='passed'?2:1)+'%)':'');
+   if(!point.written&&missing.length&&point.total!==null)answer+=' · Missing: '+missing.join(', ');
+   sheet.addRow(['Q'+q.number+'. '+q.label,answer]);
   }
-  if(classes.length){sheet.addRow([]);sheet.addRow(['','Overall remarks',...classes.map(c=>task.reports?.[c]?.values?.remarks||'Not provided')]);}
-  sheet.addRow([]);sheet.addRow(['Three-year comparative results — Overall',...RESULT_SESSIONS]);
-  for(const result of resultComparisonRows([grade]))sheet.addRow([result.grade,...result.values]);
-  sheet.views=[{state:'frozen',ySplit:header,xSplit:2}];
-  sheet.autoFilter={from:{row:header,column:1},to:{row:header,column:classes.length+6}};
-  sheet.columns.forEach((column,i)=>column.width=i===1?65:i===classes.length+5?65:i===0?12:24);
-  sheet.eachRow(row=>{row.alignment={vertical:'top',wrapText:true};});
-  sheet.getRow(header).font={bold:true,color:{argb:'FFFFFFFF'}};
-  sheet.getRow(header).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF176554'}};
-  sheet.pageSetup={orientation:'landscape',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:'1:'+header};
+  if(classes.length)sheet.addRow(['Overall remarks',classes.map(c=>c+': '+(task.reports?.[c]?.values?.remarks||'Not provided')).join('\n')]);
+  sheet.addRow(['Three-year comparative results — Overall','Result %']);
+  for(const result of resultComparisonRows([grade]))RESULT_SESSIONS.forEach((year,i)=>sheet.addRow([year,result.values[i]]));
+  sheet.eachRow(row=>{
+   row.alignment={vertical:'top',wrapText:true};
+   if(row.number>3){const lines=value=>String(value??'').split('\n').reduce((n,line)=>n+Math.max(1,Math.ceil(line.length/65)),0);row.height=Math.min(409,Math.max(30,16*Math.max(lines(row.getCell(1).value),lines(row.getCell(2).value))+8));}
+  });
+  sheet.getRow(3).height=24;sheet.getRow(3).font={bold:true,color:{argb:'FFFFFFFF'}};
+  sheet.getRow(3).fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF176554'}};
+  sheet.views=[{state:'frozen',ySplit:3}];
+  sheet.pageSetup={orientation:'portrait',paperSize:9,fitToPage:true,fitToWidth:1,fitToHeight:0,printTitlesRow:'1:3'};
  }
  return workbook;
 }
