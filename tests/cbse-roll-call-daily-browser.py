@@ -39,6 +39,29 @@ try:
                 page.locator('[data-staff-id="s0"] button').click();assert page.evaluate('opened[0].id')=='s0'
                 for width in [320,390,768,1440]:
                     page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        page.evaluate('''async()=>{
+          const {renderDailyRollRegister}=await import('/cbse-roll-call-register.js');
+          const {renderRollCallStatus}=await import('/cbse-roll-call-status.js');
+          window.showSubmission=(period,status,advance=false)=>{
+            const root=document.querySelector('#root');root.replaceChildren();
+            const data={serverDate:'2026-11-15',staff:{hm:{name:'Mr. Rohtash',wing:'primary',designation:'HM'}},rollCall:{reports:{saved:{staffId:'hm',wing:'primary',date:'2026-11-15',period,status,reported:'yes',workflowVersion:4,submittedAt:1794700000000}},advanceLeaves:advance?{leave:{staffId:'hm',status:'recorded',dates:['2026-11-15']}}:{}}};
+            renderDailyRollRegister(root,data,'primary',period,()=>{});
+            renderRollCallStatus(root,data,'primary',false,()=>{});
+          };
+        }''')
+        for period in ['morning','afternoon']:
+            for status in ['recorded','pending','blocked','not-approved']:
+                for advance in [False,True]:
+                    page.evaluate('([p,s,a])=>showSubmission(p,s,a)',[period,status,advance])
+                    daily=page.locator('.roll-daily-register')
+                    assert daily.get_by_text('Submitted successfully',exact=True).count()==1
+                    assert daily.locator('strong').first.inner_text()=='Mr. Rothash'
+                    board=page.locator('.roll-status-board')
+                    assert board.get_by_text('Submitted successfully',exact=True).count()==1
+                    label='Morning RC' if period=='morning' else 'Afternoon RC'
+                    assert board.locator(f'td[data-label="{label}"]').get_by_text('Submitted successfully',exact=True).count()==1
+                    other='Afternoon RC' if period=='morning' else 'Morning RC'
+                    assert board.locator(f'td[data-label="{other}"]').get_by_text('Submitted successfully',exact=True).count()==0
         browser.close()
         print('PASS both wings and periods: day-scoped leave first, stable roster order, approvals/cancellations, selected identity and mobile widths')
 finally:

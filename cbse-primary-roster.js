@@ -1,7 +1,7 @@
 import {isAvinashGuestProfile} from './cbse-faculty-guest.js';
 // Primary Wing roster supplied by the Principal. Names never contain PINs.
 export const PRIMARY_ROSTER=[
- ['Mr. Rohtash','Headmaster (HM)',['Rohatsh','Rothash','Rohtas','Rohtash Virat','HM Rohtash','HM Rohatsh']],
+ ['Mr. Rothash','Headmaster (HM)',['Rohtash','Rohatsh','Rothash','Rohtas','Rohtash Virat','HM Rohtash','HM Rohatsh']],
  ['Mr. Pooran Mal Meena','PRT',['Pooranmal Meena','Pooranamal Meena']],
  ['Mr. Girraj Prasad Meena','PRT',['Girraj P Meena']],
  ['Mr. Anil Kumar','PRT',[]],['Mr. Pooran','PRT',['Pooran PRT']],

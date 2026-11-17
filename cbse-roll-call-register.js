@@ -18,6 +18,7 @@ export function renderDailyRollRegister(parent,data,wing,period,onOpen){
   const r=p[period],leave=p.advanceLeave||p.longLeave,excused=!!leave||(period==='morning'?p.morningExcused:p.afternoonLeave),present=r&&(r.reported==='yes'||period==='afternoon'&&!r.reported);
   cell('Roll Call / present in Vidyalaya').append(el('span',excused?'Leave / OD outside · exempt from Roll Call':present?'Present':r?'Roll Call submitted · Leave / OD outside':'No · not submitted',excused?'roll-rc-leave':present?'roll-rc-reported':'roll-rc-missing'));
   const status=cell('Status / submit');
+  if(r)status.append(el('strong','Submitted successfully','roll-rc-reported'));
   if(p.principalHolds.length){status.append(el('strong','Principal hold · NOC required','roll-warning'));for(const hold of p.principalHolds)status.append(el('small',hold.remark));}
   if(leaveToday(p))status.append(el('strong','Leave/OD today','roll-rc-leave'));
   if(excused){status.append(el('span',leave?(leave.leaveKind||'Leave / OD outside')+' · recorded for today':period==='morning'?'First-half leave recorded · afternoon Roll Call required':'Approved leave · afternoon Roll Call not required','roll-rc-leave'));}
