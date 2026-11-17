@@ -71,7 +71,8 @@ export function renderRollCall(host,{deferOpen=false}={}){
   const f=el('form',undefined,'roll-report-form roll-notepad roll-notepad-green');f.dataset.portalTrackDirty='true';f.addEventListener('input',()=>{f.dataset.portalDirty='true';});f.append(el('h3','Fill Roll Call · '+data.staff[identity].name),el('p','Confirm your answers below, then submit with your personal PIN.'));
 
   const clock=el('p',undefined,'roll-live-clock');clock.setAttribute('aria-label','Live server date and time');f.append(clock);
-  const onLeave=field(f,'Are you on Leave / OD outside?','roll-on-leave','select');options(onLeave,[['','Choose Yes / No'],['no','No'],['yes','Yes']],'');
+  const leaveControls=el('div');if(selectedPeriod!=='afternoon')f.append(leaveControls);
+  const onLeave=field(leaveControls,'Are you on Leave / OD outside?','roll-on-leave','select');options(onLeave,[['','Choose Yes / No'],['no','No'],['yes','Yes']],selectedPeriod==='afternoon'?'no':'');
   const leaveOptions=el('div',undefined,'roll-leave-options');f.append(leaveOptions);
   const leaveType=field(leaveOptions,'Leave arrangement','roll-leave','select');options(leaveType,[['','Choose leave arrangement'],['first','Instant first-half leave'],['second','Instant second-half leave'],['more','Full-day Leave / OD outside — fill absence details first']],'');
   const halfDay=el('input');halfDay.type='hidden';halfDay.name='roll-half-day';f.append(halfDay);

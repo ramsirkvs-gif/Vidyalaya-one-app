@@ -23,8 +23,9 @@ try:
      route.fulfill(json={'ok':True,'serverDate':day,'serverTime':now,'staff':{'one':{'name':'Synthetic Teacher','wing':wing}},'rollCall':{'reports':reports,'objections':{}}})
     page.route('**/api/staff-access',api);page.route('**/firebase-client.js',lambda r:r.fulfill(content_type='application/javascript',body='export const auth={currentUser:null,authStateReady:async()=>{}};'));page.route('https://www.gstatic.com/firebasejs/**/firebase-auth.js',lambda r:r.fulfill(content_type='application/javascript',body=''))
     page.goto(f'http://127.0.0.1:{port}/cbse-roll-call-view.js');page.set_content('<link rel="stylesheet" href="/cbse-roll-call.css"><main id="root"></main>');page.evaluate("async()=>{const {renderRollCall}=await import('/cbse-roll-call-view.js');window.controller=renderRollCall(document.querySelector('#root'));}")
-    page.get_by_role('button',name='Afternoon Roll Call',exact=True).click();page.locator('[name=roll-reporting-wing]').select_option(wing);page.get_by_role('button',name='Submit Roll Call for Synthetic Teacher',exact=True).click();page.locator('[name=roll-on-leave]').select_option('no')
-    dialog=page.get_by_role('dialog',name='Employee Roll Call')
+    page.get_by_role('button',name='Afternoon Roll Call',exact=True).click();page.locator('[name=roll-reporting-wing]').select_option(wing);page.get_by_role('button',name='Submit Roll Call for Synthetic Teacher',exact=True).click()
+    dialog=page.get_by_role('dialog',name='Employee Roll Call');dialog.wait_for(state='visible')
+    assert dialog.locator('[name=roll-on-leave]').count()==0
     selects=dialog.locator('select[name^="roll-afternoon_check_"]');assert selects.count()==9;assert selects.evaluate_all('(nodes)=>nodes.every(n=>n.value==="yes" && n.options.length===2)')
     assert dialog.locator('[name=roll-comment-afternoon_check_1]').is_hidden()
     selects.first.select_option('no');comment=dialog.locator('[name=roll-comment-afternoon_check_1]');assert comment.is_visible()

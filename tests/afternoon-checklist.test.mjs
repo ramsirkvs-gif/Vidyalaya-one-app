@@ -34,3 +34,9 @@ test('server accepts both wings and first-half return, saves required answers, a
   assert.throws(()=>applyRollCall(current,input,{id:'one'},staff,now),/NOC/);
  }
 });
+test('earlier saved afternoon wording is corrected without overwriting custom wording or stored data',()=>{
+ const saved={published:{...form,groups:{...form.groups,afternoon:[{...questions[2],label:'Have you confirmed that no pending work from yesterday remains due today?'},{...questions[3],label:'Custom Principal wording'}]}}},before=structuredClone(saved);
+ const current=publishedReporting(saved);
+ assert.equal(current.groups.afternoon[0].label,questions[2].label);
+ assert.equal(current.groups.afternoon[1].label,'Custom Principal wording');assert.deepEqual(saved,before);
+});
