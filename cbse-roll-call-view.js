@@ -71,7 +71,7 @@ export function renderRollCall(host,{deferOpen=false}={}){
   const f=el('form',undefined,'roll-report-form roll-notepad roll-notepad-green');f.dataset.portalTrackDirty='true';f.addEventListener('input',()=>{f.dataset.portalDirty='true';});f.append(el('h3','Fill Roll Call · '+data.staff[identity].name),el('p','Confirm your answers below, then submit with your personal PIN.'));
 
   const clock=el('p',undefined,'roll-live-clock');clock.setAttribute('aria-label','Live server date and time');f.append(clock);
-  const onLeave=field(f,'1. Are you on Leave / OD outside?','roll-on-leave','select');options(onLeave,[['','Choose Yes / No'],['no','No'],['yes','Yes']],'');
+  const onLeave=field(f,'Are you on Leave / OD outside?','roll-on-leave','select');options(onLeave,[['','Choose Yes / No'],['no','No'],['yes','Yes']],'');
   const leaveOptions=el('div',undefined,'roll-leave-options');f.append(leaveOptions);
   const leaveType=field(leaveOptions,'Leave arrangement','roll-leave','select');options(leaveType,[['','Choose leave arrangement'],['first','Instant first-half leave'],['second','Instant second-half leave'],['more','Full-day Leave / OD outside — fill absence details first']],'');
   const halfDay=el('input');halfDay.type='hidden';halfDay.name='roll-half-day';f.append(halfDay);
@@ -82,13 +82,13 @@ export function renderRollCall(host,{deferOpen=false}={}){
   const firstHalf=()=>effectiveLeave()==='half'&&halfDay.value==='first';
   const questions=el('div');f.append(questions);let reported,remark,activeQuestions=[];const answers={};
   function drawQuestions(){questions.replaceChildren();reported=remark=undefined;for(const k of Object.keys(answers))delete answers[k];
-   if(firstHalf()&&period.value==='morning'){reported=el('input');reported.type='hidden';reported.name='roll-reported';reported.value='no';questions.append(reported);activeQuestions=reportingQuestions(reporting,{period:'morning',reported:'no',leaveType:'half',halfDay:'first'});Object.assign(answers,renderReportingFields(questions,activeQuestions,2,{comments:true}));return;}
+   if(firstHalf()&&period.value==='morning'){reported=el('input');reported.type='hidden';reported.name='roll-reported';reported.value='no';questions.append(reported);activeQuestions=reportingQuestions(reporting,{period:'morning',reported:'no',leaveType:'half',halfDay:'first'});Object.assign(answers,renderReportingFields(questions,activeQuestions,period.value==='afternoon'?1:2,{comments:true}));return;}
    if(period.value==='afternoon')questions.append(el('p','Afternoon Roll Call is recorded directly when no IC objection is open. Complete biometric sign-out and sign the staff attendance register before leaving.','roll-warning'));
-   if(period.value==='afternoon'&&!firstHalf()){activeQuestions=reportingQuestions(reporting,{period:period.value,leaveType:effectiveLeave(),halfDay:halfDay.value});Object.assign(answers,renderReportingFields(questions,activeQuestions,2,{comments:true}));return;}
-   reported=field(questions,firstHalf()?'2. Reported in Vidyalaya for the second half?':'2. Reported in Vidyalaya today?','roll-reported','select');options(reported,[['no','No'],['yes','Yes']],onLeave.value==='no'||effectiveLeave()==='half'?'yes':'no');
+   if(period.value==='afternoon'&&!firstHalf()){activeQuestions=reportingQuestions(reporting,{period:period.value,leaveType:effectiveLeave(),halfDay:halfDay.value});Object.assign(answers,renderReportingFields(questions,activeQuestions,period.value==='afternoon'?1:2,{comments:true}));return;}
+   reported=field(questions,period.value==='afternoon'?'Reported in Vidyalaya for the second half?':firstHalf()?'2. Reported in Vidyalaya for the second half?':'2. Reported in Vidyalaya today?','roll-reported','select');options(reported,[['no','No'],['yes','Yes']],onLeave.value==='no'||effectiveLeave()==='half'?'yes':'no');
    const conditional=el('div');questions.append(conditional);
    const conditionalDraw=()=>{conditional.replaceChildren();for(const k of Object.keys(answers))delete answers[k];remark=undefined;
-    activeQuestions=reportingQuestions(reporting,{period:period.value,reported:reported.value,leaveType:effectiveLeave(),halfDay:halfDay.value});Object.assign(answers,renderReportingFields(conditional,activeQuestions,3,{comments:true}));let n=3+activeQuestions.length;
+    activeQuestions=reportingQuestions(reporting,{period:period.value,reported:reported.value,leaveType:effectiveLeave(),halfDay:halfDay.value});Object.assign(answers,renderReportingFields(conditional,activeQuestions,period.value==='afternoon'?1:3,{comments:true}));let n=3+activeQuestions.length;
 
    };
    reported.onchange=conditionalDraw;conditionalDraw();

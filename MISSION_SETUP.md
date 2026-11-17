@@ -1454,3 +1454,8 @@ Selecting **OD outside** in Leave/OD feeding reveals an optional two-line
 saved with the report, included in the shared leave list, restored for correction,
 and available in Principal review/edit. They do not change date exemptions,
 cancellation or leave approval rules. Other leave types omit these duty details.
+
+
+## Common afternoon Roll Call checklist
+
+Both wings and teachers returning after first-half leave use the same nine Yes/No checks and final written reflection. New Yes/No fields default to Yes. Each No requires 20–30 words; the final reflection requires 50–100 words, enforced in the browser and server. Afternoon questions are numbered 1–10 separately from leave controls. Legacy published reporting configurations receive the approved checklist on read through `afternoonChecklistVersion: 1`; stored old reports and snapshots are preserved. Subsequent Principal publications can edit the afternoon group. NOC and leave exemptions remain enforced. Checks: `node --test tests/afternoon-checklist.test.mjs tests/cbse-morning-current.test.mjs tests/build-site.test.mjs` and `python3 tests/afternoon-checklist-browser.py` (synthetic data, no live Firebase).
