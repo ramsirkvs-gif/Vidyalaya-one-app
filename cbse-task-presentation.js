@@ -1,9 +1,10 @@
+import {TASK1_TITLE} from './cbse-task-manager-roster.js';
 import {ATTENDANCE_INITIATIVES} from './cbse-task-attendance-initiatives.js';
 import {RESULT_SESSIONS,resultComparisonRows} from './cbse-task-result-comparison.js';
 import {teachingVacancyPoint} from './cbse-task-staffing.js';
 import {TASK_HEADERS,TASK_REPORT_COMMENTS,taskClasses,taskQuestions,taskCompatibleValues,taskQuestionIsWritten,taskQuestionWording} from './cbse-task-manager-model.js';
 import {el} from './cbse-ui.js';
-export const PRESENTATION_TITLE='Status, Causes of Low Performance of Students of PM SHRI KV No. 1 Itanagar (Survey Report from Vidyalaya)';
+export const PRESENTATION_TITLE=TASK1_TITLE;
 const number=value=>Number.isSafeInteger(value)&&value>=0;
 const sum=values=>values.reduce((a,b)=>a+b,0);
 const palette=['#13786b','#d4e5df','#e8b14e','#567fb0','#a56b94','#699a53'];

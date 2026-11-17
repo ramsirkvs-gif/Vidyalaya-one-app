@@ -134,6 +134,7 @@ try:
             assert len([name for name in workbook.namelist() if name.startswith('xl/worksheets/sheet') and name.endswith('.xml')])==4
         card.get_by_role('button',name='Prepare presentation report',exact=True).click()
         preview=page.locator('.task-presentation');preview.wait_for()
+        assert all(title=='Vidyalaya Level Confidential Survey by Prime Mentor Teachers Regarding Low Academic Performance and Social-Psychological Aspects of Naharlagun (Itanagar, Arunachal Pradesh)' for title in preview.locator('.presentation-main-page h1').all_text_contents())
         titles=['1 · Class IX','2 · Class XI','3 · Classes IX + XI','4 · Class X','5 · Class XII','6 · Classes X + XII','7 · Classes IX–XII consolidated']
         assert preview.locator('.presentation-main-page').count()==14
         assert preview.locator('.presentation-main-page h2').all_text_contents()==[title+' · '+suffix for title in titles for suffix in ['Overview','Continued']]
