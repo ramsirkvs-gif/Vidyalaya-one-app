@@ -18,7 +18,7 @@ export function buildTaskWorkbook(ExcelJS,task){
    const point=presentationData(task,{},'',[q.id],{classes}).sections[0].points[0];
    const values=classes.map(c=>q.header?config.headers?.[c]?.[q.id]:task.reports?.[c]?taskCompatibleValues(task.reports[c],config)[q.id]:undefined);
    const missing=classes.filter((c,i)=>values[i]==null||values[i]==='');
-   let answer=point.written?classes.map((c,i)=>c+': '+(values[i]||'Not provided')).join('\n'):point.total===null?'Not provided':String(point.total)+(point.base>0?' ('+(100*point.total/point.base).toFixed(q.id==='passed'?2:1)+'%)':'');
+   let answer=point.written?classes.map((c,i)=>c+': '+(values[i]||'Not provided')).join('\n'):point.total===null?'Not provided':point.base>0?(100*point.total/point.base).toFixed(q.id==='passed'?2:1)+'% ('+point.total+' out of '+point.base+(q.id==='passed'?' appeared students)':' students)'):String(point.total);
    if(!point.written&&missing.length&&point.total!==null)answer+=' · Missing: '+missing.join(', ');
    sheet.addRow(['Q'+q.number+'. '+q.label,answer]);
   }
