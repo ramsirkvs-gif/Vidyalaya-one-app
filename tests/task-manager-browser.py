@@ -129,9 +129,9 @@ try:
         titles=['1 · Class IX','2 · Class XI','3 · Classes IX + XI','4 · Class X','5 · Class XII','6 · Classes X + XII','7 · Classes IX–XII consolidated']
         assert preview.locator('.presentation-main-page').count()==14
         assert preview.locator('.presentation-main-page h2').all_text_contents()==[title+' · '+suffix for title in titles for suffix in ['Overview','Continued']]
-        assert preview.locator('.presentation-comparison-box').count()==2
-        assert preview.locator('.presentation-comparison-box').evaluate_all('(boxes)=>boxes.map(box=>box.closest(".presentation-main-page").querySelector("h2").textContent)')==[title+' · Continued' for title in titles[:2]]
-        assert preview.locator('.presentation-summary-row').evaluate_all('(rows)=>rows.map(row=>row.children.length)')==[3,3,2,2,2,2,2]
+        assert preview.locator('.presentation-comparison-box').count()==4
+        assert preview.locator('.presentation-comparison-box').evaluate_all('(boxes)=>boxes.map(box=>box.closest(".presentation-main-page").querySelector("h2").textContent)')==[title+' · Continued' for title in [titles[0],titles[1],titles[3],titles[4]]]
+        assert preview.locator('.presentation-summary-row').evaluate_all('(rows)=>rows.map(row=>row.children.length)')==[3,3,2,3,3,2,2]
         assert preview.locator('.presentation-summary-row').evaluate_all('(rows)=>rows.every(row=>[...row.children].every(box=>Math.abs(box.getBoundingClientRect().top-row.firstElementChild.getBoundingClientRect().top)<1))')
         assert preview.locator('.presentation-overview').count()==7;assert preview.locator('.presentation-attendance-strip').count()==7;assert preview.locator('.presentation-staffing-card').count()==7
         assert preview.get_by_role('combobox',name='Report class grouping',exact=True).count()==0
@@ -149,7 +149,7 @@ try:
         page.pdf(path='/tmp/task-presentation-synthetic.pdf',prefer_css_page_size=True,print_background=True)
         pdftext=subprocess.check_output(['pdftotext','-layout','/tmp/task-presentation-synthetic.pdf','-'],text=True)
         assert len([p for p in pdftext.split('\f') if p.strip()])==14
-        assert pdftext.count('Three-year comparative results')==2;assert pdftext.count('Main report ·')==14
+        assert pdftext.count('Three-year comparative results')==4;assert pdftext.count('Main report ·')==14
         assert 'Synthetic closing comment' not in pdftext;assert 'Synthetic revised perspective' not in pdftext
         page.emulate_media(media='screen')
         with page.expect_download() as download_info:preview.get_by_role('button',name='Download PPTX',exact=True).click()
@@ -157,7 +157,7 @@ try:
         with zipfile.ZipFile('/tmp/task-presentation-browser-synthetic.pptx') as deck:
             paths=sorted([n for n in deck.namelist() if n.startswith('ppt/slides/slide') and n.endswith('.xml')],key=lambda n:int(n.split('slide')[-1].split('.')[0]))
             slides=[deck.read(n).decode() for n in paths];xml='\n'.join(slides)
-            assert len(slides)==14;assert xml.count('Three-year comparative results')==2
+            assert len(slides)==14;assert xml.count('Three-year comparative results')==4
             assert 'Synthetic closing comment' not in xml;assert 'Synthetic revised perspective' not in xml
             assert [next(title for title in titles if title in slide) for slide in slides if 'Main report ·' in slide]==[title for title in titles for _ in range(2)]
         for mode,expected,excluded in [('remarks','Synthetic closing comment for ro.','Synthetic revised perspective'),('teachers','Synthetic revised perspective','Synthetic closing comment for ro.'),('classes','Synthetic revised perspective','Synthetic closing comment for ro.')]:
@@ -182,7 +182,7 @@ try:
         page.emulate_media(media='screen');page.get_by_role('button',name='Close report',exact=True).click()
         for name,mode in [('RO / DC / AC remarks annexure','remarks'),('Teachers’ comments annexure','teachers'),('Class-wise reports annexure','classes')]:
             card.get_by_role('button',name=name,exact=True).click();assert page.get_by_role('combobox',name='Report content',exact=True).input_value()==mode;page.get_by_role('button',name='Close report',exact=True).click()
-        print('PASS seven ordered main-report groups, IX/XI-only comparisons, separate PDF/PPTX annexures and mobile layout')
+        print('PASS seven ordered main-report groups, individual-grade comparisons, separate PDF/PPTX annexures and mobile layout')
 
         if not card.locator('.task-editor').evaluate('(node)=>node.open'):card.get_by_text('Edit task, survey questions and teacher assignments',exact=True).click()
         card.get_by_role('button',name='Clear class selection',exact=True).click();card.get_by_label('Apply task to IX A',exact=True).check();card.get_by_label('Apply task to XI E',exact=True).check();card.get_by_role('button',name='Save private draft',exact=True).click();page.get_by_role('status').get_by_text('Private draft saved.',exact=False).wait_for()

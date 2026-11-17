@@ -1,5 +1,5 @@
 import {taskQuestions} from './cbse-task-manager-model.js';
-export const TASK1_TITLE='IX–XII: High-urgency survey for the HQ meeting — regional inputs relevant to our Vidyalaya — confidential data for higher-level submission.';
+export const TASK1_TITLE='Vidyalaya Level Confidential Survey by Prime Mentor Teachers Regarding Low Academic Performance and Social-Psychological Aspects of Naharlagun (Itanagar, Arunachal Pradesh)';
 // Public mentor/support list explicitly supplied by the Principal in prompt file.docx.
 // Support is informational; it does not grant report submission permissions.
 export const TASK1_ROSTER=[

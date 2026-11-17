@@ -261,10 +261,10 @@ omitted; combined groups require all their grades. Every group has its own
 coverage, totals, exam denominator, participants and overview. The grouping
 picker and mixed attachment options are removed.
 
-Only the individual IX and XI groups include a **Three-year comparative
-results — Overall** table in a compact box on the final chart page/slide. No combined or other-grade
-group repeats it. Principal-supplied percentages for 2023–24, 2024–25, 2025–26:
+The individual IX, X, XI and XII groups include a **Three-year comparative
+results — Overall** table in a compact box on the final chart page/slide. Combined groups do not repeat it. Principal-supplied percentages for 2023–24, 2024–25, 2025–26:
 IX = 36.36%, 55.49%, 60.12%; XI = 51.53%, 61.08%, 76.71%.
+Principal-supplied overall percentages from the comparative-result sheets: X = 98.91%, 100%, 100%; XII = 100%, 100%, 98.05% (2023–24, 2024–25, 2025–26). Performance indices and stream-wise figures are excluded.
 These historical figures do not change current exam answers or survey totals;
 stream-wise results are excluded.
 
@@ -279,3 +279,5 @@ Attendance initiatives include: PTMs, home visits,
 mapping students’ residential locations (cottages), and counselling students
 living away from their families. The desktop/PDF/PPTX boxes share one row; mobile stacks them.
 No separate comparison page or oversized full-width vacancy strip is added.
+
+Task 1 uses the Principal’s corrected Vidyalaya-level confidential survey title, with Prime Mentor Teachers and Naharlagun (Itanagar, Arunachal Pradesh). Known legacy Task 1 titles are corrected on read; custom titles and submitted answers are preserved.
