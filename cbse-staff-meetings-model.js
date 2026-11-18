@@ -23,7 +23,6 @@ function meetingOrder(person){
  if(meetingWing(person)==='primary')return primaryMeetingOrder.get(key)??primary?.serial??9999;
  const serial=secondaryStaffEntry(person)?.serial;
  if(serial)return serial;
- if(key==='GOCHAMYAGOM')return secondaryStaffEntry({name:'Ms. M.T. Munya'}).serial-.5;
  if(key==='BAMANGMEHA')return secondaryStaffEntry({name:'Ms. Tailyang Yasung'}).serial-.5;
  return 9999;
 }

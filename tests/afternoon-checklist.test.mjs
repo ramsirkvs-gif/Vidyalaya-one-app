@@ -12,12 +12,12 @@ test('legacy publications receive the same ten afternoon questions for both retu
  assert.equal(questions.length,10);assert.ok(questions.slice(0,9).every(q=>q.type==='yesno'));assert.equal(questions[9].type,'text');assert.deepEqual(old,before);
  assert.deepEqual(validateReporting(fixed).groups.afternoon,questions);
 });
-test('No comments enforce 20–50 words, final response enforces 50–100 words, and Yes needs no comment',()=>{
- for(const n of [49,101])assert.throws(()=>snapshotAnswers(questions,{...answers(),afternoon_reflection:words(n)}),/50–100/);
- for(const n of [50,100])assert.equal(snapshotAnswers(questions,{...answers(),afternoon_reflection:words(n)}).afternoon_reflection,words(n));
+test('No comments accept up to 50 words, final response accepts up to 100 words, and Yes needs no comment',()=>{
+ for(const n of [0,101])assert.throws(()=>snapshotAnswers(questions,{...answers(),afternoon_reflection:words(n)}),/Enter a response|at most 100 words/);
+ for(const n of [1,100])assert.equal(snapshotAnswers(questions,{...answers(),afternoon_reflection:words(n)}).afternoon_reflection,words(n));
  const no={...answers(),afternoon_check_1:'no'};
- for(const n of [0,19,51])assert.throws(()=>snapshotQuestionComments(questions,no,{afternoon_check_1:words(n)}),/20–50/);
- for(const n of [20,50])assert.equal(snapshotQuestionComments(questions,no,{afternoon_check_1:words(n)}).afternoon_check_1,words(n));
+ for(const n of [0,51])assert.throws(()=>snapshotQuestionComments(questions,no,{afternoon_check_1:words(n)}),/maximum 50 words/);
+ for(const n of [1,50])assert.equal(snapshotQuestionComments(questions,no,{afternoon_check_1:words(n)}).afternoon_check_1,words(n));
  assert.deepEqual(snapshotQuestionComments(questions,answers(),{}),{});
  assert.throws(()=>snapshotAnswers(questions,{...answers(),afternoon_check_1:'na'}),/Complete/);
 });
@@ -33,7 +33,7 @@ test('server accepts both wings and first-half return, saves required answers, a
   assert.throws(()=>applyRollCall({}, {...input,leaveType:'half',halfDay:'first',reported:'yes'},{id:'one'},staff,now),/morning/);
   const exempt={reports:{[day+'_morning_one']:{...current.reports[day+'_morning_one'],workflowVersion:4,leaveType:'half',halfDay:'second',status:'blocked',reported:'yes'}}};
   assert.throws(()=>applyRollCall(exempt,input,{id:'one'},staff,now),/exempts/);
-  assert.throws(()=>applyRollCall(current,{...input,answers:{...answers(),afternoon_reflection:''}},{id:'one'},staff,now),/50–100/);
+  assert.throws(()=>applyRollCall(current,{...input,answers:{...answers(),afternoon_reflection:''}},{id:'one'},staff,now),/Enter a response|at most 100 words/);
   current.objections.hold={staffId:'one',status:'open',kind:'principal-hold'};
   const withNo={...input,answers:{...input.answers,afternoon_check_1:'no'},answerComments:{afternoon_check_1:words(50)}};
   const held=applyRollCall(current,withNo,{id:'one'},staff,now),reportId=day+'_afternoon_one',report=held.reports[reportId];

@@ -89,3 +89,7 @@
 .roll-objection-teacher-table th[scope=row]{font-size:.9rem}
 .roll-objection-teacher-table td:last-child{font-size:.72rem;line-height:1.35}
 .roll-objection-teacher-table input[type=checkbox]{width:1.15rem;height:1.15rem;margin:0;vertical-align:middle}
+.roll-commitment-scroll{overflow-x:auto}
+.roll-commitment-table{border-collapse:collapse;width:max-content;min-width:100%}
+.roll-commitment-table th,.roll-commitment-table td{border:1px solid #c7d8ce;padding:.5rem .65rem;text-align:left;max-width:12rem}
+.roll-commitment-table thead th{background:#eaf1ec;min-width:7rem;font-size:.85rem}

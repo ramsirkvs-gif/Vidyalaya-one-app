@@ -51,15 +51,15 @@ try:
     selects=dialog.locator('select[name^="roll-afternoon_check_"]');assert selects.count()==9;assert selects.evaluate_all('(nodes)=>nodes.every(n=>n.value==="yes" && n.options.length===2)')
     assert dialog.locator('[name=roll-comment-afternoon_check_1]').is_hidden()
     selects.first.select_option('no');comment=dialog.locator('[name=roll-comment-afternoon_check_1]');assert comment.is_visible()
-    for count,valid in [(19,False),(20,True),(50,True),(51,False)]:
+    for count,valid in [(0,False),(1,True),(50,True),(51,False)]:
      comment.fill(words(count));assert comment.evaluate('(n)=>n.checkValidity()')==valid
     expect(dialog.get_by_text('51 / 50 words',exact=True)).to_be_visible()
     selects.first.select_option('yes')
     assert comment.is_hidden() and comment.is_disabled() and comment.evaluate('(n)=>n.checkValidity()')
-    selects.first.select_option('no');comment.fill(words(50));remark=dialog.locator('[name=roll-afternoon_reflection]')
-    for count,valid in [(49,False),(50,True),(100,True),(101,False)]:
+    selects.first.select_option('no');comment.fill(words(1));remark=dialog.locator('[name=roll-afternoon_reflection]')
+    for count,valid in [(0,False),(1,True),(100,True),(101,False)]:
      remark.fill(words(count));assert remark.evaluate('(n)=>n.checkValidity()')==valid
-    remark.fill(words(50));dialog.locator('[name=roll-undertaking]').check()
+    remark.fill(words(1));dialog.locator('[name=roll-undertaking]').check()
     submit=dialog.get_by_role('button',name='Submit roll call',exact=True)
     success=page.locator('.roll-afternoon-success')
     if first:
@@ -83,7 +83,7 @@ try:
      expect(courtesy).to_have_count(0)
     else:
      expect(courtesy).to_be_visible()
-    assert len(calls)==1 and calls[0]['answerComments']['afternoon_check_1']==words(50)
+    assert len(calls)==1 and calls[0]['answerComments']['afternoon_check_1']==words(1)
     if first:
      hold=page.get_by_role('dialog',name='Meet the Principal before leaving')
      expect(hold).to_contain_text('obtain NOC before leaving')
@@ -104,7 +104,7 @@ try:
       page.locator('[name=roll-submit-pin]').fill('123');page.get_by_role('button',name='Confirm PIN',exact=True).click()
      expect(row).to_contain_text('NOC released')
     expect(page.locator('.roll-daily-register [data-staff-id=one]')).to_contain_text('✓ Submitted successfully')
-    assert page.locator('.roll-daily-register').get_by_text(words(50),exact=True).count()==0
+    assert page.locator('.roll-daily-register').get_by_text(words(1),exact=True).count()==0
     expect(page.get_by_role('button',name='Edit Roll Call for Synthetic Teacher',exact=True)).to_have_count(0)
     page.close()
   browser.close()
