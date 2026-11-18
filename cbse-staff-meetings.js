@@ -111,7 +111,7 @@ async function showStaff(){
     }
     const writers=meetingWriters(entry).filter(writer=>writer.language===language);
     if(!writers.length)continue;
-    const signIn=button(label+' writer · PIN',()=>showTaskLogin(entry,'minutes',language));
+    const signIn=button(entry.returnedLanguages?.includes(language)?'Revise '+label+' minutes · PIN':label+' writer · PIN',()=>showTaskLogin(entry,'minutes',language));
     signIn.title=writers.map(writer=>writer.name).join(', ');
     actions.append(signIn);
    }
@@ -205,6 +205,7 @@ function showEditor(meeting,identity){
  const principalEdit=!identity,initial=principalEdit?meeting:meeting.draft||meeting;
  content.replaceChildren(el('h2',principalEdit?'Edit submitted minutes':'Write meeting minutes'),el('p',stamp(meeting.scheduledAt??meeting.createdAt)));
  const form=trackedForm('Minutes');
+ if(meeting.returnedAt)form.append(el('p','The Principal returned these minutes for revision. Edit and submit them again.'));
  const language=meeting.language;form.append(el('p',minuteLanguages.find(([id])=>id===language)?.[1]||'English'));
  const agenda=field(form,'Subject / Agenda','textarea');agenda.maxLength=500;agenda.rows=3;agenda.value=initial.agenda??meeting.meetingAgenda??'';
  const minutes=field(form,'Discussion & Minutes','textarea');minutes.className='meeting-minutes-input';minutes.maxLength=12000;minutes.value=initial.minutes||'';
@@ -365,6 +366,7 @@ async function drawPrincipal(){
   const assignedLanguages=new Set(meetingWriters(entry).map(writer=>writer.language));
   const minuteStatus=minuteLanguages.map(([id,label])=>{
    if(entry.submittedLanguages.includes(id))return label+' received';
+   if(entry.returnedLanguages?.includes(id))return label+' returned for revision';
    return label+(assignedLanguages.has(id)?' awaited':' writer unassigned');
   });
   card.append(el('p',minuteStatus.join(' · '),'meeting-report-status'));
@@ -428,10 +430,18 @@ async function drawPrincipal(){
   writerForm.append(add);writerForm.onsubmit=event=>event.preventDefault();
   writerSection.append(writerForm);
 
-  for(const [language,label]of minuteLanguages)if(entry.submittedLanguages.includes(language))reportActions.append(button('Edit '+label+' minutes',async()=>{
-   if(!canLeave())return;
-   const {meeting}=await principalRequest({meetingOperation:'read',task:'minutes',meetingId:entry.id,language});showEditor(meeting);
-  }));
+  for(const [language,label]of minuteLanguages){
+   if(!entry.submittedLanguages.includes(language))continue;
+   reportActions.append(button('Edit '+label+' minutes',async()=>{
+    if(!canLeave())return;
+    const {meeting}=await principalRequest({meetingOperation:'read',task:'minutes',meetingId:entry.id,language});showEditor(meeting);
+   }));
+   if(assignedLanguages.has(language))reportActions.append(button('Return '+label+' minutes to writer',async()=>{
+    if(!canLeave()||!confirm('Return the '+label+' minutes to the assigned writer for revision?'))return;
+    saved(await principalRequest({meetingOperation:'minutes-return',meetingId:entry.id,language,expectedRevision:entry.minuteRevisions[language]}));
+    await drawPrincipal();message(label+' minutes returned to the writer.');
+   }));
+  }
   if(entry.submittedLanguages.length)reportActions.prepend(button('Preview report / print',()=>{if(canLeave())return showReport(entry.id,true);}),button(entry.published?'Update published report':'Publish to staff view',async()=>{
    if(!canLeave())return;
    saved(await principalRequest({meetingOperation:'publish',meetingId:entry.id,expectedRevision:entry.revision}));

@@ -127,7 +127,7 @@ export function applyStaffMeeting(store,input,actor,staff,now,{allowEmpty=false}
   return meetings;
  }
  if(!meeting)throw Error('Choose an existing staff meeting.');
- const isMinutes=['minutes-draft','minutes-submit','minutes-edit'].includes(operation),isAttendance=operation==='attendance-save';
+ const isMinutes=['minutes-draft','minutes-submit','minutes-edit','minutes-return'].includes(operation),isAttendance=operation==='attendance-save';
  const minute=isMinutes?meetingMinute(meeting,input.language):null;
  const revision=isMinutes?minute.revision||0:isAttendance?meeting.attendanceRevision||0:meeting.revision;
  if(input.expectedRevision!==revision)throw Error('This meeting changed. Reopen it to check the latest version before saving.');
@@ -168,10 +168,15 @@ export function applyStaffMeeting(store,input,actor,staff,now,{allowEmpty=false}
   if(!roster.length)throw Error('Ask the Principal to select expected attendees first.');
   if(!attendance||typeof attendance!=='object'||Array.isArray(attendance)||Object.keys(attendance).length!==roster.length||roster.some(({id})=>!Object.hasOwn(attendance,id)||!['present','absent'].includes(attendance[id])))throw Error('Mark each staff member Present or Not present.');
   changes={attendance:{...meeting.attendance,...attendance},attendanceRevision:revision+1,attendanceTakenBy:actor.principal?'Principal':rollDisplayName(staff[actor.staffId].name)};
+ }else if(operation==='minutes-return'){
+  if(!actor.principal||!minute.savedAt)throw Error('Only the Principal can return submitted minutes.');
+  if(!meetingWriters(meeting).some(writer=>writer.language===input.language))throw Error('Assign a writer for this language before returning the minutes.');
+  const draft={agenda:minute.agenda,minutes:minute.minutes,language:input.language};
+  changes={versions:{...meeting.versions,[input.language]:{draft,returnedAt:now,revision:revision+1}}};
  }else if(isMinutes){
   if(!canOpenMeeting(staff,meeting,actor,'minutes',input.language))throw Error('Only the assigned minute writer can enter minutes for this language.');
   if(actor.principal?operation!=='minutes-edit':operation==='minutes-edit'||!!minute.savedAt)throw Error('Submitted minutes can be edited only by the Principal.');
-  const text=minuteText(input,operation!=='minutes-draft'),version=operation==='minutes-draft'?{draft:text,revision:revision+1}:{
+  const text=minuteText(input,operation!=='minutes-draft'),version=operation==='minutes-draft'?{draft:text,revision:revision+1,...(minute.returnedAt?{returnedAt:minute.returnedAt}:{})}:{
    ...text,savedAt:minute.savedAt||now,savedByName:actor.principal?minute.savedByName:rollDisplayName(staff[actor.staffId].name),revision:revision+1
   };
   changes={versions:{...meeting.versions,[input.language]:version}};
@@ -187,11 +192,18 @@ export function applyStaffMeeting(store,input,actor,staff,now,{allowEmpty=false}
 }
 
 export function staffMeetingList(store,{principal=false}={}){
- return Object.values(store||{}).sort((a,b)=>b.createdAt-a.createdAt).map(meeting=>{
+ return Object.values(store||{}).filter(meeting=>
+  meeting.scheduledAt||meeting.meetingAgenda||meeting.agenda||meeting.draft||meeting.savedAt||meeting.publishedReport||
+  meetingWriters(meeting).length||meeting.attendanceTakers?.length||Object.keys(meeting.versions||{}).length||
+  Object.keys(meeting.attendance||{}).length||meeting.expectedAttendees?.length
+ ).sort((a,b)=>b.createdAt-a.createdAt).map(meeting=>{
   const {id,createdAt,revision}=meeting,writers=meetingWriters(meeting);
-  const versions=minuteLanguages.filter(([language])=>meetingMinute(meeting,language).savedAt).map(([language])=>language);
+  const minutes=minuteLanguages.map(([language])=>[language,meetingMinute(meeting,language)]);
+  const versions=minutes.filter(([,minute])=>minute.savedAt).map(([language])=>language);
+  const returnedLanguages=minutes.filter(([,minute])=>minute.returnedAt).map(([language])=>language);
+  const minuteRevisions=Object.fromEntries(minutes.map(([language,minute])=>[language,minute.revision||0]));
   const published=!!meeting.publishedReport||meeting.publishedReport===undefined&&!!meeting.savedAt;
   const agenda=meeting.meetingAgenda||meeting.publishedReport?.versions?.[0]?.agenda||(published?meeting.agenda:undefined);
-  return {id,createdAt,scheduledAt:meeting.scheduledAt||createdAt,writers,published,submittedLanguages:versions,attendanceWing:meeting.attendanceWing||'both',attendanceTakers:meeting.attendanceTakers||[],...(principal?{revision,roster:meeting.roster,expectedAttendees:meeting.hasAttendanceSelection?meeting.expectedAttendees||[]:null,attendanceTakersConfigured:!!meeting.attendanceTakersConfigured}:{}),...(agenda?{agenda}:{})};
+  return {id,createdAt,scheduledAt:meeting.scheduledAt||createdAt,writers,published,submittedLanguages:versions,returnedLanguages,attendanceWing:meeting.attendanceWing||'both',attendanceTakers:meeting.attendanceTakers||[],...(principal?{revision,minuteRevisions,roster:meeting.roster,expectedAttendees:meeting.hasAttendanceSelection?meeting.expectedAttendees||[]:null,attendanceTakersConfigured:!!meeting.attendanceTakersConfigured}:{}),...(agenda?{agenda}:{})};
  });
 }
