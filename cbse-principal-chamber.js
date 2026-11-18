@@ -25,7 +25,12 @@ window.addEventListener('chamber-principal-session',event=>{signoutButton.hidden
 signoutButton.addEventListener('click',async()=>{const controller=await openRollWorkspace();await controller.signout();});
 
 const manageStaffMeetings=document.getElementById('open-principal-staff-meetings');
-window.addEventListener('chamber-principal-session',event=>{manageStaffMeetings.hidden=!event.detail.signedIn;});
+window.addEventListener('chamber-principal-session',event=>{
+ const signedIn=event.detail.signedIn,tile=document.getElementById('open-staff-meetings');
+ manageStaffMeetings.hidden=!signedIn;
+ tile.href=signedIn?'cbse-staff-meetings.html#principal':'cbse-staff-meetings.html';
+ tile.querySelector('b').textContent=signedIn?'Manage staff meetings →':'Open meeting register →';
+});
 manageStaffMeetings.addEventListener('click',()=>{location.href='cbse-staff-meetings.html#principal';});
 
 let sessionWatching=false;

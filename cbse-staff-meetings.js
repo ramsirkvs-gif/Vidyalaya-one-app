@@ -6,7 +6,7 @@ import {renderPrincipalLogin} from './cbse-principal-login.js';
 
 const content=document.getElementById('meetings-content'),status=document.getElementById('meetings-status');
 const chamber=document.querySelector('.meeting-actions a');
-const staffButton=document.getElementById('meetings-staff');
+const staffButton=document.getElementById('meetings-staff'),manageButton=document.getElementById('meetings-manage');
 const ist=new Intl.DateTimeFormat('en-IN',{dateStyle:'long',timeStyle:'short',timeZone:'Asia/Kolkata'});
 const stamp=ms=>ist.format(ms)+' IST';
 let busy=false,auth,authApi,watching=false,adminMode=false;
@@ -81,7 +81,7 @@ function showCurtain(){
 }
 
 async function showStaff(){
- adminMode=false;staffButton.hidden=true;
+ adminMode=false;staffButton.hidden=true;manageButton.hidden=false;
  if(location.hash==='#principal')history.replaceState(null,'',location.pathname+location.search);
  try{
   const result=await staffRead();
@@ -209,7 +209,7 @@ async function showReport(id,principal=false){
  content.append(actions);
 }
 async function showPrincipal(){
- staffButton.hidden=false;
+ staffButton.hidden=false;manageButton.hidden=true;
  if(!auth){
   const [client,module]=await Promise.all([import('./firebase-client.js'),import('https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js')]);
   auth=client.auth;authApi=module;
@@ -333,5 +333,9 @@ async function drawPrincipal(){
  content.append(button('Sign out as Principal',async()=>{if(canLeave()){await authApi.signOut(auth);await showStaff();}}));
 }
 staffButton.onclick=()=>{if(canLeave())run(showStaff);};
+manageButton.onclick=()=>{
+ if(!canLeave())return;
+ run(async()=>{history.replaceState(null,'','#principal');await showPrincipal();});
+};
 chamber.onclick=event=>{if(!canLeave())event.preventDefault();};
 run(location.hash==='#principal'?showPrincipal:showStaff);
