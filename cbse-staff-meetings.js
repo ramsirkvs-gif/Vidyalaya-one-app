@@ -142,7 +142,9 @@ function choosePrincipalAttendance(meetings){
  options(meeting,[['','Choose a meeting'],...meetings.map(entry=>[
   entry.id,(entry.agenda||'Meeting awaiting minutes').split('\n')[0]+' · '+stamp(entry.scheduledAt??entry.createdAt)
  ])],meetings.length===1?meetings[0].id:'');
- form.append(el('button','Continue'),button('Back to meeting register',showStaff));
+ const actions=el('div',undefined,'meeting-actions');
+ actions.append(el('button','Continue'),button('Back to meeting register',showStaff));
+ form.append(actions);
  form.onsubmit=event=>{
   event.preventDefault();
   const entry=meetings.find(item=>item.id===meeting.value);
@@ -164,7 +166,10 @@ function showTaskLogin(entry,task,language){
  const form=el('form'),people=takeAttendance?entry.attendanceTakers:meetingWriters(entry).filter(writer=>writer.language===language);
  const person=field(form,'Choose your name','select');person.required=true;
  options(person,[['','Choose your name'],...people.map(({id,name,role})=>[id,role?role+' · '+name:name])],people.length===1?people[0].id:'');
- const pin=password(form,'Personal PIN',true);form.append(el('button',takeAttendance?'Open attendance':'Open editable minutes'));
+ const pin=password(form,'Personal PIN',true);
+ const actions=el('div',undefined,'meeting-actions');
+ actions.append(el('button',takeAttendance?'Open attendance':'Open editable minutes'),button('Back to meeting register',showStaff));
+ form.append(actions);
  form.onsubmit=event=>{event.preventDefault();run(async()=>{
   const value=pin.value;pin.value='';
   const identity={id:entry.id,writerId:person.value};
@@ -172,7 +177,7 @@ function showTaskLogin(entry,task,language){
   if(takeAttendance)showAttendance(meeting,identity);
   else showEditor(meeting,identity);
  });};
- content.append(form,button('Back to meeting register',showStaff));
+ content.append(form);
 }
 function attendanceTable(headers){
  const table=el('table',undefined,'meeting-attendance'),head=el('thead'),heading=el('tr'),rows=el('tbody');
@@ -192,7 +197,9 @@ function showAttendance(meeting,identity){
  });
  form.append(table);
  const pin=identity?password(form,'Personal PIN to save attendance',true):null;
- form.append(el('button','Save / update attendance'),button('Back',async()=>{if(canLeave())await (identity?showStaff():drawPrincipal());}));
+ const actions=el('div',undefined,'meeting-actions');
+ actions.append(el('button','Save / update attendance'),button('Back',async()=>{if(canLeave())await (identity?showStaff():drawPrincipal());}));
+ form.append(actions);
  form.onsubmit=event=>{event.preventDefault();run(async()=>{
   const values={meetingOperation:'attendance-save',meetingId:meeting.id,expectedRevision:meeting.revision,attendance:Object.fromEntries(inputs.map(([id,input])=>[id,input.value]))};
   const secret=pin?.value;if(pin)pin.value='';
