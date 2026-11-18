@@ -3,7 +3,7 @@ import {rollDisplayName,rollNameKey,rollStaffIdentityIds,secondaryStaffEntry} fr
 
 export const attendanceWings=[['both','Both wings'],['secondary','Secondary wing'],['primary','Primary wing']];
 export const attendanceRoles=['SMT-1','SMT-2','SMT-3'];
-export const minuteLanguages=[['hi','Hindi (Rajbhasha)'],['en','English']];
+export const minuteLanguages=[['hi','Hindi'],['en','English']];
 
 // Bengia is listed between Priyanka Gupta and Pankaj Pandey in the supplied order.
 const primaryMeetingOrder=new Map([['BENGIAYAPI',22.5]]);
@@ -103,7 +103,7 @@ function meetingWriterDefaults(meetings,roster){
 }
 
 function minuteText({agenda,minutes,language},required){
- if(!minuteLanguages.some(([id])=>id===language))throw Error('Choose Hindi (Rajbhasha) or English.');
+ if(!minuteLanguages.some(([id])=>id===language))throw Error('Choose Hindi or English.');
  if(typeof agenda!=='string'||agenda.length>500||required&&!agenda.trim())throw Error('Enter the agenda / subject in up to 500 characters.');
  if(typeof minutes!=='string'||minutes.length>12000||required&&!minutes.trim())throw Error('Enter the meeting minutes in up to 12,000 characters.');
  return {agenda:agenda.trim(),minutes:minutes.trim(),language};

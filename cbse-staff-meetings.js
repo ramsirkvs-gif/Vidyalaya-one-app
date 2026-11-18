@@ -38,14 +38,15 @@ async function request(input,principal=false){
  }finally{clearTimeout(timeout);}
 }
 
-async function run(fn){
+async function run(fn,activeButton,feedback){
  if(busy)return;
  busy=true;document.documentElement.dataset.portalBusy='true';
- const controls=[...document.querySelectorAll('button,input,select,textarea')].filter(node=>!node.disabled);
+ const controls=(activeButton?[activeButton]:[...document.querySelectorAll('button,input,select,textarea')]).filter(node=>!node.disabled);
+ const report=feedback||message;
  for(const node of controls)node.disabled=true;
- message('Please wait…');
- try{await fn();if(status.textContent==='Please wait…')message('');}
- catch(error){message(error.message,true);}
+ if(!feedback)message('Please wait…');
+ try{await fn();if(!feedback&&status.textContent==='Please wait…')message('');}
+ catch(error){report(error.message,true);}
  finally{
   busy=false;document.documentElement.dataset.portalBusy='false';
   for(const node of controls)node.disabled=false;
@@ -53,7 +54,7 @@ async function run(fn){
 }
 
 function button(text,fn){
- const button=el('button',text);button.type='button';button.onclick=()=>run(fn);return button;
+ const button=el('button',text);button.type='button';button.onclick=()=>run(fn,button);return button;
 }
 function field(form,text,tag='input'){
  const label=el('label',text),input=el(tag);input.setAttribute('aria-label',text);label.append(input);form.append(label);return input;
@@ -177,20 +178,58 @@ function showEditor(meeting,identity){
  agenda.lang=minutes.lang=language;
  const pin=identity?password(form,'Personal PIN to save minutes',true):null;
  const submit=el('button',principalEdit?'Save Principal edits':'Submit minutes');submit.value=principalEdit?'minutes-edit':'minutes-submit';
- if(identity){const draft=el('button','Save / update draft');draft.value='minutes-draft';form.append(draft);}
- form.append(submit,button('Back',async()=>{if(canLeave())await (identity?showStaff():drawPrincipal());}));
+ const actions=el('div',undefined,'meeting-actions meeting-minute-actions');
+ const draft=el('button','Save draft');draft.value='minutes-draft';
+ const edit=el('button','Edit draft');edit.type='button';edit.hidden=true;
+ const receipt=el('p');receipt.hidden=true;receipt.setAttribute('role','status');
+ const notify=(text,error=false)=>{
+  receipt.hidden=false;receipt.textContent=text;
+  receipt.className=error?'meeting-error':'meeting-saved';
+ };
+ let submitted=false;
+ edit.onclick=()=>{
+  if(busy)return;
+  agenda.readOnly=minutes.readOnly=false;
+  draft.hidden=false;edit.hidden=true;receipt.hidden=true;minutes.focus();
+ };
+ if(identity)actions.append(draft,edit);
+ actions.append(submit,button('Back',async()=>{if(canLeave())await (identity?showStaff():drawPrincipal());}));
+ form.append(actions,receipt);
  form.onsubmit=event=>{
   event.preventDefault();
-  const operation=event.submitter?.value||submit.value;
-  if(operation!=='minutes-draft'&&(!agenda.value.trim()||!minutes.value.trim())){message('Enter the subject / agenda and minutes before submitting.',true);return;}
+  if(busy||submitted)return;
+  const active=event.submitter||submit,operation=active.value;
+  if(operation!=='minutes-draft'&&(!agenda.value.trim()||!minutes.value.trim())){
+   notify('Enter the subject / agenda and minutes before submitting.',true);return;
+  }
   run(async()=>{
    const values={meetingOperation:operation,meetingId:meeting.id,expectedRevision:meeting.revision,agenda:agenda.value,minutes:minutes.value,language};
-   const secret=pin?.value;if(pin)pin.value='';
-   const result=await (identity?pinRequest(identity,secret,values):principalRequest(values));
-   saved(result);form.dataset.portalDirty='false';
-   if(operation==='minutes-draft'){meeting.revision=result.revision;message('Draft saved. Submit when the minutes are ready.');}
-   else{await (principalEdit?showReport(meeting.id,true):showStaff());message(principalEdit?'Principal edits saved. Publish the report to share them.':'Minutes submitted for Principal publication.');}
-  });
+   const secret=pin?.value;
+   const wasReadOnly=minutes.readOnly,caption=active.textContent;
+   agenda.readOnly=minutes.readOnly=true;
+   if(pin)pin.readOnly=true;
+   receipt.hidden=true;
+   active.textContent=operation==='minutes-submit'?'Submitting…':'Saving…';
+   try{
+    const result=await (identity?pinRequest(identity,secret,values):principalRequest(values));
+    saved(result);form.dataset.portalDirty='false';meeting.revision=result.revision;
+    if(operation==='minutes-draft'){
+     draft.hidden=true;edit.hidden=false;
+     notify('Minutes saved successfully.');
+    }else if(principalEdit){
+     agenda.readOnly=minutes.readOnly=false;
+     notify('Minutes saved successfully.');
+    }else{
+     submitted=true;draft.hidden=edit.hidden=submit.hidden=pin.closest('label').hidden=true;
+     notify('Minutes submitted successfully.');
+    }
+   }catch(error){
+    agenda.readOnly=minutes.readOnly=wasReadOnly;throw error;
+   }finally{
+    active.textContent=caption;
+    if(pin){pin.value='';pin.readOnly=false;}
+   }
+  },active,notify);
  };
  content.append(form);
 }
@@ -200,7 +239,7 @@ async function showReport(id,principal=false){
  for(const version of report.versions){
   const section=el('section',undefined,'meeting-report-version');section.lang=version.language;
   const hindi=version.language==='hi';
-  section.append(el('h3',hindi?'हिन्दी (राजभाषा) कार्यवृत्त':'English minutes'),el('h4',version.agenda,'meeting-minutes-text'),el('p',version.minutes,'meeting-minutes-text'),el('p',(hindi?'कार्यवृत्त लेखक: ':'Minute writer: ')+version.writerName));
+  section.append(el('h3',hindi?'हिन्दी कार्यवृत्त':'English minutes'),el('h4',version.agenda,'meeting-minutes-text'),el('p',version.minutes,'meeting-minutes-text'),el('p',(hindi?'कार्यवृत्त लेखक: ':'Minute writer: ')+version.writerName));
   content.append(section);
  }
  const {table,rows}=attendanceTable(['Staff member','Attendance','Signature']);
@@ -326,7 +365,7 @@ async function drawPrincipal(){
   writerForm.append(add);writerForm.onsubmit=event=>event.preventDefault();
   writerSection.append(writerForm);
 
-  const minutes=editorSection('3. Minutes · Hindi (Rajbhasha) / English');
+  const minutes=editorSection('3. Minutes · Hindi / English');
   for(const [language,label]of minuteLanguages)if(entry.submittedLanguages.includes(language))minutes.append(button('Edit '+label+' minutes',async()=>{
    if(!canLeave())return;
    const {meeting}=await principalRequest({meetingOperation:'read',task:'minutes',meetingId:entry.id,language});showEditor(meeting);
