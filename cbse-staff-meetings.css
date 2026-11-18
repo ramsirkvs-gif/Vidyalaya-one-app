@@ -38,3 +38,6 @@ textarea{resize:vertical}
 
 .meeting-writer-row label{flex:1 1 14rem;min-width:0}
 .meeting-writer-row button{align-self:end;margin-bottom:.8rem}
+.meeting-setup{margin:.55rem 0;padding:.6rem .8rem;border:1px solid #c7d8ce;background:#f9fbf8;border-radius:.5rem}
+.meeting-setup summary{cursor:pointer;font-weight:bold}
+.meeting-setup button{margin:.3rem .3rem .3rem 0}

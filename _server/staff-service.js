@@ -1,4 +1,4 @@
-import {applyStaffMeeting,meetingRoster,meetingWriterMatches,meetingWriters,staffMeetingList} from '../cbse-staff-meetings-model.js';
+import {applyStaffMeeting,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingWriters,staffMeetingList} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
@@ -175,10 +175,12 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    if(input.meetingId!==undefined){
     const meeting=typeof input.meetingId==='string'&&Object.hasOwn(meetings,input.meetingId)?meetings[input.meetingId]:null;
     if(!meeting?.savedAt)throw new AccessError('The minutes have not been saved yet.',404);
-    const present=meeting.roster.filter(person=>meeting.attendance[person.id]==='present').map(({name,designation})=>({name,designation}));
-    const absent=meeting.roster.filter(person=>meeting.attendance[person.id]==='absent').map(({name,designation})=>({name,designation}));
+    const staff=Object.fromEntries(entries(await directoryStaff()).map(([id,person])=>[id,{...person,wing:rollWing(person)}]));
+    const roster=meetingAttendanceRoster(meeting,staff),attendance=meeting.attendance||{};
+    const people=status=>roster.filter(person=>attendance[person.id]===status).map(({name,designation})=>({name,designation}));
     const {agenda,minutes,createdAt}=meeting;
-    return {ok:true,report:{agenda,minutes,createdAt,writerName:meeting.savedByName||meetingWriters(meeting)[0].name,present,absent}};
+    return {ok:true,report:{agenda,minutes,createdAt,language:meeting.language||'en',attendanceWing:meeting.attendanceWing||'both',writerName:meeting.savedByName||meetingWriters(meeting)[0]?.name||'Principal',present:people('present'),absent:people('absent'),unmarked:people(undefined)}};
+
    }
    return {ok:true,meetings:staffMeetingList(meetings)};
   }
@@ -198,13 +200,16 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    const admin=action==='staff-meetings-principal'?await principal(token):null;
    const staffId=pinIdentity?.decoded.staffId;
    if(!admin&&!staffId)throw new AccessError('Verify your personal PIN.',403);
-   const staff=await directoryStaff(),actor={principal:!!admin,staffId},operation=input.meetingOperation;
+   const staff=Object.fromEntries(entries(await directoryStaff()).map(([id,person])=>[id,{...person,wing:rollWing(person)}]));
+   const actor={principal:!!admin,staffId},operation=input.meetingOperation;
    if(operation==='read'){
-    const meetings=await read('cbse/staffMeetings')||{};
-    if(admin)return {ok:true,meetings:staffMeetingList(meetings,{principal:true}),roster:meetingRoster(staff).filter(person=>person.id!=='principal')};
-    const meeting=typeof input.meetingId==='string'&&Object.hasOwn(meetings,input.meetingId)?meetings[input.meetingId]:null;
-    if(!meeting||!meetingWriterMatches(staff,meeting,staffId))throw new AccessError('Only the Principal-assigned minute writer can edit this meeting.',403);
-    return {ok:true,meeting};
+    const meetings=input.meetingId?null:await read('cbse/staffMeetings')||{};
+    if(admin&&!input.meetingId)return {ok:true,meetings:staffMeetingList(meetings,{principal:true}),roster:meetingRoster(staff).filter(person=>person.id!=='principal')};
+    const meeting=typeof input.meetingId==='string'&&/^[a-f0-9]{32}$/.test(input.meetingId)?await read('cbse/staffMeetings/'+input.meetingId):null;
+    if(!meeting||!canOpenMeeting(staff,meeting,actor,input.task))throw new AccessError('Only authorised staff can open this meeting task.',403);
+    if(input.task==='attendance')return {ok:true,meeting:{id:meeting.id,createdAt:meeting.createdAt,revision:meeting.revision,attendanceWing:meeting.attendanceWing||'both',roster:meetingAttendanceRoster(meeting,staff),attendance:meeting.attendance||{}}};
+    const {id,createdAt,revision,savedAt,agenda,minutes,language,draft}=meeting;
+    return {ok:true,meeting:{id,createdAt,revision,savedAt,agenda,minutes,language,draft}};
    }
    const stamp=now();let reason='';
    const result=await mcqTransaction(db,'cbse',current=>{
@@ -217,7 +222,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     catch(error){reason=error.message;return;}
    },{restTransaction});
    if(!result.committed||!result.snapshot.val()?.staffMeetings)throw new AccessError(reason||'The meeting save was not confirmed. Refresh before retrying.',409);
-   return {ok:true};
+   return {ok:true,revision:result.snapshot.val().staffMeetings[input.meetingId].revision};
   }
   if(action==='task-manager'){
    if(!pinIdentity)throw new AccessError('Verify your existing personal PIN.',403);
