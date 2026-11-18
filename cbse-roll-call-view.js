@@ -113,7 +113,7 @@ export function renderRollCall(host,{deferOpen=false}={}){
   });};
   openPersonal(f);startRollClock(clock,data.serverTime);
  }
- if(workspace==='ic')renderRollObjectionForm(workArea,{staff:data.staff,wing:selectedWing,actorId:identity,onSubmit:values=>run(async()=>{
+ if(workspace==='ic')renderRollObjectionForm(workArea,{staff:data.staff,wing:selectedWing,actorId:identity,assignments:data.rollCall.objectionAssignments,onSubmit:values=>run(async()=>{
   await request('object',values);notice.textContent='Objection raised. The selected teachers need NOC before afternoon clearance.';
  })});
  const pending=el('section',undefined,'roll-personal-pending');pending.hidden=workspace==='report'&&selectedPeriod!=='afternoon';pending.append(el('h3',workspace==='ic'?'Your objections / NOC':'Afternoon clearance — Pending tasks / NOC'));for(const[id,o]of Object.entries(data.rollCall.objections||{}).filter(([,o])=>o.wing===selectedWing&&(workspace==='ic'?o.createdBy===identity:o.status==='open'))){const card=el('article',undefined,'roll-status-card');card.append(el('strong',o.name),el('p',o.remark),el('b',o.status==='cleared'?'NOC released':'Objection pending'));if(o.staffId===identity)card.append(el('p','Your task is pending. Collect NOC from the concerned IC / Principal, then submit your afternoon roll call.','roll-warning'));if(o.status==='open'&&(principalView||o.createdBy===identity))card.append(button('Remove objection & release NOC',()=>run(async()=>{await request('clear',{objectionId:id});notice.textContent='Objection removed. NOC released.';})));pending.append(card);}if(workspace==='ic')workArea.append(pending);

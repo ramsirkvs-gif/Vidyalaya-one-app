@@ -1,3 +1,4 @@
+import {renderRollAssignmentEditor} from './cbse-roll-assignment-editor.js';
 import {renderRollObjectionForm} from './cbse-roll-objection-form.js';
 import {principalRollHolds} from './cbse-roll-call-holds.js';
 import {renderPrincipalHolds} from './cbse-roll-call-hold-controls.js';
@@ -26,13 +27,14 @@ export function renderRollPrincipalDashboard(host,{data,state,api,run,refresh,cl
   const ticket=++generation,scope=state.scope||'dashboard';root.dataset.workspace=scope;
   workspaceTitle.hidden=!['roll','settings'].includes(scope);workspaceTitle.textContent=scope==='roll'?(data.reporting?.title||'Roll Call'):scope==='settings'?'Settings':'';
   tools.hidden=!state.tab;const setupNotice=root.querySelector('[data-setup-notice]');if(setupNotice)setupNotice.hidden=scope!=='dashboard'||!state.tab;
-  tabs.replaceChildren();const choices=scope==='podcasts'?[]:scope==='roll'?[['pending','Monitoring'],['noc','IC Objections / NOC'],['holds','Principal holds / NOC'],['advance-leave','Advance leave/OD outside reporting'],['records','Records / delete'],['reporting','Edit questions / title']]:scope==='settings'?[['staff','Staff / Faculty'],['pins','Shared PINs'],['advance-leave','Leave / OD outside — review / edit / delete']]:[];
+  tabs.replaceChildren();const choices=scope==='podcasts'?[]:scope==='roll'?[['pending','Monitoring'],['noc','IC Objections / NOC'],['holds','Principal holds / NOC'],['assignments','Teacher assignments'],['advance-leave','Advance leave/OD outside reporting'],['records','Records / delete'],['reporting','Edit questions / title']]:scope==='settings'?[['staff','Staff / Faculty'],['pins','Shared PINs'],['advance-leave','Leave / OD outside — review / edit / delete']]:[];
   if(scope==='settings'){const office=el('a','Office members — separate PIN settings','button');office.href='cbse-office.html#settings';tabs.append(office);}
   tabs.hidden=!choices.length;
   for(const[value,label]of choices){const b=button(label,()=>{state.scope=scope==='settings'||['staff','pins'].includes(value)?'settings':value==='podcasts'?'podcasts':'roll';state.tab=value;state.staffEdit='';state.notification=null;drawTab();});b.dataset.tab=value;b.setAttribute('aria-pressed',String(value===state.tab||value==='pending'&&['approved','not-approved','missing'].includes(state.tab)));tabs.append(b);}
   pane.replaceChildren();const content=el('div');pane.append(content);if(!state.tab)return;
   if(state.tab==='staff')drawStaff(ticket).catch(e=>{if(pane.isConnected&&ticket===generation)pane.append(el('p',e.message,'roll-warning'));});
   else if(state.tab==='pins')drawPins(ticket).catch(e=>{if(pane.isConnected&&ticket===generation)pane.replaceChildren(el('h3','Shared PINs — Principal only'),el('p','Could not load the protected PIN list: '+e.message,'roll-warning'),button('Retry PIN list',()=>drawTab()));});
+  else if(state.tab==='assignments')renderRollAssignmentEditor(content,{data,state,api,run,refresh});
   else if(state.tab==='holds')renderPrincipalHolds(content,{data,api,run,refresh});
   else if(state.tab==='advance-leave'){content.append(button(state.advanceEdit?'Back to Leave / OD outside reports':'Add / edit / delete Leave / OD outside questions',()=>{state.advanceEdit=!state.advanceEdit;drawTab();}));if(state.advanceEdit)renderReportingEditor(content,{api,run,refresh,onlyGroup:'advanceLeave'}).catch(e=>content.append(el('p',e.message,'roll-warning')));else renderLeaveRecords(content,{data,principal:true,records:Object.entries(data.rollCall.advanceLeaves||{}).filter(([id])=>!state.notification||id===state.notification.id),reviewSubmit:async(rollOperation,values)=>{await api({action:'roll-call-principal',rollOperation,...values});await refresh();},submit:(rollOperation,values)=>run(async()=>{await api({action:'roll-call-principal',rollOperation,...values});await refresh();})});}
   else if(state.tab==='reporting')renderReportingEditor(content,{api,run,refresh}).catch(e=>{if(pane.isConnected)pane.append(el('p',e.message,'roll-warning'));});
@@ -49,7 +51,7 @@ export function renderRollPrincipalDashboard(host,{data,state,api,run,refresh,cl
    const wing=field(pane,'Select wing','principal-ic-wing','select'),targetForm=el('div');
    options(wing,[['secondary','Secondary wing'],['primary','Primary wing']],state.icWing||'secondary');
    const drawTargetForm=()=>{
-    targetForm.replaceChildren();renderRollObjectionForm(targetForm,{staff:data.staff,wing:wing.value,onSubmit:values=>run(async()=>{
+    targetForm.replaceChildren();renderRollObjectionForm(targetForm,{staff:data.staff,wing:wing.value,assignments:data.rollCall.objectionAssignments,onSubmit:values=>run(async()=>{
      await api({action:'roll-call-principal',rollOperation:'object',...values});await refresh();
     })});
    };

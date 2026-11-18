@@ -24,3 +24,19 @@ test('objection targeting joins active staff, excludes the IC and prefers curren
  assert.deepEqual(select({mode:'manual'}),[]);
  assert.ok(select({mode:'ct'}).includes('d'));
 });
+
+test('Principal changes a section CT and subject teachers for both recipient pickers',async()=>{
+ const {applyRollCall}=await import('../cbse-roll-call-model.js');
+ const active=Object.fromEntries(Object.entries(staff).map(([id,p])=>[id,{...p,status:'active'}]));
+ const input={rollOperation:'objection-assignments-save',section:'XII C',expectedRevision:0,ct:'m',coCT:'',subjects:[{staffId:'d',subject:'Hindi'}]};
+ const now=Date.now();
+ assert.throws(()=>applyRollCall({},input,{id:'m'},active,now),/Only the Principal/);
+ assert.throws(()=>applyRollCall({}, {...input,ct:'other'},{id:'principal'},active,now),/Secondary Wing/);
+ const saved=applyRollCall({},input,{id:'principal'},active,now);
+ assert.throws(()=>applyRollCall(saved,input,{id:'principal'},active,now),/changed/);
+ const roster=objectionRoster(active,'secondary',undefined,saved.objectionAssignments);
+ assert.deepEqual(objectionTargets(roster,{mode:'sections',sections:['XII C']}),['m']);
+ assert.deepEqual(objectionTargets(roster,{mode:'subject',grade:'XII',subject:'Hindi'}),['d']);
+ assert.ok(objectionTargets(roster,{mode:'subject',grade:'XII',subject:'__all__'}).includes('d'));
+ assert.ok(roster.find(p=>p.id==='z').subjects.every(([grade,section])=>grade!=='XII'||section!=='C'));
+});

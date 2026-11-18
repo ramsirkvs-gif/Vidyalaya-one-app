@@ -1,3 +1,4 @@
+import {secondarySections} from './cbse-roll-objection-targets.js';
 import {currentAfternoonQuestion} from './cbse-afternoon-checklist.js';
 import {principalRollHolds} from './cbse-roll-call-holds.js';
 import {isAvinashGuestProfile} from './cbse-faculty-guest.js';
@@ -63,6 +64,19 @@ export function applyRollCall(current,input,actor,staff,now=Date.now(),id='',rep
   r.principalComments||={};r.principalComments['review_'+(next.revision||0)]={text:comment,by:'principal',at:now};r.reviewedAt=now;r.updatedAt=now;r.revision=(r.revision||0)+1;
  }else if(op==='report-delete'){
   if(actor.id!=='principal')throw Error('Principal access required to delete a Roll Call.');const record=Object.hasOwn(next.reports,input.reportId)?next.reports[input.reportId]:null;if(!record||!Number.isFinite(input.expectedUpdatedAt)||!Number.isFinite(input.expectedSubmittedAt)||input.expectedUpdatedAt!==(record.updatedAt||record.submittedAt)||input.expectedSubmittedAt!==record.submittedAt)throw Error('Roll Call changed. Refresh before deleting.');if(input.confirmDelete!==true)throw Error('Confirm deletion of this Roll Call.');if(record.period==='morning'&&Object.values(next.reports).some(r=>r.date===record.date&&r.period==='afternoon'&&rollStaffIdentityIds(staff,record.staffId).includes(r.staffId)))throw Error('Delete the associated afternoon Roll Call first.');next.deletedRecords||={};next.deletedRecords['report_'+input.reportId+'_'+(next.revision||0)]={kind:'report',record:structuredClone(record),deletedBy:'principal',deletedAt:now};delete next.reports[input.reportId];
+ }else if(op==='objection-assignments-save'){
+  if(actor.id!=='principal')throw Error('Only the Principal can edit teacher assignments.');
+  const {section,ct,coCT,subjects,expectedRevision}=input;
+  if(!secondarySections.includes(section))throw Error('Choose a Secondary Wing class section.');
+  const eligible=staffId=>typeof staffId==='string'&&Object.hasOwn(staff,staffId)&&staff[staffId].status==='active'&&rollReportingStaff(staff[staffId])&&rollWing(staff[staffId])==='secondary';
+  if((ct!==''&&!eligible(ct))||(coCT!==''&&!eligible(coCT)))throw Error('Choose active Secondary Wing teachers.');
+  if(ct&&coCT&&rollStaffIdentityIds(staff,ct).includes(coCT))throw Error('Choose different teachers for CT and Co-CT.');
+  if(!Array.isArray(subjects)||subjects.length>300||subjects.some(row=>!row||!eligible(row.staffId)||!text(row.subject,80)))throw Error('Enter valid subjects for active Secondary Wing teachers.');
+  next.objectionAssignments||={};
+  const revision=next.objectionAssignments[section]?.revision||0;
+  if(expectedRevision!==revision)throw Error('These assignments changed. Refresh before editing.');
+  const clean=subjects.map(row=>({staffId:row.staffId,subject:row.subject.trim()}));
+  next.objectionAssignments[section]={ct,coCT,subjects:[...new Map(clean.map(row=>[JSON.stringify([row.staffId,row.subject.toLowerCase()]),row])).values()],revision:revision+1,updatedAt:now};
  }else if(op==='object'||op==='principal-hold'){
   const principalHold=op==='principal-hold';if(principalHold&&actor.id!=='principal')throw Error('Only the Principal can place a departure hold.');if(principalHold&&!['all','selected'].includes(input.targetMode))throw Error('Choose all staff or selected employees.');
   if(principalHold&&!['','primary','secondary'].includes(input.wing||''))throw Error('Choose a valid wing.');

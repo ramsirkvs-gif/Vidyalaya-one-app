@@ -5,7 +5,9 @@ export const secondaryStandards=['VI','VII','VIII','IX','X','XI','XII'];
 const standard=value=>secondaryStandards[Number(value)-6]||String(value||'').toUpperCase();
 const sectionKey=(grade,section)=>grade+' '+section;
 
-export function objectionRoster(staff,wing,actorId){
+export const secondarySections=secondaryStandards.flatMap(grade=>Array.from(['XI','XII'].includes(grade)?'ABCDE':'ABCD',letter=>sectionKey(grade,letter)));
+
+export function objectionRoster(staff,wing,actorId,assignments={}){
  const own=actorId?rollStaffIdentityIds(staff,actorId):[];
  const roster=rollRoster(staff,wing).filter(p=>p.id).map(p=>{
   const profiles=p.ids.map(id=>staff[id]);
@@ -15,9 +17,21 @@ export function objectionRoster(staff,wing,actorId){
   return {...p,roles,subjects:matches.length===1?matches[0][2]:[],fallbackRoles:matches.length===1?matches[0][1]:[],isCT:profiles.some(profile=>profile.classTeacher||profile.coClassTeacher)};
  });
  const currentRoles=new Set(roster.flatMap(p=>p.roles.map(role=>role.join('|'))));
- return roster.filter(p=>!p.ids.some(id=>own.includes(id))).map(({fallbackRoles,...p})=>({
-  ...p,roles:[...new Map([...p.roles,...fallbackRoles.filter(role=>!currentRoles.has(role.join('|')))].map(role=>[role.join('|'),role])).values()]
- }));
+ const overrides=wing==='secondary'?Object.entries(assignments):[];
+ return roster.filter(p=>!p.ids.some(id=>own.includes(id))).map(({fallbackRoles,...p})=>{
+  const roles=[...new Map([...p.roles,...fallbackRoles.filter(role=>!currentRoles.has(role.join('|')))].map(role=>[role.join('|'),role])).values()];
+  const subjects=[...p.subjects];
+  for(const tupleList of [roles,subjects]){
+   for(let i=tupleList.length-1;i>=0;i--)if(Object.hasOwn(assignments,sectionKey(...tupleList[i])))tupleList.splice(i,1);
+  }
+  for(const [key,assignment] of overrides){
+   const [grade,section]=key.split(' ');
+   if(p.ids.includes(assignment.ct))roles.push([grade,section,'CT']);
+   if(p.ids.includes(assignment.coCT))roles.push([grade,section,'Co-CT']);
+   for(const entry of assignment.subjects||[])if(p.ids.includes(entry.staffId))subjects.push([grade,section,entry.subject]);
+  }
+  return {...p,roles,subjects,isCT:roles.length>0||!overrides.length&&p.isCT};
+ });
 }
 
 export function objectionTargets(roster,{mode,sections=[],grade='',subject=''}){
@@ -26,7 +40,7 @@ export function objectionTargets(roster,{mode,sections=[],grade='',subject=''}){
   if(mode==='ct')return p.isCT||p.roles.length>0;
   if(mode==='lower'||mode==='upper')return p.roles.some(([level])=>(mode==='lower'?secondaryStandards.slice(0,3):secondaryStandards.slice(3)).includes(level));
   if(mode==='sections')return p.roles.some(([level,section])=>sections.includes(sectionKey(level,section)));
-  if(mode==='subject')return p.subjects.some(([level,,name])=>level===grade&&name===subject);
+  if(mode==='subject')return p.subjects.some(([level,,name])=>level===grade&&(subject==='__all__'||name===subject));
   return false;
  }).map(p=>p.id);
 }
