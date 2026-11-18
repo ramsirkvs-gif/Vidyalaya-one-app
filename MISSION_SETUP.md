@@ -1438,7 +1438,7 @@ objection restores the recorded status without Principal approval. Leave/OD
 recording, date cancellation and approval rules remain separate. Principal-only
 comments require a matching record version and keep prior comments/history.
 
-Principal Roll Call monitoring includes **Afternoon NOC** for IC and Principal holds. The Principal
+Principal Roll Call monitoring includes **Afternoon NOC/Hold** for IC and Principal holds. The Principal
 can hold selected employees or all active employees in one or both wings, with a
 status remark of up to 120 characters. Holds persist until explicitly released
 by the Principal. Attendance is saved; a held afternoon record does not grant
