@@ -94,28 +94,47 @@ async function showStaff(){
  try{
   const result=await staffRead();
   content.replaceChildren(el('h2','Meeting register'));
-  if(!result.meetings.length)content.append(el('p','No staff meetings have been recorded.'));
+  if(result.meetings.length)content.append(button('Take attendance as Principal',()=>choosePrincipalAttendance(result.meetings)));
+  else content.append(el('p','No staff meetings have been recorded.'));
   for(const entry of result.meetings){
    const card=meetingCard(entry,false);
    const actions=el('div',undefined,'meeting-actions');
-   actions.append(button('Take attendance as Principal',()=>showPrincipal(()=>openPrincipalAttendance(entry))));
    if(entry.attendanceTakers?.length){
     const attendance=button('Attendance taker · PIN',()=>showTaskLogin(entry,'attendance'));
     attendance.title=entry.attendanceTakers.map(person=>person.role+' · '+person.name).join(', ');
     actions.append(attendance);
    }
    for(const [language,label]of minuteLanguages){
+    if(entry.submittedLanguages.includes(language)){
+     actions.append(el('span',label+' minutes submitted'));
+     continue;
+    }
     const writers=meetingWriters(entry).filter(writer=>writer.language===language);
-    if(!writers.length||entry.submittedLanguages.includes(language))continue;
+    if(!writers.length)continue;
     const signIn=button(label+' writer · PIN',()=>showTaskLogin(entry,'minutes',language));
     signIn.title=writers.map(writer=>writer.name).join(', ');
     actions.append(signIn);
    }
    if(entry.published)actions.append(button('Read minutes / print',()=>showReport(entry.id)));
-   card.append(actions);
+   if(actions.childElementCount)card.append(actions);
    content.append(card);
   }
  }catch(error){if(error.curtainRequired){adminMode=false;showCurtain();}else throw error;}
+}
+function choosePrincipalAttendance(meetings){
+ content.replaceChildren(el('h2','Take attendance as Principal'));
+ const form=el('form'),meeting=field(form,'Choose a meeting','select');
+ meeting.required=true;
+ options(meeting,[['','Choose a meeting'],...meetings.map(entry=>[
+  entry.id,(entry.agenda||'Meeting awaiting minutes').split('\n')[0]+' · '+stamp(entry.scheduledAt??entry.createdAt)
+ ])],meetings.length===1?meetings[0].id:'');
+ form.append(el('button','Continue'),button('Back to meeting register',showStaff));
+ form.onsubmit=event=>{
+  event.preventDefault();
+  const entry=meetings.find(item=>item.id===meeting.value);
+  if(entry)run(()=>showPrincipal(()=>openPrincipalAttendance(entry)),event.submitter);
+ };
+ content.append(form);
 }
 function meetingCard(entry,showWriters=true,headingTag='h3'){
  const card=el('article',undefined,'meeting-item');
