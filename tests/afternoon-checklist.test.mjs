@@ -95,3 +95,21 @@ test('group release clears the same issuer, day and task atomically, keeping oth
  for(const key of ['yesterday','other','unrelated'])assert.equal(grouped.objections[key].status,'open');
  assert.equal(grouped.reports.one.status,'recorded');assert.equal(grouped.reports.two.status,'blocked');
 });
+
+test('Principal and IC holds skip afternoon leave and OD but include first-half returns',()=>{
+ const now=Date.parse('2026-11-18T08:00:00+05:30'),date=rollToday(now);
+ const ids=['ic','od','long','second','first'];
+ const staff=Object.fromEntries(ids.map(id=>[id,{name:id,wing:'secondary',status:'active'}]));
+ const morning=(staffId,fields)=>({staffId,period:'morning',date,workflowVersion:5,...fields});
+ const current={advanceLeaves:{od:{staffId:'od',dates:[date],status:'recorded'}},reports:{
+  long:morning('long',{reported:'no',leaveType:'long',status:'approved',from:'2026-11-17',to:'2026-11-19'}),
+  second:morning('second',{reported:'yes',leaveType:'half',halfDay:'second',status:'recorded'}),
+  first:morning('first',{reported:'no',leaveType:'half',halfDay:'first',status:'recorded'}),
+ }};
+ const objection={rollOperation:'object',wing:'secondary',targets:ids.slice(1),remark:'Check the exam bundle'};
+ const ic=applyRollCall(current,objection,{id:'ic'},staff,now,'ic');
+ assert.deepEqual(Object.values(ic.objections).map(o=>o.staffId),['first']);
+ assert.throws(()=>applyRollCall(current,{...objection,targets:['od']},{id:'ic'},staff,now,'ic'),/already exempt/);
+ const all=applyRollCall(current,{...objection,rollOperation:'principal-hold',targetMode:'all'},{id:'principal'},staff,now,'all');
+ assert.deepEqual(Object.values(all.objections).map(o=>o.staffId),['ic','first']);
+});

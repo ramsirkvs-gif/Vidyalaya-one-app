@@ -23,11 +23,11 @@ export function renderDailyRollRegister(parent,data,wing,period,onOpen,onRelease
   const open=entries.filter(o=>o.status==='open');
   if(open.length){
    for(const hold of open){
-    status.append(el('strong','NOC held by '+(hold.principal?'Principal':hold.createdName)+' · departure clearance withheld','roll-warning'));
+    status.append(el('strong','NOC held by '+(hold.principal?'Principal':hold.createdName)+(excused?' · not applicable during recorded leave / OD':' · departure clearance withheld'),'roll-warning'));
     if(onRelease){const release=el('button','Release NOC');release.type='button';release.setAttribute('aria-label','Release NOC for '+p.name+' held by '+(hold.principal?'Principal':hold.createdName));release.onclick=()=>onRelease(hold,p.name);status.append(release);}
    }
   }else if(entries.some(o=>o.status==='cleared')&&r?.status!=='blocked')status.append(el('strong','NOC released','roll-rc-reported'));
-  if(!open.length&&p.principalHolds.length){status.append(el('strong','Principal hold · NOC required','roll-warning'));for(const hold of p.principalHolds)status.append(el('small',hold.remark));}
+  if(!open.length&&p.principalHolds.length&&!(period==='afternoon'&&excused)){status.append(el('strong','Principal hold · NOC required','roll-warning'));for(const hold of p.principalHolds)status.append(el('small',hold.remark));}
   if(leaveToday(p))status.append(el('strong','Leave/OD today','roll-rc-leave'));
   if(excused){status.append(el('span',leave?(leave.leaveKind||'Leave / OD outside')+' · recorded for today':period==='morning'?'First-half leave recorded · afternoon Roll Call required':'Approved leave · afternoon Roll Call not required','roll-rc-leave'));}
   else if(r&&!p.principalHolds.length&&!open.length)status.append(el('span',rollRecorded(r)?(r.reported==='no'?'Leave / OD outside recorded':'Present'):r.status==='approved'?'Leave / OD outside recorded':r.status==='blocked'?(period==='afternoon'?'IC objection open · NOC required · contact the concerned IC':'IC objection open · NOC required'):r.status==='not-approved'?'Not approved · discuss with Principal':'Submitted · waiting for Principal review',r.status==='approved'?'roll-rc-approved':'roll-rc-status'));

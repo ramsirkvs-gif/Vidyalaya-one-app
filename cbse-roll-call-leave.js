@@ -10,3 +10,10 @@ export function afternoonMorningRecord(reports,ids,date){
 export const afternoonFirstHalfReturn=r=>r?.reported==='no'&&r.leaveType==='half'&&r.halfDay==='first'&&r.status!=='not-approved';
 export const afternoonMorningExemption=r=>r?.reported==='no'&&r.status==='approved'&&['today','long'].includes(r.leaveType)
  ||r?.workflowVersion>=4&&r.leaveType==='half'&&r.halfDay==='second'&&r.status!=='not-approved';
+
+export function afternoonLeaveExemption(rollCall,ids,date){
+ const reports=rollCall?.reports;
+ return !!(activeAdvanceLeave(rollCall?.advanceLeaves,ids,date)
+  ||activeRollLongLeave(reports,ids,date)
+  ||afternoonMorningExemption(afternoonMorningRecord(reports,ids,date)));
+}

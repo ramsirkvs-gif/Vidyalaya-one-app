@@ -4,7 +4,7 @@ import {isAvinashGuestProfile} from './cbse-faculty-guest.js';
 import {primaryStaffEntry} from './cbse-primary-roster.js';
 import {snapshotQuestionComments} from './cbse-roll-call-checklist.js';
 import {applyAdvanceLeave} from './cbse-advance-leave-model.js';
-import {activeRollLongLeave,activeAdvanceLeave,afternoonMorningRecord,afternoonFirstHalfReturn,afternoonMorningExemption} from './cbse-roll-call-leave.js';
+import {activeRollLongLeave,activeAdvanceLeave,afternoonMorningRecord,afternoonFirstHalfReturn,afternoonMorningExemption,afternoonLeaveExemption} from './cbse-roll-call-leave.js';
 import {secondaryStaffEntry,rollStaffIdentityIds,rollReportingStaff} from './cbse-roll-call-roster.js';
 import {ROLL_CHECKS,LEAVE_CHECKS} from './cbse-roll-call-defaults.js';
 export {ROLL_CHECKS,LEAVE_CHECKS} from './cbse-roll-call-defaults.js';
@@ -86,7 +86,9 @@ export function applyRollCall(current,input,actor,staff,now=Date.now(),id='',rep
   if(principalHold&&(!text(input.remark,120)))throw Error('Enter a short hold remark within 120 characters.');
   const department=String(input.department||'IC Objection');if(!text(department,100)||!text(input.remark,1000))throw Error('Enter a short pending-task remark.');
   if(!Array.isArray(input.targets))throw Error('Select employees of the concerned wing.');const targets=[...new Set(input.targets)];if(actor.id!=='principal'&&targets.some(id=>rollStaffIdentityIds(staff,actor.id).includes(id)))throw Error('Select other teachers, not yourself.');if(!targets.length||targets.length>200||targets.some(k=>!staff[k]||staff[k].status!=='active'||(principalHold?!rollReportingStaff(staff[k])||input.wing&&rollWing(staff[k])!==input.wing:rollWing(staff[k])!==input.wing)))throw Error('Select employees of the concerned wing.');
-  for(const target of targets.filter((target,index)=>!principalHold||!targets.slice(0,index).some(previous=>rollStaffIdentityIds(staff,target).includes(previous)))){const key=id+'_'+target;next.objections[key]={id:key,staffId:target,name:staff[target].name,wing:rollWing(staff[target]),...(principalHold?{kind:'principal-hold',date:day}:{}),department:principalHold?'Principal hold':department.trim(),remark:input.remark.trim(),createdBy:actor.id,createdName:actor.name,createdAt:now,status:'open'};
+  const eligible=targets.filter(target=>!afternoonLeaveExemption(next,rollStaffIdentityIds(staff,target),day));
+  if(!eligible.length)throw Error('The selected employees are already exempt from afternoon Roll Call due to leave or OD outside.');
+  for(const target of eligible.filter((target,index)=>!principalHold||!eligible.slice(0,index).some(previous=>rollStaffIdentityIds(staff,target).includes(previous)))){const key=id+'_'+target;next.objections[key]={id:key,staffId:target,name:staff[target].name,wing:rollWing(staff[target]),...(principalHold?{kind:'principal-hold',date:day}:{}),department:principalHold?'Principal hold':department.trim(),remark:input.remark.trim(),createdBy:actor.id,createdName:actor.name,createdAt:now,status:'open'};
    const linked=rollStaffIdentityIds(staff,target);for(const r of Object.values(next.reports)){if(r.date!==day||!linked.includes(r.staffId)||!(r.period==='afternoon'||r.period==='morning'&&r.workflowVersion>=4&&r.leaveType==='half'&&r.halfDay==='second'))continue;if(r.approvedAt)r.teacherEditLockedAt=r.teacherEditLockedAt||r.approvedAt;r.status='blocked';r.updatedAt=now;delete r.approvedAt;delete r.approvedBy;}
   }
  }else if(op==='clear'||op==='clear-group'){

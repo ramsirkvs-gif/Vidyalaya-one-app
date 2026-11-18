@@ -1,7 +1,8 @@
+import {afternoonLeaveExemption} from './cbse-roll-call-leave.js';
 import {el,options} from './cbse-ui.js';
 import {objectionRoster,objectionTargets,secondaryStandards} from './cbse-roll-objection-targets.js';
 
-export function renderRollObjectionForm(host,{staff,wing,actorId,assignments,hold=false,onSubmit}){
+export function renderRollObjectionForm(host,{staff,wing,actorId,assignments,rollCall,date,hold=false,onSubmit}){
  const form=el('form',undefined,'roll-objection-form');
  form.dataset.portalTrackDirty='true';
  const field=(text,tag='select')=>{
@@ -9,7 +10,7 @@ export function renderRollObjectionForm(host,{staff,wing,actorId,assignments,hol
  };
  const mode=field('Select recipients'),grade=field('Standard'),subject=field('Subject');
  mode.name='roll-target-mode';
- const secondary=wing==='secondary',roster=objectionRoster(staff,wing,actorId,assignments);
+ const secondary=wing==='secondary',roster=objectionRoster(staff,wing,actorId,assignments).filter(person=>!date||!afternoonLeaveExemption(rollCall,person.ids,date));
  options(mode,[['manual','Select teachers individually'],['all','All teachers'],['ct','All CTs and Co-CTs'],...(secondary?[
   ['lower','CTs and Co-CTs · VI–VIII'],['upper','CTs and Co-CTs · IX–XII'],
   ['sections','CTs and Co-CTs by class section'],['subject','Subject teachers by standard']
