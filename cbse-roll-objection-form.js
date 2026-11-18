@@ -27,11 +27,12 @@ export function renderRollObjectionForm(host,{staff,wing,actorId,assignments,hol
   sections.append(group);
  }
  form.append(sections);
- const add=el('button','Add to selection'),clear=el('button','Clear selection');
- add.type=clear.type='button';form.append(add,clear);
+ const add=el('button','Add to selection'),clear=el('button','Clear selection'),review=el('button','Review selected teachers');
+ const count=el('p',undefined,'roll-selection-status');count.setAttribute('role','status');count.setAttribute('aria-atomic','true');
+ add.type=clear.type=review.type='button';form.append(add,clear,review,count);
  const search=field('Search names, standards, subjects or roles','input');search.type='search';search.name='roll-search';
  const selectedLabel=el('label','Show selected teachers only'),selectedOnly=el('input');selectedOnly.type='checkbox';selectedLabel.prepend(selectedOnly);form.append(selectedLabel);
- const picks=el('div',undefined,'roll-employee-picks'),count=el('p');count.setAttribute('role','status');
+ const picks=el('div',undefined,'roll-employee-picks');
  const checks=new Map();
  for(const p of roster){
   const label=el('label'),check=el('input');check.type='checkbox';check.value=p.id;
@@ -40,7 +41,7 @@ export function renderRollObjectionForm(host,{staff,wing,actorId,assignments,hol
   const text=[p.name,p.designation,...roles,...subjects].filter(Boolean).join(' · ');
   label.append(check,el('span',text));picks.append(label);checks.set(p.id,check);
  }
- form.append(picks,count);
+ form.append(picks);
  const remark=field(hold?'Departure hold remark':'Short remark — pending task','textarea');remark.name='roll-objection-remark';remark.required=true;remark.maxLength=hold?120:500;if(hold)remark.value='Meet Principal before leaving';
  form.append(el('button',hold?'Place Principal hold':'Raise objection'));
  const selected=()=>[...checks.values()].filter(check=>check.checked).map(check=>check.value);
@@ -48,11 +49,22 @@ export function renderRollObjectionForm(host,{staff,wing,actorId,assignments,hol
   const query=search.value.trim().toLowerCase();
   for(const check of checks.values())check.parentElement.hidden=(selectedOnly.checked&&!check.checked)||!check.parentElement.textContent.toLowerCase().includes(query);
  };
- const updateCount=()=>{count.textContent=selected().length+' teachers selected';filter();};
+ const teacherCount=n=>n+' '+(n===1?'teacher':'teachers');
+ const updateCount=(message='')=>{
+  const total=selected().length;
+  count.textContent=(message?message+' ':'')+teacherCount(total)+' selected.';
+  review.hidden=total===0;
+  filter();
+ };
  const apply=()=>{
-  const ids=new Set(objectionTargets(roster,{mode:mode.value,sections:[...sections.querySelectorAll('input:checked')].map(n=>n.value),grade:grade.value,subject:subject.value}));
-  for(const id of ids)checks.get(id).checked=true;
-  updateCount();if(!ids.size)count.textContent+=' · No teachers match this group';
+  const selectedSections=[...sections.querySelectorAll('input:checked')].map(n=>n.value);
+  if(mode.value==='sections'&&!selectedSections.length){updateCount('Choose at least one class section.');return;}
+  if(mode.value==='subject'&&(!grade.value||!subject.value)){updateCount('Choose a standard and subject.');return;}
+  const ids=objectionTargets(roster,{mode:mode.value,sections:selectedSections,grade:grade.value,subject:subject.value});
+  const added=ids.filter(id=>!checks.get(id).checked);
+  for(const id of added)checks.get(id).checked=true;
+  const group=mode.value==='subject'?grade.value+' · '+subject.selectedOptions[0].textContent:mode.selectedOptions[0].textContent;
+  updateCount(!ids.length?'No active teachers match '+group+'.':added.length?'Added '+teacherCount(added.length)+' from '+group+'.':'All teachers from '+group+' are already selected.');
  };
  const subjectsForGrade=()=>{
   const names=[...new Set(roster.flatMap(p=>p.subjects.filter(([level])=>level===grade.value).map(([, ,name])=>name)))].sort();
@@ -65,8 +77,9 @@ export function renderRollObjectionForm(host,{staff,wing,actorId,assignments,hol
  };
  grade.onchange=subjectsForGrade;
  add.onclick=()=>{form.dataset.portalDirty='true';apply();};
- clear.onclick=()=>{for(const check of checks.values())check.checked=false;updateCount();};
- for(const check of checks.values())check.onchange=updateCount;
+ clear.onclick=()=>{for(const check of checks.values())check.checked=false;selectedOnly.checked=false;updateCount('Selection cleared.');};
+ review.onclick=()=>{search.value='';selectedOnly.checked=true;filter();picks.scrollIntoView({block:'nearest'});picks.querySelector('input:checked')?.focus({preventScroll:true});};
+ for(const check of checks.values())check.onchange=()=>updateCount();
  search.oninput=selectedOnly.onchange=filter;
  form.addEventListener('input',event=>{if(event.target!==search&&event.target!==selectedOnly)form.dataset.portalDirty='true';});
  form.onsubmit=event=>{
