@@ -4,7 +4,7 @@ import {renderPrincipalLogin} from './cbse-principal-login.js';
 
 const content=document.getElementById('meetings-content'),status=document.getElementById('meetings-status');
 const chamber=document.querySelector('.meeting-actions a');
-const staffButton=document.getElementById('meetings-staff'),principalButton=document.getElementById('meetings-principal');
+const staffButton=document.getElementById('meetings-staff');
 const ist=new Intl.DateTimeFormat('en-IN',{dateStyle:'long',timeStyle:'short',timeZone:'Asia/Kolkata'});
 const stamp=ms=>ist.format(ms)+' IST';
 let busy=false,auth,authApi,watching=false,adminMode=false;
@@ -79,8 +79,10 @@ function showCurtain(){
 }
 
 async function showStaff(){
+ adminMode=false;staffButton.hidden=true;
+ if(location.hash==='#principal')history.replaceState(null,'',location.pathname+location.search);
  try{
-  const result=await staffRead();adminMode=false;
+  const result=await staffRead();
   content.replaceChildren(el('h2','Meeting register'));
   if(!result.meetings.length)content.append(el('p','No staff meetings have been recorded.'));
   for(const entry of result.meetings){
@@ -192,6 +194,7 @@ async function showReport(id,principal=false){
  content.append(actions);
 }
 async function showPrincipal(){
+ staffButton.hidden=false;
  if(!auth){
   const [client,module]=await Promise.all([import('./firebase-client.js'),import('https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js')]);
   auth=client.auth;authApi=module;
@@ -199,7 +202,7 @@ async function showPrincipal(){
  await auth.authStateReady();
  if(!watching){
   watching=true;
-  authApi.onAuthStateChanged(auth,user=>{if(!user&&adminMode){adminMode=false;showPrincipalLogin();}});
+  authApi.onAuthStateChanged(auth,user=>{if(!user&&adminMode){adminMode=false;content.replaceChildren();if(!busy)run(showStaff);}});
  }
  if(auth.currentUser){
   try{await drawPrincipal();return;}
@@ -283,9 +286,8 @@ async function drawPrincipal(){
   }));
   card.append(attendanceSection,writerSection,minutes);content.append(card);
  }
- content.append(button('Sign out as Principal',async()=>{if(canLeave())await authApi.signOut(auth);}));
+ content.append(button('Sign out as Principal',async()=>{if(canLeave()){await authApi.signOut(auth);await showStaff();}}));
 }
 staffButton.onclick=()=>{if(canLeave())run(showStaff);};
-principalButton.onclick=()=>{if(canLeave())run(showPrincipal);};
 chamber.onclick=event=>{if(!canLeave())event.preventDefault();};
-run(showStaff);
+run(location.hash==='#principal'?showPrincipal:showStaff);
