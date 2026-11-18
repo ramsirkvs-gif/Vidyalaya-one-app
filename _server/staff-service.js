@@ -203,7 +203,11 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    const actor={principal:!!admin,staffId},operation=input.meetingOperation;
    if(operation==='read'){
     const meetings=input.meetingId?null:await read('cbse/staffMeetings')||{};
-    if(admin&&!input.meetingId)return {ok:true,meetings:staffMeetingList(meetings,{principal:true}),roster:meetingRoster(staff).filter(person=>person.id!=='principal')};
+    if(admin&&!input.meetingId){
+     const roster=meetingRoster(staff).filter(person=>person.id!=='principal');
+     const recipientStaff=Object.fromEntries(roster.map(person=>[person.id,{...person,classRoles:staff[person.id].classRoles||[],classTeacher:!!staff[person.id].classTeacher,coClassTeacher:!!staff[person.id].coClassTeacher}]));
+     return {ok:true,meetings:staffMeetingList(meetings,{principal:true}),roster,recipientStaff,assignments:await read('cbse/rollCall/objectionAssignments')||{}};
+    }
     const meeting=typeof input.meetingId==='string'&&/^[a-f0-9]{32}$/.test(input.meetingId)?await read('cbse/staffMeetings/'+input.meetingId):null;
     if(admin&&meeting&&input.task==='report')return {ok:true,report:meetingReport(meeting,staff)};
     if(!meeting||!canOpenMeeting(staff,meeting,actor,input.task,input.language))throw new AccessError('Only authorised staff can open this meeting task.',403);

@@ -1,3 +1,5 @@
+import {renderRollObjectionForm} from './cbse-roll-objection-form.js';
+import {objectionRoster} from './cbse-roll-objection-targets.js';
 import {attendanceWings,attendanceRoles,minuteLanguages,meetingWriters} from './cbse-staff-meetings-model.js';
 import {el,options} from './cbse-ui.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
@@ -88,9 +90,21 @@ async function showStaff(){
   for(const entry of result.meetings){
    const card=meetingCard(entry);
    if(entry.published)card.append(button('Read minutes / print',()=>showReport(entry.id)));
-   for(const [language,label]of minuteLanguages)if(!entry.submittedLanguages.includes(language)&&meetingWriters(entry).some(writer=>writer.language===language))
-    card.append(button(label+' minutes · Sign in',()=>showTaskLogin(entry,'minutes',language)));
-   if(entry.attendanceTakers?.length)card.append(button('Take attendance · Sign in',()=>showTaskLogin(entry,'attendance')));
+   const signin=el('div',undefined,'meeting-staff-signin');
+   const attendance=el('section',undefined,'meeting-setup');
+   attendance.append(el('h4','Attendance takers'));
+   if(entry.attendanceTakers?.length)attendance.append(el('p',entry.attendanceTakers.map(person=>person.role+' · '+person.name).join(', ')),button('Attendance taker · Sign in with PIN',()=>showTaskLogin(entry,'attendance')));
+   else attendance.append(el('p','No staff attendance taker is assigned.'));
+   const minutes=el('section',undefined,'meeting-setup');minutes.append(el('h4','Minutes writers'));
+   for(const [language,label]of minuteLanguages){
+    const writers=meetingWriters(entry).filter(writer=>writer.language===language);
+    if(!writers.length)continue;
+    minutes.append(el('p',label+' · '+writers.map(writer=>writer.name).join(', ')));
+    if(entry.submittedLanguages.includes(language))minutes.append(el('small','Submitted'));
+    else minutes.append(button(label+' writer · Sign in with PIN',()=>showTaskLogin(entry,'minutes',language)));
+   }
+   if(!meetingWriters(entry).length)minutes.append(el('p','Awaiting writer assignment.'));
+   signin.append(attendance,minutes);card.append(signin);
    content.append(card);
   }
  }catch(error){if(error.curtainRequired){adminMode=false;showCurtain();}else throw error;}
@@ -125,6 +139,7 @@ function attendanceTable(headers){
 }
 const rosterLabel=person=>[person.name,person.designation,person.wing==='primary'?'Primary Wing':''].filter(Boolean).join(' · ');
 function showAttendance(meeting,identity){
+ if(!meeting.roster.length)throw Error('Ask the Principal to select expected attendees first.');
  content.replaceChildren(el('h2','Take attendance'),el('p',stamp(meeting.scheduledAt??meeting.createdAt)),el('p',attendanceWings.find(([value])=>value===meeting.attendanceWing)?.[1]||'Both wings'));
  const form=trackedForm(),{table,rows}=attendanceTable(['Staff member','Attendance']);
  const inputs=meeting.roster.map(person=>{
@@ -219,7 +234,7 @@ function showPrincipalLogin(){
  });
 }
 async function drawPrincipal(){
- const {meetings,roster}=await principalRequest({meetingOperation:'read'});
+ const {meetings,roster,recipientStaff={},assignments={}}=await principalRequest({meetingOperation:'read'});
  await request({action:'remember-view'},true);
  adminMode=true;
  content.replaceChildren(el('h2','Manage staff meetings'));
@@ -234,6 +249,9 @@ async function drawPrincipal(){
  content.append(create);
 
  const choices=[['','Choose a staff member'],...roster.map(person=>[person.id,rosterLabel(person)])];
+ const lookup=new Map();
+ for(const wing of ['secondary','primary'])for(const teacher of objectionRoster(recipientStaff,wing,undefined,assignments))for(const id of teacher.ids)lookup.set(id,teacher);
+
  function editorSection(title){const section=el('details',undefined,'meeting-setup');section.append(el('summary',title));return section;}
  function saveConfig(form,entry,values){
   return run(async()=>{
@@ -251,8 +269,26 @@ async function drawPrincipal(){
    const fieldNode=field(attendance,role,'select');options(fieldNode,choices,entry.attendanceTakers?.find(person=>person.role===role)?.id||'');
    return [role,fieldNode];
   });
-  attendance.append(el('button','Save attendance assignments'));
-  attendance.onsubmit=e=>{e.preventDefault();saveConfig(attendance,entry,{meetingOperation:'attendance-assign',attendanceWing:wing.value,attendanceTakers:takers.filter(([,select])=>select.value).map(([role,select])=>({role,id:select.value}))});};
+  const picker=el('div');
+  attendance.append(el('h4','Expected attendees'),picker);
+  const snapshots=entry.roster||[],selected=new Set(entry.expectedAttendees??snapshots.map(person=>person.id));
+  const wingOf=person=>person.wing||recipientStaff[person.id]?.wing||'';
+  const eligible=()=>snapshots.filter(person=>wing.value==='both'||person.id==='principal'||wingOf(person)===wing.value);
+  const drawPicker=()=>{
+   picker.replaceChildren();
+   const visible=eligible().map(person=>{
+    const details=lookup.get(person.id);
+    return {...person,roles:details?.roles||[],subjects:details?.subjects||[],isCT:!!details?.isCT};
+   });
+   renderRollObjectionForm(picker,{wing:wing.value,selection:{roster:visible,selectedIds:[...selected],onChange:ids=>{
+    for(const person of visible)selected.delete(person.id);
+    for(const id of ids)selected.add(id);
+    attendance.dataset.portalDirty='true';
+   }}});
+  };
+  wing.onchange=drawPicker;drawPicker();
+  attendance.append(el('button','Save attendance assignments and expected list'));
+  attendance.onsubmit=e=>{e.preventDefault();saveConfig(attendance,entry,{meetingOperation:'attendance-assign',attendanceWing:wing.value,expectedAttendees:eligible().filter(person=>selected.has(person.id)).map(person=>person.id),attendanceTakers:takers.filter(([,select])=>select.value).map(([role,select])=>({role,id:select.value}))});};
   attendanceSection.append(attendance,button('Take attendance as Principal',async()=>{
    if(!canLeave())return;
    const {meeting}=await principalRequest({meetingOperation:'read',task:'attendance',meetingId:entry.id});showAttendance(meeting);

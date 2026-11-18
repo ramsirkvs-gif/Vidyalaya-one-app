@@ -19,9 +19,10 @@ test('attendance, Hindi and English save independently and the Principal control
  assert.equal(listed.scheduledAt,Date.parse('2026-11-19T10:30:00+05:30'));
  assert.equal(listed.published,false);
  const {revision:assigned}=await principal('assign',{writers:[{id:hi,language:'hi'},{id:en,language:'en'}],expectedRevision:created});
- const {revision:configured}=await principal('attendance-assign',{attendanceWing:'secondary',attendanceTakers:[{role:'SMT-1',id:smt}],expectedRevision:assigned});
+ const {revision:configured}=await principal('attendance-assign',{attendanceWing:'secondary',attendanceTakers:[{role:'SMT-1',id:smt}],expectedAttendees:[hi,en],expectedRevision:assigned});
  await assert.rejects(pin(en,'456','read',{task:'minutes',language:'hi'}),/authorised/);
  const {meeting}=await pin(smt,'789','read',{task:'attendance'});
+ assert.deepEqual(meeting.roster.map(person=>person.id),[hi,en]);
  const attendance=Object.fromEntries(meeting.roster.map(person=>[person.id,person.id===en?'absent':'present']));
  const hindi={agenda:'बैठक का विषय',minutes:'समीक्षा पर चर्चा हुई।',language:'hi'};
  const english={agenda:'Review',minutes:'Discussed the review.',language:'en'};
