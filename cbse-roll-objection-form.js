@@ -84,6 +84,16 @@ export function renderRollObjectionForm(host,{staff,wing,actorId,assignments,rol
   grade.parentElement.hidden=subject.parentElement.hidden=mode.value!=='subject';
   add.hidden=mode.value==='manual';
  };
+ if(selection?.heldIds){
+  const held=el('button','Use afternoon Roll Call hold list');held.type='button';form.insertBefore(held,count);
+  held.onclick=()=>{
+   const ids=new Set(selection.heldIds.filter(id=>checks.has(id)));
+   if(!ids.size){updateCount('No eligible staff have an open hold from this meeting date in the selected wings.');return;}
+   for(const [id,check]of checks)check.checked=ids.has(id);
+   changed();
+   updateCount('Selection set to staff with open afternoon Roll Call holds from this meeting date.');
+  };
+ }
  grade.onchange=subjectsForGrade;
  add.onclick=apply;
  clear.onclick=()=>{for(const check of checks.values())check.checked=false;selectedOnly.checked=false;changed();updateCount('Selection cleared.');};

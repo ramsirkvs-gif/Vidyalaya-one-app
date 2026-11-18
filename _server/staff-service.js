@@ -1,3 +1,4 @@
+import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
 import {applyStaffMeeting,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {createPINPolicy} from './pin-policy.js';
@@ -206,7 +207,22 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     if(admin&&!input.meetingId){
      const roster=meetingRoster(staff).filter(person=>person.id!=='principal');
      const recipientStaff=Object.fromEntries(roster.map(person=>[person.id,{...person,classRoles:staff[person.id].classRoles||[],classTeacher:!!staff[person.id].classTeacher,coClassTeacher:!!staff[person.id].coClassTeacher}]));
-     return {ok:true,meetings:staffMeetingList(meetings,{principal:true}),roster,recipientStaff,assignments:await read('cbse/rollCall/objectionAssignments')||{}};
+     const rollCall=await read('cbse/rollCall')||{},heldByDate=new Map();
+     for(const hold of Object.values(rollCall.objections||{})){
+      if(hold.status!=='open'||!Number.isFinite(hold.createdAt))continue;
+      const day=rollToday(hold.createdAt);
+      if(!heldByDate.has(day))heldByDate.set(day,new Set());
+      heldByDate.get(day).add(hold.staffId);
+     }
+     const list=staffMeetingList(meetings,{principal:true}).map(meeting=>{
+      const day=rollToday(meeting.scheduledAt),held=heldByDate.get(day);
+      const heldAttendees=held?[...(meeting.roster||[])].filter(person=>{
+       const ids=rollStaffIdentityIds(staff,person.id);
+       return ids.some(id=>held.has(id))&&!afternoonLeaveExemption(rollCall,ids,day);
+      }).map(person=>person.id):[];
+      return {...meeting,heldAttendees};
+     });
+     return {ok:true,meetings:list,roster,recipientStaff,assignments:rollCall.objectionAssignments||{}};
     }
     const meeting=typeof input.meetingId==='string'&&/^[a-f0-9]{32}$/.test(input.meetingId)?await read('cbse/staffMeetings/'+input.meetingId):null;
     if(admin&&meeting&&input.task==='report')return {ok:true,report:meetingReport(meeting,staff)};

@@ -18,6 +18,16 @@ test('attendance, Hindi and English save independently and the Principal control
  assert.equal(listed.agenda,'Review and follow-up');
  assert.equal(listed.scheduledAt,Date.parse('2026-11-19T10:30:00+05:30'));
  assert.equal(listed.published,false);
+ const holdDate=Date.parse('2026-11-19T13:00:00+05:30');
+ f.data.cbse.rollCall={objections:{
+  one:{staffId:hi,status:'open',createdAt:holdDate},
+  same:{staffId:hi,status:'open',createdAt:holdDate},
+  cleared:{staffId:en,status:'cleared',createdAt:holdDate},
+  yesterday:{staffId:smt,status:'open',createdAt:holdDate-86400000}
+ }};
+ assert.deepEqual((await principal('read',{meetingId:undefined})).meetings[0].heldAttendees,[hi]);
+ assert.equal((await call('staff-meetings-read',{})).meetings[0].heldAttendees,undefined);
+
  const {revision:assigned}=await principal('assign',{writers:[{id:hi,language:'hi'},{id:en,language:'en'}],expectedRevision:created});
  const {revision:configured}=await principal('attendance-assign',{attendanceWing:'secondary',attendanceTakers:[{role:'SMT-1',id:smt}],expectedAttendees:[hi,en],expectedRevision:assigned});
  await assert.rejects(pin(en,'456','read',{task:'minutes',language:'hi'}),/authorised/);

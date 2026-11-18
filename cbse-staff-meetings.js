@@ -280,7 +280,7 @@ async function drawPrincipal(){
     const details=lookup.get(person.id);
     return {...person,roles:details?.roles||[],subjects:details?.subjects||[],isCT:!!details?.isCT};
    });
-   renderRollObjectionForm(picker,{wing:wing.value,selection:{roster:visible,selectedIds:[...selected],onChange:ids=>{
+   renderRollObjectionForm(picker,{wing:wing.value,selection:{roster:visible,selectedIds:[...selected],heldIds:entry.heldAttendees||[],onChange:ids=>{
     for(const person of visible)selected.delete(person.id);
     for(const id of ids)selected.add(id);
     attendance.dataset.portalDirty='true';
