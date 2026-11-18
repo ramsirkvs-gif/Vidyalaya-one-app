@@ -8,12 +8,12 @@ test('instant first-half leave records morning absence, exempts only morning and
  const input={...base,period:'morning',reported:'no',leaveType:'half',halfDay:'first',answers:yes('leave')};
  let s=applyRollCall({},input,teacher,staff,now);assert.equal(person(s).morning.reported,'no');assert.equal(person(s).morningExcused,true);assert.equal(person(s).afternoonLeave,false);assert.equal(person(s).afternoon,undefined);
  assert.throws(()=>applyRollCall({}, {...input,reported:'yes'},teacher,staff,now),/morning absence/);
- s=applyRollCall(s,{...base,period:'afternoon',reported:'yes',leaveType:'half',halfDay:'first',answers:yes('leave')},teacher,staff,now+100);assert.equal(person(s).afternoon.reported,'yes');assert.equal(person(s).afternoon.status,'pending');
+ s=applyRollCall(s,{...base,period:'afternoon',answers:{...yes('afternoon'),afternoon_reflection:'synthetic '.repeat(50).trim()}},teacher,staff,now+100);assert.equal(person(s).afternoon.reported,'yes');assert.equal(person(s).afternoon.status,'recorded');
 });
 test('instant second-half leave records morning presence, exempts only afternoon and retains Principal/NOC approval',()=>{
- const input={...base,period:'morning',reported:'yes',leaveType:'half',halfDay:'second',answers:yes('morning')};let s=applyRollCall({},input,teacher,staff,now),id=Object.keys(s.reports)[0];assert.equal(person(s).morningExcused,false);assert.equal(person(s).afternoonLeave,true);assert.equal(person(s).morning.status,'pending');
+ const input={...base,period:'morning',reported:'yes',leaveType:'half',halfDay:'second',answers:yes('morning')};let s=applyRollCall({},input,teacher,staff,now),id=Object.keys(s.reports)[0];assert.equal(person(s).morningExcused,false);assert.equal(person(s).afternoonLeave,true);assert.equal(person(s).morning.status,'recorded');
  assert.throws(()=>applyRollCall({}, {...input,reported:'no'},teacher,staff,now),/morning attendance/);
  s=applyRollCall(s,{rollOperation:'approve',reportId:id},principal,staff,now+1);assert.equal(s.reports[id].status,'approved');
  s=applyRollCall(s,{rollOperation:'object',wing:'secondary',targets:['a'],remark:'Return the examination bundle.'},{id:'ic',name:'Exam IC'},staff,now+2,'objection');assert.equal(s.reports[id].status,'blocked');assert.throws(()=>applyRollCall(s,{rollOperation:'approve',reportId:id},principal,staff,now+3),/pending roll call|Clear pending/);
- s=applyRollCall(s,{rollOperation:'clear',objectionId:'objection_a'},{id:'ic'},staff,now+4);assert.equal(s.reports[id].status,'pending');s=applyRollCall(s,{rollOperation:'reject',reportId:id},principal,staff,now+5);assert.equal(person(s).afternoonLeave,false);
+ s=applyRollCall(s,{rollOperation:'clear',objectionId:'objection_a'},{id:'ic'},staff,now+4);assert.equal(s.reports[id].status,'recorded');s=applyRollCall(s,{rollOperation:'reject',reportId:id},principal,staff,now+5);assert.equal(person(s).afternoonLeave,false);
 });

@@ -71,3 +71,5 @@
 .chamber-mini-tiles[hidden]{display:none}
 .roll-cartoon-heading{display:flex;align-items:center;gap:10px}.roll-cartoon-heading img{width:52px;height:52px;flex:none;object-fit:contain}
 .advance-leave-range{padding:12px;border:1px solid #b8d4cc;border-radius:10px;background:#fffdf1;margin-bottom:12px}.advance-leave-range[hidden]{display:none}.advance-leave-range label{display:inline-flex;flex-direction:column;max-width:100%;margin-right:12px}.advance-leave-range input{max-width:100%;box-sizing:border-box}
+
+.roll-afternoon-success{display:block;padding:12px;border-radius:8px;background:#dff3e4;color:#146449;font-size:1.2em;font-weight:750}

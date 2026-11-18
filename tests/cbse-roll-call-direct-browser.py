@@ -7,13 +7,15 @@ with sync_playwright() as p:
     page.set_content('<link rel="stylesheet" href="/cbse.css"><link rel="stylesheet" href="/cbse-roll-call.css"><main><div id="register"></div><div id="principal"></div></main>')
     page.evaluate('''async()=>{
       const {applyRollCall,ROLL_CHECKS}=await import('/cbse-roll-call-model.js');
+      const {AFTERNOON_QUESTIONS}=await import('/cbse-afternoon-checklist.js');
       const {renderDailyRollRegister}=await import('/cbse-roll-call-register.js');
       const {renderRollPrincipalDashboard}=await import('/cbse-roll-call-principal.js');
       window.setupDirect=(wing,period)=>{
         window.now=Date.parse('2026-11-16T04:00:00Z');window.wing=wing;window.period=period;
         window.staff={teacher:{name:'Synthetic '+wing,designation:wing==='primary'?'PRT':'TGT',wing,status:'active'}};
         window.saved=applyRollCall({},{rollOperation:'report',wing,period:'morning',reported:'yes',answers:Object.fromEntries(ROLL_CHECKS.map(([k])=>[k,'yes']))},{id:'teacher',name:staff.teacher.name},staff,now);
-        if(period==='afternoon')saved=applyRollCall(saved,{rollOperation:'report',wing,period:'afternoon'},{id:'teacher',name:staff.teacher.name},staff,++now);
+        const afternoonAnswers=Object.fromEntries(AFTERNOON_QUESTIONS.map(q=>[q.id,q.type==='text'?'synthetic '.repeat(50).trim():'yes']));
+        if(period==='afternoon')saved=applyRollCall(saved,{rollOperation:'report',wing,period:'afternoon',answers:afternoonAnswers},{id:'teacher',name:staff.teacher.name},staff,++now);
         window.draw=()=>{
           document.querySelector('#register').replaceChildren();document.querySelector('#principal').replaceChildren();
           const data={serverDate:'2026-11-16',serverTime:now,staff,rollCall:saved};
