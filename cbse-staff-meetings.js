@@ -115,10 +115,24 @@ async function showStaff(){
     signIn.title=writers.map(writer=>writer.name).join(', ');
     actions.append(signIn);
    }
-   if(entry.published)actions.append(button('Read minutes / print',()=>showReport(entry.id)));
    if(actions.childElementCount)card.append(actions);
    content.append(card);
   }
+  const published=el('section',undefined,'meeting-register-section');
+  published.append(el('h3','Published Meeting Minutes'));
+  const reports=result.meetings.filter(entry=>entry.published)
+   .sort((a,b)=>(b.scheduledAt??b.createdAt)-(a.scheduledAt??a.createdAt));
+  if(reports.length){
+   const {table,rows}=attendanceTable(['Meeting / agenda','Date and time','Report']);
+   for(const entry of reports){
+    const row=el('tr'),action=el('td');
+    action.append(button('Read minutes / print',()=>showReport(entry.id)));
+    row.append(el('td',entry.agenda||'Staff meeting'),el('td',stamp(entry.scheduledAt??entry.createdAt)),action);
+    rows.append(row);
+   }
+   published.append(table);
+  }else published.append(el('p','No meeting minutes have been published.','meeting-register-empty'));
+  content.append(published);
  }catch(error){if(error.curtainRequired){adminMode=false;showCurtain();}else throw error;}
 }
 function choosePrincipalAttendance(meetings){
