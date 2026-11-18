@@ -33,13 +33,19 @@ export function renderRollObjectionForm(host,{staff,wing,actorId,assignments,hol
  const search=field('Search names, standards, subjects or roles','input');search.type='search';search.name='roll-search';
  const selectedLabel=el('label','Show selected teachers only'),selectedOnly=el('input');selectedOnly.type='checkbox';selectedLabel.prepend(selectedOnly);form.append(selectedLabel);
  const picks=el('div',undefined,'roll-employee-picks');
+ const table=el('table',undefined,'roll-objection-teacher-table'),head=el('thead'),header=el('tr'),rows=el('tbody');
+ table.setAttribute('aria-label','Teachers for afternoon NOC');
+ for(const text of ['Select','Name','Details']){const column=el('th',text);column.scope='col';header.append(column);}
+ head.append(header);table.append(head,rows);picks.append(table);
  const checks=new Map();
  for(const p of roster){
-  const label=el('label'),check=el('input');check.type='checkbox';check.value=p.id;
+  const row=el('tr'),selection=el('td'),check=el('input');check.type='checkbox';check.value=p.id;
+  check.setAttribute('aria-label','Select '+p.name);selection.append(check);
   const roles=p.roles.map(([level,section,role])=>level+' '+section+' '+role);
   const subjects=[...new Set(p.subjects.map(([level,,name])=>level+' '+name))];
-  const text=[p.name,p.designation,...roles,...subjects].filter(Boolean).join(' · ');
-  label.append(check,el('span',text));picks.append(label);checks.set(p.id,check);
+  const name=el('th',p.name);name.scope='row';
+  const details=[p.designation,...roles,...subjects].filter(Boolean).join(' · ');
+  row.append(selection,name,el('td',details||'—'));rows.append(row);checks.set(p.id,check);
  }
  form.append(picks);
  const remark=field(hold?'Departure hold remark':'Short remark — pending task','textarea');remark.name='roll-objection-remark';remark.required=true;remark.maxLength=hold?120:500;if(hold)remark.value='Meet Principal before leaving';
@@ -47,7 +53,7 @@ export function renderRollObjectionForm(host,{staff,wing,actorId,assignments,hol
  const selected=()=>[...checks.values()].filter(check=>check.checked).map(check=>check.value);
  const filter=()=>{
   const query=search.value.trim().toLowerCase();
-  for(const check of checks.values())check.parentElement.hidden=(selectedOnly.checked&&!check.checked)||!check.parentElement.textContent.toLowerCase().includes(query);
+  for(const check of checks.values()){const row=check.closest('tr');row.hidden=(selectedOnly.checked&&!check.checked)||!row.textContent.toLowerCase().includes(query);}
  };
  const teacherCount=n=>n+' '+(n===1?'teacher':'teachers');
  const updateCount=(message='')=>{

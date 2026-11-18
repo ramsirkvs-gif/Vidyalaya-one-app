@@ -79,3 +79,13 @@
 .roll-objection-sections>div{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 .roll-objection-sections label{flex-direction:row;align-items:center;gap:3px;margin:0}
 .roll-objection-sections input[type=checkbox]{width:auto;margin:0}
+
+.roll-objection-teacher-table{width:100%;table-layout:fixed;border-collapse:collapse}
+.roll-objection-teacher-table th,.roll-objection-teacher-table td{padding:8px 6px;text-align:left;vertical-align:middle;border-bottom:1px solid #d7e3df;overflow-wrap:anywhere}
+.roll-objection-teacher-table thead th{position:sticky;top:0;background:#edf6f3;font-size:.8rem}
+.roll-objection-teacher-table th:first-child{width:3.25rem}
+.roll-objection-teacher-table thead th:nth-child(2){width:30%}
+.roll-objection-teacher-table td:first-child{text-align:center}
+.roll-objection-teacher-table th[scope=row]{font-size:.9rem}
+.roll-objection-teacher-table td:last-child{font-size:.72rem;line-height:1.35}
+.roll-objection-teacher-table input[type=checkbox]{width:1.15rem;height:1.15rem;margin:0;vertical-align:middle}
