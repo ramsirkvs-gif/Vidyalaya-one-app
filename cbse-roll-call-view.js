@@ -92,7 +92,7 @@ export function renderRollCall(host,{deferOpen=false}={}){
   if(initial)f.append(el('p','Last response submitted: '+rollTimestamp(initial.updatedAt||initial.submittedAt),'roll-last-response'));
   const undertakingLabel=el('label',undefined,'roll-undertaking'),undertaking=el('input');
   undertaking.type='checkbox';undertaking.name='roll-undertaking';undertaking.required=true;undertaking.checked=initial?.undertaking===true;
-  undertakingLabel.append(undertaking,el('span','I will attend to my duties promptly today and complete pending work as far as possible.'));
+  undertakingLabel.append(undertaking,el('span','I have completed my assigned duties for today. I will remain reachable by phone, email, and messaging for any urgent work that requires my attention. I understand my responsibilities under FR-11.'));
   f.append(undertakingLabel,el('button','Submit roll call'),button('Cancel',cancelPersonal));
   f.onsubmit=e=>{e.preventDefault();run(async()=>{
    const submitter=identity,date=data.serverDate;
