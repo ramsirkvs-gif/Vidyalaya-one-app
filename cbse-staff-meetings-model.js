@@ -83,13 +83,32 @@ function knownWriters(ids,roster){
  if(!Array.isArray(ids)||ids.length>available.size||new Set(ids).size!==ids.length||ids.some(id=>!available.has(id)))throw Error('Choose different active staff members.');
  return ids.map(id=>({id,name:available.get(id)}));
 }
+export function meetingAttendanceDefaults(meetings,roster){
+ const records=Object.values(meetings||{}),active=new Map(roster.map(person=>[person.id,person]));
+ const latest=records.filter(meeting=>meeting.attendanceDefaultsAt||meeting.attendanceTakers?.length&&!meeting.attendanceTakersConfigured)
+  .sort((a,b)=>(b.attendanceDefaultsAt||b.createdAt)-(a.attendanceDefaultsAt||a.createdAt))[0];
+ if(latest)return (latest.attendanceTakers||[]).filter(person=>active.has(person.id));
+ const names=['ETZIRDO','PARAMVEERMEENA','RAMESHYADAV'];
+ return names.flatMap((name,index)=>{
+  const person=roster.find(candidate=>rollNameKey(candidate.name)===name);
+  return person?[{id:person.id,name:person.name,role:attendanceRoles[index]}]:[];
+ });
+}
+
+function meetingWriterDefaults(meetings,roster){
+ const active=new Map(roster.map(({id,name})=>[id,name]));
+ const latest=Object.values(meetings).filter(meeting=>meeting.writerDefaultsAt||!meeting.writersConfigured&&meetingWriters(meeting).length)
+  .sort((a,b)=>(b.writerDefaultsAt||b.createdAt)-(a.writerDefaultsAt||a.createdAt))[0];
+ return latest?meetingWriters(latest).filter(({id})=>active.has(id)).map(writer=>({...writer,name:active.get(writer.id)})):[];
+}
+
 function minuteText({agenda,minutes,language},required){
  if(!minuteLanguages.some(([id])=>id===language))throw Error('Choose Hindi (Rajbhasha) or English.');
  if(typeof agenda!=='string'||agenda.length>500||required&&!agenda.trim())throw Error('Enter the agenda / subject in up to 500 characters.');
  if(typeof minutes!=='string'||minutes.length>12000||required&&!minutes.trim())throw Error('Enter the meeting minutes in up to 12,000 characters.');
  return {agenda:agenda.trim(),minutes:minutes.trim(),language};
 }
-export function applyStaffMeeting(store,input,actor,staff,now){
+export function applyStaffMeeting(store,input,actor,staff,now,{allowEmpty=false}={}){
  const meetings={...store},id=input.meetingId,operation=input.meetingOperation;
  if(!meetingKey(id))throw Error('Choose a valid staff meeting.');
  const meeting=meetings[id];
@@ -101,8 +120,10 @@ export function applyStaffMeeting(store,input,actor,staff,now){
   if(!validDate||typeof meetingTime!=='string'||!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(meetingTime))throw Error('Enter a valid meeting date and time in IST.');
   if(typeof meetingAgenda!=='string'||!meetingAgenda.trim()||meetingAgenda.length>500)throw Error('Enter a meeting agenda in up to 500 characters.');
   const scheduledAt=Date.parse(meetingDate+'T'+meetingTime+':00+05:30');
-  const roster=meetingRoster(staff),writers=knownWriters(input.writerIds??(input.writerId?[input.writerId]:[]),roster);
-  meetings[id]={id,createdAt:now,scheduledAt,meetingAgenda:meetingAgenda.trim(),revision:1,writers,roster,attendanceWing:'both',hasAttendanceSelection:true};
+  const roster=meetingRoster(staff);
+  const explicitWriters=input.writerIds??(input.writerId?[input.writerId]:null);
+  const writers=explicitWriters?knownWriters(explicitWriters,roster):meetingWriterDefaults(meetings,roster);
+  meetings[id]={id,createdAt:now,scheduledAt,meetingAgenda:meetingAgenda.trim(),revision:1,writers,writersConfigured:true,...(explicitWriters?.length?{writerDefaultsAt:now}:{}),roster,attendanceWing:'both',hasAttendanceSelection:true,attendanceTakersConfigured:true,attendanceTakers:meetingAttendanceDefaults(meetings,roster)};
   return meetings;
  }
  if(!meeting)throw Error('Choose an existing staff meeting.');
@@ -111,12 +132,19 @@ export function applyStaffMeeting(store,input,actor,staff,now){
  const revision=isMinutes?minute.revision||0:isAttendance?meeting.attendanceRevision||0:meeting.revision;
  if(input.expectedRevision!==revision)throw Error('This meeting changed. Reopen it to check the latest version before saving.');
  let changes;
- if(operation==='assign'){
+ if(operation==='setup-save'){
+  if(!actor.principal)throw Error('Only the Principal can save meeting setup.');
+  const attendance=applyStaffMeeting(meetings,{...input,meetingOperation:'attendance-assign'},actor,staff,now,{allowEmpty:true});
+  return applyStaffMeeting(attendance,{...input,meetingOperation:'assign',expectedRevision:attendance[id].revision},actor,staff,now,{allowEmpty:true});
+ }else if(operation==='assign'){
   if(!actor.principal)throw Error('Only the Principal can assign minute writers.');
   const assignments=input.writers??(input.writerIds??[input.writerId]).map(id=>({id,language:'en'}));
-  if(!Array.isArray(assignments)||!assignments.length||assignments.some(writer=>!minuteLanguages.some(([id])=>writer?.language===id)))throw Error('Assign at least one minute writer and choose their language.');
+  if(!Array.isArray(assignments)||(!allowEmpty&&!assignments.length)||assignments.some(writer=>!minuteLanguages.some(([id])=>writer?.language===id)))throw Error('Assign at least one minute writer and choose their language.');
   const writers=knownWriters(assignments.map(writer=>writer.id),meetingRoster(staff));
-  changes={writers:writers.map((writer,index)=>({...writer,language:assignments[index].language}))};
+  const assigned=writers.map((writer,index)=>({...writer,language:assignments[index].language}));
+  const writerKeys=people=>people.map(({id,language})=>language+':'+id).sort().join('|');
+  const updatedDefaults=writerKeys(assigned)!==writerKeys(meetingWriters(meeting));
+  changes={writers:assigned,...(updatedDefaults?{writersConfigured:true,writerDefaultsAt:now}:{})};
  }else if(operation==='attendance-assign'){
   if(!actor.principal)throw Error('Only the Principal can assign attendance.');
   const {attendanceWing,attendanceTakers}=input;
@@ -126,8 +154,14 @@ export function applyStaffMeeting(store,input,actor,staff,now){
   const people=knownWriters(attendanceTakers.map(row=>row.id),meetingRoster(staff));
   const eligible=new Set(meetingAttendanceRoster({...meeting,attendanceWing},staff,true).map(person=>person.id));
   const expected=input.expectedAttendees;
-  if(!Array.isArray(expected)||!expected.length||new Set(expected).size!==expected.length||expected.some(id=>!eligible.has(id)))throw Error('Select at least one expected attendee from the chosen wings.');
-  changes={attendanceWing,hasAttendanceSelection:true,expectedAttendees:expected,attendanceRevision:(meeting.attendanceRevision||0)+1,attendanceTakers:people.map((person,index)=>({...person,role:roles[index]}))};
+  if(!Array.isArray(expected)||(!allowEmpty&&!expected.length)||new Set(expected).size!==expected.length||expected.some(id=>!eligible.has(id)))throw Error('Select at least one expected attendee from the chosen wings.');
+  const attendanceTakersSaved=people.map((person,index)=>({...person,role:roles[index]}));
+  const previousTakers=meeting.attendanceTakersConfigured?meeting.attendanceTakers||[]:meeting.attendanceTakers||meetingAttendanceDefaults(meetings,meetingRoster(staff));
+  const roleKeys=takers=>takers.map(({id,role})=>role+':'+id).sort().join('|');
+  const updatedDefaults=roleKeys(attendanceTakersSaved)!==roleKeys(previousTakers);
+  const oldExpected=meetingAttendanceRoster(meeting,staff).map(person=>person.id);
+  const changedAttendance=updatedDefaults||attendanceWing!==(meeting.attendanceWing||'both')||expected.length!==oldExpected.length||expected.some(id=>!oldExpected.includes(id));
+  changes={attendanceWing,hasAttendanceSelection:true,expectedAttendees:expected,attendanceRevision:(meeting.attendanceRevision||0)+(changedAttendance?1:0),attendanceTakersConfigured:true,attendanceTakers:attendanceTakersSaved,...(updatedDefaults?{attendanceDefaultsAt:now}:{})};
  }else if(operation==='attendance-save'){
   if(!canOpenMeeting(staff,meeting,actor,'attendance'))throw Error('Only the Principal or an assigned SMT can take attendance.');
   const roster=meetingAttendanceRoster(meeting,staff),{attendance}=input;
@@ -158,6 +192,6 @@ export function staffMeetingList(store,{principal=false}={}){
   const versions=minuteLanguages.filter(([language])=>meetingMinute(meeting,language).savedAt).map(([language])=>language);
   const published=!!meeting.publishedReport||meeting.publishedReport===undefined&&!!meeting.savedAt;
   const agenda=meeting.meetingAgenda||meeting.publishedReport?.versions?.[0]?.agenda||(published?meeting.agenda:undefined);
-  return {id,createdAt,scheduledAt:meeting.scheduledAt||createdAt,writers,published,submittedLanguages:versions,attendanceWing:meeting.attendanceWing||'both',attendanceTakers:meeting.attendanceTakers||[],...(principal?{revision,roster:meeting.roster,expectedAttendees:meeting.hasAttendanceSelection?meeting.expectedAttendees||[]:null}:{}),...(agenda?{agenda}:{})};
+  return {id,createdAt,scheduledAt:meeting.scheduledAt||createdAt,writers,published,submittedLanguages:versions,attendanceWing:meeting.attendanceWing||'both',attendanceTakers:meeting.attendanceTakers||[],...(principal?{revision,roster:meeting.roster,expectedAttendees:meeting.hasAttendanceSelection?meeting.expectedAttendees||[]:null,attendanceTakersConfigured:!!meeting.attendanceTakersConfigured}:{}),...(agenda?{agenda}:{})};
  });
 }

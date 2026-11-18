@@ -89,3 +89,30 @@ test('meeting rosters follow seniority and identify Primary staff in existing at
  assert.deepEqual(meetingAttendanceRoster(historical,staff).map(p=>p.id),['principal','hm','poor','girraj','anil','bengia']);
  assert.equal(roster.find(p=>p.id==='anil').wing,'primary');
 });
+
+test('new meetings reuse the latest saved attendance and language assignments',async()=>{
+ const f=taskFixture();
+ for(const [id,name] of [['zirdo','MRS. E.T. ZIRDO'],['paramveer','MR. PARAMVEER MEENA'],['ramesh','MR. RAMESH YADAV']]){
+  f.data.cbse.mission.staff[id]={name,designation:'PGT',wing:'secondary',status:'active'};
+ }
+ const first='1'.repeat(32),second='2'.repeat(32),third='3'.repeat(32);
+ const principal=(meetingOperation,meetingId,extra={})=>f.service('staff-meetings-principal',{meetingOperation,meetingId,...extra},'principal');
+ const create=id=>principal('create',id,{meetingDate:'2026-11-19',meetingTime:'10:30',meetingAgenda:'Review'});
+ const list=async id=>(await principal('read')).meetings.find(meeting=>meeting.id===id);
+ const {revision}=await create(first);
+ assert.deepEqual((await list(first)).attendanceTakers.map(person=>person.name),['MRS. E.T. ZIRDO','MR. PARAMVEER MEENA','MR. RAMESH YADAV']);
+ const writers=[{id:'X:one',language:'hi'},{id:'X:two',language:'en'}];
+ const setup={expectedRevision:revision,attendanceWing:'secondary',expectedAttendees:['X:one'],attendanceTakers:[{id:'X:two',role:'SMT-1'}]};
+ await assert.rejects(principal('setup-save',first,{...setup,writers:[{id:'unknown',language:'hi'}]}),/active staff/);
+ assert.equal((await list(first)).attendanceWing,'both');
+ await principal('setup-save',first,{...setup,writers});
+ await create(second);
+ const next=await list(second);
+ assert.deepEqual(next.attendanceTakers.map(({id,role})=>({id,role})),setup.attendanceTakers);
+ assert.deepEqual(next.writers.map(({id,language})=>({id,language})),writers);
+ assert.deepEqual(next.expectedAttendees,[]);
+ await principal('setup-save',second,{...setup,expectedRevision:next.revision,writers:[]});
+ await create(third);
+ assert.deepEqual((await list(third)).writers,[]);
+ assert.equal((await list(first)).writers.length,2);
+});

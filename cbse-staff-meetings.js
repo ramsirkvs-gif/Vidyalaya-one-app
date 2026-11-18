@@ -9,9 +9,9 @@ const chamber=document.querySelector('.meeting-actions a');
 const staffButton=document.getElementById('meetings-staff'),manageButton=document.getElementById('meetings-manage');
 const ist=new Intl.DateTimeFormat('en-IN',{dateStyle:'long',timeStyle:'short',timeZone:'Asia/Kolkata'});
 const stamp=ms=>ist.format(ms)+' IST';
-let busy=false,auth,authApi,watching=false,adminMode=false;
+let busy=false,auth,authApi,watching=false,adminMode=false,savedSetupId=null;
 function canLeave(except){
- const pending=[...content.querySelectorAll('form[data-portal-dirty="true"]')].filter(form=>form!==except);
+ const pending=[...content.querySelectorAll('form[data-portal-dirty="true"]')].filter(form=>!(Array.isArray(except)?except:[except]).includes(form));
  if(!pending.length)return true;
  const sections=[...new Set(pending.map(form=>form.dataset.meetingSection))];
  return confirm('Unsaved changes in '+sections.join(', ')+'. Discard these changes?');
@@ -95,31 +95,32 @@ async function showStaff(){
   content.replaceChildren(el('h2','Meeting register'));
   if(!result.meetings.length)content.append(el('p','No staff meetings have been recorded.'));
   for(const entry of result.meetings){
-   const card=meetingCard(entry);
-   if(entry.published)card.append(button('Read minutes / print',()=>showReport(entry.id)));
-   const signin=el('div',undefined,'meeting-staff-signin');
-   const attendance=el('section',undefined,'meeting-setup');
-   attendance.append(el('h4','Attendance takers'));
-   if(entry.attendanceTakers?.length)attendance.append(el('p',entry.attendanceTakers.map(person=>person.role+' · '+person.name).join(', ')),button('Attendance taker · Sign in with PIN',()=>showTaskLogin(entry,'attendance')));
-   else attendance.append(el('p','No staff attendance taker is assigned.'));
-   const minutes=el('section',undefined,'meeting-setup');minutes.append(el('h4','Minutes writers'));
+   const card=meetingCard(entry,false);
+   const actions=el('div',undefined,'meeting-actions');
+   actions.append(button('Take attendance as Principal',()=>showPrincipal(()=>openPrincipalAttendance(entry))));
+   if(entry.attendanceTakers?.length){
+    const attendance=button('Attendance taker · PIN',()=>showTaskLogin(entry,'attendance'));
+    attendance.title=entry.attendanceTakers.map(person=>person.role+' · '+person.name).join(', ');
+    actions.append(attendance);
+   }
    for(const [language,label]of minuteLanguages){
     const writers=meetingWriters(entry).filter(writer=>writer.language===language);
-    if(!writers.length)continue;
-    minutes.append(el('p',label+' · '+writers.map(writer=>writer.name).join(', ')));
-    if(entry.submittedLanguages.includes(language))minutes.append(el('small','Submitted'));
-    else minutes.append(button(label+' writer · Sign in with PIN',()=>showTaskLogin(entry,'minutes',language)));
+    if(!writers.length||entry.submittedLanguages.includes(language))continue;
+    const signIn=button(label+' writer · PIN',()=>showTaskLogin(entry,'minutes',language));
+    signIn.title=writers.map(writer=>writer.name).join(', ');
+    actions.append(signIn);
    }
-   if(!meetingWriters(entry).length)minutes.append(el('p','Awaiting writer assignment.'));
-   signin.append(attendance,minutes);card.append(signin);
+   if(entry.published)actions.append(button('Read minutes / print',()=>showReport(entry.id)));
+   card.append(actions);
    content.append(card);
   }
  }catch(error){if(error.curtainRequired){adminMode=false;showCurtain();}else throw error;}
 }
-function meetingCard(entry){
+function meetingCard(entry,showWriters=true){
  const card=el('article',undefined,'meeting-item');
  const [subject,...points]=(entry.agenda||'Meeting awaiting minutes').split('\n');
- card.append(el('h3',subject),el('p',stamp(entry.scheduledAt??entry.createdAt)),el('p','Assigned writers: '+(meetingWriters(entry).map(writer=>writer.name).join(', ')||'Awaiting assignment')));
+ card.append(el('h3',subject),el('p',stamp(entry.scheduledAt??entry.createdAt)));
+ if(showWriters)card.append(el('p','Assigned writers: '+(meetingWriters(entry).map(writer=>writer.name).join(', ')||'Awaiting assignment')));
  if(points.length)card.append(el('p',points.join('\n'),'meeting-minutes-text'));
  return card;
 }
@@ -215,7 +216,12 @@ async function showReport(id,principal=false){
  actions.append(button('Print / Save as PDF',async()=>{await Promise.allSettled([...document.querySelectorAll('.meeting-letterhead img')].map(img=>img.decode()));window.print();}),button('Back to meeting register',()=>adminMode?drawPrincipal():showStaff()));
  content.append(actions);
 }
-async function showPrincipal(){
+async function openPrincipalAttendance(entry){
+ const {meeting}=await principalRequest({meetingOperation:'read',task:'attendance',meetingId:entry.id});
+ adminMode=true;
+ showAttendance(meeting);
+}
+async function showPrincipal(afterSignIn=drawPrincipal){
  staffButton.hidden=false;manageButton.hidden=true;
  if(!auth){
   const [client,module]=await Promise.all([import('./firebase-client.js'),import('https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js')]);
@@ -227,21 +233,21 @@ async function showPrincipal(){
   authApi.onAuthStateChanged(auth,user=>{if(!user&&adminMode){adminMode=false;content.replaceChildren();if(!busy)run(showStaff);}});
  }
  if(auth.currentUser){
-  try{await drawPrincipal();return;}
+  try{await afterSignIn();return;}
   catch(error){if(![401,403].includes(error.status))throw error;}
  }
- showPrincipalLogin();
+ showPrincipalLogin(afterSignIn);
 }
-function showPrincipalLogin(){
+function showPrincipalLogin(afterSignIn){
  content.replaceChildren(el('h2','Principal sign-in'));
  renderPrincipalLogin(content,async secret=>{
   try{await authApi.signInWithEmailAndPassword(auth,'ramsirkvs@gmail.com',secret);}
   catch(error){if(/invalid-credential|wrong-password|user-not-found/.test(error.code||''))throw Error('Principal password is incorrect.');throw error;}
-  await drawPrincipal();
+  await afterSignIn();
  });
 }
 async function drawPrincipal(){
- const {meetings,roster,recipientStaff={},assignments={}}=await principalRequest({meetingOperation:'read'});
+ const {meetings,roster,recipientStaff={},assignments={},attendanceDefaults=[]}=await principalRequest({meetingOperation:'read'});
  await request({action:'remember-view'},true);
  adminMode=true;
  content.replaceChildren(el('h2','Manage staff meetings'));
@@ -260,23 +266,17 @@ async function drawPrincipal(){
  for(const wing of ['secondary','primary'])for(const teacher of objectionRoster(recipientStaff,wing,undefined,assignments))for(const id of teacher.ids)lookup.set(id,teacher);
 
  function editorSection(title){const section=el('details',undefined,'meeting-setup');section.append(el('summary',title));return section;}
- function saveConfig(form,entry,values){
-  if(!canLeave(form))return;
-  return run(async()=>{
-   saved(await principalRequest({meetingId:entry.id,expectedRevision:entry.revision,...values}));
-   form.dataset.portalDirty='false';await drawPrincipal();message('Meeting assignments saved.');
-  });
- }
  for(const entry of meetings){
   const card=meetingCard(entry);
-  const attendanceSection=editorSection('1. Take attendance · '+(attendanceWings.find(([id])=>id===entry.attendanceWing)?.[1]||'Both wings'));
+  const attendanceSection=editorSection('1. Expected attendance · '+(attendanceWings.find(([id])=>id===entry.attendanceWing)?.[1]||'Both wings'));
   const meetingLabel=entry.agenda?.split('\n')[0];
   const sectionName=area=>meetingLabel?area+' ('+meetingLabel+')':area;
   const attendance=trackedForm(sectionName('Attendance assignments and expected attendees')),wing=field(attendance,'Attendance wings','select');
   options(wing,attendanceWings,entry.attendanceWing);
   attendance.append(el('p','Principal can take attendance. Assign additional senior teachers below.'));
+  const assignedTakers=entry.attendanceTakersConfigured||entry.attendanceTakers?.length?entry.attendanceTakers||[]:attendanceDefaults;
   const takers=attendanceRoles.map(role=>{
-   const fieldNode=field(attendance,role,'select');options(fieldNode,choices,entry.attendanceTakers?.find(person=>person.role===role)?.id||'');
+   const fieldNode=field(attendance,role,'select');options(fieldNode,choices,assignedTakers.find(person=>person.role===role)?.id||'');
    return [role,fieldNode];
   });
   const picker=el('div');
@@ -297,24 +297,23 @@ async function drawPrincipal(){
    }}});
   };
   wing.onchange=drawPicker;drawPicker();
-  attendance.append(el('button','Save attendance assignments and expected list'));
-  attendance.onsubmit=e=>{e.preventDefault();saveConfig(attendance,entry,{meetingOperation:'attendance-assign',attendanceWing:wing.value,expectedAttendees:eligible().filter(person=>selected.has(person.id)).map(person=>person.id),attendanceTakers:takers.filter(([,select])=>select.value).map(([role,select])=>({role,id:select.value}))});};
+  attendance.onsubmit=event=>event.preventDefault();
   attendanceSection.append(attendance);
   const takeAttendance=button('Take attendance as Principal',async()=>{
    if(attendance.dataset.portalDirty==='true'){
     attendanceSection.open=true;
-    attendance.querySelector('button:not([type])')?.focus();
-    message('Save attendance assignments and the expected list before taking attendance.',true);return;
+    saveSetup.focus();
+    message('Use Save meeting setup before taking attendance.',true);return;
    }
    if(!canLeave())return;
-   const {meeting}=await principalRequest({meetingOperation:'read',task:'attendance',meetingId:entry.id});showAttendance(meeting);
+   await openPrincipalAttendance(entry);
   });
 
   const writerSection=editorSection('2. Minutes writers'),writerForm=trackedForm(sectionName('Minutes writers')),rows=el('div'),writers=new Set();
   const updateRemove=()=>{for(const button of rows.querySelectorAll('button'))button.hidden=writers.size===1;};
   writerForm.append(rows);
   const addWriter=value=>{
-   const row=el('div',undefined,'meeting-actions meeting-writer-row'),writer=field(row,'Assigned minute writer','select');writer.required=true;
+   const row=el('div',undefined,'meeting-actions meeting-writer-row'),writer=field(row,'Assigned minute writer','select');
    const language=field(row,'Writer language','select');options(language,minuteLanguages,value.language||'en');
    options(writer,choices,value.id);const selection={writer,language};writers.add(selection);
    const remove=el('button','Remove writer');remove.type='button';
@@ -324,8 +323,7 @@ async function drawPrincipal(){
   const assigned=meetingWriters(entry);
   for(const writer of assigned.length?assigned:[{id:''}])addWriter(writer);
   const add=el('button','Add another writer');add.type='button';add.onclick=()=>{addWriter({id:''});writerForm.dataset.portalDirty='true';};
-  writerForm.append(add,el('button','Save writer assignments'));
-  writerForm.onsubmit=e=>{e.preventDefault();saveConfig(writerForm,entry,{meetingOperation:'assign',writers:[...writers].map(({writer,language})=>({id:writer.value,language:language.value}))});};
+  writerForm.append(add);writerForm.onsubmit=event=>event.preventDefault();
   writerSection.append(writerForm);
 
   const minutes=editorSection('3. Minutes · Hindi (Rajbhasha) / English');
@@ -344,7 +342,19 @@ async function drawPrincipal(){
    saved(await principalRequest({meetingOperation:'unpublish',meetingId:entry.id,expectedRevision:entry.revision}));
    await drawPrincipal();message('Report hidden from staff view.');
   }));
-  card.append(takeAttendance,attendanceSection,writerSection,minutes);content.append(card);
+  const saveSetup=button('Save meeting setup',async()=>{
+   if(!canLeave([attendance,writerForm]))return;
+   const attendanceTakers=takers.filter(([,select])=>select.value).map(([role,select])=>({role,id:select.value}));
+   const expectedAttendees=eligible().filter(person=>selected.has(person.id)).map(person=>person.id);
+   const writerAssignments=[...writers].filter(({writer})=>writer.value).map(({writer,language})=>({id:writer.value,language:language.value}));
+   saved(await principalRequest({meetingOperation:'setup-save',meetingId:entry.id,expectedRevision:entry.revision,attendanceWing:wing.value,attendanceTakers,expectedAttendees,writers:writerAssignments}));
+   attendance.dataset.portalDirty=writerForm.dataset.portalDirty='false';savedSetupId=entry.id;
+   await drawPrincipal();message('Meeting saved successfully.');
+  });
+  const actions=el('div',undefined,'meeting-actions');
+  actions.append(saveSetup);
+  if(savedSetupId===entry.id){const receipt=el('p','✓ Meeting saved successfully.','meeting-saved');receipt.setAttribute('role','status');actions.append(receipt);}
+  card.append(takeAttendance,attendanceSection,writerSection,minutes,actions);content.append(card);
  }
  content.append(button('Sign out as Principal',async()=>{if(canLeave()){await authApi.signOut(auth);await showStaff();}}));
 }

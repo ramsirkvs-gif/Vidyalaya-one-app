@@ -1,5 +1,5 @@
 import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
-import {applyStaffMeeting,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList} from '../cbse-staff-meetings-model.js';
+import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
@@ -234,7 +234,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
       }).map(person=>person.id):[];
       return {...meeting,heldAttendees};
      });
-     return {ok:true,meetings:list,roster,recipientStaff,assignments:rollCall.objectionAssignments||{}};
+     return {ok:true,meetings:list,roster,recipientStaff,attendanceDefaults:meetingAttendanceDefaults(meetings,roster),assignments:rollCall.objectionAssignments||{}};
     }
     const meeting=typeof input.meetingId==='string'&&/^[a-f0-9]{32}$/.test(input.meetingId)?await read('cbse/staffMeetings/'+input.meetingId):null;
     if(admin&&meeting&&input.task==='report')return {ok:true,report:meetingReport(meeting,staff)};

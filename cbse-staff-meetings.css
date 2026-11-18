@@ -45,10 +45,9 @@ textarea{resize:vertical}
 .meeting-signatures{margin-top:1.2rem;break-inside:avoid}
 .meeting-signatures p{margin:1rem 0}
 
-.meeting-staff-signin{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,15rem),1fr));gap:.65rem}
-.meeting-staff-signin h4{margin:.15rem 0 .4rem}
 .meeting-notepad .roll-objection-teacher-table input[type=checkbox]{margin:auto}
 .meeting-notepad .roll-objection-sections label{display:flex;flex-direction:row;align-items:center;margin:0}
 .meeting-notepad .roll-objection-sections input[type=checkbox]{width:auto;margin:0}
 .meeting-notepad .roll-objection-form label:has(> input[type=checkbox]){display:flex;align-items:center;gap:.4rem}
 .meeting-notepad .roll-objection-form label>input[type=checkbox]{width:auto;margin:0}
+.meeting-saved{background:#e0f2e5;color:#19563a;border-radius:.4rem;padding:.5rem .7rem;font-weight:bold}
