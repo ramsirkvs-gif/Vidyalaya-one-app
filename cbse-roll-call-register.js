@@ -4,7 +4,7 @@ import {rollDisplayName} from './cbse-roll-call-roster.js';
 import {el} from './cbse-ui.js';
 import {rollStaffStatus} from './cbse-roll-call-status.js';
 import {rollDateText} from './cbse-roll-call-time.js';
-export function renderDailyRollRegister(parent,data,wing,period,onOpen){
+export function renderDailyRollRegister(parent,data,wing,period,onOpen,onRelease){
  const section=el('section',undefined,'roll-daily-register'),table=el('table',undefined,'roll-staff-table'),head=el('thead'),heading=el('tr'),body=el('tbody');
  section.append(el('h3',period==='morning'?'Morning Roll Call · '+rollDateText(data.serverDate):'Afternoon Roll Call · '+rollDateText(data.serverDate)));
  for(const text of ['S.No.','Name and designation','Roll Call / present in Vidyalaya','Status / submit'])heading.append(el('th',text));head.append(heading);table.append(head,body);
@@ -19,11 +19,19 @@ export function renderDailyRollRegister(parent,data,wing,period,onOpen){
   cell('Roll Call / present in Vidyalaya').append(el('span',excused?'Leave / OD outside · exempt from Roll Call':present?'Present':r?'Roll Call submitted · Leave / OD outside':'No · not submitted',excused?'roll-rc-leave':present?'roll-rc-reported':r?'roll-rc-leave':'roll-rc-missing'));
   const status=cell('Status / submit');
   if(r)status.append(el('strong',period==='afternoon'?'✓ Submitted successfully':'Submitted successfully','roll-rc-reported'));
-  if(p.principalHolds.length){status.append(el('strong','Principal hold · NOC required','roll-warning'));for(const hold of p.principalHolds)status.append(el('small',hold.remark));}
+  const entries=period==='afternoon'?(data.rollCall?.noc||[]).filter(o=>p.ids.includes(o.staffId)):[];
+  const open=entries.filter(o=>o.status==='open');
+  if(open.length){
+   for(const hold of open){
+    status.append(el('strong','NOC held by '+(hold.principal?'Principal':hold.createdName)+' · departure clearance withheld','roll-warning'));
+    if(onRelease){const release=el('button','Release NOC');release.type='button';release.setAttribute('aria-label','Release NOC for '+p.name+' held by '+(hold.principal?'Principal':hold.createdName));release.onclick=()=>onRelease(hold,p.name);status.append(release);}
+   }
+  }else if(entries.some(o=>o.status==='cleared')&&r?.status!=='blocked')status.append(el('strong','NOC released','roll-rc-reported'));
+  if(!open.length&&p.principalHolds.length){status.append(el('strong','Principal hold · NOC required','roll-warning'));for(const hold of p.principalHolds)status.append(el('small',hold.remark));}
   if(leaveToday(p))status.append(el('strong','Leave/OD today','roll-rc-leave'));
   if(excused){status.append(el('span',leave?(leave.leaveKind||'Leave / OD outside')+' · recorded for today':period==='morning'?'First-half leave recorded · afternoon Roll Call required':'Approved leave · afternoon Roll Call not required','roll-rc-leave'));}
-  else if(r&&!p.principalHolds.length)status.append(el('span',rollRecorded(r)?(r.reported==='no'?'Leave / OD outside recorded':'Present'):r.status==='approved'?'Leave / OD outside recorded':r.status==='blocked'?(period==='afternoon'?'IC objection open · NOC required · contact the concerned IC':'IC objection open · NOC required'):r.status==='not-approved'?'Not approved · discuss with Principal':'Submitted · waiting for Principal review',r.status==='approved'?'roll-rc-approved':'roll-rc-status'));
-  else if(!r&&!p.principalHolds.length)status.append(el('span',leaveToday(p)?'Roll Call required for this period · not submitted':'No recorded Leave / OD outside · Roll Call not submitted','roll-rc-missing'));
+  else if(r&&!p.principalHolds.length&&!open.length)status.append(el('span',rollRecorded(r)?(r.reported==='no'?'Leave / OD outside recorded':'Present'):r.status==='approved'?'Leave / OD outside recorded':r.status==='blocked'?(period==='afternoon'?'IC objection open · NOC required · contact the concerned IC':'IC objection open · NOC required'):r.status==='not-approved'?'Not approved · discuss with Principal':'Submitted · waiting for Principal review',r.status==='approved'?'roll-rc-approved':'roll-rc-status'));
+  else if(!r&&!p.principalHolds.length&&!open.length)status.append(el('span',leaveToday(p)?'Roll Call required for this period · not submitted':'No recorded Leave / OD outside · Roll Call not submitted','roll-rc-missing'));
   for(const comment of Object.values(r?.principalComments||{}))status.append(el('p','Principal: '+comment.text));
   const halfRecord=p.morning?.workflowVersion>=4&&p.morning.leaveType==='half'?p.morning:null;if(excused&&halfRecord)status.append(el('small',rollRecorded(halfRecord)?'Half-day leave recorded':halfRecord.status==='blocked'?'IC clearance required · departure not approved':halfRecord.status==='not-approved'?'Leave not approved · discuss with Principal':'Half-day leave reported · Principal approval awaited'));
   if(p.id&&r&&!present&&r.status!=='approved'&&!r.teacherEditLockedAt){const b=el('button','Edit with PIN');b.type='button';b.setAttribute('aria-label','Edit Roll Call for '+p.name);b.onclick=()=>onOpen(r.staffId||p.id,true);status.append(b);}else if(p.id&&!r&&!excused){const b=el('button','Submit Roll Call','roll-submit-missing');b.type='button';b.setAttribute('aria-label','Submit Roll Call for '+p.name);b.onclick=()=>onOpen(p.id,false);status.append(b);}else if(!p.id)status.append(el('small','Staff profile setup pending'));

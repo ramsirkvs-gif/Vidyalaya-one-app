@@ -41,7 +41,7 @@ test('both wings record both periods directly, with optional protected comments 
   assert.throws(()=>applyRollCall(reviewed,comment,principal,staff,now+3),/changed/);
   s=applyRollCall(reviewed,input,who,staff,now+4);assert.equal(Object.values(s.reports[mid].principalComments).length,1);assert.equal(s.reports[mid].status,'recorded');
   s=applyRollCall(s,{rollOperation:'object',wing,targets:[id],remark:'Pending exam bundle'},principal,staff,now+5,'later');assert.equal(s.reports[aid].status,'blocked');assert.equal(s.reports[mid].status,'recorded');
-  assert.throws(()=>applyRollCall(s,{...afternoon,wing},who,staff,now+6),/IC objection/);
+  s=applyRollCall(s,{...afternoon,wing},who,staff,now+6);assert.equal(s.reports[aid].status,'blocked');
   s=applyRollCall(s,{rollOperation:'clear',objectionId:'later_'+id},principal,staff,now+7);assert.equal(s.reports[aid].status,'recorded');assert.equal(s.reports[aid].requiresReview,false);
  }
 });

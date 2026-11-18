@@ -41,11 +41,40 @@ test('server accepts both wings and first-half return, saves required answers, a
   const corrected=applyRollCall(held,{rollOperation:'report-edit',reportId,expectedSubmittedAt:now,expectedUpdatedAt:now,answers:report.answers,answerComments:report.answerComments},{id:'principal'},staff,now+1);
   assert.equal(corrected.reports[reportId].status,'blocked');
   current.objections.block={staffId:'one',status:'open',kind:'task'};
-  assert.throws(()=>applyRollCall(current,input,{id:'one'},staff,now),/NOC/);
+  current.objections.block.createdBy='ic';
+  let both=applyRollCall(current,input,{id:'one'},staff,now);
+  assert.equal(both.reports[reportId].status,'blocked');
+  assert.throws(()=>applyRollCall(both,{rollOperation:'clear',objectionId:'block'},{id:'other'},staff,now),/Only/);
+  both=applyRollCall(both,{rollOperation:'clear',objectionId:'block'},{id:'ic'},staff,now+1);
+  assert.equal(both.reports[reportId].status,'blocked');
+  assert.throws(()=>applyRollCall(both,{rollOperation:'clear',objectionId:'hold'},{id:'ic'},staff,now),/Only/);
+  const released=applyRollCall(both,{rollOperation:'clear',objectionId:'hold'},{id:'principal'},staff,now+2);
+  assert.equal(released.reports[reportId].status,'recorded');
  }
 });
 test('published forms use the common checklist without overwriting stored data',()=>{
  const saved={published:{...form,groups:{...form.groups,afternoon:[{...questions[2],commentMaxWords:30,label:'Have you confirmed that no pending work from yesterday remains due today?'},{...questions[3],label:'Custom Principal wording'}]}}},before=structuredClone(saved);
  const current=publishedReporting(saved);
  assert.deepEqual(current.groups.afternoon,questions);assert.deepEqual(validateReporting(saved.published).groups.afternoon,questions);assert.deepEqual(saved,before);
+});
+
+test('the staff register lists hold owners without private remarks and verifies the releasing IC',async()=>{
+ const {taskFixture}=await import('./task-manager-fixture.mjs');
+ const f=taskFixture();
+ const {viewerToken}=await f.service('remember-view',{},'principal');
+ const session={viewerToken};
+ const call=(action,input,token='')=>f.service(action,input,token,'synthetic-noc-ip',session);
+ await call('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ await call('set-pin',{staffId:'X:two',pin:'456'},'principal');
+ const ic={operation:'roll-call',staffId:'X:one',pin:'123'};
+ await call('pin-submit',{...ic,rollOperation:'object',wing:'secondary',targets:['X:two'],remark:'Private pending task'});
+ const board=await call('roll-call-read',{});
+ const hold=board.rollCall.noc.find(row=>row.staffId==='X:two');
+ assert.equal(hold.createdBy,'X:one');
+ assert.equal(hold.status,'open');
+ assert.equal(hold.remark,undefined);
+ const release={rollOperation:'clear',objectionId:hold.id};
+ await assert.rejects(call('pin-submit',{...ic,...release,staffId:'X:two',pin:'456'}),/Only the reporting IC/);
+ await call('pin-submit',{...ic,...release});
+ assert.equal((await call('roll-call-read',{})).rollCall.noc.find(row=>row.id===hold.id).status,'cleared');
 });

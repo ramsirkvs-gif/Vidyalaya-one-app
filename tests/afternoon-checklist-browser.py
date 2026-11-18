@@ -21,17 +21,24 @@ try:
      if v['action']=='pin-submit':
       if v['pin']!='123':
        route.fulfill(status=403,json={'error':'Incorrect PIN'});return
+      if v.get('rollOperation')=='clear':
+       assert v['staffId']=='ic'
+       objections[v['objectionId']]['status']='cleared';reports['afternoon']['status']='recorded'
       if v.get('rollOperation')=='report':
        if not confirm_save:
         route.fulfill(json={'ok':False});return
        assert 'leaveType' not in v and 'halfDay' not in v
        assert len(v['answers'])==10
        calls.append(v)
-       reports['afternoon']={**{k:value for k,value in v.items() if k!='pin'},'staffId':'one','date':day,'status':'blocked' if 'hold' in objections else 'recorded','submittedAt':now}
+       reports['afternoon']={**{k:value for k,value in v.items() if k!='pin'},'staffId':'one','date':day,'status':'blocked' if any(o['status']=='open' for o in objections.values()) else 'recorded','submittedAt':now}
+     if v['action']=='roll-call-principal':
+      assert route.request.headers.get('authorization')=='Bearer synthetic-principal'
+      assert v['rollOperation']=='clear'
+      objections[v['objectionId']]['status']='cleared';reports['afternoon']['status']='recorded'
      private=v['action']=='pin-submit'
      visible_reports={key:{k:value for k,value in r.items() if private or k not in ['answers','answerComments']} for key,r in reports.items()}
-     route.fulfill(json={'ok':True,'serverDate':day,'serverTime':now,'staff':{'one':{'name':'Synthetic Teacher','wing':wing}},'rollCall':{'reports':visible_reports,'objections':objections}})
-    page.route('**/api/staff-access',api);page.route('**/firebase-client.js',lambda r:r.fulfill(content_type='application/javascript',body='export const auth={currentUser:null,authStateReady:async()=>{}};'));page.route('https://www.gstatic.com/firebasejs/**/firebase-auth.js',lambda r:r.fulfill(content_type='application/javascript',body=''))
+     route.fulfill(json={'ok':True,'serverDate':day,'serverTime':now,'staff':{'one':{'name':'Synthetic Teacher','wing':wing}},'rollCall':{'reports':visible_reports,'objections':objections,'noc':[{'id':key,'staffId':o['staffId'],'createdBy':o.get('createdBy'),'createdName':o.get('createdName','Principal'),'principal':key=='hold','status':o['status']} for key,o in objections.items()]}})
+    page.route('**/api/staff-access',api);page.route('**/firebase-client.js',lambda r:r.fulfill(content_type='application/javascript',body='export const auth={currentUser:null,authStateReady:async()=>{}};'));page.route('https://www.gstatic.com/firebasejs/**/firebase-auth.js',lambda r:r.fulfill(content_type='application/javascript',body='export const signInWithEmailAndPassword=async(a,e,p)=>{if(p!=="synthetic-password")throw {code:"auth/wrong-password"};return {user:{getIdToken:async()=>"synthetic-principal"}}};'))
     page.goto(f'http://127.0.0.1:{port}/cbse-roll-call-view.js');page.set_content('<link rel="stylesheet" href="/cbse-roll-call.css"><main id="root"></main>');page.evaluate("async()=>{const {renderRollCall}=await import('/cbse-roll-call-view.js');window.controller=renderRollCall(document.querySelector('#root'));}")
     page.get_by_role('button',name='Afternoon Roll Call',exact=True).click();page.locator('[name=roll-reporting-wing]').select_option(wing);page.get_by_role('button',name='Submit Roll Call for Synthetic Teacher',exact=True).click()
     dialog=page.get_by_role('dialog',name='Employee Roll Call');dialog.wait_for(state='visible')
@@ -52,14 +59,7 @@ try:
     submit=dialog.get_by_role('button',name='Submit roll call',exact=True)
     success=page.locator('.roll-afternoon-success')
     if wing=='primary' and not first:
-     objections['ic']={'staffId':'one','status':'open','kind':'task','remark':'Synthetic task','createdName':'Synthetic IC'}
-     submit.click()
-     objection=page.get_by_role('dialog',name='Pending tasks — NOC required')
-     expect(objection).to_contain_text('Contact the concerned IC')
-     objection.get_by_role('button',name='Return to my form').click()
-     expect(dialog.get_by_role('status')).to_contain_text('not submitted')
-     assert success.count()==0 and not calls
-     objections.clear()
+     objections['ic']={'staffId':'one','status':'open','kind':'task','remark':'Synthetic task','createdName':'Synthetic IC','createdBy':'ic'}
     if first:
      objections['hold']={'id':'hold','staffId':'one','status':'open','kind':'principal-hold','remark':'Meet the Principal'}
     submit.click()
@@ -77,7 +77,7 @@ try:
     page.locator('[name=roll-submit-pin]').fill('123');page.get_by_role('button',name='Confirm submission',exact=True).click()
     expect(success).to_have_text('✓ Submitted successfully')
     courtesy=page.get_by_text('You have successfully submitted your afternoon Roll Call. No IC objections are awaiting NOC. As a courtesy, please meet with the Principal before leaving.',exact=True)
-    if first:
+    if objections:
      expect(courtesy).to_have_count(0)
     else:
      expect(courtesy).to_be_visible()
@@ -87,11 +87,23 @@ try:
      expect(hold).to_contain_text('obtain NOC before leaving')
      assert page.get_by_text('Complete biometric sign-out',exact=False).count()==0
      hold.get_by_role('button',name='Understood',exact=False).click()
+    if objections:
+     row=page.locator('.roll-daily-register [data-staff-id=one]')
+     expect(row).to_contain_text('departure clearance withheld')
+     row.get_by_role('button',name='Release NOC for Synthetic Teacher',exact=False).click()
+     release=page.get_by_role('dialog',name='Release NOC for Synthetic Teacher',exact=True)
+     if first:
+      release.get_by_label('Principal password').fill('synthetic-password')
+      release.get_by_role('button',name='Release with Principal password').click()
+     else:
+      release.get_by_role('button',name='Release with Synthetic IC’s PIN').click()
+      page.locator('[name=roll-submit-pin]').fill('123');page.get_by_role('button',name='Confirm PIN',exact=True).click()
+     expect(row).to_contain_text('NOC released')
     expect(page.locator('.roll-daily-register [data-staff-id=one]')).to_contain_text('✓ Submitted successfully')
     assert page.locator('.roll-daily-register').get_by_text(words(50),exact=True).count()==0
     expect(page.get_by_role('button',name='Edit Roll Call for Synthetic Teacher',exact=True)).to_have_count(0)
     page.close()
   browser.close()
- print('PASS same ten questions in both wings and return modes, word limits, PIN attempts, no edit action for present teachers, confirmation and objection handling')
+ print('PASS same ten questions in both wings and return modes, word limits, PIN attempts, no edit action for present teachers, confirmation and PIN/password NOC release')
 finally:
  server.terminate();server.wait(timeout=10)

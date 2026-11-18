@@ -1445,9 +1445,7 @@ by the Principal. Attendance is saved; a held afternoon record does not grant
 departure clearance. Staff see the short remark and, after their own submission,
 a popup asking them to meet the Principal for NOC before leaving the Vidyalaya.
 The open daily register refreshes periodically and checks for newly placed holds
-after the employee has submitted. IC objections and Principal holds are separate:
-clearing one cannot release another open requirement, and staff/ICs cannot clear
-Principal holds. Existing PINs, identities and reporting history are retained.
+after the employee has submitted. Both IC objections and Principal holds allow attendance to be saved while withholding departure clearance. The staff register shows who placed each hold. The Principal may release any hold using the Principal password. An IC may release their own hold using their personal PIN. Departure remains on hold until every open requirement is cleared. Existing PINs, identities and reporting history are retained.
 
 Selecting **OD outside** in Leave/OD feeding reveals an optional two-line
 **On-duty details for Samagam** field (up to 300 characters). The details are
