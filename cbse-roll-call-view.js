@@ -106,6 +106,7 @@ export function renderRollCall(host,{deferOpen=false}={}){
    if(principalHold)notice.append(el('span',' Principal hold open. Contact the Principal and obtain NOC before leaving.'));
    if(icOpen)notice.append(el('span',' IC objection open. Contact the concerned IC to resolve it and obtain NOC before leaving.'));
    if(submitted.status==='blocked'&&!principalHold&&!icOpen)notice.append(el('span',' Departure clearance is on hold. Contact the concerned IC or Principal for NOC.'));
+   if(submitted.status==='recorded'&&!principalHold&&!icOpen)notice.append(el('span','You have successfully submitted your afternoon Roll Call. No IC objections are awaiting NOC. As a courtesy, please meet with the Principal before leaving.'));
    notice.scrollIntoView({block:'center'});
    await notifyPrincipalHold(true);
   });};

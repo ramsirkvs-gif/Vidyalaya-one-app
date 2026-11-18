@@ -76,6 +76,11 @@ try:
     submit.click()
     page.locator('[name=roll-submit-pin]').fill('123');page.get_by_role('button',name='Confirm submission',exact=True).click()
     expect(success).to_have_text('✓ Submitted successfully')
+    courtesy=page.get_by_text('You have successfully submitted your afternoon Roll Call. No IC objections are awaiting NOC. As a courtesy, please meet with the Principal before leaving.',exact=True)
+    if first:
+     expect(courtesy).to_have_count(0)
+    else:
+     expect(courtesy).to_be_visible()
     assert len(calls)==1 and calls[0]['answerComments']['afternoon_check_1']==words(50)
     if first:
      hold=page.get_by_role('dialog',name='Meet the Principal before leaving')
