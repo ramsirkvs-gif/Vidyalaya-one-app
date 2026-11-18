@@ -84,18 +84,9 @@ try:
      hold.get_by_role('button',name='Understood',exact=False).click()
     expect(page.locator('.roll-daily-register [data-staff-id=one]')).to_contain_text('✓ Submitted successfully')
     assert page.locator('.roll-daily-register').get_by_text(words(50),exact=True).count()==0
-    page.get_by_role('button',name='Edit Roll Call for Synthetic Teacher',exact=True).click()
-    page.locator('[name=roll-submit-pin]').fill('123');page.get_by_role('button',name='Confirm PIN',exact=True).click()
-    expect(selects.first).to_have_value('no')
-    expect(comment).to_have_value(words(50))
-    expect(remark).to_have_value(words(50))
-    selects.first.select_option('yes')
-    submit.click()
-    page.locator('[name=roll-submit-pin]').fill('123');page.get_by_role('button',name='Confirm submission',exact=True).click()
-    expect(success).to_have_text('✓ Submitted successfully')
-    assert len(calls)==2 and calls[1]['answerComments']=={}
+    expect(page.get_by_role('button',name='Edit Roll Call for Synthetic Teacher',exact=True)).to_have_count(0)
     page.close()
   browser.close()
- print('PASS same ten questions in both wings and return modes, word limits, PIN attempts, saved-answer editing, confirmation and objection handling')
+ print('PASS same ten questions in both wings and return modes, word limits, PIN attempts, no edit action for present teachers, confirmation and objection handling')
 finally:
  server.terminate();server.wait(timeout=10)

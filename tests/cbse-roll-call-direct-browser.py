@@ -12,10 +12,11 @@ with sync_playwright() as p:
       const {renderRollPrincipalDashboard}=await import('/cbse-roll-call-principal.js');
       window.setupDirect=(wing,period)=>{
         window.now=Date.parse('2026-11-16T04:00:00Z');window.wing=wing;window.period=period;
-        window.staff={teacher:{name:'Synthetic '+wing,designation:wing==='primary'?'PRT':'TGT',wing,status:'active'}};
+        window.staff={teacher:{name:'Synthetic '+wing,designation:wing==='primary'?'PRT':'TGT',wing,status:'active'},absent:{name:'Synthetic Not Submitted',wing,status:'active'},excused:{name:'Synthetic On Leave',wing,status:'active'}};
         window.saved=applyRollCall({},{rollOperation:'report',wing,period:'morning',reported:'yes',answers:Object.fromEntries(ROLL_CHECKS.map(([k])=>[k,'yes']))},{id:'teacher',name:staff.teacher.name},staff,now);
         const afternoonAnswers=Object.fromEntries(AFTERNOON_QUESTIONS.map(q=>[q.id,q.type==='text'?'synthetic '.repeat(50).trim():'yes']));
         if(period==='afternoon')saved=applyRollCall(saved,{rollOperation:'report',wing,period:'afternoon',answers:afternoonAnswers},{id:'teacher',name:staff.teacher.name},staff,++now);
+        saved.advanceLeaves={leave:{staffId:'excused',status:'recorded',dates:['2026-11-16']}};
         window.draw=()=>{
           document.querySelector('#register').replaceChildren();document.querySelector('#principal').replaceChildren();
           const data={serverDate:'2026-11-16',serverTime:now,staff,rollCall:saved};
@@ -31,6 +32,11 @@ with sync_playwright() as p:
             page.evaluate('([w,p])=>setupDirect(w,p)',[wing,period])
             row=page.locator('#register [data-staff-id=teacher]')
             expect(row).to_contain_text('Present')
+            expect(row.get_by_role('button',name='Edit Roll Call',exact=False)).to_have_count(0)
+            for staff_id, label, color in [('teacher','Present','rgb(223, 243, 228)'),('excused','Leave / OD outside · exempt from Roll Call','rgb(255, 241, 191)'),('absent','No · not submitted','rgb(252, 227, 225)')]:
+                mark=page.locator(f'#register [data-staff-id={staff_id}] td:nth-child(3) span')
+                expect(mark).to_have_text(label)
+                assert mark.evaluate('(node) => getComputedStyle(node).backgroundColor')==color
             assert page.get_by_role('button',name='Approve RC',exact=True).count()==0
             page.locator('[name=roll-principal-comment]').last.fill('Please complete the register today.')
             page.get_by_role('button',name='Save review comment',exact=True).last.click()
