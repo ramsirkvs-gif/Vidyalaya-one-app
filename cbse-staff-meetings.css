@@ -1,0 +1,37 @@
+:root{color-scheme:light;font:1rem Georgia,serif;color:#163832;background:#edf4f1}
+body{margin:0;padding:clamp(.65rem,3vw,2rem)}
+.meeting-notepad{max-width:60rem;margin:auto;padding:clamp(.9rem,4vw,2.5rem);background:#fffdf4;border:1px solid #cedbd2;border-top:5px solid #225e51;border-radius:12px;box-shadow:0 8px 30px #183b2e14}
+.meeting-letterhead{display:grid;grid-template-columns:clamp(2.75rem,13vw,6rem) minmax(0,1fr) clamp(2.75rem,13vw,6rem);gap:.9rem;align-items:center;text-align:center;padding:.9rem 0 1.1rem;border-bottom:2px solid #a9bdb2}
+.meeting-letterhead img{width:100%;height:clamp(2.75rem,12vw,5rem);object-fit:contain}
+.meeting-letterhead h1{font-size:clamp(1.3rem,4vw,2.4rem);margin:.4rem 0 0}
+.meeting-letterhead p{margin:0;font-weight:bold}
+.meeting-actions{display:flex;align-items:center;flex-wrap:wrap;gap:.5rem}
+.meeting-actions a{color:#164f42;margin-right:auto}
+button,input,textarea,select{font:inherit;color:inherit}
+button{background:#e5f1ec;border:1px solid #a7c7ba;border-radius:.45rem;padding:.6rem .85rem;cursor:pointer}
+button:disabled{opacity:.65;cursor:wait}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid #226f5c;outline-offset:2px}
+label{display:block;font-weight:bold;margin:.8rem 0}
+label :is(input,textarea,select){display:block;width:100%;box-sizing:border-box;margin-top:.35rem;border:1px solid #9fbdb1;border-radius:.35rem;padding:.55rem;background:#fff}
+textarea{resize:vertical}
+.meeting-minutes-input{min-height:15rem;line-height:1.6;background:repeating-linear-gradient(#fff 0 24px,#e4ebe3 24px 25px);background-attachment:local}
+.meeting-item{border-top:1px solid #c7d8ce;margin-top:1rem;padding-top:.85rem}
+.meeting-item h3{margin:.25rem 0}
+.meeting-item p{margin:.45rem 0}
+.meeting-attendance{width:100%;border-collapse:collapse;margin:1rem 0}
+.meeting-attendance th,.meeting-attendance td{text-align:left;border:1px solid #bdcfc4;padding:.5rem;overflow-wrap:anywhere}
+.meeting-attendance th{background:#eaf1ec}
+.meeting-attendance select{max-width:100%}
+.meeting-minutes-text{white-space:pre-wrap;line-height:1.55;overflow-wrap:anywhere}
+.meeting-signature{min-width:6rem}
+.meeting-error{color:#9a2a27}
+@media print{
+ @page{margin:14mm}
+ :root{background:#fff;color:#000}
+ body{padding:0}
+ .meeting-notepad{max-width:none;margin:0;padding:0;background:#fff;border:0;box-shadow:none}
+ .no-print{display:none!important}
+ .meeting-attendance tr{break-inside:avoid}
+ .meeting-signature{height:2rem}
+ h1,h2,h3{break-after:avoid}
+}

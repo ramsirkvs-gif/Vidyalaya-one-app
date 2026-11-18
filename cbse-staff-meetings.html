@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Staff Meetings and Minutes | Vidyalaya One</title>
+  <link rel="stylesheet" href="cbse-staff-meetings.css">
+</head>
+<body>
+  <main class="meeting-notepad">
+    <nav class="meeting-actions no-print" aria-label="Meeting navigation">
+      <a href="index.html#principal-chamber">← Principal Chamber</a>
+      <button type="button" id="meetings-staff">Staff view</button>
+      <button type="button" id="meetings-principal">Principal · Assign minute writer</button>
+    </nav>
+    <header class="meeting-letterhead">
+      <img src="portal-original-kvs-logo.png" alt="Kendriya Vidyalaya Sangathan">
+      <div><p>PM SHRI Kendriya Vidyalaya No. 1 Itanagar</p><h1>Staff Meetings and Minutes</h1></div>
+      <img src="portal-original-pm-shri-logo.png" alt="PM SHRI">
+    </header>
+    <p id="meetings-status" class="no-print" role="status"></p>
+    <div id="meetings-content"></div>
+  </main>
+  <script type="module" src="cbse-staff-meetings.js"></script>
+  <script type="module" src="live-update.js"></script>
+</body>
+</html>

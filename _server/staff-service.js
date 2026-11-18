@@ -1,3 +1,4 @@
+import {applyStaffMeeting,meetingRoster,meetingWriterMatches,staffMeetingList} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
@@ -167,6 +168,20 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    await preparePrimaryRoster();
    const [staff,stored,reporting]=await Promise.all([directoryStaff(),read('cbse/rollCall'),read('cbse/chamber/reporting')]),value=stored||{},ids=input.staffId?rollStaffIdentityIds(staff,input.staffId):[];return {ok:true,reporting:publishedReporting(reporting),serverDate:rollToday(now()),serverTime:now(),staff:Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active'&&rollReportingStaff(p)).map(([id,p])=>[id,{name:rollDisplayName(p.name),designation:p.designation||'',wing:rollWing(p),classTeacher:!!p.classTeacher,coClassTeacher:!!p.coClassTeacher,classRoles:p.classRoles||[]}])),rollCall:{noc:rollPublicNOC(value.objections,rollToday(now())),objectionAssignments:value.objectionAssignments||{},advanceLeaves:publicAdvanceLeaves(value.advanceLeaves),reports:Object.fromEntries(entries(value.reports).map(([id,r])=>[id,rollPublicReport(r)])),objections:Object.fromEntries(entries(value.objections).filter(([,o])=>o.kind==='principal-hold'||input.staffId&&(ids.includes(o.staffId)||o.createdBy===input.staffId)))}};
   }
+  if(action==='staff-meetings-read'){
+   const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
+   if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}
+   const meetings=await read('cbse/staffMeetings')||{};
+   if(input.meetingId!==undefined){
+    const meeting=typeof input.meetingId==='string'&&Object.hasOwn(meetings,input.meetingId)?meetings[input.meetingId]:null;
+    if(!meeting?.savedAt)throw new AccessError('The minutes have not been saved yet.',404);
+    const present=meeting.roster.filter(person=>meeting.attendance[person.id]==='present').map(({name,designation})=>({name,designation}));
+    const absent=meeting.roster.filter(person=>meeting.attendance[person.id]==='absent').map(({name,designation})=>({name,designation}));
+    const {agenda,minutes,createdAt}=meeting;
+    return {ok:true,report:{agenda,minutes,createdAt,writerName:meeting.savedByName||meeting.writerName,present,absent}};
+   }
+   return {ok:true,meetings:staffMeetingList(meetings)};
+  }
   if(action==='movement-read'){
    const staff=Object.fromEntries(entries(await directoryStaff()).filter(([,p])=>p.status==='active'&&rollReportingStaff(p)).map(([id,p])=>[id,{...p,name:rollDisplayName(p.name),wing:rollWing(p)}])),store=await read('cbse/chamber/movements')||{},stamp=now();return {ok:true,serverDate:movementToday(stamp),serverTime:stamp,staff:Object.fromEntries(entries(staff).map(([id,p])=>[id,{name:p.name,designation:p.designation||'',wing:p.wing,status:p.status}])),movements:movementView(store,null,staff,stamp)};
   }
@@ -174,10 +189,35 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   let pinIdentity,mcqPrincipal;
   if(action==='mcq-principal'){mcqPrincipal=await principal(token);action=String(input.operation||'');if(!['mcq-reset-all-preview','mcq-reset-all','mcq-clear-banks-preview','mcq-clear-banks','mcq-contribution-history','mcq-manage-preview','mcq-contribution-topic','mcq-contribution-credit','mcq-contribution-delete','mcq-contribute','mcq-import-csv','mcq-question-edit','mcq-question-delete','mcq-paper-delete','mcq-paper','mcq-evaluate','mcq-answer-key','mcq-report-publish'].includes(action))throw new AccessError('Unknown Principal MCQ operation.',400);}
   if(action==='pin-submit'){
-   if(['roll-call','podcast-list','podcast-ack','exam-attendance-save'].includes(input.operation)){const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}
+   if(['staff-meetings','roll-call','podcast-list','podcast-ack','exam-attendance-save'].includes(input.operation)){const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}
    const selectedId=String(input.staffId||'');if(!/^[a-zA-Z0-9_:-]{1,200}$/.test(selectedId))throw new AccessError('Choose your name and enter your PIN.',401);const directory=await directoryStaff(),id=directory[selectedId]?.pinOwnerId||selectedId,access=await read(`cbse/staffAccess/${id}`),person=directory[id];if(!access?.enabled||person?.status!=='active')throw new AccessError('Choose your name and enter the correct PIN.',401);
    await verifySubmissionPIN(id,input.pin,access,ip,person);
-   action=String(input.operation||'comment');if(!['task-manager','comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply','news-create','news-comment','credit-claim','mcq-contribute','mcq-import-csv','mcq-question-edit','mcq-question-delete','mcq-paper-delete','mcq-paper','mcq-evaluate','mcq-answer-key','remedial-plan','roll-call','movement','podcast-list','podcast-ack','exam-attendance-save'].includes(action))throw new AccessError('This operation requires Principal access.',403);if(!['task-manager','roll-call','movement','podcast-list','podcast-ack'].includes(action)&&!missionMemberAllowed(person))throw new AccessError('This staff member is not part of the Mission team.',403);pinIdentity={decoded:{staffId:id},access};
+   action=String(input.operation||'comment');if(!['staff-meetings','task-manager','comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply','news-create','news-comment','credit-claim','mcq-contribute','mcq-import-csv','mcq-question-edit','mcq-question-delete','mcq-paper-delete','mcq-paper','mcq-evaluate','mcq-answer-key','remedial-plan','roll-call','movement','podcast-list','podcast-ack','exam-attendance-save'].includes(action))throw new AccessError('This operation requires Principal access.',403);if(!['staff-meetings','task-manager','roll-call','movement','podcast-list','podcast-ack'].includes(action)&&!missionMemberAllowed(person))throw new AccessError('This staff member is not part of the Mission team.',403);pinIdentity={decoded:{staffId:id},access};
+  }
+  if(action==='staff-meetings-principal'||action==='staff-meetings'){
+   const admin=action==='staff-meetings-principal'?await principal(token):null;
+   const staffId=pinIdentity?.decoded.staffId;
+   if(!admin&&!staffId)throw new AccessError('Verify your personal PIN.',403);
+   const staff=await directoryStaff(),actor={principal:!!admin,staffId},operation=input.meetingOperation;
+   if(operation==='read'){
+    const meetings=await read('cbse/staffMeetings')||{};
+    if(admin)return {ok:true,meetings:staffMeetingList(meetings,{principal:true}),roster:meetingRoster(staff).filter(person=>person.id!=='principal')};
+    const meeting=typeof input.meetingId==='string'&&Object.hasOwn(meetings,input.meetingId)?meetings[input.meetingId]:null;
+    if(!meeting||!meetingWriterMatches(staff,meeting.writerId,staffId))throw new AccessError('Only the Principal-assigned minute writer can edit this meeting.',403);
+    return {ok:true,meeting};
+   }
+   const stamp=now();let reason='';
+   const result=await mcqTransaction(db,'cbse',current=>{
+    if(current===null)return null;
+    reason='';
+    if(admin?current.adminUid!==admin.uid:!current.staffAccess?.[staffId]?.enabled||current.staffAccess[staffId].version!==pinIdentity.access.version){
+     reason='Your access changed. Sign in or verify your PIN again.';return;
+    }
+    try{return {...current,staffMeetings:applyStaffMeeting(current.staffMeetings,input,actor,staff,stamp)};}
+    catch(error){reason=error.message;return;}
+   },{restTransaction});
+   if(!result.committed||!result.snapshot.val()?.staffMeetings)throw new AccessError(reason||'The meeting save was not confirmed. Refresh before retrying.',409);
+   return {ok:true};
   }
   if(action==='task-manager'){
    if(!pinIdentity)throw new AccessError('Verify your existing personal PIN.',403);
