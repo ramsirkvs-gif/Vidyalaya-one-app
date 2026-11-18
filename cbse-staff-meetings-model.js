@@ -66,7 +66,7 @@ export function meetingReport(meeting,staff){
   const {agenda,minutes,savedByName,savedAt}=meetingMinute(meeting,language);
   return savedAt?[{language,agenda,minutes,writerName:savedByName}]:[];
  });
- return {createdAt:meeting.createdAt,versions,writers:meetingWriters(meeting).map(({name,language})=>({name,language})),attendanceTakenBy:meeting.attendanceTakenBy||'',attendanceWing:meeting.attendanceWing||'both',present:people('present'),absent:people('absent'),unmarked:people(undefined)};
+ return {createdAt:meeting.createdAt,scheduledAt:meeting.scheduledAt||meeting.createdAt,versions,writers:meetingWriters(meeting).map(({name,language})=>({name,language})),attendanceTakenBy:meeting.attendanceTakenBy||'',attendanceWing:meeting.attendanceWing||'both',present:people('present'),absent:people('absent'),unmarked:people(undefined)};
 }
 export function publishedMeetingReport(meeting,staff){
  return meeting.publishedReport===undefined&&meeting.savedAt?meetingReport(meeting,staff):meeting.publishedReport||null;
@@ -96,8 +96,13 @@ export function applyStaffMeeting(store,input,actor,staff,now){
  if(operation==='create'){
   if(!actor.principal)throw Error('Only the Principal can create a meeting.');
   if(meeting)return meetings;
+  const {meetingDate,meetingTime,meetingAgenda}=input;
+  const validDate=typeof meetingDate==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(meetingDate)&&Number.isFinite(Date.parse(meetingDate))&&new Date(meetingDate).toISOString().slice(0,10)===meetingDate;
+  if(!validDate||typeof meetingTime!=='string'||!/^(?:[01]\d|2[0-3]):[0-5]\d$/.test(meetingTime))throw Error('Enter a valid meeting date and time in IST.');
+  if(typeof meetingAgenda!=='string'||!meetingAgenda.trim()||meetingAgenda.length>500)throw Error('Enter a meeting agenda in up to 500 characters.');
+  const scheduledAt=Date.parse(meetingDate+'T'+meetingTime+':00+05:30');
   const roster=meetingRoster(staff),writers=knownWriters(input.writerIds??(input.writerId?[input.writerId]:[]),roster);
-  meetings[id]={id,createdAt:now,revision:1,writers,roster,attendanceWing:'both'};
+  meetings[id]={id,createdAt:now,scheduledAt,meetingAgenda:meetingAgenda.trim(),revision:1,writers,roster,attendanceWing:'both'};
   return meetings;
  }
  if(!meeting)throw Error('Choose an existing staff meeting.');
@@ -148,7 +153,7 @@ export function staffMeetingList(store,{principal=false}={}){
   const {id,createdAt,revision}=meeting,writers=meetingWriters(meeting);
   const versions=minuteLanguages.filter(([language])=>meetingMinute(meeting,language).savedAt).map(([language])=>language);
   const published=!!meeting.publishedReport||meeting.publishedReport===undefined&&!!meeting.savedAt;
-  const agenda=meeting.publishedReport?.versions?.[0]?.agenda||(published?meeting.agenda:undefined);
-  return {id,createdAt,writers,published,submittedLanguages:versions,attendanceWing:meeting.attendanceWing||'both',attendanceTakers:meeting.attendanceTakers||[],...(principal?{revision}:{}),...(agenda?{agenda}:{})};
+  const agenda=meeting.meetingAgenda||meeting.publishedReport?.versions?.[0]?.agenda||(published?meeting.agenda:undefined);
+  return {id,createdAt,scheduledAt:meeting.scheduledAt||createdAt,writers,published,submittedLanguages:versions,attendanceWing:meeting.attendanceWing||'both',attendanceTakers:meeting.attendanceTakers||[],...(principal?{revision}:{}),...(agenda?{agenda}:{})};
  });
 }

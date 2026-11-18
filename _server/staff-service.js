@@ -207,9 +207,9 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     const meeting=typeof input.meetingId==='string'&&/^[a-f0-9]{32}$/.test(input.meetingId)?await read('cbse/staffMeetings/'+input.meetingId):null;
     if(admin&&meeting&&input.task==='report')return {ok:true,report:meetingReport(meeting,staff)};
     if(!meeting||!canOpenMeeting(staff,meeting,actor,input.task,input.language))throw new AccessError('Only authorised staff can open this meeting task.',403);
-    if(input.task==='attendance')return {ok:true,meeting:{id:meeting.id,createdAt:meeting.createdAt,revision:meeting.attendanceRevision||0,attendanceWing:meeting.attendanceWing||'both',roster:meetingAttendanceRoster(meeting,staff),attendance:meeting.attendance||{}}};
+    if(input.task==='attendance')return {ok:true,meeting:{id:meeting.id,createdAt:meeting.createdAt,scheduledAt:meeting.scheduledAt||meeting.createdAt,revision:meeting.attendanceRevision||0,attendanceWing:meeting.attendanceWing||'both',roster:meetingAttendanceRoster(meeting,staff),attendance:meeting.attendance||{}}};
     const minute=meetingMinute(meeting,input.language);
-    return {ok:true,meeting:{id:meeting.id,createdAt:meeting.createdAt,...minute,revision:minute.revision||0,language:input.language}};
+    return {ok:true,meeting:{id:meeting.id,createdAt:meeting.createdAt,scheduledAt:meeting.scheduledAt||meeting.createdAt,meetingAgenda:meeting.meetingAgenda||'',...minute,revision:minute.revision||0,language:input.language}};
    }
    const stamp=now();let reason='';
    const result=await mcqTransaction(db,'cbse',current=>{

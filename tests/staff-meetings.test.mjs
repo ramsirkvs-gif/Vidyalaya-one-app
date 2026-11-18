@@ -12,7 +12,12 @@ test('attendance, Hindi and English save independently and the Principal control
  const hi='X:one',en='X:two',smt='support:smt';
  for(const [staffId,pin]of [[hi,'123'],[en,'456'],[smt,'789']])await call('set-pin',{staffId,pin},'principal');
  await assert.rejects(f.service('staff-meetings-read',{}),/viewing password/);
- const {revision:created}=await principal('create');
+ await assert.rejects(principal('create',{meetingDate:'2026-11-31',meetingTime:'10:30',meetingAgenda:'Review'}),/valid meeting date/);
+ const {revision:created}=await principal('create',{meetingDate:'2026-11-19',meetingTime:'10:30',meetingAgenda:'Review and follow-up'});
+ const [listed]=(await call('staff-meetings-read',{})).meetings;
+ assert.equal(listed.agenda,'Review and follow-up');
+ assert.equal(listed.scheduledAt,Date.parse('2026-11-19T10:30:00+05:30'));
+ assert.equal(listed.published,false);
  const {revision:assigned}=await principal('assign',{writers:[{id:hi,language:'hi'},{id:en,language:'en'}],expectedRevision:created});
  const {revision:configured}=await principal('attendance-assign',{attendanceWing:'secondary',attendanceTakers:[{role:'SMT-1',id:smt}],expectedRevision:assigned});
  await assert.rejects(pin(en,'456','read',{task:'minutes',language:'hi'}),/authorised/);

@@ -98,7 +98,7 @@ async function showStaff(){
 function meetingCard(entry){
  const card=el('article',undefined,'meeting-item');
  const [subject,...points]=(entry.agenda||'Meeting awaiting minutes').split('\n');
- card.append(el('h3',subject),el('p',stamp(entry.createdAt)),el('p','Assigned writers: '+(meetingWriters(entry).map(writer=>writer.name).join(', ')||'Awaiting assignment')));
+ card.append(el('h3',subject),el('p',stamp(entry.scheduledAt??entry.createdAt)),el('p','Assigned writers: '+(meetingWriters(entry).map(writer=>writer.name).join(', ')||'Awaiting assignment')));
  if(points.length)card.append(el('p',points.join('\n'),'meeting-minutes-text'));
  return card;
 }
@@ -125,7 +125,7 @@ function attendanceTable(headers){
 }
 const rosterLabel=person=>[person.name,person.designation,person.wing==='primary'?'Primary Wing':''].filter(Boolean).join(' · ');
 function showAttendance(meeting,identity){
- content.replaceChildren(el('h2','Take attendance'),el('p',stamp(meeting.createdAt)),el('p',attendanceWings.find(([value])=>value===meeting.attendanceWing)?.[1]||'Both wings'));
+ content.replaceChildren(el('h2','Take attendance'),el('p',stamp(meeting.scheduledAt??meeting.createdAt)),el('p',attendanceWings.find(([value])=>value===meeting.attendanceWing)?.[1]||'Both wings'));
  const form=trackedForm(),{table,rows}=attendanceTable(['Staff member','Attendance']);
  const inputs=meeting.roster.map(person=>{
   const row=el('tr'),cell=el('td'),select=el('select');
@@ -146,10 +146,10 @@ function showAttendance(meeting,identity){
 }
 function showEditor(meeting,identity){
  const principalEdit=!identity,initial=principalEdit?meeting:meeting.draft||meeting;
- content.replaceChildren(el('h2',principalEdit?'Edit submitted minutes':'Write meeting minutes'),el('p',stamp(meeting.createdAt)));
+ content.replaceChildren(el('h2',principalEdit?'Edit submitted minutes':'Write meeting minutes'),el('p',stamp(meeting.scheduledAt??meeting.createdAt)));
  const form=trackedForm();
  const language=meeting.language;form.append(el('p',minuteLanguages.find(([id])=>id===language)?.[1]||'English'));
- const agenda=field(form,'Subject / Agenda','textarea');agenda.maxLength=500;agenda.rows=3;agenda.value=initial.agenda||'';
+ const agenda=field(form,'Subject / Agenda','textarea');agenda.maxLength=500;agenda.rows=3;agenda.value=initial.agenda??meeting.meetingAgenda??'';
  const minutes=field(form,'Discussion & Minutes','textarea');minutes.className='meeting-minutes-input';minutes.maxLength=12000;minutes.value=initial.minutes||'';
  agenda.lang=minutes.lang=language;
  const pin=identity?password(form,'Personal PIN to save minutes',true):null;
@@ -173,7 +173,7 @@ function showEditor(meeting,identity){
 }
 async function showReport(id,principal=false){
  const {report}=await (principal?principalRequest({meetingOperation:'read',task:'report',meetingId:id}):staffRead(id));
- content.replaceChildren(el('h2','Staff meeting report'),el('p',stamp(report.createdAt)));
+ content.replaceChildren(el('h2','Staff meeting report'),el('p',stamp(report.scheduledAt??report.createdAt)));
  for(const version of report.versions){
   const section=el('section',undefined,'meeting-report-version');section.lang=version.language;
   const hindi=version.language==='hi';
@@ -224,7 +224,15 @@ async function drawPrincipal(){
  adminMode=true;
  content.replaceChildren(el('h2','Manage staff meetings'));
  const meetingId=crypto.randomUUID().replaceAll('-','');
- content.append(button('Create meeting',async()=>{saved(await principalRequest({meetingOperation:'create',meetingId}));await drawPrincipal();message('Meeting created with the current date and time.');}));
+ const create=trackedForm(),date=field(create,'Meeting date'),time=field(create,'Meeting time (IST)'),agenda=field(create,'Meeting agenda','textarea');
+ date.type='date';time.type='time';date.required=time.required=agenda.required=true;agenda.maxLength=500;agenda.rows=3;
+ create.append(el('button','Create meeting'));
+ create.onsubmit=event=>{event.preventDefault();run(async()=>{
+  saved(await principalRequest({meetingOperation:'create',meetingId,meetingDate:date.value,meetingTime:time.value,meetingAgenda:agenda.value}));
+  create.dataset.portalDirty='false';await drawPrincipal();message('Meeting created. Its date, time and agenda are visible in staff view.');
+ });};
+ content.append(create);
+
  const choices=[['','Choose a staff member'],...roster.map(person=>[person.id,rosterLabel(person)])];
  function editorSection(title){const section=el('details',undefined,'meeting-setup');section.append(el('summary',title));return section;}
  function saveConfig(form,entry,values){
