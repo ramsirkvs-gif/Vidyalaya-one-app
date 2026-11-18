@@ -16,6 +16,8 @@ try:
     page=browser.new_page(viewport={'width':390,'height':844});day=(datetime.now(timezone.utc)+timedelta(hours=5,minutes=30)).strftime('%Y-%m-%d');now=int(datetime.now(timezone.utc).timestamp()*1000);calls=[]
     reports={'morning':{'staffId':'one','name':'Synthetic Teacher','wing':wing,'date':day,'period':'morning','workflowVersion':5,'reported':'no' if first else 'yes','status':'recorded',**({'leaveType':'half','halfDay':'first'} if first else {})}}
     objections={};confirm_save=True
+    if wing=='primary' and not first:
+     objections['ic']={'staffId':'one','status':'open','kind':'task','remark':'Synthetic task','createdName':'Synthetic IC','createdBy':'ic'}
     def api(route):
      v=route.request.post_data_json
      if v['action']=='pin-submit':
@@ -42,6 +44,8 @@ try:
     page.goto(f'http://127.0.0.1:{port}/cbse-roll-call-view.js');page.set_content('<link rel="stylesheet" href="/cbse-roll-call.css"><main id="root"></main>');page.evaluate("async()=>{const {renderRollCall}=await import('/cbse-roll-call-view.js');window.controller=renderRollCall(document.querySelector('#root'));}")
     page.get_by_role('button',name='Afternoon Roll Call',exact=True).click();page.locator('[name=roll-reporting-wing]').select_option(wing);page.get_by_role('button',name='Submit Roll Call for Synthetic Teacher',exact=True).click()
     dialog=page.get_by_role('dialog',name='Employee Roll Call');dialog.wait_for(state='visible')
+    if wing=='primary' and not first:
+     expect(dialog.get_by_text('Please obtain NOC from Synthetic IC before leaving. Pending task: Synthetic task',exact=True)).to_be_visible()
     assert dialog.locator('[name=roll-on-leave],[name=roll-reported]').count()==0
     assert dialog.get_by_text('Returning after first-half leave:',exact=False).count()==int(first)
     selects=dialog.locator('select[name^="roll-afternoon_check_"]');assert selects.count()==9;assert selects.evaluate_all('(nodes)=>nodes.every(n=>n.value==="yes" && n.options.length===2)')
@@ -58,8 +62,6 @@ try:
     remark.fill(words(50));dialog.locator('[name=roll-undertaking]').check()
     submit=dialog.get_by_role('button',name='Submit roll call',exact=True)
     success=page.locator('.roll-afternoon-success')
-    if wing=='primary' and not first:
-     objections['ic']={'staffId':'one','status':'open','kind':'task','remark':'Synthetic task','createdName':'Synthetic IC','createdBy':'ic'}
     if first:
      objections['hold']={'id':'hold','staffId':'one','status':'open','kind':'principal-hold','remark':'Meet the Principal'}
     submit.click()
@@ -87,6 +89,8 @@ try:
      expect(hold).to_contain_text('obtain NOC before leaving')
      assert page.get_by_text('Complete biometric sign-out',exact=False).count()==0
      hold.get_by_role('button',name='Understood',exact=False).click()
+    if wing=='primary' and not first:
+     expect(page.get_by_text('Please obtain NOC from Synthetic IC before leaving. Pending task: Synthetic task',exact=True)).to_be_visible()
     if objections:
      row=page.locator('.roll-daily-register [data-staff-id=one]')
      expect(row).to_contain_text('departure clearance withheld')

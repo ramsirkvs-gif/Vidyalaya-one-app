@@ -78,3 +78,20 @@ test('the staff register lists hold owners without private remarks and verifies 
  await call('pin-submit',{...ic,...release});
  assert.equal((await call('roll-call-read',{})).rollCall.noc.find(row=>row.id===hold.id).status,'cleared');
 });
+
+test('group release clears the same issuer, day and task atomically, keeping other NOCs open',()=>{
+ const now=Date.parse('2026-11-18T08:00:00+05:30'),date=rollToday(now);
+ const staff=Object.fromEntries(['one','two','ic','other'].map(id=>[id,{name:id,wing:'secondary',status:'active'}]));
+ const held=(staffId,extra={})=>({staffId,createdBy:'ic',createdAt:now,remark:'Check the exam bundle',status:'open',...extra});
+ const reports=Object.fromEntries(['one','two'].map(staffId=>[staffId,{staffId,date,period:'afternoon',status:'blocked'}]));
+ const store={reports,objections:{one:held('one'),two:held('two'),yesterday:held('two',{createdAt:now-86400000}),other:held('two',{createdBy:'other'}),unrelated:held('two',{remark:'Return the register'})}};
+ const call={rollOperation:'clear-group',objectionId:'one',date};
+ assert.throws(()=>applyRollCall(store,call,{id:'other'},staff,now),/Only/);
+ assert.throws(()=>applyRollCall(store,{...call,objectionId:'yesterday'},{id:'ic'},staff,now),/today/);
+ const single=applyRollCall(store,{...call,rollOperation:'clear'},{id:'ic'},staff,now);
+ assert.equal(single.objections.two.status,'open');
+ const grouped=applyRollCall(store,call,{id:'ic'},staff,now);
+ for(const key of ['one','two'])assert.equal(grouped.objections[key].status,'cleared');
+ for(const key of ['yesterday','other','unrelated'])assert.equal(grouped.objections[key].status,'open');
+ assert.equal(grouped.reports.one.status,'recorded');assert.equal(grouped.reports.two.status,'blocked');
+});

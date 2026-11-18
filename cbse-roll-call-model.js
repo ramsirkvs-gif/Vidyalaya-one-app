@@ -10,6 +10,10 @@ import {ROLL_CHECKS,LEAVE_CHECKS} from './cbse-roll-call-defaults.js';
 export {ROLL_CHECKS,LEAVE_CHECKS} from './cbse-roll-call-defaults.js';
 import {publishedReporting,reportingQuestions,snapshotAnswers} from './cbse-reporting-model.js';
 export const rollToday=(now=Date.now())=>new Date(now+19800000).toISOString().slice(0,10);
+export function nocGroupKey(hold,date){
+ if(!hold?.createdBy||!Number.isFinite(hold.createdAt)||rollToday(hold.createdAt)!==date||!hold.remark?.trim())return '';
+ return JSON.stringify([hold.createdBy,hold.kind||'task',hold.department||'',hold.remark.trim()]);
+}
 export function rollWing(p){if(isAvinashGuestProfile(p))return 'secondary';if(primaryStaffEntry(p))return 'primary';if(['primary','secondary'].includes(p?.wing))return p.wing;if(secondaryStaffEntry(p))return 'secondary';if(p?.wing==='primary'||p?.kind==='prt'||/\bPRT\b/i.test(p?.designation||''))return 'primary';if(p?.wing==='secondary'||p?.kind==='faculty'||/\b(?:TGT|PGT)\b/i.test(p?.designation||''))return 'secondary';return '';}
 const text=(v,max)=>typeof v==='string'&&v.trim().length>0&&v.length<=max;
 const validDate=v=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!isNaN(Date.parse(v))&&new Date(v).toISOString().slice(0,10)===v;
@@ -85,8 +89,21 @@ export function applyRollCall(current,input,actor,staff,now=Date.now(),id='',rep
   for(const target of targets.filter((target,index)=>!principalHold||!targets.slice(0,index).some(previous=>rollStaffIdentityIds(staff,target).includes(previous)))){const key=id+'_'+target;next.objections[key]={id:key,staffId:target,name:staff[target].name,wing:rollWing(staff[target]),...(principalHold?{kind:'principal-hold',date:day}:{}),department:principalHold?'Principal hold':department.trim(),remark:input.remark.trim(),createdBy:actor.id,createdName:actor.name,createdAt:now,status:'open'};
    const linked=rollStaffIdentityIds(staff,target);for(const r of Object.values(next.reports)){if(r.date!==day||!linked.includes(r.staffId)||!(r.period==='afternoon'||r.period==='morning'&&r.workflowVersion>=4&&r.leaveType==='half'&&r.halfDay==='second'))continue;if(r.approvedAt)r.teacherEditLockedAt=r.teacherEditLockedAt||r.approvedAt;r.status='blocked';r.updatedAt=now;delete r.approvedAt;delete r.approvedBy;}
   }
- }else if(op==='clear'){
-  const o=Object.hasOwn(next.objections,input.objectionId)?next.objections[input.objectionId]:null;if(!o||o.status!=='open'||actor.id!=='principal'&&(o.kind==='principal-hold'||o.createdBy!==actor.id))throw Error('Only the reporting IC or Principal can clear this objection.');o.status='cleared';o.clearedBy=actor.id;o.clearedAt=now;for(const r of Object.values(next.reports)){if(r.date===day&&(r.period==='afternoon'||r.period==='morning'&&r.workflowVersion>=4&&r.leaveType==='half'&&r.halfDay==='second')&&r.status==='blocked'&&rollStaffIdentityIds(staff,r.staffId).includes(o.staffId)&&!Object.values(next.objections).some(other=>other.status==='open'&&rollStaffIdentityIds(staff,r.staffId).includes(other.staffId))){r.status=['today','long'].includes(r.leaveType)?'pending':'recorded';r.requiresReview=['today','long'].includes(r.leaveType);r.updatedAt=now;}}
+ }else if(op==='clear'||op==='clear-group'){
+  const hold=Object.hasOwn(next.objections,input.objectionId)?next.objections[input.objectionId]:null;
+  if(!hold||hold.status!=='open'||actor.id!=='principal'&&(hold.kind==='principal-hold'||hold.createdBy!==actor.id))throw Error('Only the reporting IC or Principal can clear this objection.');
+  const key=op==='clear-group'?nocGroupKey(hold,day):'';
+  if(op==='clear-group'&&(!key||input.date!==day))throw Error('Group release is available for today’s holds only. Refresh and try again.');
+  const holds=Object.values(next.objections);
+  const releasing=key?holds.filter(other=>other.status==='open'&&nocGroupKey(other,day)===key):[hold];
+  const staffIds=new Set(releasing.map(item=>item.staffId));
+  for(const item of releasing){item.status='cleared';item.clearedBy=actor.id;item.clearedAt=now;}
+  for(const r of Object.values(next.reports)){
+   if(r.date!==day||r.status!=='blocked'||!(r.period==='afternoon'||r.period==='morning'&&r.workflowVersion>=4&&r.leaveType==='half'&&r.halfDay==='second'))continue;
+   const ids=rollStaffIdentityIds(staff,r.staffId);
+   if(!ids.some(id=>staffIds.has(id))||holds.some(other=>other.status==='open'&&ids.includes(other.staffId)))continue;
+   r.requiresReview=['today','long'].includes(r.leaveType);r.status=r.requiresReview?'pending':'recorded';r.updatedAt=now;
+  }
  }else if(op==='approve'||op==='reject'){
   if(actor.id!=='principal')throw Error('Principal approval required.');const r=next.reports[input.reportId];if(!r||r.date!==day||!rollNeedsApproval(r)&&!rollRecorded(r))throw Error('Choose today’s pending roll call for review.');if(op==='approve'&&(r.period==='afternoon'||r.workflowVersion>=4&&r.leaveType==='half'&&r.halfDay==='second')&&Object.values(next.objections).some(o=>rollStaffIdentityIds(staff,r.staffId).includes(o.staffId)&&o.status==='open'))throw Error('Clear pending-task objections first.');r.updatedAt=now;r.requiresReview=false;if(op==='approve'){r.status='approved';r.approvedBy=actor.id;r.approvedAt=now;r.teacherEditLockedAt=r.teacherEditLockedAt||now;}else{r.status='not-approved';r.rejectedBy=actor.id;r.rejectedAt=now;delete r.approvedAt;delete r.approvedBy;}
  }else throw Error('Unknown roll-call operation.');

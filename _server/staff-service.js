@@ -29,7 +29,7 @@ import {applyPodcast,teacherPodcasts,acknowledgePodcast,podcastCatalogue} from '
 import {rollStaffIdentityIds} from '../cbse-roll-call-roster.js';
 import {planRollRosterProfiles} from '../cbse-roll-call-setup.js';
 import {rollReportingStaff,rollDisplayName} from '../cbse-roll-call-roster.js';
-import {applyRollCall,rollWing,rollToday,rollNoAnswers} from '../cbse-roll-call-model.js';
+import {applyRollCall,rollWing,rollToday,rollNoAnswers,nocGroupKey} from '../cbse-roll-call-model.js';
 import {applyRemedialPlan} from '../cbse-remedial-model.js';
 import {publishMCQReport} from '../cbse-mcq-evaluation-reports.js';
 import {readMCQAnswerKey} from '../cbse-mcq-answer-key.js';
@@ -55,9 +55,15 @@ export class AccessError extends Error{constructor(message,status=403){super(mes
 export async function hashPIN(pin,salt=randomBytes(16).toString('hex')){if(!/^(?:\d{3}|\d{6,12})$/.test(String(pin)))throw new AccessError('Use a three-digit PIN (existing 6–12 digit PINs remain supported).',400);return {salt,hash:(await scrypt(String(pin),salt,64)).toString('hex')};}
 export async function verifyPIN(pin,record){if(!/^(?:\d{3}|\d{6,12})$/.test(String(pin))||!record?.hash||!record.salt)return false;const expected=Buffer.from(record.hash,'hex'),actual=await scrypt(String(pin),record.salt,64);return expected.length===actual.length&&timingSafeEqual(expected,actual);}
 const entries=value=>Object.entries(value||{});
-const rollPublicNOC=(objections,date)=>entries(objections)
- .filter(([,o])=>o.status==='open'||o.status==='cleared'&&o.clearedAt&&rollToday(o.clearedAt)===date)
- .map(([id,o])=>({id,staffId:o.staffId,createdBy:o.createdBy,createdName:o.createdName||'IC',principal:o.kind==='principal-hold'||o.createdBy==='principal',status:o.status}));
+const rollPublicNOC=(objections,date)=>{
+ const holds=entries(objections),counts=new Map();
+ for(const [,hold]of holds){
+  const key=nocGroupKey(hold,date);
+  if(key&&hold.status==='open')counts.set(key,(counts.get(key)||0)+1);
+ }
+ return holds.filter(([,o])=>o.status==='open'||o.status==='cleared'&&o.clearedAt&&rollToday(o.clearedAt)===date)
+  .map(([id,o])=>({id,staffId:o.staffId,createdBy:o.createdBy,createdName:o.createdName||'IC',principal:o.kind==='principal-hold'||o.createdBy==='principal',status:o.status,groupSize:counts.get(nocGroupKey(o,date))||0}));
+};
 const rollPublicReport=r=>({...Object.fromEntries(['staffId','name','wing','date','period','workflowVersion','morningMode','teacherEditLockedAt','reported','status','hasNoAnswers','requiresCommentReview','requiresReview','approvalRequired','reviewedAt','principalComments','leaveType','halfDay','from','to','updatedAt','submittedAt','approvedAt','rejectedAt'].filter(k=>r[k]!==undefined).map(k=>[k,r[k]])),hasNoAnswers:!!r.hasNoAnswers||rollNoAnswers(r).length>0});
 export function createStaffService({db,auth,restTransaction,readVemsAttendance=readPublishedVemsAttendance,now=Date.now,displayKey,viewSecret=defaultViewSecret}){
  const read=async path=>(await db.ref(path).get()).val();

@@ -1438,14 +1438,14 @@ objection restores the recorded status without Principal approval. Leave/OD
 recording, date cancellation and approval rules remain separate. Principal-only
 comments require a matching record version and keep prior comments/history.
 
-Principal Roll Call monitoring includes **Principal holds / NOC**. The Principal
+Principal Roll Call monitoring includes **Afternoon NOC** for IC and Principal holds. The Principal
 can hold selected employees or all active employees in one or both wings, with a
 status remark of up to 120 characters. Holds persist until explicitly released
 by the Principal. Attendance is saved; a held afternoon record does not grant
 departure clearance. Staff see the short remark and, after their own submission,
 a popup asking them to meet the Principal for NOC before leaving the Vidyalaya.
 The open daily register refreshes periodically and checks for newly placed holds
-after the employee has submitted. Both IC objections and Principal holds allow attendance to be saved while withholding departure clearance. The staff register shows who placed each hold. The Principal may release any hold using the Principal password. An IC may release their own hold using their personal PIN. Departure remains on hold until every open requirement is cleared. Existing PINs, identities and reporting history are retained.
+after the employee has submitted. Both IC objections and Principal holds allow attendance to be saved while withholding departure clearance. The staff register shows who placed each hold. The Principal may release any hold using the Principal password. An IC may release their own hold using their personal PIN. For holds placed today by the same issuer for the same task, the authorised reviewer can release the group together or release employees individually. Departure remains on hold until every open requirement is cleared. Existing PINs, identities and reporting history are retained.
 
 Selecting **OD outside** in Leave/OD feeding reveals an optional two-line
 **On-duty details for Samagam** field (up to 300 characters). The details are
