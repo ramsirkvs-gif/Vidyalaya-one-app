@@ -117,10 +117,10 @@ async function showStaff(){
   }
  }catch(error){if(error.curtainRequired){adminMode=false;showCurtain();}else throw error;}
 }
-function meetingCard(entry,showWriters=true){
+function meetingCard(entry,showWriters=true,headingTag='h3'){
  const card=el('article',undefined,'meeting-item');
  const [subject,...points]=(entry.agenda||'Meeting awaiting minutes').split('\n');
- card.append(el('h3',subject),el('p',stamp(entry.scheduledAt??entry.createdAt)));
+ card.append(el(headingTag,subject),el('p',stamp(entry.scheduledAt??entry.createdAt)));
  if(showWriters)card.append(el('p','Assigned writers: '+(meetingWriters(entry).map(writer=>writer.name).join(', ')||'Awaiting assignment')));
  if(points.length)card.append(el('p',points.join('\n'),'meeting-minutes-text'));
  return card;
@@ -298,15 +298,44 @@ async function drawPrincipal(){
   saved(await principalRequest({meetingOperation:'create',meetingId,meetingDate:date.value,meetingTime:time.value,meetingAgenda:agenda.value}));
   create.dataset.portalDirty='false';await drawPrincipal();message('Meeting created. Its date, time and agenda are visible in staff view.');
  });};
- content.append(create);
+ const createSection=el('details',undefined,'meeting-setup meeting-create');
+ createSection.append(el('summary','Plan a meeting'),create);
+ createSection.open=!meetings.length;
+ content.append(createSection);
+
+ const now=Date.now(),scheduled=entry=>entry.scheduledAt??entry.createdAt;
+ const ready=[],upcoming=[],waiting=[];
+ for(const entry of meetings){
+  const group=entry.submittedLanguages.length||entry.published?ready:scheduled(entry)>now?upcoming:waiting;
+  group.push(entry);
+ }
+ const groups=[
+  ['Upcoming meetings',upcoming.sort((a,b)=>scheduled(a)-scheduled(b)),'No upcoming meetings.'],
+  ['Past meetings awaiting minutes',waiting.sort((a,b)=>scheduled(b)-scheduled(a)),'No past meetings are awaiting minutes.'],
+  ['Conducted meetings with minutes',ready.sort((a,b)=>scheduled(b)-scheduled(a)),'No submitted minutes yet.']
+ ];
 
  const choices=[['','Choose a staff member'],...roster.map(person=>[person.id,rosterLabel(person)])];
  const lookup=new Map();
  for(const wing of ['secondary','primary'])for(const teacher of objectionRoster(recipientStaff,wing,undefined,assignments))for(const id of teacher.ids)lookup.set(id,teacher);
 
  function editorSection(title){const section=el('details',undefined,'meeting-setup');section.append(el('summary',title));return section;}
- for(const entry of meetings){
-  const card=meetingCard(entry);
+ for(const [title,entries,empty]of groups){
+  const section=el('section',undefined,'meeting-register-section');
+  const heading=el('h3',title+' ('+entries.length+')');
+  section.append(heading);content.append(section);
+  if(!entries.length)section.append(el('p',empty,'meeting-register-empty'));
+  for(const entry of entries)section.append(principalMeetingCard(entry));
+ }
+ function principalMeetingCard(entry){
+  const card=meetingCard(entry,true,'h4');
+  const reportActions=el('div',undefined,'meeting-actions meeting-report-actions');
+  const setup=editorSection('Meeting setup');
+  if(entry.submittedLanguages.length||entry.published){
+   const received=minuteLanguages.filter(([id])=>entry.submittedLanguages.includes(id)).map(([,label])=>label);
+   const reportStatus=entry.published?'Published to staff view':'Ready for Principal review';
+   card.append(el('p',[received.length?'Minutes received · '+received.join(', '):'',reportStatus].filter(Boolean).join(' · '),'meeting-report-status'));
+  }
   const attendanceSection=editorSection('1. Expected attendance · '+(attendanceWings.find(([id])=>id===entry.attendanceWing)?.[1]||'Both wings'));
   const meetingLabel=entry.agenda?.split('\n')[0];
   const sectionName=area=>meetingLabel?area+' ('+meetingLabel+')':area;
@@ -340,7 +369,7 @@ async function drawPrincipal(){
   attendanceSection.append(attendance);
   const takeAttendance=button('Take attendance as Principal',async()=>{
    if(attendance.dataset.portalDirty==='true'){
-    attendanceSection.open=true;
+    setup.open=attendanceSection.open=true;
     saveSetup.focus();
     message('Use Save meeting setup before taking attendance.',true);return;
    }
@@ -365,18 +394,16 @@ async function drawPrincipal(){
   writerForm.append(add);writerForm.onsubmit=event=>event.preventDefault();
   writerSection.append(writerForm);
 
-  const minutes=editorSection('3. Minutes · Hindi / English');
-  for(const [language,label]of minuteLanguages)if(entry.submittedLanguages.includes(language))minutes.append(button('Edit '+label+' minutes',async()=>{
+  for(const [language,label]of minuteLanguages)if(entry.submittedLanguages.includes(language))reportActions.append(button('Edit '+label+' minutes',async()=>{
    if(!canLeave())return;
    const {meeting}=await principalRequest({meetingOperation:'read',task:'minutes',meetingId:entry.id,language});showEditor(meeting);
   }));
-  if(entry.submittedLanguages.length)minutes.append(button('Preview report / print',()=>{if(canLeave())return showReport(entry.id,true);}),button(entry.published?'Update published report':'Publish report',async()=>{
+  if(entry.submittedLanguages.length)reportActions.prepend(button('Preview report / print',()=>{if(canLeave())return showReport(entry.id,true);}),button(entry.published?'Update published report':'Publish to staff view',async()=>{
    if(!canLeave())return;
    saved(await principalRequest({meetingOperation:'publish',meetingId:entry.id,expectedRevision:entry.revision}));
    await drawPrincipal();message('Report published to staff view.');
   }));
-  else minutes.append(el('p','Waiting for assigned writers to submit.'));
-  if(entry.published)minutes.append(button('Stop publication',async()=>{
+  if(entry.published)reportActions.append(button('Stop publication',async()=>{
    if(!canLeave())return;
    saved(await principalRequest({meetingOperation:'unpublish',meetingId:entry.id,expectedRevision:entry.revision}));
    await drawPrincipal();message('Report hidden from staff view.');
@@ -393,7 +420,11 @@ async function drawPrincipal(){
   const actions=el('div',undefined,'meeting-actions');
   actions.append(saveSetup);
   if(savedSetupId===entry.id){const receipt=el('p','✓ Meeting saved successfully.','meeting-saved');receipt.setAttribute('role','status');actions.append(receipt);}
-  card.append(takeAttendance,attendanceSection,writerSection,minutes,actions);content.append(card);
+  setup.append(attendanceSection,writerSection,actions);
+  if(savedSetupId===entry.id)setup.open=true;
+  if(reportActions.childElementCount)card.append(reportActions);
+  card.append(takeAttendance,setup);
+  return card;
  }
  content.append(button('Sign out as Principal',async()=>{if(canLeave()){await authApi.signOut(auth);await showStaff();}}));
 }

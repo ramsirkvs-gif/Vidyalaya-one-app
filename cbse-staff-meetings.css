@@ -54,3 +54,11 @@ textarea{resize:vertical}
 
 .meeting-minute-actions{gap:.75rem 1.5rem}
 .meeting-notepad [hidden]{display:none}
+
+.meeting-register-section{margin:1.35rem 0}
+.meeting-register-section>h3{background:#e5f1ec;border-radius:.4rem;margin:0;padding:.65rem .85rem}
+.meeting-register-section .meeting-item{margin:.65rem 0;padding:.65rem .85rem;border:1px solid #cedbd2;border-radius:.5rem}
+.meeting-register-section h4{margin:.15rem 0}
+.meeting-register-empty{margin:.65rem .85rem}
+.meeting-report-actions{margin:.65rem 0}
+.meeting-report-status{font-weight:bold}
