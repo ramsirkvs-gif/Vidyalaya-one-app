@@ -1,4 +1,4 @@
-import {applyStaffMeeting,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingWriters,staffMeetingList} from '../cbse-staff-meetings-model.js';
+import {applyStaffMeeting,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
@@ -174,12 +174,11 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    const meetings=await read('cbse/staffMeetings')||{};
    if(input.meetingId!==undefined){
     const meeting=typeof input.meetingId==='string'&&Object.hasOwn(meetings,input.meetingId)?meetings[input.meetingId]:null;
-    if(!meeting?.savedAt)throw new AccessError('The minutes have not been saved yet.',404);
-    const staff=Object.fromEntries(entries(await directoryStaff()).map(([id,person])=>[id,{...person,wing:rollWing(person)}]));
-    const roster=meetingAttendanceRoster(meeting,staff),attendance=meeting.attendance||{};
-    const people=status=>roster.filter(person=>attendance[person.id]===status).map(({name,designation})=>({name,designation}));
-    const {agenda,minutes,createdAt}=meeting;
-    return {ok:true,report:{agenda,minutes,createdAt,language:meeting.language||'en',attendanceWing:meeting.attendanceWing||'both',writerName:meeting.savedByName||meetingWriters(meeting)[0]?.name||'Principal',present:people('present'),absent:people('absent'),unmarked:people(undefined)}};
+    if(!meeting)throw new AccessError('This meeting report is unavailable.',404);
+    const staff=meeting.publishedReport===undefined&&meeting.savedAt?Object.fromEntries(entries(await directoryStaff()).map(([id,person])=>[id,{...person,wing:rollWing(person)}])):{};
+    const report=publishedMeetingReport(meeting,staff);
+    if(!report)throw new AccessError('The meeting report has not been published.',404);
+    return {ok:true,report};
 
    }
    return {ok:true,meetings:staffMeetingList(meetings)};
@@ -206,10 +205,11 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     const meetings=input.meetingId?null:await read('cbse/staffMeetings')||{};
     if(admin&&!input.meetingId)return {ok:true,meetings:staffMeetingList(meetings,{principal:true}),roster:meetingRoster(staff).filter(person=>person.id!=='principal')};
     const meeting=typeof input.meetingId==='string'&&/^[a-f0-9]{32}$/.test(input.meetingId)?await read('cbse/staffMeetings/'+input.meetingId):null;
-    if(!meeting||!canOpenMeeting(staff,meeting,actor,input.task))throw new AccessError('Only authorised staff can open this meeting task.',403);
-    if(input.task==='attendance')return {ok:true,meeting:{id:meeting.id,createdAt:meeting.createdAt,revision:meeting.revision,attendanceWing:meeting.attendanceWing||'both',roster:meetingAttendanceRoster(meeting,staff),attendance:meeting.attendance||{}}};
-    const {id,createdAt,revision,savedAt,agenda,minutes,language,draft}=meeting;
-    return {ok:true,meeting:{id,createdAt,revision,savedAt,agenda,minutes,language,draft}};
+    if(admin&&meeting&&input.task==='report')return {ok:true,report:meetingReport(meeting,staff)};
+    if(!meeting||!canOpenMeeting(staff,meeting,actor,input.task,input.language))throw new AccessError('Only authorised staff can open this meeting task.',403);
+    if(input.task==='attendance')return {ok:true,meeting:{id:meeting.id,createdAt:meeting.createdAt,revision:meeting.attendanceRevision||0,attendanceWing:meeting.attendanceWing||'both',roster:meetingAttendanceRoster(meeting,staff),attendance:meeting.attendance||{}}};
+    const minute=meetingMinute(meeting,input.language);
+    return {ok:true,meeting:{id:meeting.id,createdAt:meeting.createdAt,...minute,revision:minute.revision||0,language:input.language}};
    }
    const stamp=now();let reason='';
    const result=await mcqTransaction(db,'cbse',current=>{
@@ -222,7 +222,8 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     catch(error){reason=error.message;return;}
    },{restTransaction});
    if(!result.committed||!result.snapshot.val()?.staffMeetings)throw new AccessError(reason||'The meeting save was not confirmed. Refresh before retrying.',409);
-   return {ok:true,revision:result.snapshot.val().staffMeetings[input.meetingId].revision};
+   const meeting=result.snapshot.val().staffMeetings[input.meetingId];
+   return {ok:true,revision:operation.startsWith('minutes-')?meetingMinute(meeting,input.language).revision:operation==='attendance-save'?meeting.attendanceRevision:meeting.revision};
   }
   if(action==='task-manager'){
    if(!pinIdentity)throw new AccessError('Verify your existing personal PIN.',403);

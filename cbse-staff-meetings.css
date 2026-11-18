@@ -41,3 +41,6 @@ textarea{resize:vertical}
 .meeting-setup{margin:.55rem 0;padding:.6rem .8rem;border:1px solid #c7d8ce;background:#f9fbf8;border-radius:.5rem}
 .meeting-setup summary{cursor:pointer;font-weight:bold}
 .meeting-setup button{margin:.3rem .3rem .3rem 0}
+.meeting-report-version{border-bottom:1px solid #bdcfc4;padding:.35rem 0 .75rem}
+.meeting-signatures{margin-top:1.2rem;break-inside:avoid}
+.meeting-signatures p{margin:1rem 0}
