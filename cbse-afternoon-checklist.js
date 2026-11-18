@@ -10,11 +10,11 @@ const labels=[
  'Have you completed all work due from you for every department today and obtained clearance for all blocking NOC objections?',
  'Have you carried out your Prime Mentor duties as CT / Co-CT today to support your class’s academic progress and reduce absenteeism?'
 ];
-export const AFTERNOON_QUESTIONS=[...labels.map((label,i)=>({id:'afternoon_check_'+(i+1),label,type:'yesno',required:true,commentRequired:false,commentMinWords:1,commentMaxWords:100})),{id:'afternoon_reflection',label:'Describe your contributions today, any lapses and your action plan for tomorrow.',type:'text',required:false,minWords:1,maxWords:100}];
+export const AFTERNOON_QUESTIONS=[...labels.map((label,i)=>({id:'afternoon_check_'+(i+1),label,type:'yesno',required:true})),{id:'afternoon_reflection',label:'Describe your contributions today, any lapses and your action plan for tomorrow.',type:'text',required:false,minWords:1,maxWords:100}];
 
-// Existing Principal corrections retain the saved wording and use the current remark limit.
+// Existing Principal corrections retain the saved wording and use the current reflection policy.
 export function currentAfternoonQuestion(q){
  const policy=AFTERNOON_QUESTIONS.find(question=>question.id===q.id);
  if(policy?.type==='text'&&q.type==='text')return {...q,required:policy.required,minWords:policy.minWords,maxWords:policy.maxWords};
- return policy?.commentMaxWords&&q.type==='yesno'?{...q,commentRequired:policy.commentRequired,commentMinWords:policy.commentMinWords,commentMaxWords:policy.commentMaxWords}:{...q};
+ return {...q};
 }

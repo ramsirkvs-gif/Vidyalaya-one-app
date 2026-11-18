@@ -16,7 +16,7 @@ test('No comments and final reflections are optional, with a 100-word cap',()=>{
  assert.throws(()=>snapshotAnswers(questions,{...answers(),afternoon_reflection:words(101)}),/at most 100 words/);
  for(const n of [0,1,100])assert.equal(snapshotAnswers(questions,{...answers(),afternoon_reflection:words(n)}).afternoon_reflection,words(n));
  const no={...answers(),afternoon_check_1:'no'};
- assert.throws(()=>snapshotQuestionComments(questions,no,{afternoon_check_1:words(101)}),/maximum 100 words/);
+ assert.throws(()=>snapshotQuestionComments(questions,no,{afternoon_check_1:words(101)}),/at most 100 words/);
  assert.deepEqual(snapshotQuestionComments(questions,no,{}),{});
  for(const n of [1,100])assert.equal(snapshotQuestionComments(questions,no,{afternoon_check_1:words(n)}).afternoon_check_1,words(n));
  assert.deepEqual(snapshotQuestionComments(questions,answers(),{}),{});

@@ -11,14 +11,14 @@ const morning={rollOperation:'report',workflowVersion:3,formVersion:1,wing:'seco
 test('leave corrections: types, default/published wording, NA for every checklist and per-answer comments',()=>{
  assert.ok(form.groups.advanceLeave.every(q=>q.type==='yesnona'));assert.match(form.groups.advanceLeave.find(q=>q.id==='advance_cover').label,/class teaching/);assert.match(form.groups.advanceLeave.find(q=>q.id==='advance_tasks').label,/high-priority/);
  const input={...leave,answers:{...leave.answers,advance_approval:'no',advance_exam:'na'},answerComments:{advance_approval:'Emergency approval has been requested.',advance_exam:'No examination work is assigned.'}};
- assert.throws(()=>applyRollCall({}, {...input,answerComments:{}},actor,staff,now,'x'),/comment/);
- assert.throws(()=>applyRollCall({}, {...input,answerComments:{...input.answerComments,advance_exam:Array(31).fill('word').join(' ')}},actor,staff,now,'x'),/30 words/);
+ assert.doesNotThrow(()=>applyRollCall({}, {...input,answerComments:{}},actor,staff,now,'x'));
+ assert.throws(()=>applyRollCall({}, {...input,answerComments:{...input.answerComments,advance_exam:Array(101).fill('word').join(' ')}},actor,staff,now,'x'),/100 words/);
  assert.throws(()=>applyRollCall({}, {...input,otherLeaveKind:''},actor,staff,now,'x'),/other leave type/);
  const next=applyRollCall({},input,actor,staff,now,'x'),r=next.advanceLeaves.x;assert.equal(r.status,'pending');assert.equal(r.leaveKind,'Other: Approved special leave');assert.deepEqual(r.answerComments,input.answerComments);assert.equal(publicAdvanceLeaves(next.advanceLeaves).x.answerComments,undefined);
 });
 test('daily No and NA comments are saved per question with no general reason',()=>{
  const input={...morning,answers:{...morning.answers,biometric:'no',register:'na'},answerComments:{biometric:'Device is unavailable; office has been informed.',register:'Register is being replaced today.'}};
- assert.throws(()=>applyRollCall({}, {...input,answerComments:{}},actor,staff,now),/comment/);
+ assert.doesNotThrow(()=>applyRollCall({}, {...input,answerComments:{}},actor,staff,now));
  const r=Object.values(applyRollCall({},input,actor,staff,now).reports)[0];assert.deepEqual(r.answerComments,input.answerComments);assert.equal(r.noReason,undefined);assert.equal(r.undertaking,true);
 });
 test('only Principal deletes a selected unchanged record; afternoon dependency and private archive are retained',()=>{
