@@ -49,9 +49,13 @@ export function createOfficeService({db,read,principal,hashPIN,verifyPIN,pinPoli
   }
   const who=await actor(token,session.officeToken);if(!who.principal)await curtain(session);
   if(action==='office-pin-settings'){
-   if(!who.principal)fail('Principal access required.');if(input.operation==='set-pin'){
-    if(!officeMember(input.memberId))fail('Choose an office member.',400);const record={...await hashPIN(input.pin),...encryptDisplayPIN(input.pin,'office:'+input.memberId,displayKey),enabled:true,version:randomUUID(),updatedAt:now()};
-    await pinPolicy.commit({updates:[{key:'office:'+input.memberId,pin:input.pin,record}]});
+   if(!who.principal)fail('Principal access required.');
+   if(['set-pin','generate-pin'].includes(input.operation)){
+    if(!officeMember(input.memberId))fail('Choose an office member.',400);
+    const key='office:'+input.memberId;
+    const makeRecord=async pin=>({...await hashPIN(pin),...encryptDisplayPIN(pin,key,displayKey),enabled:true,version:randomUUID(),updatedAt:now()});
+    if(input.operation==='generate-pin')await pinPolicy.generateOfficePIN(input.memberId,makeRecord);
+    else await pinPolicy.commit({updates:[{key,pin:input.pin,record:await makeRecord(input.pin)}]});
    }else if(input.operation==='disable'){
     if(!officeMember(input.memberId))fail('Choose an office member.',400);await db.ref('cbse/officeAccess/'+input.memberId).update({enabled:false,version:randomUUID(),updatedAt:now()});
    }else if(input.operation!==undefined&&input.operation!=='read')fail('Choose a PIN setting.',400);

@@ -12,3 +12,20 @@ test('linked profiles of the same employee retain one shared PIN without a false
 test('concurrent manual assignments cannot reserve the same PIN for different employees',async()=>{const f=await setup(),results=await Promise.allSettled([f.service('set-pin',{staffId:'X:one',pin:'789'},'principal'),f.service('set-pin',{staffId:'X:two',pin:'789'},'principal')]);assert.equal(results.filter(r=>r.status==='fulfilled').length,1);assert.equal(results.filter(r=>r.status==='rejected').length,1);const listed=await f.service('list',{},'principal');assert.equal(['X:one','X:two'].filter(id=>listed.access[id].pin==='789').length,1);assert.equal(listed.pinAudit.duplicates.length,0);});
 test('PIN collision checks include older records without display values and leave their PINs untouched',async()=>{const f=await setup();f.data.cbse.officeAccess={legacy:{...await hashPIN('789'),enabled:false,version:'legacy'}};const original=structuredClone(f.data.cbse.officeAccess);await assert.rejects(f.service('set-pin',{staffId:'X:two',pin:'789'},'principal'),/already assigned/);assert.deepEqual(f.data.cbse.officeAccess,original);});
 test('an out-of-date display value cannot hide the actual PIN hash from uniqueness checks',async()=>{const f=await setup();f.data.cbse.officeAccess={legacy:{...await hashPIN('789'),...encryptDisplayPIN('999','office:legacy',Buffer.alloc(32,7)),enabled:true}};await assert.rejects(f.service('set-pin',{staffId:'X:two',pin:'789'},'principal'),/already assigned/);f.data.cbse.staffAccess['X:two']={...await hashPIN('789'),...encryptDisplayPIN('999','X:two',Buffer.alloc(32,7)),enabled:true};const list=await f.service('list',{},'principal');assert.equal(list.access['X:two'].pin,'');assert.ok(list.pinAudit.unavailable.includes('staff:X:two'));});
+
+test('Principal generates unique Office PINs for missing members without replacing existing PINs',async()=>{
+ const f=await setup(),call=(memberId,token='principal')=>f.service('office-pin-settings',{operation:'generate-pin',memberId},token);
+ await f.service('office-pin-settings',{operation:'set-pin',memberId:'pramod-paswan',pin:'789'},'principal');
+ const staff=structuredClone(f.data.cbse.staffAccess),pramod=structuredClone(f.data.cbse.officeAccess['pramod-paswan']);
+ await assert.rejects(call('arjun-bori','outsider'),/Principal/);
+ await Promise.all([call('arjun-bori'),call('sumit-puri')]);
+ const result=await f.service('office-pin-settings',{operation:'read'},'principal');
+ const pins=result.members.filter(member=>['arjun-bori','sumit-puri'].includes(member.id)).map(member=>{
+  assert.equal(member.enabled,true);assert.match(member.pin,/^[0-9]{3}$/);return member.pin;
+ });
+ assert.equal(new Set(['123','456','789',...pins]).size,5);
+ assert.deepEqual(result.pinAudit.duplicates,[]);
+ await assert.rejects(call('arjun-bori'),/already has a PIN/);
+ assert.deepEqual(f.data.cbse.staffAccess,staff);
+ assert.deepEqual(f.data.cbse.officeAccess['pramod-paswan'],pramod);
+});
