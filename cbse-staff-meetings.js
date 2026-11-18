@@ -1,3 +1,4 @@
+import {meetingWriters} from './cbse-staff-meetings-model.js';
 import {el,options} from './cbse-ui.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
 
@@ -93,16 +94,19 @@ async function showStaff(){
 function meetingCard(entry){
  const card=el('article',undefined,'meeting-item');
  const [subject,...points]=(entry.agenda||'Meeting awaiting minutes').split('\n');
- card.append(el('h3',subject),el('p',stamp(entry.createdAt)),el('p','Minute writer: '+entry.writerName));
+ card.append(el('h3',subject),el('p',stamp(entry.createdAt)),el('p','Assigned writers: '+meetingWriters(entry).map(writer=>writer.name).join(', ')));
  if(points.length)card.append(el('p',points.join('\n'),'meeting-minutes-text'));
  return card;
 }
 function showWriterLogin(entry){
  content.replaceChildren(meetingCard(entry));
- const form=el('form'),pin=password(form,'Personal PIN for '+entry.writerName,true);form.append(el('button','Open editable minutes'));
+ const form=el('form'),writers=meetingWriters(entry);
+ const writer=field(form,'Choose your name','select');writer.required=true;
+ options(writer,writers.map(person=>[person.id,person.name]),writers[0].id);
+ const pin=password(form,'Personal PIN',true);form.append(el('button','Open editable minutes'));
  form.onsubmit=event=>{event.preventDefault();run(async()=>{
   const value=pin.value;pin.value='';
-  const result=await pinRequest(entry,value,{meetingOperation:'read'});showEditor(result.meeting);
+  const result=await pinRequest({...entry,writerId:writer.value},value,{meetingOperation:'read'});showEditor(result.meeting,writer.value);
  });};
  content.append(form,button('Back to meeting register',showStaff));
 }
@@ -111,8 +115,8 @@ function attendanceTable(headers){
  for(const text of headers){const cell=el('th',text);cell.scope='col';heading.append(cell);}
  head.append(heading);table.append(head,rows);return {table,rows};
 }
-function showEditor(meeting){
- content.replaceChildren(el('h2','Write meeting minutes'),el('p',stamp(meeting.createdAt)),el('p','Assigned minute writer: '+meeting.writerName));
+function showEditor(meeting,writerId){
+ content.replaceChildren(el('h2','Write meeting minutes'),el('p',stamp(meeting.createdAt)),el('p','Assigned minute writer: '+meetingWriters(meeting).find(writer=>writer.id===writerId).name));
  const form=trackedForm();
  const agenda=field(form,'Agenda / subject and points','textarea');agenda.maxLength=500;agenda.rows=3;agenda.required=true;agenda.value=meeting.agenda||'';
  const minutes=field(form,'It was discussed and decided that','textarea');minutes.className='meeting-minutes-input';minutes.maxLength=12000;minutes.required=true;minutes.value=meeting.minutes||'';
@@ -132,7 +136,7 @@ function showEditor(meeting){
   run(async()=>{
    const secret=pin.value;pin.value='';
    const attendance=Object.fromEntries(inputs.map(([id,input])=>[id,input.value]));
-   const result=await pinRequest({id:meeting.id,writerId:meeting.writerId},secret,{meetingOperation:'save',expectedRevision:meeting.revision,agenda:agenda.value,minutes:minutes.value,attendance});
+   const result=await pinRequest({id:meeting.id,writerId},secret,{meetingOperation:'save',expectedRevision:meeting.revision,agenda:agenda.value,minutes:minutes.value,attendance});
    saved(result);form.dataset.portalDirty='false';await showReport(meeting.id);message('Meeting minutes saved.');
   });
  };
@@ -182,13 +186,24 @@ async function drawPrincipal(){
  content.replaceChildren(el('h2','Assign staff meeting minute writers'));
  const choices=[['','Choose a staff member'],...roster.map(person=>[person.id,[person.name,person.designation].filter(Boolean).join(' · ')])];
  const assignment=(parent,entry)=>{
-  const form=trackedForm(),writer=field(form,'Assigned minute writer','select');writer.required=true;
-  options(writer,choices,entry?.writerId||'');
-  const submit=el('button',entry?'Save writer assignment':'Create meeting and assign writer');form.append(submit);
+  const form=trackedForm(),rows=el('div'),writers=new Set();
+  const updateRemove=()=>{for(const button of rows.querySelectorAll('button'))button.hidden=writers.size===1;};
+  form.append(rows);
+  const addWriter=value=>{
+   const row=el('div',undefined,'meeting-actions meeting-writer-row'),writer=field(row,'Assigned minute writer','select');writer.required=true;
+   options(writer,choices,value);writers.add(writer);
+   const remove=el('button','Remove writer');remove.type='button';
+   remove.onclick=()=>{if(writers.size===1)return;writers.delete(writer);row.remove();updateRemove();form.dataset.portalDirty='true';};
+   row.append(remove);rows.append(row);updateRemove();
+  };
+  for(const writer of entry?meetingWriters(entry):[{id:''}])addWriter(writer.id);
+  const add=el('button','Add another writer');add.type='button';
+  add.onclick=()=>{addWriter('');form.dataset.portalDirty='true';};
+  form.append(add,el('button',entry?'Save writer assignments':'Create meeting and assign writers'));
   const meetingId=entry?.id||crypto.randomUUID().replaceAll('-','');
   form.onsubmit=event=>{event.preventDefault();run(async()=>{
-   const result=await principalRequest({meetingOperation:entry?'assign':'create',meetingId,writerId:writer.value,expectedRevision:entry?.revision});
-   saved(result);form.dataset.portalDirty='false';await drawPrincipal();message(entry?'Minute writer updated.':'Meeting created with the current date and time.');
+   const result=await principalRequest({meetingOperation:entry?'assign':'create',meetingId,writerIds:[...writers].map(writer=>writer.value),expectedRevision:entry?.revision});
+   saved(result);form.dataset.portalDirty='false';await drawPrincipal();message(entry?'Minute writers updated.':'Meeting created with the current date and time.');
   });};
   parent.append(form);
  };

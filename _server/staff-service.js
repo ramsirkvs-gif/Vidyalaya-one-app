@@ -1,4 +1,4 @@
-import {applyStaffMeeting,meetingRoster,meetingWriterMatches,staffMeetingList} from '../cbse-staff-meetings-model.js';
+import {applyStaffMeeting,meetingRoster,meetingWriterMatches,meetingWriters,staffMeetingList} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
@@ -178,7 +178,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     const present=meeting.roster.filter(person=>meeting.attendance[person.id]==='present').map(({name,designation})=>({name,designation}));
     const absent=meeting.roster.filter(person=>meeting.attendance[person.id]==='absent').map(({name,designation})=>({name,designation}));
     const {agenda,minutes,createdAt}=meeting;
-    return {ok:true,report:{agenda,minutes,createdAt,writerName:meeting.savedByName||meeting.writerName,present,absent}};
+    return {ok:true,report:{agenda,minutes,createdAt,writerName:meeting.savedByName||meetingWriters(meeting)[0].name,present,absent}};
    }
    return {ok:true,meetings:staffMeetingList(meetings)};
   }
@@ -203,7 +203,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     const meetings=await read('cbse/staffMeetings')||{};
     if(admin)return {ok:true,meetings:staffMeetingList(meetings,{principal:true}),roster:meetingRoster(staff).filter(person=>person.id!=='principal')};
     const meeting=typeof input.meetingId==='string'&&Object.hasOwn(meetings,input.meetingId)?meetings[input.meetingId]:null;
-    if(!meeting||!meetingWriterMatches(staff,meeting.writerId,staffId))throw new AccessError('Only the Principal-assigned minute writer can edit this meeting.',403);
+    if(!meeting||!meetingWriterMatches(staff,meeting,staffId))throw new AccessError('Only the Principal-assigned minute writer can edit this meeting.',403);
     return {ok:true,meeting};
    }
    const stamp=now();let reason='';

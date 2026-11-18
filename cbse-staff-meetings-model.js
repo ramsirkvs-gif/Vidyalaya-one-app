@@ -10,8 +10,12 @@ export function meetingRoster(staff){
  return [roster[0],...roster.slice(1).sort((a,b)=>a.name.localeCompare(b.name))];
 }
 
-export function meetingWriterMatches(staff,writerId,staffId){
- return !!staffId&&(staff[writerId]?.pinOwnerId===staffId||rollStaffIdentityIds(staff,writerId).includes(staffId));
+export function meetingWriters(meeting){
+ return meeting.writers||[{id:meeting.writerId,name:meeting.writerName}];
+}
+
+export function meetingWriterMatches(staff,meeting,staffId){
+ return !!staffId&&meetingWriters(meeting).some(({id})=>staff[id]?.pinOwnerId===staffId||rollStaffIdentityIds(staff,id).includes(staffId));
 }
 
 const meetingKey=id=>typeof id==='string'&&/^[a-f0-9]{32}$/.test(id);
@@ -22,18 +26,21 @@ export function applyStaffMeeting(store,input,actor,staff,now){
  if(input.meetingOperation==='create'||input.meetingOperation==='assign'){
   if(!actor.principal)throw Error('Only the Principal can assign a minute writer.');
   if(input.meetingOperation==='create'&&meeting)return meetings;
-  const writer=Object.hasOwn(staff,input.writerId)?staff[input.writerId]:null;
-  if(writer?.status!=='active'||!meetingRoster(staff).some(person=>person.id===input.writerId))throw Error('Choose an active staff member to write the minutes.');
+  const ids=input.writerIds??[input.writerId],roster=meetingRoster(staff);
+  const available=new Map(roster.filter(person=>person.id!=='principal').map(person=>[person.id,person.name]));
+  if(!Array.isArray(ids)||!ids.length||ids.length>available.size||new Set(ids).size!==ids.length||ids.some(id=>!available.has(id)))throw Error('Choose one or more different active staff members to write the minutes.');
+  const writers=ids.map(id=>({id,name:available.get(id)}));
   if(input.meetingOperation==='create'){
-   meetings[id]={id,createdAt:now,revision:1,writerId:input.writerId,writerName:rollDisplayName(writer.name),roster:meetingRoster(staff)};
+   meetings[id]={id,createdAt:now,revision:1,writers,roster};
    return meetings;
   }
-  if(!meeting||input.expectedRevision!==meeting.revision)throw Error('This meeting changed. Refresh it before assigning a writer.');
-  meetings[id]={...meeting,writerId:input.writerId,writerName:rollDisplayName(writer.name),revision:meeting.revision+1};
+  if(!meeting||input.expectedRevision!==meeting.revision)throw Error('This meeting changed. Refresh it before assigning writers.');
+  const {writerId,writerName,...previous}=meeting;
+  meetings[id]={...previous,writers,revision:meeting.revision+1};
   return meetings;
  }
  if(input.meetingOperation!=='save')throw Error('Choose a valid meeting operation.');
- if(!meeting||!meetingWriterMatches(staff,meeting.writerId,actor.staffId))throw Error('Only the Principal-assigned minute writer can save this meeting.');
+ if(!meeting||!meetingWriterMatches(staff,meeting,actor.staffId))throw Error('Only the Principal-assigned minute writer can save this meeting.');
  if(input.expectedRevision!==meeting.revision)throw Error('This meeting changed. Reopen it to check the latest version before saving.');
  const {agenda,minutes,attendance}=input;
  if(typeof agenda!=='string'||!agenda.trim()||agenda.length>500)throw Error('Enter the agenda / subject in up to 500 characters.');
@@ -45,5 +52,8 @@ export function applyStaffMeeting(store,input,actor,staff,now){
 }
 
 export function staffMeetingList(store,{principal=false}={}){
- return Object.values(store||{}).sort((a,b)=>b.createdAt-a.createdAt).map(({id,createdAt,writerId,writerName,agenda,savedAt,revision})=>({id,createdAt,writerId,writerName,...(principal?{revision}:{}),...(savedAt?{agenda,savedAt}:{})}));
+ return Object.values(store||{}).sort((a,b)=>b.createdAt-a.createdAt).map(meeting=>{
+  const {id,createdAt,agenda,savedAt,revision}=meeting,writers=meetingWriters(meeting);
+  return {id,createdAt,writers,writerId:writers[0].id,writerName:writers[0].name,...(principal?{revision}:{}),...(savedAt?{agenda,savedAt}:{})};
+ });
 }
