@@ -51,15 +51,15 @@ try:
     selects=dialog.locator('select[name^="roll-afternoon_check_"]');assert selects.count()==9;assert selects.evaluate_all('(nodes)=>nodes.every(n=>n.value==="yes" && n.options.length===2)')
     assert dialog.locator('[name=roll-comment-afternoon_check_1]').is_hidden()
     selects.first.select_option('no');comment=dialog.locator('[name=roll-comment-afternoon_check_1]');assert comment.is_visible()
-    for count,valid in [(0,False),(1,True),(50,True),(51,False)]:
+    for count,valid in [(0,True),(1,True),(100,True),(101,False)]:
      comment.fill(words(count));assert comment.evaluate('(n)=>n.checkValidity()')==valid
-    expect(dialog.get_by_text('51 / 50 words',exact=True)).to_be_visible()
+    expect(dialog.get_by_text('101 / 100 words',exact=True)).to_be_visible()
     selects.first.select_option('yes')
     assert comment.is_hidden() and comment.is_disabled() and comment.evaluate('(n)=>n.checkValidity()')
-    selects.first.select_option('no');comment.fill(words(1));remark=dialog.locator('[name=roll-afternoon_reflection]')
-    for count,valid in [(0,False),(1,True),(100,True),(101,False)]:
+    selects.first.select_option('no');comment.fill('');remark=dialog.locator('[name=roll-afternoon_reflection]')
+    for count,valid in [(0,True),(1,True),(100,True),(101,False)]:
      remark.fill(words(count));assert remark.evaluate('(n)=>n.checkValidity()')==valid
-    remark.fill(words(1));dialog.locator('[name=roll-undertaking]').check()
+    remark.fill('');dialog.locator('[name=roll-undertaking]').check()
     submit=dialog.get_by_role('button',name='Submit roll call',exact=True)
     success=page.locator('.roll-afternoon-success')
     if first:
@@ -83,7 +83,7 @@ try:
      expect(courtesy).to_have_count(0)
     else:
      expect(courtesy).to_be_visible()
-    assert len(calls)==1 and calls[0]['answerComments']['afternoon_check_1']==words(1)
+    assert len(calls)==1 and calls[0]['answerComments']['afternoon_check_1']==''
     if first:
      hold=page.get_by_role('dialog',name='Meet the Principal before leaving')
      expect(hold).to_contain_text('obtain NOC before leaving')
