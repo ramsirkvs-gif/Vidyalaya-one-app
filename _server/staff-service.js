@@ -70,7 +70,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
  async function notificationStaffNames(fresh){const[faculty,support]=await Promise.all([readVersioned('cbse/facultyDraft','cbse/facultyDraft/revision',{fresh}),readVersioned('cbse/mission/staff','cbse/mission/revision',{fresh})]);return Object.fromEntries(entries(staffIndex(faculty,{staff:support||{}},{includeRollOnly:true})).map(([id,p])=>[id,p.name]));}
 
  async function directoryStaff(){const[faculty,support,draft]=await Promise.all([read('cbse/facultyDraft'),read('cbse/mission/staff'),read('cbse/draft')]);const staff=primaryDirectory(rollRoleDirectory(staffIndex(faculty,{staff:support||{}},{includeRollOnly:true}),faculty,draft?.classes));return Object.fromEntries(entries(staff).map(([id,p])=>{const owner=avinashBibekIdentityIds(id,faculty,{staff:support||{}})?.[0];return [id,owner?{...p,pinOwnerId:owner}:p];}));}
- const pinPolicy=createPINPolicy({db,read,getStaff:async()=>primaryDirectory(await officeDirectoryStaff()),displayKey,verifyPIN,AccessError});
+ const pinPolicy=createPINPolicy({db,read,restTransaction,getStaff:async()=>primaryDirectory(await officeDirectoryStaff()),displayKey,verifyPIN,AccessError});
  const generateMissingPINs=createMissingStaffPINGenerator({db,read,restTransaction,displayKey,hashPIN,verifyPIN,now,identityIds:rollStaffIdentityIds,AccessError});
  // Fixed, Principal-approved roster migration; no request-supplied names, roles or PINs.
  // Staff may enter Roll Call without first visiting the Principal's Settings.

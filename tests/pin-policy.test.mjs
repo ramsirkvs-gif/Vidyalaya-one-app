@@ -29,3 +29,19 @@ test('Principal generates unique Office PINs for missing members without replaci
  assert.deepEqual(f.data.cbse.staffAccess,staff);
  assert.deepEqual(f.data.cbse.officeAccess['pramod-paswan'],pramod);
 });
+
+test('Office generation confirms the conditional Firebase save and returns only the selected member',async()=>{
+ const transactions=[];
+ const f=taskFixture({restTransaction:async(db,path,update)=>{
+  transactions.push(path);
+  return db.ref(path).transaction(update);
+ }});
+ const memberId='arjun-bori';
+ const response=await f.service('office-pin-settings',{operation:'generate-pin',memberId},'principal');
+ assert.deepEqual(transactions,['cbse']);
+ assert.equal(response.members.length,1);
+ assert.equal(response.members[0].id,memberId);
+ assert.match(response.members[0].pin,/^\d{3}$/);
+ assert.equal(response.members[0].enabled,true);
+ assert.equal(response.pinAudit,undefined);
+});
