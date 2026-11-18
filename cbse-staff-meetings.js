@@ -120,6 +120,7 @@ function attendanceTable(headers){
  for(const text of headers){const cell=el('th',text);cell.scope='col';heading.append(cell);}
  head.append(heading);table.append(head,rows);return {table,rows};
 }
+const rosterLabel=person=>[person.name,person.designation,person.wing==='primary'?'Primary Wing':''].filter(Boolean).join(' · ');
 function showAttendance(meeting,identity){
  content.replaceChildren(el('h2','Take attendance'),el('p',stamp(meeting.createdAt)),el('p',attendanceWings.find(([value])=>value===meeting.attendanceWing)?.[1]||'Both wings'));
  const form=trackedForm(),{table,rows}=attendanceTable(['Staff member','Attendance']);
@@ -127,7 +128,7 @@ function showAttendance(meeting,identity){
   const row=el('tr'),cell=el('td'),select=el('select');
   select.required=true;select.setAttribute('aria-label','Attendance for '+person.name);
   options(select,[['','Choose status'],['present','Present'],['absent','Not present']],meeting.attendance?.[person.id]||'');
-  cell.append(select);row.append(el('td',[person.name,person.designation].filter(Boolean).join(' · ')),cell);rows.append(row);return [person.id,select];
+  cell.append(select);row.append(el('td',rosterLabel(person)),cell);rows.append(row);return [person.id,select];
  });
  form.append(table);
  const pin=identity?password(form,'Personal PIN to save attendance',true):null;
@@ -211,7 +212,7 @@ async function drawPrincipal(){
  content.replaceChildren(el('h2','Manage staff meetings'));
  const meetingId=crypto.randomUUID().replaceAll('-','');
  content.append(button('Create meeting',async()=>{saved(await principalRequest({meetingOperation:'create',meetingId}));await drawPrincipal();message('Meeting created with the current date and time.');}));
- const choices=[['','Choose a staff member'],...roster.map(person=>[person.id,[person.name,person.designation].filter(Boolean).join(' · ')])];
+ const choices=[['','Choose a staff member'],...roster.map(person=>[person.id,rosterLabel(person)])];
  function editorSection(title){const section=el('details',undefined,'meeting-setup');section.append(el('summary',title));return section;}
  function saveConfig(form,entry,values){
   return run(async()=>{

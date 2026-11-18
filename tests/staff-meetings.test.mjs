@@ -56,3 +56,23 @@ test('legacy published minutes remain readable and editable by the Principal',as
  const saved=await f.service('staff-meetings-principal',{meetingId:id,meetingOperation:'minutes-edit',expectedRevision:1,language:'en',agenda:'Updated',minutes:'Corrected minutes'},'principal');
  assert.equal(saved.revision,2);
 });
+
+test('meeting rosters follow seniority and identify Primary staff in existing attendance snapshots',async()=>{
+ const {meetingRoster,meetingAttendanceRoster}=await import('../cbse-staff-meetings-model.js');
+ const staff=Object.fromEntries([
+  ['bengia','Ms. Bengia Yapi','PRT',''],
+  ['anil','Mr. Anil Kumar','PRT','secondary'],
+  ['girraj','Mr. Girraj Prasad Meena','PRT','primary'],
+  ['poor','Mr. Pooran Mal Meena','PRT','primary'],
+  ['hm','Mr. Rohtash','Headmaster','primary'],
+  ['bharat','Mr. Bharat Lal Meena','TGT-Hindi','secondary'],
+  ['mohan','Dr. Mohan Singh Rajput','PGT-Hindi','secondary'],
+  ['zirdo','Mrs. E.T. Zirdo','PGT-English','secondary'],
+  ['vacancy','VP Vacant','Vice Principal','secondary'],
+ ].map(([id,name,designation,wing])=>[id,{name,designation,wing,status:'active'}]));
+ const roster=meetingRoster(staff);
+ assert.deepEqual(roster.map(p=>p.id),['principal','zirdo','mohan','bharat','girraj','hm','anil','poor','bengia']);
+ const historical={attendanceWing:'primary',roster:[...roster].reverse().map(({wing,...person})=>person)};
+ assert.deepEqual(meetingAttendanceRoster(historical,staff).map(p=>p.id),['principal','girraj','hm','anil','poor','bengia']);
+ assert.equal(roster.find(p=>p.id==='anil').wing,'primary');
+});

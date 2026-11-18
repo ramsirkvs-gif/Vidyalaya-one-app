@@ -1,17 +1,44 @@
-import {rollDisplayName,rollStaffIdentityIds} from './cbse-roll-call-roster.js';
+import {primaryStaffEntry} from './cbse-primary-roster.js';
+import {rollDisplayName,rollNameKey,rollStaffIdentityIds,secondaryStaffEntry} from './cbse-roll-call-roster.js';
 
 export const attendanceWings=[['both','Both wings'],['secondary','Secondary wing'],['primary','Primary wing']];
 export const attendanceRoles=['SMT-1','SMT-2','SMT-3'];
 export const minuteLanguages=[['hi','Hindi (Rajbhasha)'],['en','English']];
+
+// The meeting register uses the supplied order where its Primary serials overlap.
+const primaryMeetingOrder=new Map([['GIRRAJPRASADMEENA',1],['ROTHASH',2],['ANILKUMAR',3],['POORANMALMEENA',4],['BENGIAYAPI',22.5]]);
+function meetingWing(person){
+ return primaryStaffEntry(person)||rollNameKey(person.name)==='BENGIAYAPI'?'primary':person.wing||'';
+}
+function meetingRank(person){
+ if(person.id==='principal')return 0;
+ if(/^PGT\b/i.test(person.designation||''))return 1;
+ if(/^TGT\b/i.test(person.designation||''))return 2;
+ if(meetingWing(person)==='secondary')return 3;
+ if(meetingWing(person)==='primary')return 4;
+ return 5;
+}
+function meetingOrder(person){
+ const primary=primaryStaffEntry(person),key=rollNameKey(primary?.name||person.name);
+ if(meetingWing(person)==='primary')return primaryMeetingOrder.get(key)??primary?.serial??9999;
+ const serial=secondaryStaffEntry(person)?.serial;
+ if(serial)return serial;
+ if(key==='GOCHAMYAGOM')return secondaryStaffEntry({name:'Ms. M.T. Munya'}).serial-.5;
+ if(key==='BAMANGMEHA')return secondaryStaffEntry({name:'Ms. Tailyang Yasung'}).serial-.5;
+ return 9999;
+}
+function sortMeetingRoster(roster){
+ return [...roster].sort((a,b)=>meetingRank(a)-meetingRank(b)||meetingOrder(a)-meetingOrder(b)||a.name.localeCompare(b.name));
+}
 
 export function meetingRoster(staff){
  const covered=new Set(),roster=[{id:'principal',name:'Principal',designation:''}];
  for(const [id,person] of Object.entries(staff)){
   if(person.status!=='active'||covered.has(id)||!person.name?.trim()||(/\bvacant\b/i.test(person.name+' '+(person.designation||''))||/^principal$/i.test(person.designation?.trim()||'')))continue;
   for(const linked of rollStaffIdentityIds(staff,id))covered.add(linked);
-  roster.push({id,name:rollDisplayName(person.name),designation:person.designation||'',wing:person.wing||''});
+  roster.push({id,name:rollDisplayName(person.name),designation:person.designation||'',wing:meetingWing(person)});
  }
- return [roster[0],...roster.slice(1).sort((a,b)=>a.name.localeCompare(b.name))];
+ return sortMeetingRoster(roster);
 }
 
 export function meetingWriters(meeting){
@@ -19,7 +46,8 @@ export function meetingWriters(meeting){
 }
 export function meetingAttendanceRoster(meeting,staff={}){
  const wing=meeting.attendanceWing||'both';
- return meeting.roster.filter(person=>wing==='both'||person.id==='principal'||(person.wing||staff[person.id]?.wing)===wing);
+ const roster=meeting.roster.map(person=>({...person,wing:meetingWing({...person,wing:person.wing||staff[person.id]?.wing})}));
+ return sortMeetingRoster(roster.filter(person=>wing==='both'||person.id==='principal'||person.wing===wing));
 }
 function matches(staff,people,staffId){
  return !!staffId&&people.some(({id})=>staff[id]?.pinOwnerId===staffId||rollStaffIdentityIds(staff,id).includes(staffId));
