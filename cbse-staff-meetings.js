@@ -337,15 +337,13 @@ async function drawPrincipal(){
  content.append(createSection);
 
  const now=Date.now(),scheduled=entry=>entry.scheduledAt??entry.createdAt;
- const ready=[],upcoming=[],waiting=[];
+ const upcoming=[],past=[];
  for(const entry of meetings){
-  const group=entry.submittedLanguages.length||entry.published?ready:scheduled(entry)>now?upcoming:waiting;
-  group.push(entry);
+  (scheduled(entry)>now?upcoming:past).push(entry);
  }
  const groups=[
   ['Upcoming meetings',upcoming.sort((a,b)=>scheduled(a)-scheduled(b)),'No upcoming meetings.'],
-  ['Past meetings awaiting minutes',waiting.sort((a,b)=>scheduled(b)-scheduled(a)),'No past meetings are awaiting minutes.'],
-  ['Conducted meetings with minutes',ready.sort((a,b)=>scheduled(b)-scheduled(a)),'No submitted minutes yet.']
+  ['Past meetings',past.sort((a,b)=>scheduled(b)-scheduled(a)),'No past meetings.']
  ];
 
  const choices=[['','Choose a staff member'],...roster.map(person=>[person.id,rosterLabel(person)])];
@@ -364,11 +362,14 @@ async function drawPrincipal(){
   const card=meetingCard(entry,true,'h4');
   const reportActions=el('div',undefined,'meeting-actions meeting-report-actions');
   const setup=editorSection('Meeting setup');
-  if(entry.submittedLanguages.length||entry.published){
-   const received=minuteLanguages.filter(([id])=>entry.submittedLanguages.includes(id)).map(([,label])=>label);
-   const reportStatus=entry.published?'Published to staff view':'Ready for Principal review';
-   card.append(el('p',[received.length?'Minutes received · '+received.join(', '):'',reportStatus].filter(Boolean).join(' · '),'meeting-report-status'));
-  }
+  const assignedLanguages=new Set(meetingWriters(entry).map(writer=>writer.language));
+  const minuteStatus=minuteLanguages.map(([id,label])=>{
+   if(entry.submittedLanguages.includes(id))return label+' received';
+   return label+(assignedLanguages.has(id)?' awaited':' writer unassigned');
+  });
+  card.append(el('p',minuteStatus.join(' · '),'meeting-report-status'));
+  if(entry.published)card.append(el('p','Published to staff view'));
+  else if(entry.submittedLanguages.length)card.append(el('p','Ready for Principal review'));
   const attendanceSection=editorSection('1. Expected attendance · '+(attendanceWings.find(([id])=>id===entry.attendanceWing)?.[1]||'Both wings'));
   const meetingLabel=entry.agenda?.split('\n')[0];
   const sectionName=area=>meetingLabel?area+' ('+meetingLabel+')':area;
