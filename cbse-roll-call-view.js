@@ -1,3 +1,4 @@
+import {renderRollObjectionForm} from './cbse-roll-objection-form.js';
 import {principalRollHolds,showPrincipalHoldPopup} from './cbse-roll-call-holds.js';
 import {chamberNotificationTarget} from './cbse-notification-source.js';
 import {renderMovementRegister} from './cbse-movement-view.js';
@@ -112,16 +113,9 @@ export function renderRollCall(host,{deferOpen=false}={}){
   });};
   openPersonal(f);startRollClock(clock,data.serverTime);
  }
- if(workspace==='ic'){
-  const of=el('form',undefined,'roll-objection-form');of.dataset.portalTrackDirty='true';of.addEventListener('input',()=>{of.dataset.portalDirty='true';});
-  const groups=el('div',undefined,'roll-target-groups'),search=field(of,'Search teachers','roll-search'),picks=el('div',undefined,'roll-employee-picks'),count=el('p','0 teachers selected');count.setAttribute('role','status');const checks=new Map(),roster=rollRoster(data.staff,selectedWing).filter(p=>p.id&&!p.ids.includes(identity));
-  const updateCount=()=>count.textContent=[...checks.values()].filter(c=>c.checked).length+' teachers selected';
-  for(const p of roster){const roleLabels=[...new Set(p.ids.flatMap(id=>(data.staff[id]?.classRoles||[]).map(r=>r.classId+'-'+r.sectionName+' '+r.role)))];const l=el('label',p.name+(roleLabels.length?' · '+roleLabels.join(', '):'')),c=el('input');c.type='checkbox';c.value=p.id;c.onchange=updateCount;l.prepend(c);picks.append(l);checks.set(p.id,c);}
-  for(const[value,label]of [['all','All teachers'],['ct','CTs / Co-CTs'],['manual','Select from list']])groups.append(button(label,()=>{for(const p of roster)checks.get(p.id).checked=value==='all'||value==='ct'&&p.ids.some(id=>data.staff[id]?.classTeacher||data.staff[id]?.coClassTeacher);updateCount();if(value==='ct'&&![...checks.values()].some(c=>c.checked))count.textContent='No CT / Co-CT assignments recorded for this wing.';}));
-  search.oninput=()=>{for(const p of roster)checks.get(p.id).parentElement.hidden=!p.name.toLowerCase().includes(search.value.toLowerCase());};of.prepend(groups);of.append(picks,count);
-  const why=field(of,'Short remark — pending task','roll-objection-remark','textarea');why.required=true;why.maxLength=500;of.append(el('button','Raise objection'));
-  of.onsubmit=e=>{e.preventDefault();const targets=[...checks].filter(([,c])=>c.checked).map(([id])=>id);if(!targets.length){notice.textContent='Select at least one other teacher.';return;}run(async()=>{await request('object',{wing:selectedWing,remark:why.value,targets});notice.textContent='Objection raised. The selected teachers need NOC before afternoon clearance.';});};workArea.append(of);
- }
+ if(workspace==='ic')renderRollObjectionForm(workArea,{staff:data.staff,wing:selectedWing,actorId:identity,onSubmit:values=>run(async()=>{
+  await request('object',values);notice.textContent='Objection raised. The selected teachers need NOC before afternoon clearance.';
+ })});
  const pending=el('section',undefined,'roll-personal-pending');pending.hidden=workspace==='report'&&selectedPeriod!=='afternoon';pending.append(el('h3',workspace==='ic'?'Your objections / NOC':'Afternoon clearance — Pending tasks / NOC'));for(const[id,o]of Object.entries(data.rollCall.objections||{}).filter(([,o])=>o.wing===selectedWing&&(workspace==='ic'?o.createdBy===identity:o.status==='open'))){const card=el('article',undefined,'roll-status-card');card.append(el('strong',o.name),el('p',o.remark),el('b',o.status==='cleared'?'NOC released':'Objection pending'));if(o.staffId===identity)card.append(el('p','Your task is pending. Collect NOC from the concerned IC / Principal, then submit your afternoon roll call.','roll-warning'));if(o.status==='open'&&(principalView||o.createdBy===identity))card.append(button('Remove objection & release NOC',()=>run(async()=>{await request('clear',{objectionId:id});notice.textContent='Objection removed. NOC released.';})));pending.append(card);}if(workspace==='ic')workArea.append(pending);
  }
  async function navigateWorkspace(fn){const epoch=routeEpoch;await ready;while(host.dataset.busy==='true')await idlePromise;if(epoch!==routeEpoch)return;host.hidden=false;workspaceBack.hidden=false;return run(async()=>{try{await fn();}catch(error){body.replaceChildren(button('Retry opening this section',()=>navigateWorkspace(fn)));throw error;}});}

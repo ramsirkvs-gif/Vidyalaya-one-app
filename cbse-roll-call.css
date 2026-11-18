@@ -73,3 +73,9 @@
 .advance-leave-range{padding:12px;border:1px solid #b8d4cc;border-radius:10px;background:#fffdf1;margin-bottom:12px}.advance-leave-range[hidden]{display:none}.advance-leave-range label{display:inline-flex;flex-direction:column;max-width:100%;margin-right:12px}.advance-leave-range input{max-width:100%;box-sizing:border-box}
 
 .roll-afternoon-success{display:block;padding:12px;border-radius:8px;background:#dff3e4;color:#146449;font-size:1.2em;font-weight:750}
+
+.roll-objection-form label[hidden],.roll-objection-form fieldset[hidden]{display:none}
+.roll-objection-sections{display:grid;grid-template-columns:repeat(auto-fit,minmax(154px,1fr));gap:10px;margin:12px 0;border:1px solid #b8d4cc;border-radius:8px}
+.roll-objection-sections>div{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.roll-objection-sections label{flex-direction:row;align-items:center;gap:3px;margin:0}
+.roll-objection-sections input[type=checkbox]{width:auto;margin:0}
