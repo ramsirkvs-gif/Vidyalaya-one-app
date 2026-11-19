@@ -112,3 +112,23 @@
 .pb1-compact-marks small{display:block;margin:.15rem 0}
 .pb1-compact-paper{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem;font-size:.9rem}
 .pb1-compact-paper strong{flex-shrink:0}
+
+.pb1-marks-graph{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr));gap:.7rem}
+.pb1-marks-graph section{border:1px solid #c7ded9;border-radius:.6rem;background:#f6faf8;padding:.75rem}
+.pb1-marks-graph h4{margin:0 0 .65rem}
+.pb1-graph-line{display:grid;grid-template-columns:1fr auto;gap:.15rem .5rem;font-size:.85rem;margin:.5rem 0}
+.pb1-graph-line progress{grid-column:1/-1;width:100%;accent-color:#226c8e}
+.pb1-graph-line:nth-of-type(2) progress{accent-color:#177463}
+.pb1-stats>.pb1-stat-pass{background:#e7f6e9;border-color:#b1d5b8;color:#245138}
+.pb1-stats>.pb1-stat-decline{background:#fff0ea;border-color:#e9bfaf;color:#8a3b2b}
+.pb1-analyser .pb1-marks-graph{margin:0 0 .9rem}
+.pb1-smart-strip>.pb1-stat-result{background:#eef4ff;border-color:#c6d6f0;color:#214c7e}
+.pb1-smart-strip>.pb1-stat-border{background:#fff7df;border-color:#e9d49b;color:#6e4c00}
+.pb1-list-button{margin-top:.35rem}
+.pb1-count-with-link{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.pb1-count-with-link .pb1-list-button{margin:0}
+.pb1-comparison-details{margin:1rem 0}
+.pb1-comparison-details>summary{cursor:pointer;font-weight:700}
+.pb1-student-compare-paper{background:#f3f8f6;border-radius:.45rem;margin-top:.45rem;padding:.55rem}
+.pb1-student-compare-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.45rem;margin-top:.3rem}
+.pb1-student-compare-results>div{background:#fff;border-radius:.3rem;padding:.35rem .45rem}

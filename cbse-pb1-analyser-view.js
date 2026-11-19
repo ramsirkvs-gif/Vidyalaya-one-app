@@ -1,5 +1,7 @@
 import {el,options} from './cbse-ui.js';
+import {pb1Metrics,pb1CategoryCounts,pb1SmartSummary,pb1SmartStudents} from './cbse-pb1-analyser-model.js';
 const pct=v=>v==null?'—':v.toFixed(1)+'%';
+const delta=(before,after)=>before==null||after==null?'—':(after-before>0?'+':'')+(after-before).toFixed(1)+' pp';
 const result=mark=>!mark?'Not entered':mark.absent?'AB (MM '+mark.maximum+')':mark.score+'/'+mark.maximum+' ('+pct(mark.percentage)+')';
 const choices=(items,label)=>[['',label],...items.map(value=>[value,value])];
 const gradingNote='Critical fail: 25% or below. Other fail: above 25% and below 33%. Borderline pass: 33% through 40%.';
@@ -24,6 +26,102 @@ function groups(rows,key){
  const grouped=new Map();for(const row of rows){const id=key(row);if(!grouped.has(id))grouped.set(id,[]);grouped.get(id).push(row);}return grouped;
 }
 const scopeTeachers=scope=>scope.teachers||(scope.teacher?[{key:scope.teacher,name:scope.teacher}]:[]);
+const cohortHeaders=['Group','Paired / enrolled','Previous pass','PB-1 pass','Pass change','Previous average','PB-1 average','Average change','Remark'];
+function cohortRow(label,rows){
+ const m=pb1Metrics(rows),change=m.currentPass==null?null:m.currentPass-m.beforePass;
+ return [label,m.paired+' / '+m.total,pct(m.beforePass),pct(m.currentPass),delta(m.beforePass,m.currentPass),
+  pct(m.beforeAverage),pct(m.currentAverage),delta(m.beforeAverage,m.currentAverage),
+  change==null?'Awaiting comparable results':change>0?'Pass rate increased':change<0?'Pass rate decreased':'Pass rate steady'];
+}
+function studentListButton(label,title,open){
+ const action=el('button',label,'pb1-list-button');action.type='button';
+ action.setAttribute('aria-label',label+' · '+title);action.onclick=open;
+ return action;
+}
+function renderCategoryComparison(parent,previous,current,showList){
+ parent.append(el('h3','Mission 100 result categories'),el('p',gradingNote));
+ const rows=[
+  ['Critical fail',previous.critical,current.critical,'critical',mark=>mark?.band==='critical'],
+  ['Other fail',previous.red,current.red,'red',mark=>mark?.band==='red'],
+  ['Total fail',previous.failed,current.failed,'red',mark=>mark?.failed],
+  ['Borderline',previous.yellow,current.yellow,'yellow',mark=>mark?.borderline],
+  ['Pass above borderline (over 40%, below 75%)',previous.pass,current.pass,'green',mark=>mark?.band==='pass'],
+  ['Secure pass',previous.green,current.green,'green',mark=>mark?.band==='green'],
+  ['Total pass',previous.passed,current.passed,'green',mark=>mark?.percentage!=null&&!mark.failed],
+  ['Pass percentage · appeared',pct(previous.passPercentage),pct(current.passPercentage),'green'],
+  ['Pass percentage · enrolled',pct(previous.enrolledPassPercentage),pct(current.enrolledPassPercentage),'green'],
+  ['Absent (AB)',previous.absent,current.absent,'grey',mark=>mark?.absent],
+  ['Not recorded',previous.missing,current.missing,'grey',mark=>!mark],
+  ['Appeared',previous.appeared,current.appeared,'',mark=>mark?.percentage!=null],
+  ['Total enrolled',previous.enrolled,current.enrolled,''],
+  ['Average percentage',pct(previous.average),pct(current.average),''],
+ ];
+ const countCell=(value,period,label,filter)=>{
+  if(!filter||!value)return value;
+  const cell=el('div',undefined,'pb1-count-with-link');
+  const title=label+' · '+(period==='before'?'Monthly':'PB-1');
+  cell.append(el('strong',String(value)),studentListButton('View students',title,()=>showList(title,period,filter)));
+  return cell;
+ };
+ table(parent,['Category','Latest monthly test','Preboard 1'],rows.map(([label,a,b,band,filter])=>[
+  el('span',label,band?'band '+band:undefined),countCell(a,'before',label,filter),countCell(b,'current',label,filter),
+ ]));
+ parent.append(el('p','Counts are by student and subject. Total fail includes critical fails. The enrolled pass percentage includes AB and pending entries in the denominator. Pending entries remain provisional.'));
+}
+function renderSmartAnalysis(parent,rows,showList){
+ const stats=pb1SmartSummary(rows);
+ const rate=(count,total)=>total?100*count/total:null;
+ const previous=rate(stats.previousPassed,stats.paired),current=rate(stats.pairedPassed,stats.paired);
+ const outOf=count=>count+' / '+stats.assessed;
+ const strip=el('div',undefined,'pb1-stats pb1-smart-strip');
+ const items=[
+  ['Total enrolled',String(stats.students),'result',()=>true],
+  ['Appeared',stats.assessed+' / '+stats.students,'result',student=>student.current.length],
+  ['Pass percentage · appeared',pct(rate(stats.passed,stats.assessed)),'pass'],
+  ['Pass percentage · enrolled',pct(rate(stats.enrolledPassed,stats.students)),'result'],
+  ['Students passed',outOf(stats.passed),'pass',student=>student.current.length&&!student.failed],
+  ['Students failed',outOf(stats.failed),'decline',student=>student.failed],
+  ['Critical fail',outOf(stats.critical),'decline',student=>student.critical],
+  ['Borderline pass',outOf(stats.borderline),'border',student=>student.borderline],
+  ['Scored 90%+',outOf(stats.score90),'pass',student=>student.percentage>=90],
+  ['Scored 75%+',outOf(stats.score75),'pass',student=>student.percentage>=75],
+  ['Scored 50%+',outOf(stats.score50),'result',student=>student.percentage>=50],
+  ['Monthly → PB-1 pass rate',pct(previous)+' → '+pct(current),'result'],
+  ['Change vs monthly',delta(previous,current),current==null?'result':current>=previous?'pass':'decline'],
+  ['Absent · Retest awaited',stats.absent+' / '+stats.students,'border',student=>student.absent],
+  ['Marks entry pending',stats.pending+' / '+stats.students,'border',student=>student.pending],
+  ['Incomplete coverage',stats.incomplete+' / '+stats.students,'border',student=>student.incomplete],
+ ];
+ for(const [label,value,style,filter] of items){
+  const tile=el('div',undefined,'pb1-stat-'+style);tile.append(el('span',label),el('strong',value));
+  if(filter&&parseInt(value,10)>0)tile.append(studentListButton('View students',label,()=>showList(label,filter)));
+  strip.append(tile);
+ }
+ parent.append(el('h3','Smart analysis · at a glance'),strip,
+  el('p','Counts are by student. The appeared result uses the PB-1 papers each student appeared for. The enrolled result counts a student as passed only after every selected enrolled paper has an appeared pass. AB counts as a non-pass there. Blank marks are pending, so the enrolled result is provisional until entry is complete. Retest awaited and pending can overlap across subjects.'),
+  el('p','Score bands overlap and use each student’s average paper percentage. The monthly comparison uses matching appeared papers for '+stats.paired+' students.'));
+}
+function renderMarksGraph(parent,grouped){
+ const graph=el('div',undefined,'pb1-marks-graph');
+ for(const [label,rows] of grouped){
+  const article=el('section');article.append(el('h4',label));
+  const paired=rows.filter(row=>row.before?.percentage!=null&&row.current?.percentage!=null);
+  for(const [key,title] of [['before','Latest monthly marks'],['current','Preboard 1']]){
+   const scores=(paired.length?paired:rows).flatMap(row=>row[key]?.percentage==null?[]:[row[key].percentage]);
+   const mean=scores.length?scores.reduce((sum,value)=>sum+value,0)/scores.length:null;
+   const line=el('div',undefined,'pb1-graph-line');
+   line.append(el('span',title),el('strong',mean==null?'No appeared marks':pct(mean)+' · '+scores.length+(scores.length===1?' result':' results')));
+   if(mean!=null){
+    const bar=el('progress');bar.max=100;bar.value=mean;bar.setAttribute('aria-hidden','true');
+    line.append(bar);
+   }
+   article.append(line);
+  }
+  graph.append(article);
+ }
+ if(graph.childElementCount)parent.append(graph);else parent.append(el('p','No records match these filters.'));
+}
+
 export function renderPB1Analyser(host,data,{run,button,save,approve,back,teacher,publicView,entryOnly,openEntry,openNames,refresh}){
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
  const filters=el('div',undefined,'pb1-filters'),report=el('div');
@@ -68,21 +166,21 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
  }
  const info=row=>data.scopes[row.scope];
  const sectionLabel=row=>info(row).classId+' '+info(row).section;
- function marksList(parent,rows){
+ function marksList(parent,rows,period='current'){
   const list=el('ul',undefined,'pb1-compact-marks');
   for(const group of groups(rows,row=>row.key).values()){
    const student=group[0],item=el('li');
    item.append(el('strong',student.name),el('small',sectionLabel(student)));
    for(const row of group){
     const paper=el('div',undefined,'pb1-compact-paper');
-    paper.append(el('span',info(row).subject),el('strong',result(row.current)));item.append(paper);
+    paper.append(el('span',info(row).subject),el('strong',result(row[period])));item.append(paper);
    }
    list.append(item);
   }
   parent.append(list);
  }
- function showEnteredMarks(rows){
-  const dialog=el('dialog',undefined,'task-start-dialog pb1-student-dialog'),heading=el('h2','Entered PB-1 marks'),results=el('div');
+ function showMarks(rows,{title='Entered PB-1 marks',period='current'}={}){
+  const dialog=el('dialog',undefined,'task-start-dialog pb1-student-dialog'),heading=el('h2',title),results=el('div');
   heading.id='pb1-entered-marks-title';dialog.setAttribute('aria-labelledby',heading.id);
   const close=el('button','Close');close.type='button';close.onclick=()=>dialog.close();
   dialog.append(heading,close);
@@ -90,7 +188,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   const update=()=>{
    const query=search.value.trim().toLowerCase(),matching=rows.filter(row=>[row.name,sectionLabel(row),info(row).subject].join(' ').toLowerCase().includes(query));
    results.replaceChildren();
-   if(matching.length)marksList(results,matching);
+   if(matching.length)marksList(results,matching,period);
    else results.append(el('p','No entered marks match this search.'));
   };
   search.oninput=update;update();dialog.append(results);
@@ -108,18 +206,76 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   });
   toolbar.append(names);
  }
+ function showCohorts(parent,title,grouped){
+  parent.append(el('h3',title));
+  table(parent,cohortHeaders,[...grouped].map(([label,group])=>cohortRow(label,group)));
+ }
+ function teacherGroups(rows){
+  const byTeacher=groups(rows.flatMap(row=>{
+   const teachers=scopeTeachers(info(row)).filter(person=>!teacherSelect.value||person.key===teacherSelect.value);
+   return (teachers.length?teachers:[{key:'',name:'Unassigned'}]).map(person=>({row,person}));
+  }),({person,row})=>JSON.stringify([person.key,info(row).classId,info(row).subject]));
+  return [...byTeacher.values()].map(group=>{
+   const {person,row}=group[0];
+   return [person.name+' · '+info(row).classId+' · '+info(row).subject,group.map(item=>item.row)];
+  });
+ }
+ function showStudentComparison(parent,rows){
+  parent.append(el('h3','Student-by-student comparison'));
+  const search=control(parent,'Search student results','input'),list=el('ul',undefined,'pb1-compact-marks');
+  search.type='search';
+  search.oninput=()=>{
+   const query=search.value.trim().toLowerCase();
+   const matching=rows.filter(row=>[row.name,row.roll,sectionLabel(row),info(row).subject].join(' ').toLowerCase().includes(query));
+   list.replaceChildren();
+   for(const papers of groups(matching,row=>row.key).values()){
+    const student=papers[0],item=el('li');
+    item.append(el('strong',student.name),el('small',sectionLabel(student)));
+    for(const row of papers){
+     const paper=el('div',undefined,'pb1-student-compare-paper'),marks=el('div',undefined,'pb1-student-compare-results');
+     const previous=el('div'),current=el('div');
+     previous.append(el('small','Previous monthly test'),el('strong',result(row.before)));
+     current.append(el('small','PB-1'),el('strong',result(row.current)));
+     marks.append(previous,current);
+     paper.append(el('strong',info(row).subject),marks);
+     if(row.before?.percentage!=null&&row.current?.percentage!=null){
+      paper.append(el('small','Change '+delta(row.before.percentage,row.current.percentage)));
+     }
+     item.append(paper);
+    }
+    list.append(item);
+   }
+   list.hidden=!matching.length;
+   empty.hidden=Boolean(matching.length);
+  };
+  const empty=el('p','No student results match this search.');
+  parent.append(list,empty);search.oninput();
+ }
  function drawReport(){
   hasReport=true;report.replaceChildren();
   const rows=data.rows.filter(row=>scopeMatches(info(row))),entered=rows.filter(row=>row.current);
   if(!rows.length){report.append(el('p','No students match this selection.'));return;}
   if(!entered.length){
-   report.append(el('p','PB-1 marks have not been uploaded for this selection. Please enter the marks to see remedial targets.','task-monitoring-notice'));
+   report.append(el('p','PB-1 marks have not been uploaded for this selection. Please enter the marks to see the analysis.','task-monitoring-notice'));
    return;
   }
   const sections=[...new Set(rows.map(sectionLabel))].sort();
   const selectedTeacher=teacherSelect.value?teacherSelect.selectedOptions[0]?.textContent:'';
   report.append(el('p',[selectedTeacher,subjectSelect.value||'All subjects',sections.join(', ')].filter(Boolean).join(' · '),'pb1-scope-summary'));
-  report.append(el('p',entered.length+' / '+rows.length+' paper results recorded'),button('View entered PB-1 marks',()=>showEnteredMarks(entered)));
+  renderSmartAnalysis(report,rows,(title,filter)=>showMarks(pb1SmartStudents(rows).filter(filter).flatMap(student=>student.papers),{title}));
+  renderCategoryComparison(report,pb1CategoryCounts(rows,'before'),pb1CategoryCounts(rows,'current'),
+   (title,period,filter)=>showMarks(rows.filter(row=>filter(row[period])),{title,period}));
+  const trends=el('details',undefined,'pb1-comparison-details');
+  trends.append(el('summary','Section, subject and teacher comparisons'));
+  trends.append(el('h3','Monthly and PB-1 marks by section'));
+  renderMarksGraph(trends,groups(rows,sectionLabel));
+  showCohorts(trends,'Standard and section comparison',[
+   ...groups(rows,row=>'Class '+info(row).classId+' · all selected sections'),...groups(rows,sectionLabel),
+  ]);
+  showCohorts(trends,'Subject comparison',groups(rows,row=>info(row).classId+' · '+info(row).subject));
+  showCohorts(trends,'Teacher comparison · all selected sections',teacherGroups(rows));
+  report.append(trends);
+  report.append(el('p',entered.length+' / '+rows.length+' paper results recorded'),button('View entered PB-1 marks',()=>showMarks(entered)));
   report.append(el('h3','Remedial target students'),el('p',gradingNote));
   const targets=el('div',undefined,'pb1-remedial-targets');
   for(const [band,label] of [['critical','Critical fail'],['red','Fail'],['yellow','Borderline pass']]){
@@ -129,7 +285,8 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    targets.append(section);
   }
   report.append(targets);
-  const mission=el('a','Open Mission Perfect 100 for the full academic study');
+  showStudentComparison(report,rows);
+  const mission=el('a','Open Mission Perfect 100 for ongoing tracking');
   mission.href='cbse-mission.html';const link=el('p');link.append(mission);report.append(link);
  }
  function drawEntry(){
