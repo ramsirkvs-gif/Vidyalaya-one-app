@@ -275,7 +275,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
     return;
    }
    const missing=rows.filter(row=>!row.current).length;
-   host.append(el('p','Enter PB-1 marks or AB. A blank keeps the saved result.'));
+   host.append(el('p','Enter PB-1 marks. If a student was absent, type ABS. A blank keeps any saved result.'));
    if(approve){
     const ready=rows.length>0&&!missing;
     const action=button('Approve and freeze PB-1 marks',async()=>{
@@ -300,17 +300,38 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    const pin=teacher?control(editor,'Personal PIN to save','input'):null;
    if(pin){pin.type='password';pin.required=true;pin.autocomplete='off';pin.inputMode='numeric';}
    editor.append(el('button','Save PB-1 marks'));host.append(editor);
-   editor.onsubmit=event=>{event.preventDefault();run(async()=>{
+   const saveMarks=()=>run(async()=>{
     const changed=inputs.filter(({input,original})=>input.value.trim()&&input.value.trim()!==original).map(({row,input})=>{
      const value=input.value.trim().toUpperCase();
-     if(value!=='AB'&&(!/^\d+(?:\.\d+)?$/.test(value)||Number(value)>scope.maximum))throw Error('Enter AB or marks from 0 to '+scope.maximum+' for '+row.name+'.');
-     return {key:row.key,mark:value==='AB'?value:Number(value)};
+     const absent=value==='ABS'||value==='AB';
+     if(!absent&&(!/^\d+(?:\.\d+)?$/.test(value)||Number(value)>scope.maximum))throw Error('Enter ABS or marks from 0 to '+scope.maximum+' for '+row.name+'.');
+     return {key:row.key,mark:absent?'AB':Number(value)};
     });
     if(!changed.length)throw Error('No mark changes to save.');
     const secret=pin?.value;if(pin)pin.value='';
     const next=await save(scope,data.revision,changed,secret);
     editor.dataset.portalDirty='false';data=next;drawMarks();
-   });};
+   });
+   editor.onsubmit=event=>{
+    event.preventDefault();
+    const blanks=inputs.filter(({row,input})=>!row.current&&!input.value.trim());
+    if(!blanks.length){saveMarks();return;}
+    const dialog=el('dialog',undefined,'task-start-dialog pb1-student-dialog');
+    const title=el('h2',blanks.length===1?'1 student needs a result':blanks.length+' students need results');
+    title.id='pb1-missing-marks-title';dialog.setAttribute('aria-labelledby',title.id);
+    const students=el('ul');
+    for(const {row} of blanks)students.append(el('li',row.name));
+    const fill=el('button','Continue filling marks');fill.type='button';fill.onclick=()=>dialog.close();
+    dialog.append(title,el('p','Please fill in the marks. If a student was absent, type ABS.'),students,fill);
+    let savingPartial=false;
+    if(inputs.some(({input,original})=>input.value.trim()&&input.value.trim()!==original)){
+     const partial=el('button','Save entered marks only');partial.type='button';
+     partial.onclick=()=>{savingPartial=true;dialog.close();saveMarks();};
+     dialog.append(partial);
+    }
+    dialog.addEventListener('close',()=>{dialog.remove();if(!savingPartial)blanks[0].input.focus();},{once:true});
+    document.body.append(dialog);dialog.showModal();fill.focus();
+   };
   }
  }
  function drawMode(){
