@@ -12,6 +12,35 @@ import {TASK1_ROSTER,taskRosterStore} from '../cbse-task-manager-roster.js';
 import {TASK_AVAILABLE_CLASSES,taskClasses} from '../cbse-task-manager-model.js';
 import {MONITORING_SHEETS,monitoringFormula} from '../cbse-task-workbook.js';
 import {monitoringStage} from '../cbse-task-monitoring-workflow.js';
+import {pb1Metrics,pb1Risk} from '../cbse-pb1-analyser-model.js';
+
+test('PB-1 uses assigned enrolled students, paper maxima, explicit absence and paired comparisons',async()=>{
+ const f=taskFixture(),draft=f.data.cbse.draft,mission=f.data.cbse.mission;
+ const section=(name)=>({name,subjects:{english:{name:'English',code:'184'}},students:{
+  one:{name:'Synthetic Student',roll:1,subjects:{english:true}},two:{name:'Synthetic Absentee',roll:2,subjects:{english:true}},
+  three:{name:'Not enrolled',roll:3,subjects:{}},
+ }});
+ draft.classes.X.sections={a:section('A'),b:section('B')};
+ mission.allocations={a:{classId:'X',sectionId:'a',subjectId:'english',staffId:'X:one'},b:{classId:'X',sectionId:'b',subjectId:'english',staffId:'X:two'}};
+ mission.exams={earlier:{name:'October test',classId:'X',type:'test',date:'2026-10-19'}};
+ mission.marks={earlier:{studentKey:'X:a:one',subjectId:'english',examId:'earlier',maximum:40,score:12,absent:false}};
+ await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ const data=await f.teacher({taskOperation:'pb1-read'});
+ assert.equal(data.scopes.length,1);
+ assert.equal(data.scopes[0].maximum,80);
+ assert.equal(data.rows.length,2);
+ const save=(entries,extra={})=>f.teacher({taskOperation:'pb1-save',classId:'X',sectionId:'a',subjectId:'english',expectedRevision:0,entries,...extra});
+ await assert.rejects(save([{key:'X:b:one',mark:55}]),/enrolled/);
+ await assert.rejects(save([{key:'X:a:one',mark:55}],{sectionId:'b'}),/assigned/);
+ await assert.rejects(save([{key:'X:a:one',mark:81}]),/between 0 and 80/);
+ const saved=await save([{key:'X:a:one',mark:28},{key:'X:a:two',mark:'AB'}]);
+ assert.equal(saved.rows[0].current.percentage,35);
+ assert.equal(saved.rows[1].current.absent,true);
+ assert.deepEqual(pb1Metrics(saved.rows),{paired:1,total:2,recorded:2,absent:1,beforePass:0,currentPass:100,beforeAverage:30,currentAverage:35});
+ assert.equal(pb1Risk(saved.rows)[0].borderline.length,1);
+ await assert.rejects(save([{key:'X:a:one',mark:30}]),/results changed/);
+ const principal=await f.admin({operation:'pb1-read'});assert.equal(principal.scopes.length,2);
+});
 
 test('Task 2 workbook stays private and saves editable cells with revision checks',async()=>{
  const f=taskFixture();

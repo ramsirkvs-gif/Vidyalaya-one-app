@@ -4,6 +4,7 @@ import {withTaskExamParticipation} from './task-exam-participation.js';
 import {validateMonitoringSheets} from '../cbse-task-workbook.js';
 import {monitoringAssignments,monitoringAdvance,MONITORING_ROLES,MONITORING_STEPS} from '../cbse-task-monitoring-workflow.js';
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
+import {pb1Report,pb1Scopes} from '../cbse-pb1-analyser-model.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
 import {primaryDirectory,primaryStaffEntry} from '../cbse-primary-roster.js';
@@ -110,9 +111,64 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
  const sharedView=createSharedView({db,context,now,defaultSecret:viewSecret});
  async function officeDirectoryStaff(){const[faculty,support]=await Promise.all([readVersioned('cbse/facultyDraft','cbse/facultyDraft/revision',{fresh:true}),readVersioned('cbse/mission/staff','cbse/mission/revision',{fresh:true})]);const mission={staff:support||{}};return Object.fromEntries(entries(staffIndex(faculty,mission,{includeRollOnly:true})).map(([id,p])=>[id,{...p,officeIdentityIds:teacherIdentityIds(id,faculty,mission)}]));}
  const officeService=createOfficeService({db,read,principal,hashPIN,verifyPIN,pinPolicy,throttle,clearAttempt:ticket=>pinDatabase(()=>pinAttempts.clear(ticket)),displayKey,now,directoryStaff:officeDirectoryStaff,sharedView,AccessError});
+ async function pb1Workspace(input,actor){
+  function scoped(draft,faculty,mission){
+   const staff=staffIndex(faculty,mission),ids=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
+   return {staff,ids};
+  }
+  const initial=await context(),scope=scoped(initial.draft,initial.faculty,initial.mission);
+  if(input.operation==='pb1-read'||input.taskOperation==='pb1-read')
+   return pb1Report(initial.draft,initial.mission,scope.staff,scope.ids);
+  if(!Array.isArray(input.entries)||!input.entries.length||input.entries.length>200)
+   throw new AccessError('Enter at least one mark or AB.',400);
+  const stamp=now();let reason;
+  const result=await mcqTransaction(db,'cbse',current=>{
+   if(current===null)return null;
+   try{
+    if(actor.uid?current.adminUid!==actor.uid:!current.staffAccess?.[actor.id]?.enabled||current.staffAccess[actor.id].version!==actor.accessVersion)
+     throw Error('Your access changed. Sign in or verify your PIN again.');
+    const raw=current.mission||emptyMission(),draft=current.draft,{faculty,mission}=resolvedViewingData(draft,current.facultyDraft,raw);
+    if((raw.revision||0)!==input.expectedRevision)throw Error('Mission 100 results changed. Reopen the analyser before saving.');
+    const {staff,ids}=scoped(draft,faculty,mission);
+    const report=pb1Report(draft,mission,staff,ids);
+    const index=report.scopes.findIndex(info=>['classId','sectionId','subjectId'].every(key=>info[key]===input[key]));
+    if(index<0)throw Error('This Preboard 1 paper is outside your assigned teaching scope.');
+    const paper=report.scopes[index],roster=new Map(report.rows.filter(row=>row.scope===index).map(row=>[row.key,row])),seen=new Set();
+    const stable=parts=>createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0,24);
+    const defaultExam='pb1_'+stable([paper.classId,paper.date,paper.subject]);
+    const exams={...raw.exams},marks={...raw.marks};
+    for(const entry of input.entries){
+     if(!entry||!roster.has(entry.key)||seen.has(entry.key))throw Error('Use each enrolled student once.');
+     seen.add(entry.key);
+     const absent=entry.mark==='AB';
+     if(!absent&&(typeof entry.mark!=='number'||!Number.isFinite(entry.mark)||entry.mark<0||entry.mark>paper.maximum))throw Error('Enter AB or a mark between 0 and '+paper.maximum+'.');
+     const existing=roster.get(entry.key),examId=existing.examId||defaultExam,markId=existing.markId||'pb1_'+stable([entry.key,paper.subjectId,examId]);
+     exams[examId]??={name:'Preboard 1 · '+paper.subject.slice(0,80),type:'PB-1',classId:paper.classId,date:paper.date};
+     const previous=marks[markId],rubric=previous?.maximum===paper.maximum?previous:{};
+     marks[markId]={...rubric,studentKey:entry.key,subjectId:paper.subjectId,examId,maximum:paper.maximum,absent,score:absent?null:entry.mark,
+      updatedAt:stamp,updatedBy:actor.id||'principal'};
+     if(marks[markId].importSource==='monthly_workbook_v1'){
+      marks[markId].inferredAbsent=false;marks[markId].sourceValue=String(entry.mark);
+     }
+    }
+    return {...current,mission:{...raw,exams,marks,revision:(raw.revision||0)+1}};
+   }catch(error){reason=error.message;return;}
+  },{restTransaction});
+  if(!result.committed||!result.snapshot.val())throw new AccessError(reason||'The marks could not be confirmed. Reopen the analyser.',409);
+  const saved=result.snapshot.val(),{faculty,mission}=resolvedViewingData(saved.draft,saved.facultyDraft,saved.mission);
+  const access=scoped(saved.draft,faculty,mission);
+  return pb1Report(saved.draft,mission,access.staff,access.ids);
+ }
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
-   const admin=action==='task-principal';if(admin)await principal(token);
+   const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
+   if(admin&&['pb1-read','pb1-save'].includes(input.operation))return pb1Workspace(input,{uid:adminIdentity.uid});
+   if(!admin&&input.operation==='pb1-directory'){
+    const {draft,faculty,mission}=await context(),staff=staffIndex(faculty,mission);
+    const teachers=Object.entries(staff).filter(([id,person])=>person.status==='active'&&pb1Scopes(draft,mission,staff,new Set(teacherIdentityIds(id,faculty,mission))).length)
+     .map(([id,{name}])=>({id,name})).sort((a,b)=>a.name.localeCompare(b.name));
+    return {teachers};
+   }
    const monitoringPath='cbse/taskMonitoring';
    if(!admin&&input.operation==='monitoring-read'){
     const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
@@ -406,6 +462,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    if(!pinIdentity)throw new AccessError('Verify your existing personal PIN.',403);
    const id=pinIdentity.decoded.staffId,staff=await directoryStaff(),access=await read('cbse/staffAccess/'+id);
    if(!access?.enabled||access.version!==pinIdentity.access.version||staff[id]?.status!=='active')throw new AccessError('Staff access changed. Verify your PIN again.',403);
+   if(['pb1-read','pb1-save'].includes(input.taskOperation))return pb1Workspace(input,{id,accessVersion:access.version});
    if(['monitoring-update','monitoring-practice'].includes(input.taskOperation)){
     const curtain=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
     if(curtain?.error){const error=new AccessError(curtain.error,curtain.status);error.curtainRequired=true;throw error;}

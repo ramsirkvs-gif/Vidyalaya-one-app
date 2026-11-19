@@ -1,0 +1,164 @@
+import {el,options} from './cbse-ui.js';
+import {pb1Metrics,pb1Risk} from './cbse-pb1-analyser-model.js';
+const pct=v=>v==null?'—':v.toFixed(1)+'%';
+const delta=(before,after)=>before==null||after==null?'—':(after-before>0?'+':'')+(after-before).toFixed(1)+' pp';
+const result=mark=>!mark?'Not entered':mark.absent?'AB':mark.score+'/'+mark.maximum+' ('+pct(mark.percentage)+')';
+const choices=(items,label)=>[['',label],...items.map(value=>[value,value])];
+
+function table(parent,headers,rows){
+ if(!rows.length){parent.append(el('p','No records match these filters.'));return;}
+ const scroll=el('div',undefined,'task-scroll pb1-table-wrap'),table=el('table',undefined,'pb1-table');
+ scroll.tabIndex=0;scroll.setAttribute('role','region');scroll.setAttribute('aria-label','Analysis table');
+ const head=table.createTHead().insertRow(),body=table.createTBody();
+ for(const title of headers){const th=el('th',title);th.scope='col';head.append(th);}
+ for(const values of rows){const row=body.insertRow();for(const value of values)row.insertCell().append(value instanceof Node?value:document.createTextNode(String(value??'')));}
+ scroll.append(table);parent.append(scroll);
+}
+function control(parent,label,tag='select'){
+ const wrap=el('label',label),input=el(tag);input.setAttribute('aria-label',label);wrap.append(input);parent.append(wrap);return input;
+}
+function groups(rows,key){
+ const grouped=new Map();for(const row of rows){const id=key(row);if(!grouped.has(id))grouped.set(id,[]);grouped.get(id).push(row);}return grouped;
+}
+function cohortRow(label,rows){
+ const m=pb1Metrics(rows),change=m.currentPass==null?null:m.currentPass-m.beforePass;
+ return [label,m.paired+' / '+m.total,pct(m.beforePass),pct(m.currentPass),delta(m.beforePass,m.currentPass),
+  pct(m.beforeAverage),pct(m.currentAverage),delta(m.beforeAverage,m.currentAverage),
+  change==null?'Awaiting comparable results':change>0?'Pass rate increased':change<0?'Pass rate decreased':'Pass rate steady'];
+}
+export function renderPB1Analyser(host,data,{run,button,save,back,teacher}){
+ const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
+ const filters=el('div',undefined,'pb1-filters'),report=el('div'),modes=[
+  ['entry','Update PB-1 marks'],['comparison','Compare each student'],['classes','Class and standard comparison'],
+  ['subjects','Subject improvement'],['teachers','Teacher cohort comparison'],['risk','Students needing support'],
+ ];
+ let selected='comparison';
+ const reportTabs=modes.map(([key,label])=>button(label,()=>{
+  if(content.querySelector('[data-portal-dirty=true]')&&!confirm('Discard unsaved marks?'))return;
+  selected=key;drawMode();
+ }));
+ card.append(el('h2','Pre-Samagam Wisdom Analyser'),el('p',teacher?'Your assigned Preboard 1 papers':'Classes X and XII · Preboard 1'),toolbar,content);
+ toolbar.append(...reportTabs);
+ host.replaceChildren(button('Back to task list',back),card);
+ if(!data.scopes.length){content.append(el('p','No Preboard 1 papers match your current Mission 100 subject assignments.'));return;}
+ const classSelect=control(filters,'Standard'),sectionSelect=control(filters,'Class / section'),subjectSelect=control(filters,'Subject'),teacherSelect=control(filters,'Teacher');
+ const search=control(filters,'Master search','input');search.type='search';search.placeholder='Student, roll, class, subject or teacher';
+ const values=(scopes,key)=>[...new Set(scopes.map(info=>info[key]).filter(Boolean))].sort();
+ options(classSelect,choices(values(data.scopes,'classId'),'All standards'),'');
+ const riskFilter=control(filters,'Support list');
+ options(riskFilter,[['','All support cases'],['one','One subject failed'],['multi','Two or more subjects failed'],['border','Borderline pass'],['missing','Absent or missing PB-1']],'');
+ function restrict(){
+  const scopes=data.scopes.filter(info=>!classSelect.value||info.classId===classSelect.value);
+  options(sectionSelect,choices(values(scopes,'section'),'All sections'),sectionSelect.value);
+  options(subjectSelect,choices(values(scopes,'subject'),'All subjects'),subjectSelect.value);
+  options(teacherSelect,choices(values(scopes,'teacher'),'All teachers'),teacherSelect.value);
+ }
+ restrict();
+ classSelect.onchange=()=>{restrict();drawReport();};
+ sectionSelect.onchange=subjectSelect.onchange=teacherSelect.onchange=riskFilter.onchange=drawReport;search.oninput=drawReport;
+ function scopeMatches(info){
+  return (!classSelect.value||info.classId===classSelect.value)&&(!sectionSelect.value||info.section===sectionSelect.value)&&(!subjectSelect.value||info.subject===subjectSelect.value)&&(!teacherSelect.value||info.teacher===teacherSelect.value);
+ }
+ function drawReport(){
+  report.replaceChildren();
+  const query=search.value.trim().toLowerCase();
+  const matches=row=>{
+   const info=data.scopes[row.scope];
+   return scopeMatches(info)&&[row.name,row.roll,info.classId,info.section,info.subject,info.teacher].join(' ').toLowerCase().includes(query);
+  };
+  const rows=data.rows.filter(matches),m=pb1Metrics(rows);
+  const stats=el('div',undefined,'pb1-stats');report.append(stats);
+  for(const [label,value] of [['PB-1 entries',m.recorded+' / '+m.total],['Comparable results',m.paired],['Pass rate change',delta(m.beforePass,m.currentPass)],['PB-1 absent',m.absent]]){
+   const item=el('div');item.append(el('span',label),el('strong',String(value)));stats.append(item);
+  }
+  if(selected==='comparison'){
+   table(report,['Student','Roll','Class','Subject','Previous exam','Previous marks','PB-1 marks','Change','PB-1 result'],rows.map(row=>{
+    const info=data.scopes[row.scope];
+    return [row.name,row.roll,info.classId+' '+info.section,info.subject,row.before?.exam||'—',result(row.before),result(row.current),delta(row.before?.percentage,row.current?.percentage),
+     !row.current?'Not entered':row.current.absent?'Absent':row.current.failed?'Below pass':row.current.borderline?'Borderline pass':'Pass'];
+   }));
+  }else if(selected==='risk'){
+   const scopeIds=new Set(rows.map(row=>row.key));
+   const risk=pb1Risk(data.rows.filter(row=>scopeIds.has(row.key))).filter(row=>{
+    const {failed,borderline,unavailable}=row;
+    return riskFilter.value==='one'?failed.length===1:riskFilter.value==='multi'?failed.length>=2:riskFilter.value==='border'?borderline.length:riskFilter.value==='missing'?unavailable.length:failed.length||borderline.length||unavailable.length;
+   });
+   report.append(el('p','Borderline means within 5 percentage points above the applicable pass mark. Counts cover subjects visible in this login.'));
+   const names=ids=>ids.map(id=>data.scopes[id].subject).join(', ')||'—';
+   table(report,['Student','Class','Failed subjects','Borderline subjects','Absent or missing'],risk.map(row=>{
+    const info=data.scopes[row.scope];return [row.name,info.classId+' '+info.section,names(row.failed),names(row.borderline),names(row.unavailable)];
+   }));
+  }else{
+   const info=row=>data.scopes[row.scope];
+   if(selected==='classes'){
+    report.append(el('h3','Students passing all comparable enrolled papers'),el('p','This view uses students with appeared results in every visible enrolled paper in both periods.'));
+    const matchingStudents=new Set(rows.map(row=>row.key));
+    const complete=[...groups(data.rows.filter(row=>matchingStudents.has(row.key)),row=>row.key).values()]
+     .filter(group=>group.every(row=>row.before?.percentage!=null&&row.current?.percentage!=null))
+     .map(group=>({scope:group[0].scope,before:{failed:group.some(row=>row.before.failed)},current:{failed:group.some(row=>row.current.failed)}}));
+    const pass=(group,key)=>group.length?group.filter(row=>!row[key].failed).length/group.length*100:null;
+    const results=[];
+    for(const key of [row=>info(row).classId,row=>info(row).classId+' '+info(row).section]){
+     for(const [label,group] of groups(complete,key))results.push([label,group.length,pct(pass(group,'before')),pct(pass(group,'current')),delta(pass(group,'before'),pass(group,'current'))]);
+    }
+    table(report,['Standard / section','Students fully comparable','Previous pass rate','PB-1 pass rate','Change'],results);
+   }
+   report.append(el('h3',selected==='classes'?'Paper results by class and section':selected==='teachers'?'Results by assigned teacher and subject':'Results by subject'));
+   const key=selected==='classes'?row=>info(row).classId+' '+info(row).section+' · '+info(row).subject:
+    selected==='teachers'?row=>(info(row).teacher||'Unassigned')+' · '+info(row).classId+' · '+info(row).subject:
+    row=>info(row).classId+' · '+info(row).subject;
+   table(report,['Group','Paired / enrolled','Previous pass','PB-1 pass','Pass change','Previous mean','PB-1 mean','Mean change','Remark'],
+    [...groups(rows,key)].map(([label,group])=>cohortRow(label,group)));
+   if(selected==='teachers')report.append(el('p','Teacher comparisons describe changes in assigned student results. They are a cohort measure.'));
+  }
+ }
+ function drawEntry(){
+  const panel=el('section'),choicesBar=el('div',undefined,'pb1-filters'),host=el('div');
+  content.append(panel);panel.append(choicesBar,host);
+  const cls=control(choicesBar,'Standard'),paper=control(choicesBar,'Class / section and subject');
+  options(cls,values(data.scopes,'classId').map(value=>[value,value]));
+  function drawChoices(){
+   options(paper,data.scopes.flatMap((scope,index)=>scope.classId===cls.value?[[String(index),scope.section+' · '+scope.subject]]:[]));
+   drawMarks();
+  }
+  const canSwitch=()=>!host.querySelector('[data-portal-dirty=true]')||confirm('Discard unsaved marks?');
+  let previousClass=cls.value,previousPaper='';
+  cls.onchange=()=>{if(canSwitch()){previousClass=cls.value;drawChoices();}else cls.value=previousClass;};
+  paper.onchange=()=>{if(canSwitch())drawMarks();else paper.value=previousPaper;};
+  drawChoices();
+  function drawMarks(){
+   previousPaper=paper.value;
+   const index=Number(paper.value),scope=data.scopes[index],rows=data.rows.filter(row=>row.scope===index);
+   host.replaceChildren(el('p','Paper maximum: '+scope.maximum+' · Enter a score or AB. Leave a cell blank to keep its saved value.'));
+   const editor=el('form');editor.dataset.portalTrackDirty='true';
+   const inputs=rows.map(row=>{
+    const input=el('input');input.setAttribute('aria-label','PB-1 marks for '+row.name);input.autocomplete='off';input.maxLength=12;input.value=row.current?(row.current.absent?'AB':String(row.current.score)):'';
+    return {row,input,original:input.value};
+   });
+   table(editor,['Roll','Student','Previous marks','PB-1 marks'],inputs.map(({row,input})=>[row.roll,row.name,result(row.before),input]));
+   const pin=teacher?control(editor,'Personal PIN to save','input'):null;
+   if(pin){pin.type='password';pin.required=true;pin.autocomplete='off';pin.inputMode='numeric';}
+   editor.append(el('button','Save PB-1 marks'));host.append(editor);
+   editor.onsubmit=event=>{event.preventDefault();run(async()=>{
+    const changed=inputs.filter(({input,original})=>input.value.trim()&&input.value.trim()!==original).map(({row,input})=>{
+     const value=input.value.trim().toUpperCase();
+     if(value!=='AB'&&(!/^\d+(?:\.\d+)?$/.test(value)||Number(value)>scope.maximum))throw Error('Enter AB or marks from 0 to '+scope.maximum+' for '+row.name+'.');
+     return {key:row.key,mark:value==='AB'?value:Number(value)};
+    });
+    if(!changed.length)throw Error('No mark changes to save.');
+    const secret=pin?.value;if(pin)pin.value='';
+    const next=await save(scope,data.revision,changed,secret);
+    editor.dataset.portalDirty='false';data=next;drawMarks();
+   });};
+  }
+ }
+ function drawMode(){
+  reportTabs.forEach((item,i)=>item.setAttribute('aria-pressed',String(modes[i][0]===selected)));
+  content.replaceChildren();
+  if(selected==='entry'){drawEntry();return;}
+  riskFilter.parentElement.hidden=selected!=='risk';
+  content.append(el('p','Changes use matching appeared results for each student and subject. AB and missing marks are excluded from comparisons.'),filters,report);
+  drawReport();
+ }
+ drawMode();
+}
