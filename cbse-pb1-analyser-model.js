@@ -2,7 +2,7 @@ import {studentIndex} from './cbse-mission-model.js';
 import {effectiveStudentMarks} from './cbse-maths-carryover.js';
 import {schoolPreboard1DateSheet} from './cbse-preboard1-datesheet.js';
 
-import {isMCQResult,isMonthlyResult} from './cbse-academic-exam-kind.js';
+import {isMCQResult,isMonthlyResult,pb1ApprovalKey} from './cbse-academic-exam-kind.js';
 
 export function pb1ResultBand(percentage){
  if(!Number.isFinite(percentage))return 'grey';
@@ -29,7 +29,8 @@ export function pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity=id=>id)
      const identity=teacherIdentity(id),name=staff[identity]?.name||staff[id]?.name;
      if(name)namedTeachers.set(identity,{key:identity,name});
     }
-    scopes.push({classId,sectionId,section:section.name,subjectId,subject:subject.name,date:paper.date,maximum:paper.marks,
+    const approvedAt=mission.pb1Approvals?.[pb1ApprovalKey(classId,sectionId,subjectId)]?.approvedAt||0;
+    scopes.push({classId,sectionId,section:section.name,subjectId,subject:subject.name,date:paper.date,maximum:paper.marks,approvedAt,
      teachers:[...namedTeachers.values()],teacher:[...namedTeachers.values()].map(person=>person.name).join(' / ')});
    }
   }
@@ -49,10 +50,11 @@ export function pb1Report(draft,mission,staff,teacherIds,teacherIdentity){
     if(mark.subjectId!==subjectId||!exam||exam.classId!==classId||isMCQResult(exam,mark))continue;
     const item={...mark,id,exam};
     const newer=other=>!other||exam.date>other.exam.date||exam.date===other.exam.date&&(mark.updatedAt||0)>=(other.updatedAt||0);
-    if(exam.type==='PB-1'&&exam.date.startsWith(date.slice(0,7))){
+    if(exam.type==='PB-1'&&!mark.sourceSubjectId&&exam.date.startsWith(date.slice(0,7))){
      if(newer(current))current=item;
     }else if(isMonthlyResult(exam,mark)&&exam.date<(exam.date.length===7?date.slice(0,7):date)&&newer(before))before=item;
    }
+   if(info.approvedAt)current=mission.pb1Approvals[pb1ApprovalKey(classId,sectionId,subjectId)].marks?.[student.key];
    const result=mark=>{
     if(!mark)return null;
     const percentage=mark.absent?null:mark.score*100/mark.maximum;

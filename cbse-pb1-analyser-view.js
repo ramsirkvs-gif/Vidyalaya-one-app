@@ -100,7 +100,7 @@ function renderMarksGraph(parent,grouped){
  }
  if(graph.childElementCount)parent.append(graph);else parent.append(el('p','No records match these filters.'));
 }
-export function renderPB1Analyser(host,data,{run,button,save,back,teacher,publicView,entryOnly,openEntry,refresh}){
+export function renderPB1Analyser(host,data,{run,button,save,approve,back,teacher,publicView,entryOnly,openEntry,refresh}){
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
  const filters=el('div',undefined,'pb1-filters'),report=el('div'),modes=[];
  if(!entryOnly)modes.push(['smart','Get smart analysis']);
@@ -179,9 +179,10 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
  function showStudentComparison(parent,rows){
   const monthlyMM=maximumLabel(rows.map(row=>row.before?.maximum));
   const pb1MM=maximumLabel(rows.map(row=>row.current?.maximum??info(row).maximum));
-  table(parent,['Student',...(publicView?[]:['Roll']),'Class','Subject','Previous exam','Monthly marks ('+monthlyMM+')','PB-1 marks ('+pb1MM+')','Change','PB-1 result'],rows.map(row=>[
+  table(parent,['Student',...(publicView?[]:['Roll']),'Class','Subject','Previous exam','Monthly marks ('+monthlyMM+')','PB-1 marks ('+pb1MM+')','Change','PB-1 result','PB-1 approval'],rows.map(row=>[
    row.name,...(publicView?[]:[row.roll]),sectionLabel(row),info(row).subject,row.before?.exam||'—',result(row.before),result(row.current),delta(row.before?.percentage,row.current?.percentage),
    !row.current?'Not entered':row.current.absent?'Absent':({critical:'Critical fail',red:'Other fail',yellow:'Borderline pass',pass:'Pass',green:'Secure pass'})[row.current.band]||'Not assessed',
+   info(row).approvedAt?'Approved · frozen':row.current?'Awaiting approval':'—',
   ]));
  }
  function showSupport(parent,rows,period,filter=''){
@@ -285,7 +286,26 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
     const item=el('div');item.append(el('span',label),el('strong',value));maxima.append(item);
    }
    host.replaceChildren(el('h3','Class '+scope.classId+' '+scope.section+' · '+scope.subject),maxima,
-    el('p','Each percentage uses the marks earned divided by that exam’s maximum. Enter PB-1 marks or AB. A blank keeps the saved result.'));
+    el('p','Each percentage uses the marks earned divided by that exam’s maximum.'));
+   if(scope.approvedAt){
+    host.append(el('p','Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),'task-monitoring-notice'));
+    table(host,['Roll','Student','Monthly marks ('+monthlyMM+')','Approved PB-1 marks ('+pb1MM+')'],
+     rows.map(row=>[row.roll,row.name,result(row.before),result(row.current)]));
+    return;
+   }
+   const missing=rows.filter(row=>!row.current).length;
+   host.append(el('p','Enter PB-1 marks or AB. A blank keeps the saved result.'));
+   if(approve){
+    const ready=rows.length>0&&!missing;
+    const action=button('Approve and freeze PB-1 marks',async()=>{
+     if(host.querySelector('[data-portal-dirty=true]'))throw Error('Save your mark changes before approval.');
+     if(confirm('Approve and freeze this paper? Mission 100 will use these marks as the latest result.')){
+      data=await approve(scope,data.revision);drawMarks();
+     }
+    });
+    action.disabled=!ready;
+    host.append(el('p',ready?'All enrolled students have marks or AB recorded.':missing+' enrolled students still need a mark or AB.'),action);
+   }
    const editor=el('form');editor.dataset.portalTrackDirty='true';
    const inputs=rows.map(row=>{
     const input=el('input');input.setAttribute('aria-label','PB-1 marks for '+row.name);input.autocomplete='off';input.maxLength=12;

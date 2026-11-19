@@ -8,3 +8,11 @@ export function isMCQResult(exam,mark){
 export function isMonthlyResult(exam,mark){
  return !!exam&&!isMCQResult(exam,mark)&&(exam.type==='monthly'||((!exam.type||exam.type==='test')&&NAMED_MONTHLY.test(exam.name||'')));
 }
+
+export const pb1ApprovalKey=(classId,sectionId,subjectId)=>encodeURIComponent(JSON.stringify([classId,sectionId,subjectId])).replaceAll('.','%2E');
+
+export function approvedPB1Mark(mission,person,subjectId){
+ const key=pb1ApprovalKey(person?.classId,person?.sectionId,subjectId);
+ const frozen=mission.pb1Approvals?.[key]?.marks?.[person?.key];
+ return frozen?{...frozen,approvedPB1:true}:undefined;
+}

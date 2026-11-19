@@ -5,6 +5,7 @@ import {validateMonitoringSheets} from '../cbse-task-workbook.js';
 import {monitoringAssignments,monitoringAdvance,MONITORING_ROLES,MONITORING_STEPS} from '../cbse-task-monitoring-workflow.js';
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {pb1Report,pb1Scopes} from '../cbse-pb1-analyser-model.js';
+import {pb1ApprovalKey} from '../cbse-academic-exam-kind.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
 import {primaryDirectory,primaryStaffEntry} from '../cbse-primary-roster.js';
@@ -120,7 +121,8 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   const initial=await context(),scope=scoped(initial.draft,initial.faculty,initial.mission);
   if(input.operation==='pb1-read'||input.taskOperation==='pb1-read')
    return pb1Report(initial.draft,initial.mission,scope.staff,scope.ids,scope.identity);
-  if(!Array.isArray(input.entries)||!input.entries.length||input.entries.length>200)
+  const approving=input.operation==='pb1-approve'&&!!actor.uid;
+  if(!approving&&(!Array.isArray(input.entries)||!input.entries.length||input.entries.length>200))
    throw new AccessError('Enter at least one mark or AB.',400);
   const stamp=now();let reason;
   const result=await mcqTransaction(db,'cbse',current=>{
@@ -135,6 +137,19 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     const index=report.scopes.findIndex(info=>['classId','sectionId','subjectId'].every(key=>info[key]===input[key]));
     if(index<0)throw Error('This Preboard 1 paper is outside your assigned teaching scope.');
     const paper=report.scopes[index],roster=new Map(report.rows.filter(row=>row.scope===index).map(row=>[row.key,row])),seen=new Set();
+    const approvalKey=pb1ApprovalKey(paper.classId,paper.sectionId,paper.subjectId);
+    if(raw.pb1Approvals?.[approvalKey])throw Error('This Preboard 1 paper is approved and frozen.');
+    if(approving){
+     if(!roster.size||[...roster.values()].some(row=>!row.current||!row.markId))
+      throw Error('Enter marks or AB for every enrolled student before approving this paper.');
+     if([...roster.values()].some(row=>row.current.maximum!==paper.maximum))
+      throw Error('Correct saved marks with a different paper maximum before approval.');
+     const marks=Object.fromEntries([...roster].map(([key,row])=>[
+      key,{...raw.marks[row.markId],id:row.markId,exam:raw.exams[row.examId]},
+     ]));
+     const pb1Approvals={...raw.pb1Approvals,[approvalKey]:{approvedAt:stamp,marks}};
+     return {...current,mission:{...raw,pb1Approvals,revision:(raw.revision||0)+1}};
+    }
     const stable=parts=>createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0,24);
     const defaultExam='pb1_'+stable([paper.classId,paper.date,paper.subject]);
     const exams={...raw.exams},marks={...raw.marks};
@@ -163,8 +178,8 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
-   if(admin&&['pb1-read','pb1-save'].includes(input.operation))return pb1Workspace(input,{uid:adminIdentity.uid});
-   if(!admin&&['pb1-read','pb1-save'].includes(input.operation))throw new AccessError('Use a teacher PIN to open marks entry.',403);
+   if(admin&&['pb1-read','pb1-save','pb1-approve'].includes(input.operation))return pb1Workspace(input,{uid:adminIdentity.uid});
+   if(!admin&&['pb1-read','pb1-save','pb1-approve'].includes(input.operation))throw new AccessError('Use a teacher PIN for marks entry or Principal sign-in for approval.',403);
    if(!admin&&input.operation==='pb1-public'){
     if(!await read('cbse/taskMonitoring/published/updatedAt'))throw new AccessError('The Pre-Samagam plan is not published.',404);
     const {draft,faculty,mission}=await context();
@@ -181,7 +196,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      current:current&&{...current,exam:'Preboard 1'},
     }))
      .sort((a,b)=>a.scope-b.scope||a.name.localeCompare(b.name));
-    return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum})=>({classId,section,subject,teacher,teachers,maximum})),rows:publicRows};
+    return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum,approvedAt})=>({classId,section,subject,teacher,teachers,maximum,approvedAt})),rows:publicRows};
    }
    if(!admin&&input.operation==='pb1-directory'){
     const {draft,faculty,mission}=await context(),staff=staffIndex(faculty,mission);

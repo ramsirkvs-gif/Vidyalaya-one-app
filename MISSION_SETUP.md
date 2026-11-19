@@ -34,12 +34,12 @@ these details after the remembered curtain without entering a personal PIN.
 
 ## Latest progress, attendance and XII stream groups
 
-Monitoring uses the latest recorded monthly result per selected subject. MCQ
-practice stays in the MCQ workspace. Other regular exams remain in the detailed
-academic history, and the Pre-Samagam analyser compares PB-1 with the latest
-monthly result before it. Student graphs show monthly progress from the
-beginning. The latest subject table shows change since the first appeared
-monthly result. An absence in the latest monthly exam is displayed as AB.
+Monitoring uses the approved PB-1 result for each class, section and subject
+where the Principal has approved and frozen the paper in the Wisdom Analyser.
+Other subjects use the latest recorded monthly result. MCQ practice stays in
+the MCQ workspace. The analyser compares PB-1 with the latest monthly result
+before it, and Mission graphs show monthly progress. An absence in the latest
+result is displayed as AB.
 
 The supplied academic package contains cumulative workbook attendance for all
 240 students. Imports store it in `academicAttendance`, separately from the daily

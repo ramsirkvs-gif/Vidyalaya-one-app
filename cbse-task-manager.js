@@ -468,9 +468,13 @@ async function openPB1Analyser(entryOnly=false){
   const data=await send('pb1-read',{},pin);
   renderPB1Analyser(host,data,{button,run,teacher:!asPrincipal,entryOnly,
    back:()=>{if(discard())return asPrincipal?drawPrincipal():openPB1Analyser();},
+   approve:asPrincipal?async({classId,sectionId,subjectId},expectedRevision)=>{
+    const result=await send('pb1-approve',{classId,sectionId,subjectId,expectedRevision});
+    message('Preboard 1 marks approved and frozen. Mission 100 now uses them for this paper.');return result;
+   }:undefined,
    save:async({classId,sectionId,subjectId},expectedRevision,entries,secret)=>{
     const result=await send('pb1-save',{classId,sectionId,subjectId,expectedRevision,entries},secret);
-    message('Preboard 1 marks saved to Mission 100.');return result;
+    message('Preboard 1 marks saved. Mission 100 uses them after Principal approval.');return result;
    }});
  };
  if(asPrincipal){await open();return;}

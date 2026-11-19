@@ -13,6 +13,8 @@ import {TASK_AVAILABLE_CLASSES,taskClasses} from '../cbse-task-manager-model.js'
 import {MONITORING_SHEETS,monitoringFormula} from '../cbse-task-workbook.js';
 import {monitoringStage} from '../cbse-task-monitoring-workflow.js';
 import {pb1CategoryCounts,pb1Metrics,pb1Risk,pb1SmartSummary,pb1ResultBand} from '../cbse-pb1-analyser-model.js';
+import {studentIndex,studentProgress} from '../cbse-mission-model.js';
+import {academicSnapshot,latestAcademicSnapshot} from '../cbse-academic-model.js';
 
 test('Wisdom Analyser includes 25 in critical fail and 33 through 40 in borderline pass',()=>{
  assert.deepEqual([null,0,25,25.01,32.99,33,40,40.01,74.99,75,90].map(pb1ResultBand),
@@ -50,6 +52,8 @@ test('PB-1 uses assigned enrolled students, paper maxima, explicit absence and p
  assert.equal(data.rows[0].before.exam,'October test');
  assert.equal(pb1Risk(data.rows,'before')[0].failed.length,1);
  const save=(entries,extra={})=>f.teacher({taskOperation:'pb1-save',classId:'X',sectionId:'a',subjectId:'english',expectedRevision:0,entries,...extra});
+ const approve=(expectedRevision)=>f.admin({operation:'pb1-approve',classId:'X',sectionId:'a',subjectId:'english',expectedRevision});
+ await assert.rejects(approve(0),/every enrolled student/);
  await assert.rejects(save([{key:'X:b:one',mark:55}]),/enrolled/);
  await assert.rejects(save([{key:'X:a:one',mark:55}],{sectionId:'b'}),/assigned/);
  await assert.rejects(save([{key:'X:a:one',mark:81}]),/between 0 and 80/);
@@ -79,6 +83,19 @@ test('PB-1 uses assigned enrolled students, paper maxima, explicit absence and p
  assert.equal(anonymous.roll,undefined);
  assert.equal(anonymous.markId,undefined);
  assert.ok(!JSON.stringify(publicReport).includes('Synthetic Student'));
+ const student=studentIndex(draft)['X:a:one'],latest=()=>studentProgress(student.key,f.data.cbse.mission,draft).subjects[0].latest;
+ assert.equal(latest().score,12);
+ await assert.rejects(f.teacher({taskOperation:'pb1-approve'}),/Teachers may only/);
+ const frozen=await approve(saved.revision);
+ assert.ok(frozen.scopes[0].approvedAt);
+ assert.equal(frozen.scopes[1].approvedAt,0);
+ assert.equal(latest().score,28);
+ assert.equal(latestAcademicSnapshot(student,f.data.cbse.mission).subjects[0].mark.approvedPB1,true);
+ assert.equal(academicSnapshot(student,f.data.cbse.mission,'2026-10').subjects[0].mark.score,12);
+ await assert.rejects(save([{key:student.key,mark:30}],{expectedRevision:frozen.revision}),/approved and frozen/);
+ f.data.cbse.mission.marks[saved.rows[0].markId].score=50;
+ assert.equal(latest().score,28);
+ assert.equal((await f.admin({operation:'pb1-read'})).rows[0].current.score,28);
 });
 
 test('Task 2 workbook stays private and saves editable cells with revision checks',async()=>{
