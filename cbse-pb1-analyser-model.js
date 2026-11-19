@@ -3,10 +3,7 @@ import {academicMarkBand} from './cbse-academic-model.js';
 import {effectiveStudentMarks} from './cbse-maths-carryover.js';
 import {schoolPreboard1DateSheet} from './cbse-preboard1-datesheet.js';
 
-const MCQ_LABEL=/(?:^|[^a-z0-9])(?:mcqs?|multiple[\s_-]+choice)(?=$|[^a-z0-9])/i;
-function regularMark(mark,exam){
- return [mark.examId,mark.importSource,exam.name,exam.type,exam.source].every(value=>!MCQ_LABEL.test(String(value||'')));
-}
+import {isMCQResult,isMonthlyResult} from './cbse-academic-exam-kind.js';
 
 export function pb1Scopes(draft,mission,staff,teacherIds){
  const allocations=Object.values(mission.allocations||{}),scopes=[],seen=new Set();
@@ -37,12 +34,12 @@ export function pb1Report(draft,mission,staff,teacherIds){
    let before,current;
    for(const [id,mark] of Object.entries(effectiveStudentMarks(student,byStudent[student.key]))){
     const exam=mission.exams?.[mark.examId];
-    if(mark.subjectId!==subjectId||!exam||exam.classId!==classId||!regularMark(mark,exam))continue;
+    if(mark.subjectId!==subjectId||!exam||exam.classId!==classId||isMCQResult(exam,mark))continue;
     const item={...mark,id,exam};
     const newer=other=>!other||exam.date>other.exam.date||exam.date===other.exam.date&&(mark.updatedAt||0)>=(other.updatedAt||0);
     if(exam.type==='PB-1'&&exam.date.startsWith(date.slice(0,7))){
      if(newer(current))current=item;
-    }else if(exam.type!=='PB-1'&&exam.date<(exam.date.length===7?date.slice(0,7):date)&&newer(before))before=item;
+    }else if(isMonthlyResult(exam,mark)&&exam.date<(exam.date.length===7?date.slice(0,7):date)&&newer(before))before=item;
    }
    const result=mark=>{
     if(!mark)return null;

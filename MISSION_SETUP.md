@@ -34,12 +34,12 @@ these details after the remembered curtain without entering a personal PIN.
 
 ## Latest progress, attendance and XII stream groups
 
-Monitoring now always uses the latest recorded result per selected subject. The
-class exam dropdown and academic month dropdown are removed; old exam URLs do
-not change the latest report. Student graphs still show the journey from the
-beginning. The latest subject table includes change since the first appeared
-result, and full examination/monthly tables are retained under optional history.
-An absent latest result stays AB rather than falling back to an old pass.
+Monitoring uses the latest recorded monthly result per selected subject. MCQ
+practice stays in the MCQ workspace. Other regular exams remain in the detailed
+academic history, and the Pre-Samagam analyser compares PB-1 with the latest
+monthly result before it. Student graphs show monthly progress from the
+beginning. The latest subject table shows change since the first appeared
+monthly result. An absence in the latest monthly exam is displayed as AB.
 
 The supplied academic package contains cumulative workbook attendance for all
 240 students. Imports store it in `academicAttendance`, separately from the daily

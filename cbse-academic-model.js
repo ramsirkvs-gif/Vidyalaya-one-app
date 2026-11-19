@@ -1,3 +1,4 @@
+import {isMonthlyResult} from './cbse-academic-exam-kind.js';
 import {effectiveStudentMarks} from './cbse-maths-carryover.js';
 import {clone,entries} from './cbse-model.js';
 const assert=(ok,message)=>{if(!ok)throw Error(message);};
@@ -39,14 +40,14 @@ export function importAcademicHistory(pkg,mission,draft,{replaceExisting=false}=
  const attendanceSeen=new Set();for(const r of pkg.attendance||[]){const p=resolve(r);assert(!attendanceSeen.has(p.key),'Duplicate attendance summary.');attendanceSeen.add(p.key);assert(latestPeriods.has(p.key),'Attendance summary has no matching academic results.');assert(Number.isFinite(r.percentage)&&r.percentage>=0&&r.percentage<=100&&r.session===pkg.session,'Invalid cumulative attendance percentage.');next.academicAttendance[p.key]={percentage:r.percentage,session:pkg.session,source:'consolidated_workbook',throughPeriod:latestPeriods.get(p.key)||''};}
  return {next,added,updated,skipped,absent,inferred,summary:Object.entries(counts).map(([section,c])=>({section,students:c.students.size,results:c.results})).sort((a,b)=>a.section.localeCompare(b.section))};
 }
-export function academicPeriods(mission){return [...new Set(entries(mission.exams).map(([,e])=>String(e.date||'').slice(0,7)).filter(validMonth))].sort();}
+export function academicPeriods(mission){return [...new Set(entries(mission.exams).filter(([id,e])=>isMonthlyResult(e,{examId:id})).map(([,e])=>String(e.date||'').slice(0,7)).filter(validMonth))].sort();}
 export function periodRange(periods){if(!periods.length)return [];const sorted=[...periods].sort(),out=[];let year=Number(sorted[0].slice(0,4)),month=Number(sorted[0].slice(5));for(let i=0;i<120;i++){const p=`${year}-${String(month).padStart(2,'0')}`;if(p>sorted.at(-1))break;out.push(p);if(++month>12){month=1;year++;}}return out;}
 export function academicSnapshot(person,mission,period){
- const selected={};for(const[id,m]of entries(effectiveStudentMarks(person,mission.marks))){const exam=mission.exams?.[m.examId];if(m.studentKey!==person.key||!exam||period&&String(exam.date).slice(0,7)!==period)continue;const previous=selected[m.subjectId];if(!previous||exam.date>previous.exam.date||exam.date===previous.exam.date&&(m.updatedAt||0)>=(previous.updatedAt||0))selected[m.subjectId]={...m,id,exam};}
+ const selected={};for(const[id,m]of entries(effectiveStudentMarks(person,mission.marks))){const exam=mission.exams?.[m.examId];if(m.studentKey!==person.key||!isMonthlyResult(exam,m)||period&&String(exam.date).slice(0,7)!==period)continue;const previous=selected[m.subjectId];if(!previous||exam.date>previous.exam.date||exam.date===previous.exam.date&&(m.updatedAt||0)>=(previous.updatedAt||0))selected[m.subjectId]={...m,id,exam};}
  const subjects=entries(person.subjects).filter(([,on])=>on).map(([id])=>{const mark=selected[id],rules=entries(mission.gradingRules).map(([,r])=>r).filter(r=>r.classId===person.classId&&(!r.subjectId||r.subjectId===id)&&(!r.examId||r.examId===mark?.examId)).sort((a,b)=>(b.subjectId?2:0)+(b.examId?1:0)-(a.subjectId?2:0)-(a.examId?1:0))[0]||mission.settings;return {id,name:person.subjectCatalog?.[id]?.name||id,mark,band:academicMarkBand(mark,rules.redBelow,rules.greenFrom)};});
  const appeared=subjects.filter(s=>s.mark&&!s.mark.absent),total=appeared.reduce((n,s)=>n+s.mark.score,0),maximum=appeared.reduce((n,s)=>n+s.mark.maximum,0);
  return {subjects,total,maximum,percentage:maximum?total/maximum*100:null,appeared:appeared.length,expected:subjects.length,absent:subjects.filter(s=>s.mark?.absent).length,unrecorded:subjects.filter(s=>!s.mark).length,academic:overallAcademicBand(subjects.map(s=>s.band)),failing:subjects.filter(s=>['critical','red'].includes(s.band)).length,critical:subjects.filter(s=>s.band==='critical').length};
 }
 
 export const latestAcademicSnapshot=(person,mission)=>academicSnapshot(person,mission,null);
-export function recordedProgressRange(mission,keys){const selected=keys?new Set(keys):null,periods=Object.values(mission.marks||{}).filter(m=>!selected||selected.has(m.studentKey)).map(m=>String(mission.exams?.[m.examId]?.date||'').slice(0,7)).filter(validMonth).sort();return {from:periods[0]||'',to:periods.at(-1)||''};}
+export function recordedProgressRange(mission,keys){const selected=keys?new Set(keys):null,periods=Object.values(mission.marks||{}).filter(m=>(!selected||selected.has(m.studentKey))&&isMonthlyResult(mission.exams?.[m.examId],m)).map(m=>String(mission.exams?.[m.examId]?.date||'').slice(0,7)).filter(validMonth).sort();return {from:periods[0]||'',to:periods.at(-1)||''};}

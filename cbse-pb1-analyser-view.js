@@ -31,7 +31,7 @@ function renderMarksGraph(parent,grouped){
  for(const [label,rows] of grouped){
   const article=el('section');article.append(el('h4',label));
   const paired=rows.filter(row=>row.before?.percentage!=null&&row.current?.percentage!=null);
-  for(const [key,title] of [['before','Previous regular marks'],['current','Preboard 1']]){
+  for(const [key,title] of [['before','Latest monthly marks'],['current','Preboard 1']]){
    const scores=(paired.length?paired:rows).flatMap(row=>row[key]?.percentage==null?[]:[row[key].percentage]);
    const mean=scores.length?scores.reduce((sum,value)=>sum+value,0)/scores.length:null;
    const line=el('div',undefined,'pb1-graph-line');
@@ -68,7 +68,7 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher}){
  const riskFilter=control(filters,'Support list');
  options(riskFilter,[['','All support cases'],['one','One subject failed'],['multi','Two or more subjects failed'],['border','Borderline pass'],['missing','Absent or missing marks']],'');
  const riskPeriod=control(filters,'Categorize from');
- options(riskPeriod,[['before','Previous regular marks'],['current','Preboard 1']],data.rows.some(row=>row.current)?'current':'before');
+ options(riskPeriod,[['before','Latest monthly marks'],['current','Preboard 1']],data.rows.some(row=>row.current)?'current':'before');
  const graphBy=control(filters,'Graph by');
  options(graphBy,[['subject','Subject'],['student','Student and subject']],'subject');
  function restrict(){
@@ -189,7 +189,7 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher}){
   if(selected==='entry'){drawEntry();return;}
   riskFilter.parentElement.hidden=selected!=='risk';
   riskPeriod.parentElement.hidden=selected!=='risk';graphBy.parentElement.hidden=selected!=='graphs';
-  content.append(el('p','Uses regular Mission 100 marks and Preboard 1. MCQ results are excluded. Comparisons use matching appeared results.'),filters,report);
+  content.append(el('p','Uses the latest Mission 100 monthly marks before Preboard 1. Comparisons use matching appeared results.'),filters,report);
   drawReport();
  }
  drawMode();

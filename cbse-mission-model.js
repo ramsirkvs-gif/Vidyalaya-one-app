@@ -1,3 +1,4 @@
+import {isMCQResult,isMonthlyResult} from './cbse-academic-exam-kind.js';
 import {studentRemedialParticipation} from './cbse-remedial-participation.js';
 import {effectiveStudentMarks,currentMarkSubject} from './cbse-maths-carryover.js';
 import {validateConversations} from './cbse-conversation-model.js';
@@ -67,8 +68,8 @@ export function band(value,red,green){return value===null||!Number.isFinite(valu
 export function gradeThresholds(m,classId,subjectId,examId){const matched=entries(m.gradingRules).map(([,r])=>r).filter(r=>r.classId===classId&&(!r.subjectId||r.subjectId===subjectId)&&(!r.examId||r.examId===examId)).sort((a,b)=>(b.subjectId?2:0)+(b.examId?1:0)-(a.subjectId?2:0)-(a.examId?1:0));return matched[0]||{redBelow:m.settings.redBelow,greenFrom:m.settings.greenFrom};}
 export function studentProgress(key,m,draft,examId="",subjectScope=[]){
  const person=studentIndex(draft)[key],latest={},history={};
- for(const[id,mark]of entries(effectiveStudentMarks(person,m.marks)))if(mark.studentKey===key&&(!examId||mark.examId===examId)){const item={...mark,id,exam:m.exams?.[mark.examId]};if(!item.exam)continue;(history[mark.subjectId]||=[]).push(item);}
- for(const[id,list]of entries(history)){list.sort((a,b)=>a.exam.date.localeCompare(b.exam.date)||(a.updatedAt||0)-(b.updatedAt||0));latest[id]=list.at(-1);}
+ for(const[id,mark]of entries(effectiveStudentMarks(person,m.marks)))if(mark.studentKey===key&&(!examId||mark.examId===examId)){const item={...mark,id,exam:m.exams?.[mark.examId]};if(!item.exam||isMCQResult(item.exam,item))continue;(history[mark.subjectId]||=[]).push(item);}
+ for(const[id,list]of entries(history)){list.sort((a,b)=>a.exam.date.localeCompare(b.exam.date)||(a.updatedAt||0)-(b.updatedAt||0));latest[id]=examId?list.at(-1):list.findLast(item=>isMonthlyResult(item.exam,item));}
  const subjects=entries(person?.subjects).filter(([id,on])=>on&&(!subjectScope.length||subjectScope.includes(id))).map(([id])=>{const v=latest[id],percentage=v&&!v.absent?v.score/v.maximum*100:null,thresholds=gradeThresholds(m,person.classId,id,v?.examId||examId);return {id,name:person.subjectCatalog[id]?.name||id,latest:v,percentage,band:academicMarkBand(v,thresholds.redBelow,thresholds.greenFrom),history:history[id]||[]};});
  const bands=subjects.map(s=>s.band);
  const school=entries(m.attendance).map(([,a])=>a).filter(a=>a.studentKey===key&&a.session==='school'),percentage=school.length?school.filter(a=>a.status==='present').length/school.length*100:null;
