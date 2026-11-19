@@ -2,6 +2,7 @@ import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
 import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList,minuteLanguages} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {validateMonitoringSheets} from '../cbse-task-workbook.js';
+import {monitoringAssignments,monitoringAdvance,MONITORING_ROLES} from '../cbse-task-monitoring-workflow.js';
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
@@ -115,15 +116,34 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    if(!admin&&input.operation==='monitoring-read'){
     const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
     if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}
-    const published=await read(monitoringPath+'/published');
+    const {published,progress}=await read(monitoringPath)||{};
     if(!published)throw new AccessError('The monitoring plan is no longer published.',404);
-    return {monitoring:published};
+    return {monitoring:{...published,progress:progress||{}}};
    }
    if(admin&&input.operation==='monitoring-read')return {monitoring:await read(monitoringPath)||{sheets:TASK_MONITORING_SEED,revision:0}};
-   if(admin&&['monitoring-save','monitoring-publish','monitoring-unpublish'].includes(input.operation)){
+   if(admin&&['monitoring-save','monitoring-settings','monitoring-publish','monitoring-unpublish'].includes(input.operation)){
     const saving=input.operation==='monitoring-save';
-    let sheets;
-    try{if(saving)sheets=validateMonitoringSheets(input.sheets);}
+    const settings=input.operation==='monitoring-settings',publishing=input.operation==='monitoring-publish';
+    const directory=settings||publishing?await directoryStaff():{};
+    let sheets,overrides,reviewerIds,reason;
+    try{
+     if(saving)sheets=validateMonitoringSheets(input.sheets);
+     if(settings){
+      if(!input.overrides||Array.isArray(input.overrides)||typeof input.overrides!=='object'||Object.keys(input.overrides).length>160)throw Error('Invalid row assignments.');
+      const active=id=>typeof id==='string'&&Object.hasOwn(directory,id)&&directory[id].status==='active';
+      overrides=Object.fromEntries(Object.entries(input.overrides).map(([key,roles])=>{
+       if(!/^row_[1-9]\d{0,5}$/.test(key)||!roles||typeof roles!=='object')throw Error('Invalid row assignment.');
+       return [key,Object.fromEntries(MONITORING_ROLES.flatMap(([role])=>{
+        const id=roles[role];
+        if(id===undefined)return [];
+        if(id!==''&&!active(id))throw Error('Choose an active staff member.');
+        return [[role,id]];
+       }))];
+      }));
+      if(!Array.isArray(input.reviewerIds)||input.reviewerIds.length>2||!input.reviewerIds.every(id=>id===''||active(id)))throw Error('Choose up to two active Exam IC / Co-IC reviewers.');
+      reviewerIds=input.reviewerIds;
+     }
+    }
     catch(error){throw new AccessError(error.message,400);}
     const known=await read(monitoringPath+'/revision');
     const result=await mcqTransaction(db,monitoringPath,current=>{
@@ -133,10 +153,22 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      const updatedAt=now(),revision=(current?.revision||0)+1;
      if(saving)return {...current,sheets,revision,updatedAt};
      const draft=current?.sheets||TASK_MONITORING_SEED;
-     const published=input.operation==='monitoring-publish'?{sheets:draft,updatedAt}:null;
+     if(settings)return {...current,sheets:draft,overrides,reviewerIds,revision,updatedAt};
+     let published=null;
+     if(publishing)try{
+      const assignments=monitoringAssignments(draft,directory,current?.overrides);
+      for(const [key,progress] of Object.entries(current?.progress||{})){
+       const initial=progress.identity||current.published?.assignments?.[key],next=assignments[key];
+       if(initial&&(!next||next.subject!==initial.subject||next.section!==initial.section))
+        throw Error('Keep the SN, subject and class of rows with recorded progress.');
+      }
+      const ids=(current?.reviewerIds||[]).map(id=>directory[id]?.pinOwnerId||id);
+      const examReviewers=[...new Set(ids)].filter(id=>directory[id]?.status==='active').map(id=>({id,name:directory[id].name}));
+      published={sheets:draft,updatedAt,revision,assignments,examReviewers};
+     }catch(error){reason=error.message;return;}
      return {...current,sheets:draft,published,revision,updatedAt};
     },{restTransaction});
-    if(!result.committed||!result.snapshot.val())throw new AccessError('Task 2 changed. Reopen it before saving again.',409);
+    if(!result.committed||!result.snapshot.val())throw new AccessError(reason||'Task 2 changed. Reopen it before saving again.',409);
     return {monitoring:result.snapshot.val()};
    }
    const staff=await directoryStaff(),actor={principal:admin,ids:[]};
@@ -340,6 +372,19 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    if(!pinIdentity)throw new AccessError('Verify your existing personal PIN.',403);
    const id=pinIdentity.decoded.staffId,staff=await directoryStaff(),access=await read('cbse/staffAccess/'+id);
    if(!access?.enabled||access.version!==pinIdentity.access.version||staff[id]?.status!=='active')throw new AccessError('Staff access changed. Verify your PIN again.',403);
+   if(input.taskOperation==='monitoring-update'){
+    const curtain=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
+    if(curtain?.error){const error=new AccessError(curtain.error,curtain.status);error.curtainRequired=true;throw error;}
+    const path='cbse/taskMonitoring',known=await read(path+'/revision');
+    let reason;
+    const result=await mcqTransaction(db,path,current=>{
+     if(current===null&&known)return null;
+     try{return monitoringAdvance(current||{},input,{id,name:staff[id].name},now());}
+     catch(error){reason=error.message;return;}
+    },{restTransaction});
+    if(!result.committed||!result.snapshot.val())throw new AccessError(reason||'The status could not be saved.',409);
+    return {ok:true};
+   }
    const actor={id,ids:rollStaffIdentityIds(staff,id)},inputTask={...input,operation:input.taskOperation};
    const viewTask=value=>{const output=taskView(withTaskExamParticipation(taskRosterStore(value,staff,rollStaffIdentityIds)),actor);if(input.taskId){const t=Object.hasOwn(output.tasks,input.taskId)?output.tasks[input.taskId]:null;if(!t||!t.classes.includes(input.classId))throw new AccessError('This published class report is not assigned to you.',403);return {tasks:{[input.taskId]:{...t,classes:[input.classId],headers:{[input.classId]:t.headers[input.classId]},reports:t.reports[input.classId]?{[input.classId]:t.reports[input.classId]}:{}}}};}return output;};
    if(input.taskOperation==='read')return viewTask(await read('cbse/taskManager'));

@@ -15,6 +15,7 @@ import {MONITORING_SHEETS,monitoringFormula} from '../cbse-task-workbook.js';
 test('Task 2 workbook stays private and saves editable cells with revision checks',async()=>{
  const f=taskFixture();
  const sheets=MONITORING_SHEETS.map(({rows,columns})=>Array.from({length:rows},()=>Array(columns).fill('')));
+ sheets[0][5].splice(0,3,'1','English','X A');
  sheets[0][5][4]='Teacher One';sheets[1][8][0]='Teacher One';
  sheets[1][8][1]="=COUNTIF('Evaluation Plan'!\$E\$6:\$E\$109, A9)";
  sheets[1][8][4]='=SUM(B9:D9)';
@@ -38,6 +39,38 @@ test('Task 2 workbook stays private and saves editable cells with revision check
  assert.equal((await staffRead()).monitoring.sheets[0][5][4],'Teacher Two');
  await f.admin({operation:'monitoring-unpublish',expectedRevision:4});
  await assert.rejects(staffRead(),/no longer published/);
+});
+test('Task 2 tracks PIN-gated handoffs, corrections and authorized Exam closure across republication',async()=>{
+ const f=taskFixture();
+ const sheets=MONITORING_SHEETS.map(({rows,columns})=>Array.from({length:rows},()=>Array(columns).fill('')));
+ sheets[0][5].splice(0,7,'1','English','X A','','Synthetic Teacher one','Synthetic Teacher two','Synthetic Teacher two');
+ await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');
+ const {viewerToken}=await f.service('remember-view',{},'principal');
+ const session={viewerToken};
+ await f.admin({operation:'monitoring-save',expectedRevision:0,sheets});
+ await f.admin({operation:'monitoring-settings',expectedRevision:1,overrides:{},reviewerIds:['X:one']});
+ await f.admin({operation:'monitoring-publish',expectedRevision:2});
+ const submit=(staff,expectedRevision,outcome='advance',remark='',publicationRevision=3)=>f.service('pin-submit',{
+  operation:'task-manager',taskOperation:'monitoring-update',staffId:'X:'+staff,pin:staff==='one'?'123':'456',rowKey:'row_1',publicationRevision,expectedRevision,outcome,remark,
+ },'','test',session);
+ await assert.rejects(submit('two',0),/another staff member/);
+ await submit('one',0);
+ await submit('two',1,'return','Recheck totals');
+ await assert.rejects(submit('two',2),/another staff member/);
+ await submit('one',2);
+ await submit('two',3);
+ await submit('one',4);
+ await submit('two',5);
+ await submit('two',6);
+ await assert.rejects(submit('two',7,'advance','Received'),/another staff member/);
+ await assert.rejects(submit('one',7),/Enter a remark/);
+ await f.admin({operation:'monitoring-publish',expectedRevision:3});
+ await assert.rejects(submit('one',7,'advance','Received'),/changed/);
+ await submit('one',7,'advance','Received',4);
+ const {monitoring}=await f.service('task-read',{operation:'monitoring-read'},'','test',session);
+ assert.equal(monitoring.progress.row_1.stage,6);
+ assert.equal(monitoring.progress.row_1.history.at(-1).remark,'Received');
 });
 const remark=lead=>lead+" "+'These are synthetic class-level observations for testing the survey. Regular practice, accessible materials, guided revision, and coordinated support may improve participation. Teachers can review progress weekly, discuss general learning barriers, provide clear feedback, and adjust classroom activities. No student names, identifying family details, private health information, or real school records are included.';
 const report={examContext:'Synthetic preboard',passed:20,failed:4,ptms:40,firstGeneration:null};
