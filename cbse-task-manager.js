@@ -1,9 +1,10 @@
 import {buildTaskWorkbook} from './cbse-task-excel.js';
 import {openTaskPresentation,closeTaskPresentation} from './cbse-task-presentation.js';
-import {importTaskFiguresCSV,importTaskStrengthWorkbook,taskFiguresTemplate,decodePreparedTaskFigures} from './cbse-task-manager-import.js';
+import {importTaskFiguresCSV,importTaskStrengthWorkbook,taskFiguresTemplate,decodePreparedTaskFigures,loadTaskWorkbook} from './cbse-task-manager-import.js';
 import {TASK_CLASSES,TASK_AVAILABLE_CLASSES,TASK_PRIMARY_CLASSES,taskClasses,TASK_PRIORITIES,TASK_HEADERS,TASK_REPORT_COMMENTS,taskHeader,taskQuestions,taskQuestionLabels,taskCompatibleValues,taskSummary,taskQuestionIsWritten,taskQuestionWording,taskRemarkWordCount} from './cbse-task-manager-model.js';
 import {el,options} from './cbse-ui.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
+import {MONITORING_TITLE,MONITORING_SHEETS,validateMonitoringSheets,monitoringFormula} from './cbse-task-workbook.js';
 const host=document.getElementById('task-content'),nav=document.getElementById('task-nav'),status=document.getElementById('task-status');
 const OVERALL_COMMENT_LABEL='Overall situation — comments by CT / Prime mentor / Survey IC';
 let suppliedFigures=null,suppliedFiguresError='';const entryParams=new URLSearchParams(location.hash.slice(1));if(entryParams.has('figures')){try{suppliedFigures=decodePreparedTaskFigures(entryParams.get('figures'));}catch(error){suppliedFiguresError=error.message;}history.replaceState(null,'','#principal');}
@@ -27,10 +28,105 @@ async function admin(input){const result=await request({action:'task-principal',
 async function load(){closeTaskPresentation();document.body.classList.remove('task-form-open');document.querySelectorAll('dialog.task-start-dialog').forEach(d=>d.remove());renderedMode=mode();navigation();host.replaceChildren();if(user){try{await admin({operation:'read'});principal=true;history.replaceState(null,'','#principal');navigation();drawPrincipal();return;}catch(error){if(![401,403].includes(error.status))throw error;}}
  adopt(await request({action:'task-read'}));drawStaff();if(mode()==='principal'){const login=el('section',undefined,'task-card');login.append(el('h2','Principal sign-in'),el('p','Sign in once to create a task, select classes, assign teachers and publish.'));renderPrincipalLogin(login,async password=>{await authApi.signInWithEmailAndPassword(auth,'ramsirkvs@gmail.com',password);});host.prepend(login);}}
 
-function catalogue(parent){const list=Object.entries(store.tasks||{});if(!list.length)parent.append(el('p','No tasks yet. Create the unpublished Task 1 draft above.'));for(const [id,t]of list){const card=el('section',undefined,'task-card');card.id='task-'+id;parent.append(card);drawAdminTask(card,id,t);}}
+function catalogue(parent){
+ const list=Object.entries(store.tasks||{}).map(([id,t])=>({
+  title:t.draft.title,updatedAt:Math.max(t.updatedAt||t.createdAt||0,...Object.values(t.reports||{}).map(report=>report.updatedAt||0)),state:t.published?'Published':'Draft',
+  open:()=>openPrincipalTask(id,t),
+ }));
+ list.push({title:MONITORING_TITLE,updatedAt:store.monitoringUpdatedAt||0,state:store.monitoringUpdatedAt?'Private':'Awaiting workbook',open:openMonitoring});
+ list.sort((a,b)=>b.updatedAt-a.updatedAt);
+ const scroll=el('div',undefined,'task-scroll'),table=el('table',undefined,'task-totals task-register');
+ const head=table.createTHead().insertRow(),body=table.createTBody();
+ for(const label of ['Task','Status','Updated (IST)','Open']){
+  const cell=el('th',label);cell.scope='col';head.append(cell);
+ }
+ for(const task of list){
+  const row=body.insertRow(),title=el('th',task.title);title.scope='row';
+  row.append(title,el('td',task.state),el('td',task.updatedAt?new Date(task.updatedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}):'—'));
+  const open=button('Open task',task.open);open.setAttribute('aria-label','Open '+task.title);row.insertCell().append(open);
+ }
+ scroll.append(table);parent.append(scroll);
+}
+function openPrincipalTask(id,task){
+ const card=el('section',undefined,'task-card');card.id='task-'+id;
+ const actions=el('div',undefined,'task-actions');
+ actions.append(button('Back to task list',()=>{if(discard())drawPrincipal();}),button('Refresh tasks',async()=>{
+  if(!discard())return;
+  await admin({operation:'read'});
+  if(store.tasks[id])openPrincipalTask(id,store.tasks[id]);else drawPrincipal();
+ }));
+ host.replaceChildren(actions,card);
+ drawAdminTask(card,id,task);host.scrollIntoView({block:'start'});
+}
+async function openMonitoring(){
+ const {monitoring}=await request({action:'task-principal',operation:'monitoring-read'},true);
+ drawMonitoring(monitoring);
+}
+function drawMonitoring(record,importedSheets){
+ const card=el('section',undefined,'task-card'),editor=form();
+ const sheets=importedSheets||record?.sheets;
+ host.replaceChildren(button('Back to task list',()=>{if(discard())drawPrincipal();}),card);
+ card.append(el('h2',MONITORING_TITLE));
+ if(!sheets){
+  const file=field(editor,'Pre-Samagam Excel workbook','monitoring-workbook','file');
+  file.accept='.xlsx';file.required=true;
+  editor.append(el('button','Load workbook'));
+  editor.onsubmit=event=>{event.preventDefault();run(async()=>{
+   const {ExcelJS,JSZip}=await taskExcel();
+   const workbook=await loadTaskWorkbook(await file.files[0].arrayBuffer(),ExcelJS,JSZip);
+   const values=MONITORING_SHEETS.map(({name,rows,columns})=>{
+    const sheet=workbook.getWorksheet(name);
+    if(!sheet||sheet.actualRowCount>rows||sheet.actualColumnCount>columns)throw Error('Choose the supplied Pre-Samagam workbook.');
+    return Array.from({length:rows},(_,r)=>Array.from({length:columns},(_,c)=>{
+     const cell=sheet.getCell(r+1,c+1);
+     if(cell.isMerged&&cell.master!==cell)return '';
+     return cell.formula?'='+cell.formula:cell.text;
+    }));
+   });
+   drawMonitoring(null,validateMonitoringSheets(values));
+  });};
+ }else{
+  const actions=el('div',undefined,'task-actions'),scroll=el('div',undefined,'task-scroll');
+  const save=el('button','Save workbook');
+  const tabs=MONITORING_SHEETS.map(({name},index)=>button(name,()=>drawSheet(index)));
+  actions.append(...tabs,save);
+  function drawSheet(index){
+   tabs.forEach((tab,position)=>tab.setAttribute('aria-pressed',String(position===index)));
+   const sheet=sheets[index],table=el('table',undefined,'task-totals task-monitoring-sheet');
+   table.setAttribute('aria-label',MONITORING_SHEETS[index].name);
+   const header=table.createTHead().insertRow(),body=table.createTBody(),calculated=[];
+   header.append(el('th','#'));
+   for(let c=0;c<MONITORING_SHEETS[index].columns;c++)header.append(el('th',String.fromCharCode(65+c)));
+   sheet.forEach((values,r)=>{
+    const row=body.insertRow();row.append(el('th',String(r+1)));
+    values.forEach((value,c)=>{
+     const cell=row.insertCell(),input=el('textarea'),result=el('output');
+     input.rows=2;input.maxLength=500;input.value=value;
+     input.setAttribute('aria-label',String.fromCharCode(65+c)+(r+1));
+     input.oninput=()=>{values[c]=input.value;editor.dataset.portalDirty='true';};
+     input.onchange=refresh;
+     calculated.push(()=>{result.textContent=String(monitoringFormula(values[c],sheets,index));});
+     cell.append(input,result);
+    });
+   });
+   function refresh(){calculated.forEach(update=>update());}
+   refresh();scroll.replaceChildren(table);
+  }
+  drawSheet(0);
+  editor.append(actions,scroll);
+  if(importedSheets)editor.dataset.portalDirty='true';
+  let revision=record?.revision||0;
+  editor.onsubmit=event=>{event.preventDefault();run(async()=>{
+   const {monitoring}=await request({action:'task-principal',operation:'monitoring-save',expectedRevision:revision,sheets},true);
+   revision=monitoring.revision;store.monitoringUpdatedAt=monitoring.updatedAt;
+   editor.dataset.portalDirty='false';message('Task 2 workbook saved.');
+  });};
+ }
+ card.append(editor);
+}
 function drawPrincipal(){if(suppliedFigures&&Object.hasOwn(store.tasks||{},suppliedFigures.taskId)){const task=store.tasks[suppliedFigures.taskId];task.draft.headers={...task.draft.headers,...suppliedFigures.headers};task.summary=taskSummary(task);}host.replaceChildren(el('h2','Create and manage tasks'));host.append(el('p','1. Create task → 2. Select classes → 3. Assign teachers → 4. Prepare shared questions → 5. Save and publish → 6. Track submissions.','task-flow-guide'));
  if(suppliedFigures){const banner=el('p',Object.keys(suppliedFigures.headers).length+(Object.hasOwn(store.tasks||{},suppliedFigures.taskId)?' supplied class rows are loaded into the shared draft. Review the figures, assign teachers, then Save and publish task.':' supplied class rows are ready. Create the Task 1 draft to load them.'),'task-import-ready');host.append(banner);}if(suppliedFiguresError)host.append(el('p',suppliedFiguresError,'task-error'));
- const actions=el('div',undefined,'task-actions');actions.append(button('Create Task 1 unpublished draft',async()=>{if(!discard())return;await admin({operation:'create-task1'});drawPrincipal();document.getElementById('task-task1')?.scrollIntoView();message('Task 1 is an unpublished draft unless it was previously published. Existing content is preserved.');}),button('Create another task',()=>{if(!discard())return;newTask();}),button('Refresh tasks',async()=>{if(!discard())return;await admin({operation:'read'});drawPrincipal();}));actions.firstElementChild.hidden=!!store.tasks?.task1;host.append(actions);catalogue(host);}
+ const actions=el('div',undefined,'task-actions');actions.append(button('Create Task 1 unpublished draft',async()=>{if(!discard())return;await admin({operation:'create-task1'});openPrincipalTask('task1',store.tasks.task1);message('Task 1 is an unpublished draft unless it was previously published. Existing content is preserved.');}),button('Create another task',()=>{if(!discard())return;newTask();}),button('Refresh tasks',async()=>{if(!discard())return;await admin({operation:'read'});drawPrincipal();}));actions.firstElementChild.hidden=!!store.tasks?.task1;host.append(actions);catalogue(host);}
 let excelLoading;
 async function taskExcel(){if(globalThis.ExcelJS&&globalThis.JSZip)return {ExcelJS:globalThis.ExcelJS,JSZip:globalThis.JSZip};excelLoading||=Promise.all([['ExcelJS','vendor/exceljs/exceljs.min.js'],['JSZip','vendor/mcq/jszip.min.js']].map(([name,src])=>globalThis[name]?Promise.resolve():new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.onload=resolve;script.onerror=()=>{excelLoading=null;reject(Error('Excel reader could not load. Retry the import.'));};document.head.append(script);}))).then(()=>({ExcelJS:globalThis.ExcelJS,JSZip:globalThis.JSZip}));return excelLoading;}
 function fixedClassQuestions(parent,headers={}){parent.replaceChildren();let number=0;for(const [key,label]of Object.entries(TASK_HEADERS)){const item=el('div',undefined,'task-fixed-question');item.dataset.fixedQuestion=key;item.append(el('small','Q'+(++number)+' · View only'),el('span',label),el('strong',String(headers[key]??'Unprovided'),headers[key]==null?'task-header-missing':undefined));parent.append(item);}}
@@ -57,7 +153,7 @@ function configuration(parent,draft,{saveImport}={}){
  importFile.onchange=()=>run(async()=>{const file=importFile.files[0];if(!file)return;const isWorkbook=file.name.toLowerCase().endsWith('.xlsx');if(file.size>(isWorkbook?2000000:64000))throw Error('Class figures file is too large.');let values,assignments={};const content=isWorkbook?'':await file.text();if(isWorkbook){const reader=await taskExcel();const imported=await importTaskStrengthWorkbook(await file.arrayBuffer(),reader.ExcelJS,reader.JSZip,{classes:TASK_AVAILABLE_CLASSES,requiredClasses:[...selected]});values=imported.headers;}else if(file.name.toLowerCase().endsWith('.csv')){const imported=importTaskFiguresCSV(content,staff);values=imported.headers;assignments=imported.assignments;}else{const parsed=JSON.parse(content);if(!parsed||typeof parsed!=='object'||Array.isArray(parsed)||Object.keys(parsed).some(c=>!TASK_AVAILABLE_CLASSES.includes(c)))throw Error('Use valid class names, including XI E.');values=Object.fromEntries(Object.entries(parsed).map(([c,v])=>{if(Object.keys(v||{}).some(k=>!Object.hasOwn(TASK_HEADERS,k)))throw Error('Only total, catV and st are accepted.');return [c,taskHeader(v)];}));}for(const [c,h]of Object.entries(values))for(const k of Object.keys(TASK_HEADERS))rows[c].counts[k].value=h[k]??'';for(const [c,id]of Object.entries(assignments))rows[c].select.value=id;updateFixed();f.dataset.portalDirty='true';if(saveImport){await saveImport(value());f.dataset.portalDirty='false';}else message('Figures imported into the form. Save the shared draft when ready.');});
  parent.append(f);return {form:f,value};
 }
-function newTask(){const card=el('section',undefined,'task-card');host.prepend(card);card.append(el('h2','New private draft'));const editor=configuration(card,{title:'',priority:TASK_PRIORITIES[0],deadline:'',visibility:'concerned',assignments:{},headers:store.classFigures||{},instructions:'Aggregate counts only. No student identifiers.'});editor.form.append(el('button','Create unpublished draft'));editor.form.onsubmit=e=>{e.preventDefault();run(async()=>{const result=await admin({operation:'create',draft:editor.value()});editor.form.dataset.portalDirty='false';drawPrincipal();document.getElementById('task-'+result.taskId)?.scrollIntoView();message('Unpublished draft created.');});};}
+function newTask(){const card=el('section',undefined,'task-card');host.prepend(card);card.append(el('h2','New private draft'));const editor=configuration(card,{title:'',priority:TASK_PRIORITIES[0],deadline:'',visibility:'concerned',assignments:{},headers:store.classFigures||{},instructions:'Aggregate counts only. No student identifiers.'});editor.form.append(el('button','Create unpublished draft'));editor.form.onsubmit=e=>{e.preventDefault();run(async()=>{const result=await admin({operation:'create',draft:editor.value()});editor.form.dataset.portalDirty='false';openPrincipalTask(result.taskId,store.tasks[result.taskId]);message('Unpublished draft created.');});};}
 function drawAdminTask(card,id,t){
  card.replaceChildren(el('h2',t.draft.title),el('p',t.published?'Published instructions active. Draft edits require Publish.':'Unpublished — private to Principal'));if(t.principalExamOnly)card.append(el('p','Passed students are entered only by the Principal. Failed entry has been removed. Open each submitted class report and choose Edit submitted answers. Passed values you save are retained; earlier Failed values remain in edit history.','task-exam-entry-note'));
  const details=el('details',undefined,'task-editor');details.open=true;details.append(el('summary','Edit task, survey questions and teacher assignments'));card.append(details);const editor=configuration(details,t.draft,{saveImport:async draft=>{if([...card.querySelectorAll('form[data-portal-dirty="true"]')].some(f=>f!==editor.form)&&!confirm('Discard the unsaved Principal comment before importing?'))throw Error('Import save cancelled. Imported figures remain in the editor.');await admin({operation:'save',taskId:id,expectedRevision:t.revision,draft,rememberFigures:true});clearSuppliedFigures(id);drawAdminTask(card,id,store.tasks[id]);card.querySelector('details.task-editor').open=true;card.querySelector('.task-fixed-editor').scrollIntoView({block:'start',behavior:'smooth'});message('Class figures saved for '+draft.selectedClasses.length+' selected classes in one shared draft. Publish once to apply.');}});if(suppliedFigures?.taskId===id)editor.form.dataset.portalDirty='true';editor.form.append(el('button','Save private draft'));editor.form.onsubmit=e=>{e.preventDefault();if([...card.querySelectorAll('form[data-portal-dirty="true"]')].some(f=>f!==editor.form)&&!confirm('Discard the unsaved Principal comment?'))return;run(async()=>{await admin({operation:'save',taskId:id,expectedRevision:t.revision,draft:editor.value(),rememberFigures:suppliedFigures?.taskId===id});clearSuppliedFigures(id);editor.form.dataset.portalDirty='false';drawAdminTask(card,id,store.tasks[id]);card.querySelector('details.task-editor').open=true;message('Private draft saved. Publish when ready.');});};

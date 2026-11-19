@@ -23,11 +23,14 @@ export function importTaskFiguresCSV(text,staff){
   if(teacher){const matches=Object.entries(staff).filter(([,p])=>p.status==='active'&&p.name.trim().toLocaleLowerCase()===teacher.toLocaleLowerCase());if(matches.length!==1)throw Error(classId+': teacher name is missing or ambiguous. Choose this teacher directly in the form.');assignments[classId]=matches[0][0];}
  }return {headers,assignments};
 }
-export async function importTaskStrengthWorkbook(buffer,ExcelJS,JSZip,{classes=TASK_CLASSES,requiredClasses=classes}={}){
+export async function loadTaskWorkbook(buffer,ExcelJS,JSZip){
  // Read cell data only. ExcelJS cannot reconcile some chart-only drawings.
  // Strip decorative chart/drawing ZIP parts from an in-memory copy, never the source file.
  if(JSZip){const archive=await JSZip.loadAsync(buffer);for(const name of Object.keys(archive.files))if(/^xl\/(drawings|charts)\//.test(name))archive.remove(name);buffer=await archive.generateAsync({type:'uint8array'});}
- const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(buffer,{ignoreNodes:['drawing','picture']});const headers={},ignored=[];
+ const workbook=new ExcelJS.Workbook();await workbook.xlsx.load(buffer,{ignoreNodes:['drawing','picture']});return workbook;
+}
+export async function importTaskStrengthWorkbook(buffer,ExcelJS,JSZip,{classes=TASK_CLASSES,requiredClasses=classes}={}){
+ const workbook=await loadTaskWorkbook(buffer,ExcelJS,JSZip),headers={},ignored=[];
  const cell=value=>{if(value==null)return '';if(typeof value==='object'){if(Object.hasOwn(value,'result'))return cell(value.result);if(value.richText)return value.richText.map(item=>item.text).join('');throw Error('A spreadsheet formula has no saved result. Save calculated values and retry.');}return String(value).trim();};
  const norm=value=>cell(value).replace(/\s+/g,' ').toUpperCase();
  for(const sheet of workbook.worksheets){

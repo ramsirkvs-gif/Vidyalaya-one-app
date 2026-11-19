@@ -10,6 +10,25 @@ import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import {TASK1_ROSTER,taskRosterStore} from '../cbse-task-manager-roster.js';
 import {TASK_AVAILABLE_CLASSES,taskClasses} from '../cbse-task-manager-model.js';
+import {MONITORING_SHEETS,monitoringFormula} from '../cbse-task-workbook.js';
+
+test('Task 2 workbook stays private and saves editable cells with revision checks',async()=>{
+ const f=taskFixture();
+ const sheets=MONITORING_SHEETS.map(({rows,columns})=>Array.from({length:rows},()=>Array(columns).fill('')));
+ sheets[0][5][4]='Teacher One';sheets[1][8][0]='Teacher One';
+ sheets[1][8][1]="=COUNTIF('Evaluation Plan'!\$E\$6:\$E\$109, A9)";
+ sheets[1][8][4]='=SUM(B9:D9)';
+ assert.equal(monitoringFormula(sheets[1][8][4],sheets,1),1);
+ await assert.rejects(f.service('task-principal',{operation:'monitoring-read'},'outsider'),/Principal/);
+ const save=(expectedRevision)=>f.admin({operation:'monitoring-save',sheets,expectedRevision});
+ assert.equal((await save(0)).monitoring.revision,1);
+ sheets[0][5][4]='Teacher Two';
+ assert.equal(monitoringFormula(sheets[1][8][4],sheets,1),0);
+ await assert.rejects(save(0),/changed/);
+ assert.equal((await save(1)).monitoring.revision,2);
+ assert.deepEqual((await f.admin({operation:'monitoring-read'})).monitoring.sheets,sheets);
+ assert.deepEqual(await f.service('task-read'),{tasks:{}});
+});
 const remark=lead=>lead+" "+'These are synthetic class-level observations for testing the survey. Regular practice, accessible materials, guided revision, and coordinated support may improve participation. Teachers can review progress weekly, discuss general learning barriers, provide clear feedback, and adjust classroom activities. No student names, identifying family details, private health information, or real school records are included.';
 const report={examContext:'Synthetic preboard',passed:20,failed:4,ptms:40,firstGeneration:null};
 async function setup(){const f=taskFixture();await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');await f.admin({operation:'create-task1'});let t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'save',taskId:'task1',expectedRevision:t.revision,draft:{...t.draft,assignments:{'IX A':'X:one','XI E':'X:two'},headers:{'IX A':{total:24,catV:0,st:null}}}});t=f.data.cbse.taskManager.tasks.task1;await f.admin({operation:'publish',taskId:'task1',expectedRevision:t.revision});return f;}

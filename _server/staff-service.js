@@ -1,6 +1,7 @@
 import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
 import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList,minuteLanguages} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
+import {validateMonitoringSheets} from '../cbse-task-workbook.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
 import {primaryDirectory,primaryStaffEntry} from '../cbse-primary-roster.js';
@@ -109,14 +110,30 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal';if(admin)await principal(token);
+   const monitoringPath='cbse/taskMonitoring';
+   if(admin&&input.operation==='monitoring-read')return {monitoring:await read(monitoringPath)};
+   if(admin&&input.operation==='monitoring-save'){
+    let sheets;
+    try{sheets=validateMonitoringSheets(input.sheets);}
+    catch(error){throw new AccessError(error.message,400);}
+    const known=await read(monitoringPath+'/revision');
+    const result=await mcqTransaction(db,monitoringPath,current=>{
+     if(current===null&&known)return null;
+     if(input.expectedRevision!==(current?.revision||0))return;
+     return {sheets,revision:(current?.revision||0)+1,updatedAt:now()};
+    },{restTransaction});
+    if(!result.committed||!result.snapshot.val())throw new AccessError('Task 2 changed. Reopen it before saving again.',409);
+    return {monitoring:result.snapshot.val()};
+   }
    const staff=await directoryStaff(),actor={principal:admin,ids:[]};
    const directory=Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active').map(([id,p])=>[id,{name:p.name,status:p.status}]));
    const stored=withTaskExamParticipation(taskRosterStore(await read('cbse/taskManager'),staff,rollStaffIdentityIds));if(!admin)return taskCatalogue(stored,staff,TASK1_ROSTER);
-   if(!input.operation||input.operation==='read')return {...taskView(stored,actor),staff:directory,classFigures:stored.classFigures||{}};
+   const monitoringUpdatedAt=await read(monitoringPath+'/updatedAt');
+   if(!input.operation||input.operation==='read')return {...taskView(stored,actor),staff:directory,classFigures:stored.classFigures||{},monitoringUpdatedAt};
    let reason='';const id='task_'+randomUUID().replaceAll('-',''),known=await read('cbse/taskManager');
    const result=await mcqTransaction(db,'cbse/taskManager',current=>{if(current===null&&known!==null)return null;reason='';try{const normalized=withTaskExamParticipation(taskRosterStore(current,staff,rollStaffIdentityIds));return applyTask(normalized,input.operation==='create-task1'?{...input,draft:TASK1}:input,actor,staff,now(),id);}catch(e){reason=e.message;return;}},{restTransaction});
    if(!result.committed||!result.snapshot?.val())throw new AccessError(reason||'Task save was not confirmed. Refresh before retrying.',409);
-   return {...taskView(withTaskExamParticipation(result.snapshot.val()),actor),staff:directory,classFigures:result.snapshot.val().classFigures||{},taskId:input.operation==='create-task1'?'task1':input.taskId||id};
+   return {...taskView(withTaskExamParticipation(result.snapshot.val()),actor),staff:directory,classFigures:result.snapshot.val().classFigures||{},monitoringUpdatedAt,taskId:input.operation==='create-task1'?'task1':input.taskId||id};
   }
   if(action.startsWith('office-'))return officeService(action,input,token,ip,session);
   if(['view-login','view-data','view-version','view-student-photo','view-student-photos','view-logout'].includes(action)){const result=await sharedView(action,{...input,ip},session.viewerToken||'');if(result?.error){const error=new AccessError(result.error,result.status);error.curtainRequired=result.curtainRequired;throw error;}return result;}
