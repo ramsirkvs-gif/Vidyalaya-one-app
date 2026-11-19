@@ -55,3 +55,4 @@
 .task-monitoring-cell{min-height:1.45em;outline-offset:2px;overflow-wrap:anywhere;cursor:text}
 .task-monitoring-cell:focus{outline:2px solid #197363;background:#fff}
 .task-monitoring [aria-pressed=true]{background:#d9eee7}
+.task-monitoring-notice{margin:1rem 0;padding:.75rem 1rem;border-inline-start:4px solid #a85a00;border-radius:.35rem;background:#fff2d7;color:#6b3600;font-weight:700}

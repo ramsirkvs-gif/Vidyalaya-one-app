@@ -6,6 +6,7 @@ import {el,options} from './cbse-ui.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
 import {MONITORING_ROLES,MONITORING_STEPS,monitoringAssignments} from './cbse-task-monitoring-workflow.js';
+const SAMAGAM_REPORTING_NOTICE='Upload marks to Samagam only after both the Subject Teacher and the Class Teacher have completed their reporting to the Principal.';
 const host=document.getElementById('task-content'),nav=document.getElementById('task-nav'),status=document.getElementById('task-status');
 const OVERALL_COMMENT_LABEL='Overall situation — comments by CT / Prime mentor / Survey IC';
 let suppliedFigures=null,suppliedFiguresError='';const entryParams=new URLSearchParams(location.hash.slice(1));if(entryParams.has('figures')){try{suppliedFigures=decodePreparedTaskFigures(entryParams.get('figures'));}catch(error){suppliedFiguresError=error.message;}history.replaceState(null,'','#principal');}
@@ -114,6 +115,7 @@ function openMonitoringStep(record,key,staffView){
  const entry=(staffView?record:record.published).assignments[key],progress=record.progress?.[key];
  const stage=progress?.stage||0,step=MONITORING_STEPS[stage],dialog=el('dialog',undefined,'task-start-dialog');
  dialog.append(el('h2',entry.subject+' · '+entry.section));
+ if(staffView&&step?.label==='Samagam upload')dialog.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
  for(const item of progress?.history||[]){
   dialog.append(el('p',item.label+' · '+item.name+' · '+new Date(item.at).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})));
   if(item.remark)dialog.append(el('p',item.remark));
@@ -145,6 +147,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
  const back=staffView?drawStaff:drawPrincipal;
  host.replaceChildren(button('Back to task list',()=>{if(discard())back();}),card);
  card.append(el('h2',MONITORING_TITLE));
+ if(staffView)card.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
  const publication=record.published?.updatedAt;
  if(!staffView)card.append(el('p',publication?'Published copy available to staff.':'Private draft'));
  const tabs=MONITORING_SHEETS.map(({name},position)=>button(name,()=>drawSheet(position)));
