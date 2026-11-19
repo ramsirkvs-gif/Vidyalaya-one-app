@@ -2,10 +2,11 @@
 from playwright.sync_api import sync_playwright
 
 CREATED = 1772700000000
+HINDI_BODY = 'पहला अनुच्छेद।\n\nदूसरा अनुच्छेद।'
 HINDI = {
     'language': 'hi',
     'agenda': 'विद्यालय की प्रगति\nअगली बैठक',
-    'minutes': 'पहला अनुच्छेद।\n\nदूसरा अनुच्छेद।',
+    'minutes': HINDI_BODY + '\n\nबैठक संयोजक / प्रभारी\nप्रधानाचार्य\nपीएम श्री केंद्रीय विद्यालय क्रमांक–1, ईटानगर',
     'writerName': 'सीमा शर्मा',
 }
 ENGLISH = {
@@ -66,7 +67,9 @@ def check_report(page, principal, versions, attendance_taker):
         hindi = version['language'] == 'hi'
         assert section.get_attribute('lang') == version['language']
         assert section.locator('h3').text_content() == ('कार्यवृत्त (हिन्दी)' if hindi else 'Minutes (in English)')
-        assert section.locator('.meeting-minutes-text').all_text_contents() == [version['agenda'], version['minutes']]
+        assert section.locator('.meeting-minutes-text').all_text_contents() == [
+            version['agenda'], HINDI_BODY if hindi else version['minutes'],
+        ]
         assert section.locator('.meeting-signature-name').text_content() == version['writerName']
         assert section.locator('.meeting-signature-block strong').all_text_contents() == (
             ['कार्यवृत्त लेखक', 'प्राचार्य'] if hindi else ['Minute writer', 'Principal']

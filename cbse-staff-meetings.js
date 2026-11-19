@@ -284,6 +284,8 @@ function reportSignatures(label,name,language='en'){
  signatures.append(signer,principal);
  return signatures;
 }
+// The report supplies its own signatures. Omit the old footer pasted into Hindi minutes.
+const legacyHindiSignoff=/(?:\r?\n[ \t]*)+बैठक संयोजक[ \t]*\/[ \t]*प्रभारी[ \t]*\r?\n[ \t]*प्रधानाचार्य[ \t]*\r?\n[ \t]*पीएम[ \t]*श्री के(?:न्द्रीय|ंद्रीय) विद्यालय क्रमांक[ \t]*[-–—][ \t]*[1१],[ \t]*ईटानगर\s*$/u;
 async function showReport(id,principal=false){
  const {report}=await (principal?principalRequest({meetingOperation:'read',task:'report',meetingId:id}):staffRead(id));
  content.replaceChildren(el('h2','Staff meeting report'),el('p',stamp(report.scheduledAt??report.createdAt)));
@@ -295,7 +297,7 @@ async function showReport(id,principal=false){
   section.append(
    el('h3',hindi?'कार्यवृत्त (हिन्दी)':'Minutes (in English)'),
    el('h4',version.agenda,'meeting-minutes-text'),
-   el('p',version.minutes,'meeting-minutes-text'),
+   el('p',hindi?version.minutes.replace(legacyHindiSignoff,''):version.minutes,'meeting-minutes-text'),
    reportSignatures(hindi?'कार्यवृत्त लेखक':'Minute writer',version.writerName,language)
   );
   content.append(section);
