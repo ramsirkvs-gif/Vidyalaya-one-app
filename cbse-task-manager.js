@@ -454,14 +454,20 @@ function principalReportEditor(parent,card,id,t,c){
  const remarks=field(editor,OVERALL_COMMENT_LABEL+' (optional)','principal-teacher-remarks','textarea',old.values.remarks||'');remarks.maxLength=10000;editor.append(remarkWordLimit(remarks,old.values.remarks||''));const actions=el('div',undefined,'task-actions');actions.append(el('button','Save submitted answers'),button('Cancel answer edits',()=>{if(editor.dataset.portalDirty==='true'&&!confirm('Discard these unsaved answer edits?'))return;editor.remove();}));editor.append(actions);editor.onsubmit=event=>{event.preventDefault();if([...card.querySelectorAll('form[data-portal-dirty="true"]')].some(f=>f!==editor)){message('Save other task edits and comments before saving these answers.',true);return;}run(async()=>{const values={remarks:remarks.value,...Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,input.tagName==='TEXTAREA'?input.value:input.value===''?null:Number(input.value)]))};await admin({operation:'edit-report',taskId:id,classId:c,expectedRevision:t.revision,reportRevision:old.revision||0,report:values});editor.dataset.portalDirty='false';drawAdminTask(card,id,store.tasks[id]);const saved=card.querySelector('[data-report-class="'+c+'"]');saved.open=true;saved.scrollIntoView({block:'start',behavior:'smooth'});message(c+' submitted answers saved successfully by Principal.');});};parent.append(editor);editor.scrollIntoView({block:'start',behavior:'smooth'});editor.querySelector('input,textarea')?.focus();
 }
 function teacherTaskHeading(task,tag='h2'){const heading=el(tag,undefined,'task-title-heading');if(task.priority===TASK_PRIORITIES[0]){heading.classList.add('task-urgent-heading');const icon=el('span','🚨','task-alarm-icon');icon.setAttribute('aria-hidden','true');heading.append(icon,el('span','Most urgent task · Handle with care','task-importance-label'),el('span',task.title,'task-heading-title'));}else heading.textContent=task.title;return heading;}
-async function openPB1Analyser(){
+async function openPB1Analyser(entryOnly=false){
  const asPrincipal=principal;
+ if(!asPrincipal&&!entryOnly){
+  const data=await request({action:'task-read',operation:'pb1-public'});
+  renderPB1Analyser(host,data,{button,run,publicView:true,back:drawStaff,openEntry:()=>openPB1Analyser(true),
+   refresh:()=>request({action:'task-read',operation:'pb1-public'})});
+  return;
+ }
  const open=async(staffId='',pin='')=>{
   const send=(operation,values={},secret='')=>request(asPrincipal?{action:'task-principal',operation,...values}:
    {action:'pin-submit',operation:'task-manager',taskOperation:operation,staffId,pin:secret,...values},asPrincipal);
   const data=await send('pb1-read',{},pin);
-  renderPB1Analyser(host,data,{button,run,teacher:!asPrincipal,
-   back:()=>{if(discard())(asPrincipal?drawPrincipal:drawStaff)();},
+  renderPB1Analyser(host,data,{button,run,teacher:!asPrincipal,entryOnly,
+   back:()=>{if(discard())return asPrincipal?drawPrincipal():openPB1Analyser();},
    save:async({classId,sectionId,subjectId},expectedRevision,entries,secret)=>{
     const result=await send('pb1-save',{classId,sectionId,subjectId,expectedRevision,entries},secret);
     message('Preboard 1 marks saved to Mission 100.');return result;
@@ -470,16 +476,16 @@ async function openPB1Analyser(){
  if(asPrincipal){await open();return;}
  const {teachers}=await request({action:'task-read',operation:'pb1-directory'});
  const login=form(),card=el('section',undefined,'task-card');
- card.append(el('h2','Pre-Samagam Wisdom Analyser'));
+ card.append(el('h2','Update PB-1 marks'));
  if(teachers.length){
   const person=field(login,'Subject teacher','pb1-teacher','select'),pin=field(login,'Personal PIN','pb1-pin','password');
   options(person,[['','Choose your name'],...teachers.map(({id,name})=>[id,name])],'');
   person.required=pin.required=true;pin.inputMode='numeric';pin.autocomplete='off';
-  login.append(el('button','Open analyser'));
+  login.append(el('button','Open marks entry'));
   login.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(()=>open(person.value,secret));};
   card.append(login);
  }else card.append(el('p','No teachers match the current Preboard 1 subject assignments in Mission 100.'));
- host.replaceChildren(button('Back to task list',()=>{if(discard())drawStaff();}),card);
+ host.replaceChildren(button('Back to Wisdom Analyser',()=>{if(discard())return openPB1Analyser();}),card);
 }
 function drawStaff(){
  const tasks=Object.entries(store.tasks||{}).sort(([,a],[,b])=>TASK_PRIORITIES.indexOf(a.priority)-TASK_PRIORITIES.indexOf(b.priority));
@@ -489,7 +495,8 @@ function drawStaff(){
   plan.append(teacherTaskHeading({title:MONITORING_TITLE,priority:TASK_PRIORITIES[0]},'h3'),button('Open published plan',()=>openPublishedMonitoring()));
   host.append(plan);
   const analyser=el('section',undefined,'task-card pb1-analyser');
-  analyser.append(el('h3','Pre-Samagam Wisdom Analyser'),el('p','Enter Preboard 1 marks and compare progress by class, subject or student.'),button('Open Wisdom Analyser',openPB1Analyser));
+  analyser.append(el('h3','Pre-Samagam Wisdom Analyser'),el('p','Compare Preboard 1 progress by class, section, subject or student.'),
+   button('Open Wisdom Analyser',()=>openPB1Analyser()),button('Update PB-1 marks',()=>openPB1Analyser(true)));
   host.append(analyser);
  }
  if(!store.monitoringPublishedAt&&!tasks.length)host.append(el('p','No tasks are currently published.'));

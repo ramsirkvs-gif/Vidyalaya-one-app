@@ -50,23 +50,36 @@ function renderMarksGraph(parent,grouped){
  }
  if(graph.childElementCount)parent.append(graph);else parent.append(el('p','No records match these filters.'));
 }
-export function renderPB1Analyser(host,data,{run,button,save,back,teacher}){
+export function renderPB1Analyser(host,data,{run,button,save,back,teacher,publicView,entryOnly,openEntry,refresh}){
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
- const filters=el('div',undefined,'pb1-filters'),report=el('div'),modes=[
-  ['entry','Update PB-1 marks'],['comparison','Compare each student'],['classes','Class and standard comparison'],
-  ['subjects','Subject improvement'],['teachers','Teacher cohort comparison'],['graphs','Marks graphs'],['risk','Students needing support'],
- ];
- let selected='comparison';
+ const filters=el('div',undefined,'pb1-filters'),report=el('div'),modes=[];
+ if(save&&!entryOnly)modes.push(['entry','Update PB-1 marks']);
+ if(!entryOnly)modes.push(['comparison','Compare each student'],['classes','Class and standard comparison'],
+  ['subjects','Subject improvement'],['teachers','Teacher cohort comparison'],['graphs','Marks graphs'],['risk','Students needing support']);
+ let selected=entryOnly?'entry':'comparison';
  const reportTabs=modes.map(([key,label])=>button(label,()=>{
   if(content.querySelector('[data-portal-dirty=true]')&&!confirm('Discard unsaved marks?'))return;
   selected=key;drawMode();
  }));
- card.append(el('h2','Pre-Samagam Wisdom Analyser'),el('p',teacher?'Your assigned Preboard 1 papers':'Classes X and XII · Preboard 1'),toolbar,content);
+ card.append(el('h2',entryOnly?'Update PB-1 marks':'Pre-Samagam Wisdom Analyser'),
+  el('p',teacher?'Your assigned Preboard 1 papers':publicView?'Classes X and XII · Student labels are anonymized':'Classes X and XII · Preboard 1'),toolbar,content);
  toolbar.append(...reportTabs);
- host.replaceChildren(button('Back to task list',back),card);
- if(!data.scopes.length){content.append(el('p','No Preboard 1 papers match your current Mission 100 subject assignments.'));return;}
+ if(openEntry)toolbar.append(button('Update PB-1 marks',openEntry));
+ if(refresh)toolbar.append(button('Refresh results',async()=>{
+  const hadMarks=data.rows.some(row=>row.current);
+  data=await refresh();
+  options(classSelect,choices(values(data.scopes,'classId'),'All standards'),classSelect.value);
+  if(!hadMarks&&data.rows.some(row=>row.current))riskPeriod.value='current';
+  restrict();drawMode();
+ }));
+ host.replaceChildren(button(entryOnly?'Back to Wisdom Analyser':'Back to task list',back),card);
+ if(!data.scopes.length){
+  if(entryOnly)toolbar.replaceChildren();
+  else if(refresh)toolbar.replaceChildren(button('Refresh results',async()=>renderPB1Analyser(host,await refresh(),{run,button,save,back,teacher,publicView,entryOnly,openEntry,refresh})));
+  content.append(el('p','No Preboard 1 papers are available for this view.'));return;
+ }
  const classSelect=control(filters,'Standard'),sectionSelect=control(filters,'Class / section'),subjectSelect=control(filters,'Subject'),teacherSelect=control(filters,'Teacher');
- const search=control(filters,'Master search','input');search.type='search';search.placeholder='Student, roll, class, subject or teacher';
+ const search=control(filters,'Master search','input');search.type='search';search.placeholder=publicView?'Student label, class, subject or teacher':'Student, roll, class, subject or teacher';
  const values=(scopes,key)=>[...new Set(scopes.map(info=>info[key]).filter(Boolean))].sort();
  options(classSelect,choices(values(data.scopes,'classId'),'All standards'),'');
  const riskFilter=control(filters,'Support list');
@@ -95,16 +108,27 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher}){
    return scopeMatches(info)&&[row.name,row.roll,info.classId,info.section,info.subject,info.teacher].join(' ').toLowerCase().includes(query);
   };
   const rows=data.rows.filter(matches),m=pb1Metrics(rows);
+  if(rows.length&&!m.recorded){
+   report.append(el('p','PB-1 marks have not been uploaded for this selection. Please upload the marks, then return here to analyse the results.','task-monitoring-notice'));
+   if(!['graphs','risk'].includes(selected))return;
+  }
+  const appeared=rows.filter(row=>row.current?.percentage!=null);
+  const overall=appeared.length?appeared.reduce((sum,row)=>sum+row.current.percentage,0)/appeared.length:null;
+  const pass=appeared.length?appeared.filter(row=>!row.current.failed).length/appeared.length*100:null;
   const stats=el('div',undefined,'pb1-stats');report.append(stats);
-  for(const [label,value] of [['PB-1 entries',m.recorded+' / '+m.total],['Comparable results',m.paired],['Pass rate change',delta(m.beforePass,m.currentPass)],['PB-1 absent',m.absent]]){
-   const item=el('div');item.append(el('span',label),el('strong',String(value)));stats.append(item);
+  for(const [label,value,style] of [['PB-1 mean percentage',pct(overall),'result'],['PB-1 paper pass rate',pct(pass),'pass'],
+   ['Monthly → PB-1 mean',delta(m.beforeAverage,m.currentAverage),m.currentAverage==null?'':m.currentAverage>=m.beforeAverage?'pass':'decline'],
+   ['Paired pass-rate change',delta(m.beforePass,m.currentPass),m.currentPass==null?'':m.currentPass>=m.beforePass?'pass':'decline'],
+   ['PB-1 entries',m.recorded+' / '+m.total,''],['Comparable results',m.paired,''],['PB-1 absent',m.absent,'']]){
+   const item=el('div',undefined,style?'pb1-stat-'+style:undefined);item.append(el('span',label),el('strong',String(value)));stats.append(item);
   }
   if(selected==='comparison'){
+   if(m.recorded)renderMarksGraph(report,[['Selected papers · monthly and PB-1',rows]]);
    const monthlyMM=maximumLabel(rows.map(row=>row.before?.maximum));
    const pb1MM=maximumLabel(rows.map(row=>row.current?.maximum??data.scopes[row.scope].maximum));
-   table(report,['Student','Roll','Class','Subject','Previous exam','Monthly marks ('+monthlyMM+')','PB-1 marks ('+pb1MM+')','Change','PB-1 result'],rows.map(row=>{
+   table(report,['Student',...(publicView?[]:['Roll']),'Class','Subject','Previous exam','Monthly marks ('+monthlyMM+')','PB-1 marks ('+pb1MM+')','Change','PB-1 result'],rows.map(row=>{
     const info=data.scopes[row.scope];
-    return [row.name,row.roll,info.classId+' '+info.section,info.subject,row.before?.exam||'—',result(row.before),result(row.current),delta(row.before?.percentage,row.current?.percentage),
+    return [row.name,...(publicView?[]:[row.roll]),info.classId+' '+info.section,info.subject,row.before?.exam||'—',result(row.before),result(row.current),delta(row.before?.percentage,row.current?.percentage),
      !row.current?'Not entered':row.current.absent?'Absent':row.current.failed?'Below pass':row.current.borderline?'Borderline pass':'Pass'];
    }));
   }else if(selected==='risk'){

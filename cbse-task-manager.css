@@ -102,3 +102,8 @@
 .pb1-graph-line{display:grid;grid-template-columns:1fr auto;gap:.15rem .5rem;font-size:.85rem;margin:.5rem 0}
 .pb1-graph-line progress{grid-column:1/-1;width:100%;accent-color:#226c8e}
 .pb1-graph-line:nth-of-type(2) progress{accent-color:#177463}
+.pb1-stats>.pb1-stat-result{background:#eaf2ff;border-color:#bfd2f0;color:#173c6a}
+.pb1-stats>.pb1-stat-pass{background:#e7f6e9;border-color:#b1d5b8;color:#245138}
+.pb1-stats>.pb1-stat-decline{background:#fff0ea;border-color:#e9bfaf;color:#8a3b2b}
+.pb1-analyser .pb1-marks-graph{margin:0 0 .9rem}
+.pb1-analyser.task-card>button+button{margin-inline-start:.45rem}

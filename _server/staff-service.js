@@ -54,7 +54,7 @@ import {validateContact,mapLink,serializePhones,staffStudentRoles} from '../cbse
 import {encryptDisplayPIN,decryptDisplayPIN} from './pin-vault.js';
 import {emptyFaculty,validateFaculty} from '../cbse-faculty-model.js';
 import {validatePINRows} from '../cbse-pin-import.js';
-import {scrypt as scryptCallback,randomBytes,timingSafeEqual,createHash,randomUUID,randomInt} from 'node:crypto';
+import {scrypt as scryptCallback,randomBytes,timingSafeEqual,createHash,createHmac,randomUUID,randomInt} from 'node:crypto';
 import {promisify} from 'node:util';
 import {emptyMission,studentIndex,studentProgress,staffIndex,staffCanView,staffProfileView,staffVisibleRecord,today} from '../cbse-mission-model.js';
 const scrypt=promisify(scryptCallback);
@@ -163,6 +163,24 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
    if(admin&&['pb1-read','pb1-save'].includes(input.operation))return pb1Workspace(input,{uid:adminIdentity.uid});
+   if(!admin&&['pb1-read','pb1-save'].includes(input.operation))throw new AccessError('Use a teacher PIN to open marks entry.',403);
+   if(!admin&&input.operation==='pb1-public'){
+    if(!await read('cbse/taskMonitoring/published/updatedAt'))throw new AccessError('The Pre-Samagam plan is not published.',404);
+    const {draft,faculty,mission}=await context();
+    const {scopes,rows}=pb1Report(draft,mission,staffIndex(faculty,mission));
+    const students=new Map();
+    const label=key=>{
+     if(!students.has(key))students.set(key,'Student '+createHmac('sha256',displayKey).update('pb1-public:'+key).digest('hex').slice(0,10).toUpperCase());
+     return students.get(key);
+    };
+    const publicRows=rows.map(({scope,key,before,current})=>({
+     scope,key:label(key),name:label(key),
+     before:before&&{...before,exam:'Monthly test · '+before.date.slice(0,7)},
+     current:current&&{...current,exam:'Preboard 1'},
+    }))
+     .sort((a,b)=>a.scope-b.scope||a.name.localeCompare(b.name));
+    return {scopes:scopes.map(({classId,section,subject,teacher,maximum})=>({classId,section,subject,teacher,maximum})),rows:publicRows};
+   }
    if(!admin&&input.operation==='pb1-directory'){
     const {draft,faculty,mission}=await context(),staff=staffIndex(faculty,mission);
     const teachers=Object.entries(staff).filter(([id,person])=>person.status==='active'&&pb1Scopes(draft,mission,staff,new Set(teacherIdentityIds(id,faculty,mission))).length)

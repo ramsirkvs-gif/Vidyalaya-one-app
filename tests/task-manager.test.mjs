@@ -44,6 +44,18 @@ test('PB-1 uses assigned enrolled students, paper maxima, explicit absence and p
  assert.equal(pb1Risk(saved.rows)[0].borderline.length,1);
  await assert.rejects(save([{key:'X:a:one',mark:30}]),/results changed/);
  const principal=await f.admin({operation:'pb1-read'});assert.equal(principal.scopes.length,2);
+ await assert.rejects(f.service('task-read',{operation:'pb1-public'}),/not published/);
+ await assert.rejects(f.service('task-read',{operation:'pb1-read'}),/teacher PIN/);
+ await f.admin({operation:'monitoring-publish',expectedRevision:0});
+ const publicReport=await f.service('task-read',{operation:'pb1-public'});
+ assert.equal(publicReport.scopes.length,2);
+ const anonymous=publicReport.rows.find(row=>row.current?.score===28);
+ assert.match(anonymous.name,/^Student [A-F0-9]{10}$/);
+ assert.equal(anonymous.before.maximum,40);
+ assert.equal(anonymous.current.maximum,80);
+ assert.equal(anonymous.roll,undefined);
+ assert.equal(anonymous.markId,undefined);
+ assert.ok(!JSON.stringify(publicReport).includes('Synthetic Student'));
 });
 
 test('Task 2 workbook stays private and saves editable cells with revision checks',async()=>{
