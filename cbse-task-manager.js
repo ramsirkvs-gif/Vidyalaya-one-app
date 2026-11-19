@@ -142,7 +142,9 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true){
  dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
 }
 function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
- const sheets=structuredClone(record.sheets),editor=form(),scroll=el('div',undefined,'task-scroll');
+ const sheets=structuredClone(record.sheets),editor=form(),scroll=el('div',undefined,'task-scroll task-monitoring-scroll');
+ scroll.tabIndex=0;scroll.setAttribute('role','region');
+ const scrollHint=el('p','Scroll sideways for more columns and down for more records.','task-monitoring-scroll-hint');
  const card=el('section',undefined,'task-card task-monitoring'),actions=el('div',undefined,'task-actions');
  const back=staffView?drawStaff:drawPrincipal;
  host.replaceChildren(button('Back to task list',()=>{if(discard())back();}),card);
@@ -190,8 +192,9 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
  function drawSheet(position){
   index=position;
   tabs.forEach((tab,i)=>tab.setAttribute('aria-pressed',String(i===index)));
-  const sheet=sheets[index],table=el('table',undefined,'task-totals task-monitoring-sheet');
+  const sheet=sheets[index],table=el('table',undefined,'task-monitoring-sheet');
   table.setAttribute('aria-label',MONITORING_SHEETS[index].name);
+  scroll.setAttribute('aria-label',MONITORING_SHEETS[index].name+' scroll area');
   const body=table.createTBody(),restore=[];
   const display=value=>value.startsWith('=')?monitoringFormula(value,sheets,index):value;
   const width=sheet[0].length;
@@ -206,17 +209,19 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
   sheet.forEach((values,r)=>{
    const spacer=index===0?r===3:[2,5,6].includes(r);
    if(!values.some(Boolean)&&(!editing||spacer))return;
-   const row=body.insertRow();
    if(!editing&&(index===0?r<3:r<2)&&values[0]&&values.slice(1).every(value=>!value)){
-    const heading=el('th',values[0],'task-monitoring-caption');heading.colSpan=width+(workflow?MONITORING_STEPS.length:0);row.append(heading);return;
+    table.createCaption().append(el('p',values[0]));return;
    }
    const header=index===0?r===4:r===3||r===7;
+   const row=!editing&&index===0&&header?table.createTHead().insertRow():body.insertRow();
    const entry=workflow&&r>4?workflow.assignments?.['row_'+values[0]]:null;
    const progress=entry?record.progress?.['row_'+values[0]]:null;
    if(editing)row.append(el('th',String(r+1)));
    columnOrder.forEach(c=>{
     const value=values[c];
     const cell=el(!editing&&header?'th':'td');row.append(cell);
+    if(header&&!editing)cell.scope='col';
+    if(index===0)cell.dataset.planColumn=String(c);
     if(!editing){
      if(index===0&&r>=4&&c===7)cell.classList.add('task-principal-review');
      if(index===0&&header&&c===6){cell.textContent='Samagam entry and matching / Core team member';return;}
@@ -265,7 +270,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
   scroll.replaceChildren(table);
  }
  drawSheet(index);
- editor.append(actions,scroll);
+ editor.append(actions,scrollHint,scroll);
  editor.onsubmit=event=>{event.preventDefault();if(editing)run(()=>update('monitoring-save'));};
  card.append(editor);
 }

@@ -47,11 +47,22 @@
 @media screen and (max-width:600px){.presentation-summary-row,.presentation-summary-row.has-comparison{grid-template-columns:1fr}.presentation-summary-box{padding:12px;gap:8px}.presentation-summary-box h4{font-size:14px}.presentation-summary-box .presentation-attendance-strip,.presentation-comparison-box table{font-size:12px}.presentation-comparison-box th,.presentation-comparison-box td{padding:6px 3px}.presentation-summary-row>.presentation-staffing-card{min-height:120px}.presentation-summary-row>.presentation-staffing-card h4{font-size:14px}}
 
 .task-register td:last-child{white-space:nowrap}
-.task-monitoring-sheet td{vertical-align:top}
-.task-monitoring-sheet{font-size:.88rem}
-.task-monitoring-sheet td,.task-monitoring-sheet th{min-width:0;padding:.35rem .5rem;white-space:pre-wrap}
-.task-monitoring-sheet td{min-width:5.5rem}
-.task-monitoring-sheet .task-monitoring-caption{font-size:1rem;text-align:left;text-transform:none}
+.task-app:has(.task-monitoring){max-width:1600px}
+.task-monitoring-scroll{max-height:68vh;max-height:68dvh;overflow:auto;border:1px solid #c8d8d2;border-radius:.55rem;scrollbar-color:#7d9c91 #edf4f1}
+.task-monitoring-scroll:focus-visible{outline:2px solid #197363;outline-offset:3px}
+.task-monitoring-scroll-hint{margin:.25rem 0 .5rem;color:#49625e;font-size:.86rem}
+.task-monitoring-sheet{width:100%;margin:0;border-collapse:separate;border-spacing:0;font:normal .875rem/1.45 system-ui,sans-serif}
+.task-monitoring-sheet caption{text-align:left;background:#f3f7f5;padding:.55rem .8rem}
+.task-monitoring-sheet caption p{margin:.2rem 0;overflow-wrap:anywhere}
+.task-monitoring-sheet caption p:first-child{font-weight:700}
+.task-monitoring-sheet td,.task-monitoring-sheet th{min-width:7rem;padding:.55rem .7rem;border-inline-end:1px solid #d7e3df;border-bottom:1px solid #d7e3df;white-space:pre-wrap;overflow-wrap:anywhere;vertical-align:top}
+.task-monitoring-sheet th{font-size:.82rem;text-transform:none;background:#e5efec}
+.task-monitoring-sheet thead th{position:sticky;top:0;z-index:1;box-shadow:0 1px #bbcfc8}
+.task-monitoring-sheet tbody tr:nth-child(even){background:#f6f9f8}
+.task-monitoring-sheet [data-plan-column="0"]{min-width:3.5rem;text-align:center}
+.task-monitoring-sheet [data-plan-column="1"]{min-width:10rem;font-weight:650}
+.task-monitoring-sheet td[data-plan-column="2"],.task-monitoring-sheet td[data-plan-column="3"]{white-space:nowrap}
+.task-monitoring-sheet [data-plan-column="4"],.task-monitoring-sheet [data-plan-column="5"],.task-monitoring-sheet [data-plan-column="6"]{min-width:10.5rem}
 .task-monitoring-cell{min-height:1.45em;outline-offset:2px;overflow-wrap:anywhere;cursor:text}
 .task-monitoring-cell:focus{outline:2px solid #197363;background:#fff}
 .task-monitoring [aria-pressed=true]{background:#d9eee7}
