@@ -79,7 +79,7 @@ const principalRequest=values=>request({action:'staff-meetings-principal',...val
 const pinRequest=(entry,pin,values)=>request({action:'pin-submit',operation:'staff-meetings',staffId:entry.writerId,meetingId:entry.id,pin,...values});
 
 function showCurtain(){
- content.replaceChildren(el('h2','Staff viewing access'));
+ content.replaceChildren(el('h2','Staff viewing access'),el('p','Enter the shared staff viewing password once to remember access on this browser.'));
  const form=el('form'),input=password(form,'Staff viewing password');form.append(el('button','Open meeting register'));
  form.onsubmit=event=>{event.preventDefault();run(async()=>{
   const secret=input.value;input.value='';

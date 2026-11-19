@@ -1,5 +1,16 @@
 import {scryptSync,createHash} from 'node:crypto';
 const viewSecret={salt:'synthetic-view-salt',hash:scryptSync('synthetic-curtain','synthetic-view-salt',64).toString('hex')};
+
+test('one curtain login carries over to Staff Meetings across server instances',async()=>{
+ const {db,auth,service}=fixture();
+ const {viewerToken}=await service('view-login',{password:'synthetic-curtain'});
+ const session={viewerToken};
+ assert.equal((await service('view-version',{accessOnly:true},'','test',session)).ok,true);
+ const reopened=createStaffService({db,auth,now:()=>1000000+86400000,displayKey:Buffer.alloc(32,7),viewSecret});
+ assert.deepEqual(await reopened('staff-meetings-read',{},'','test',session),{ok:true,meetings:[]});
+ await reopened('view-logout',{},'','test',session);
+ await assert.rejects(reopened('staff-meetings-read',{},'','test',session),{curtainRequired:true});
+});
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createStaffService,hashPIN,verifyPIN} from '../_server/staff-service.js';

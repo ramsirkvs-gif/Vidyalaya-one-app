@@ -101,8 +101,43 @@ def check_report(page, principal, versions, attendance_taker):
     assert page.pdf(format='A4').startswith(b'%PDF')
 
 
+def check_remembered_curtain(browser):
+    context = browser.new_context()
+    logins = []
+    url = 'http://127.0.0.1:8001/cbse-staff-meetings.html'
+
+    def staff_access(route):
+        request = route.request
+        if request.post_data_json['action'] == 'view-login':
+            logins.append(True)
+            route.fulfill(headers={
+                'content-type': 'application/json',
+                'set-cookie': 'mission_staff_view=synthetic; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=34560000',
+            }, body='{"ok":true}')
+        elif 'mission_staff_view=synthetic' in request.all_headers().get('cookie', ''):
+            route.fulfill(json={'meetings': []})
+        else:
+            route.fulfill(status=401, json={'curtainRequired': True})
+
+    context.route('**/api/staff-access', staff_access)
+    page = context.new_page()
+    page.goto(url)
+    page.get_by_label('Staff viewing password').fill('synthetic')
+    page.get_by_role('button', name='Open meeting register').click()
+    page.get_by_role('heading', name='Meeting register').wait_for()
+    page.reload()
+    page.get_by_role('heading', name='Meeting register').wait_for()
+    page.close()
+    reopened = context.new_page()
+    reopened.goto(url)
+    reopened.get_by_role('heading', name='Meeting register').wait_for()
+    assert len(logins) == 1
+    context.close()
+
+
 with sync_playwright() as playwright:
     browser = playwright.chromium.launch(executable_path='/usr/bin/chromium', args=['--no-sandbox'])
+    check_remembered_curtain(browser)
     for principal in [False, True]:
         for versions, taker in [([ENGLISH, HINDI], 'Synthetic SMT'), ([HINDI], ''), ([ENGLISH], '')]:
             page = browser.new_page()
