@@ -195,6 +195,8 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
   const body=table.createTBody(),restore=[];
   const display=value=>value.startsWith('=')?monitoringFormula(value,sheets,index):value;
   const width=sheet[0].length;
+  const columnOrder=Array.from({length:width},(_,column)=>column);
+  if(index===0&&!editing)columnOrder.splice(6,2,7,6);
   const workflow=!editing&&index===0&&(staffView?record:record.published);
   if(workflow)table.classList.add('task-monitoring-workflow');
   if(editing){
@@ -212,9 +214,12 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
    const entry=workflow&&r>4?workflow.assignments?.['row_'+values[0]]:null;
    const progress=entry?record.progress?.['row_'+values[0]]:null;
    if(editing)row.append(el('th',String(r+1)));
-   values.forEach((value,c)=>{
+   columnOrder.forEach(c=>{
+    const value=values[c];
     const cell=el(!editing&&header?'th':'td');row.append(cell);
     if(!editing){
+     if(index===0&&r>=4&&c===7)cell.classList.add('task-principal-review');
+     if(index===0&&header&&c===6){cell.textContent='Samagam entry and matching / Core team member';return;}
      const assignedRole=entry&&MONITORING_ROLES[c-4]?.[0];
      cell.textContent=assignedRole?(entry.roles?.[assignedRole]?.name||value||'Unassigned'):display(value);
      return;
