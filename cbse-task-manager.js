@@ -5,7 +5,7 @@ import {TASK_CLASSES,TASK_AVAILABLE_CLASSES,TASK_PRIMARY_CLASSES,taskClasses,TAS
 import {el,options} from './cbse-ui.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
-import {MONITORING_ROLES,MONITORING_STEPS,monitoringAssignments,monitoringStage} from './cbse-task-monitoring-workflow.js';
+import {MONITORING_ROLES,MONITORING_STEPS,monitoringAssignments,monitoringAdvance,monitoringStage} from './cbse-task-monitoring-workflow.js';
 const SAMAGAM_REPORTING_NOTICE='Upload marks to Samagam only after both the Subject Teacher and the Class Teacher have completed their reporting to the Principal.';
 const host=document.getElementById('task-content'),nav=document.getElementById('task-nav'),status=document.getElementById('task-status');
 const OVERALL_COMMENT_LABEL='Overall situation — comments by CT / Prime mentor / Survey IC';
@@ -141,6 +141,50 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true){
  }else if(staffView&&allowUpdate&&step)dialog.append(el('p','Awaiting a Principal assignment for '+step.label+'.'));
  dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
 }
+function openMonitoringPractice(record,index){
+ const actors=Object.fromEntries([...MONITORING_ROLES,['exam','Exam IC / Co-IC']].map(([id,label])=>[id,{id,name:'Practice '+label}]));
+ const rowKey='row_1';
+ const published={revision:1,examReviewers:[actors.exam],assignments:{
+  [rowKey]:{subject:'Sample subject',section:'Sample class',roles:actors},
+ }};
+ let mock={published};
+ function draw(){
+  const progress=mock.progress?.[rowKey],stage=monitoringStage(progress),step=MONITORING_STEPS[stage];
+  const card=el('section',undefined,'task-card task-monitoring'),actions=el('div',undefined,'task-actions');
+  actions.append(button('Back to Task 2',()=>drawMonitoring(record,{index})),button('Reset practice',()=>{
+   mock={published};draw();message('Practice reset to Evaluation.');
+  }));
+  card.append(el('h2','Task 2 · Mock practice'),el('p','Use the sample row to rehearse every handoff. Practice uses sample roles and requires no personal PIN.'),actions);
+  const checklist=el('ol');
+  MONITORING_STEPS.forEach(({label},position)=>{
+   const state=position<stage?'Completed':position===stage?'Action due':'Waiting';
+   const item=el('li',label+' · '+state);
+   if(position===stage)item.setAttribute('aria-current','step');
+   checklist.append(item);
+  });
+  card.append(checklist);
+  if(step){
+   const editor=el('form'),outcome=field(editor,'Status','practice-status','select');
+   options(outcome,[['','Choose status'],...step.options],'');outcome.required=true;
+   const remark=field(editor,step.role==='exam'?'Final remark':'Remark','practice-remark','textarea');remark.maxLength=500;
+   outcome.onchange=()=>{remark.required=step.role==='exam'||outcome.value==='return';};outcome.onchange();
+   if(step.label==='Samagam upload')card.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
+   card.append(el('h3',actors[step.role].name),editor);
+   editor.append(el('button','Save practice status'));
+   editor.onsubmit=event=>{event.preventDefault();run(()=>{
+    mock=monitoringAdvance(mock,{rowKey,publicationRevision:published.revision,expectedRevision:progress?.revision||0,outcome:outcome.value,remark:remark.value},actors[step.role],Date.now());
+    draw();message('Practice status saved.');
+   });};
+  }else card.append(el('p','Practice complete. Reset practice to start again.'));
+  if(progress?.history?.length){
+   const history=el('details');history.append(el('summary','Practice history'));
+   for(const item of progress.history)history.append(el('p',item.label+' · '+item.name+(item.remark?' · '+item.remark:'')));
+   card.append(history);
+  }
+  host.replaceChildren(card);
+ }
+ draw();
+}
 function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
  const sheets=structuredClone(record.sheets),editor=form(),scroll=el('div',undefined,'task-scroll task-monitoring-scroll');
  scroll.tabIndex=0;scroll.setAttribute('role','region');
@@ -182,6 +226,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
  }else if(!staffView){
   actions.append(button('Edit cells',()=>drawMonitoring(record,{index,editing:true})),
    button('Workflow settings',()=>drawMonitoringSettings(record,index)),
+   button('Mock practice',()=>openMonitoringPractice(record,index)),
    button(publication?'Update published plan':'Publish plan',async()=>{
     if(confirm('Publish this saved plan for staff with viewing access?'))await update('monitoring-publish');
    }));
