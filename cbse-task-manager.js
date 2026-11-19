@@ -5,7 +5,7 @@ import {TASK_CLASSES,TASK_AVAILABLE_CLASSES,TASK_PRIMARY_CLASSES,taskClasses,TAS
 import {el,options} from './cbse-ui.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
-import {MONITORING_ROLES,MONITORING_STEPS,monitoringAssignments} from './cbse-task-monitoring-workflow.js';
+import {MONITORING_ROLES,MONITORING_STEPS,monitoringAssignments,monitoringStage} from './cbse-task-monitoring-workflow.js';
 const SAMAGAM_REPORTING_NOTICE='Upload marks to Samagam only after both the Subject Teacher and the Class Teacher have completed their reporting to the Principal.';
 const host=document.getElementById('task-content'),nav=document.getElementById('task-nav'),status=document.getElementById('task-status');
 const OVERALL_COMMENT_LABEL='Overall situation — comments by CT / Prime mentor / Survey IC';
@@ -113,7 +113,7 @@ function drawMonitoringSettings(record,index){
 }
 function openMonitoringStep(record,key,staffView,allowUpdate=true){
  const entry=(staffView?record:record.published).assignments[key],progress=record.progress?.[key];
- const stage=progress?.stage||0,step=MONITORING_STEPS[stage],dialog=el('dialog',undefined,'task-start-dialog');
+ const stage=monitoringStage(progress),step=MONITORING_STEPS[stage],dialog=el('dialog',undefined,'task-start-dialog');
  dialog.append(el('h2',entry.subject+' · '+entry.section));
  if(staffView&&step?.label==='Samagam upload')dialog.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
  for(const item of progress?.history||[]){
@@ -223,7 +223,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
     if(header&&!editing)cell.scope='col';
     if(index===0)cell.dataset.planColumn=String(c);
     if(!editing){
-     if(index===0&&r>=4&&c===7)cell.classList.add('task-principal-review');
+     if(entry&&c===7){cell.textContent=monitoringStage(progress)>2?'Discussed with Principal and updated':'Pending Principal review';return;}
      if(index===0&&header&&c===6){cell.textContent='Samagam entry and matching / Core team member';return;}
      const assignedRole=entry&&MONITORING_ROLES[c-4]?.[0];
      cell.textContent=assignedRole?(entry.roles?.[assignedRole]?.name||value||'Unassigned'):display(value);
@@ -245,12 +245,13 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
    });
    if(workflow&&r>=4){
     if(r===4){
-     for(const {label} of MONITORING_STEPS){const heading=el('th',label,'task-workflow-step');heading.scope='col';row.append(heading);}
+     for(const {label,review} of MONITORING_STEPS){const heading=el('th',label,'task-workflow-step');if(review)heading.classList.add('task-principal-review');heading.scope='col';row.append(heading);}
      return;
     }
-    const key='row_'+values[0],stage=progress?.stage||0;
+    const key='row_'+values[0],stage=monitoringStage(progress);
     MONITORING_STEPS.forEach((step,position)=>{
      const cell=row.insertCell();cell.className='task-workflow-step';
+     if(step.review)cell.classList.add('task-principal-review');
      if(!entry){cell.textContent='Awaiting workflow publication';return;}
      const assigned=step.role==='exam'?workflow.examReviewers?.map(person=>person.name).join(' / '):entry.roles?.[step.role]?.name;
      const current=position===stage,complete=position<stage;

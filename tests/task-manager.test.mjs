@@ -11,6 +11,7 @@ import JSZip from 'jszip';
 import {TASK1_ROSTER,taskRosterStore} from '../cbse-task-manager-roster.js';
 import {TASK_AVAILABLE_CLASSES,taskClasses} from '../cbse-task-manager-model.js';
 import {MONITORING_SHEETS,monitoringFormula} from '../cbse-task-workbook.js';
+import {monitoringStage} from '../cbse-task-monitoring-workflow.js';
 
 test('Task 2 workbook stays private and saves editable cells with revision checks',async()=>{
  const f=taskFixture();
@@ -61,16 +62,23 @@ test('Task 2 tracks PIN-gated handoffs, corrections and authorized Exam closure 
  await submit('one',2);
  await submit('two',3);
  await submit('one',4);
- await submit('two',5);
+ await assert.rejects(submit('two',5),/another staff member/);
+ await submit('one',5);
+ await assert.rejects(submit('one',6),/another staff member/);
  await submit('two',6);
- await assert.rejects(submit('two',7,'advance','Received'),/another staff member/);
- await assert.rejects(submit('one',7),/Enter a remark/);
+ await submit('two',7);
+ await assert.rejects(submit('two',8,'advance','Received'),/another staff member/);
+ await assert.rejects(submit('one',8),/Enter a remark/);
  await f.admin({operation:'monitoring-publish',expectedRevision:3});
- await assert.rejects(submit('one',7,'advance','Received'),/changed/);
- await submit('one',7,'advance','Received',4);
+ await assert.rejects(submit('one',8,'advance','Received'),/changed/);
+ await submit('one',8,'advance','Received',4);
  const {monitoring}=await f.service('task-read',{operation:'monitoring-read'},'','test',session);
- assert.equal(monitoring.progress.row_1.stage,6);
+ assert.equal(monitoringStage(monitoring.progress.row_1),7);
  assert.equal(monitoring.progress.row_1.history.at(-1).remark,'Received');
+});
+test('existing Task 2 progress treats the old combined upload and matching step as complete',()=>{
+ assert.deepEqual([0,1,2,3,4,5,6].map(stage=>monitoringStage({stage})),[0,1,2,3,5,6,7]);
+ assert.equal(monitoringStage({stage:4,separateMatching:true}),4);
 });
 const remark=lead=>lead+" "+'These are synthetic class-level observations for testing the survey. Regular practice, accessible materials, guided revision, and coordinated support may improve participation. Teachers can review progress weekly, discuss general learning barriers, provide clear feedback, and adjust classroom activities. No student names, identifying family details, private health information, or real school records are included.';
 const report={examContext:'Synthetic preboard',passed:20,failed:4,ptms:40,firstGeneration:null};

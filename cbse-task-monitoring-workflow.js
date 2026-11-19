@@ -2,11 +2,18 @@ export const MONITORING_ROLES=[['evaluator','Evaluator'],['checker','Checker'],[
 export const MONITORING_STEPS=[
  {role:'evaluator',label:'Evaluation',options:[['advance','Evaluated and submitted to Checker']]},
  {role:'checker',label:'Cross-check',options:[['advance','Checked and returned to Evaluator'],['return','Corrections required']]},
- {role:'evaluator',label:'Principal discussion',options:[['advance','Discussed with Principal and updated']]},
- {role:'matching',label:'Samagam upload',options:[['advance','Matched and uploaded on Samagam']]},
+ {role:'evaluator',label:'Principal discussion',review:true,options:[['advance','Discussed with Principal and updated']]},
+ {role:'evaluator',label:'Samagam upload',options:[['advance','Uploaded on Samagam']]},
+ {role:'matching',label:'Matching by Core Team member',options:[['advance','Matched Samagam marks with the mark slip']]},
  {role:'matching',label:'Slip handover',options:[['advance','Samagam slip submitted to Exam Department']]},
  {role:'exam',label:'Exam Department verification',options:[['advance','Received and verified'],['return','Returned for correction']]},
 ];
+
+export function monitoringStage(progress){
+ const stage=progress?.stage||0;
+ // The previous upload step already included matching.
+ return progress?.separateMatching||stage<4?stage:stage+1;
+}
 
 export function monitoringAssignments(sheets,staff,overrides={}){
  const names=new Map(),records={};
@@ -39,7 +46,8 @@ export function monitoringAdvance(record,input,actor,stamp){
  const previous=record.progress?.[input.rowKey]||{stage:0,revision:0,history:[]};
  if(input.expectedRevision!==previous.revision||input.publicationRevision!==record.published.revision)
   throw Error('This row or its assignments changed. Reopen it before saving.');
- const step=MONITORING_STEPS[previous.stage];
+ const currentStage=monitoringStage(previous);
+ const step=MONITORING_STEPS[currentStage];
  if(!step)throw Error('This row is already closed.');
  const eligible=step.role==='exam'?record.published.examReviewers:[entry.roles?.[step.role]];
  if(!eligible?.some(person=>person?.id===actor.id))throw Error('This step is assigned to another staff member.');
@@ -47,8 +55,8 @@ export function monitoringAdvance(record,input,actor,stamp){
  if(!option)throw Error('Choose a valid status.');
  const remark=typeof input.remark==='string'?input.remark.trim():'';
  if(remark.length>500||((input.outcome==='return'||step.role==='exam')&&!remark))throw Error('Enter a remark of up to 500 characters.');
- const stage=input.outcome==='return'?(previous.stage===1?0:3):previous.stage+1;
+ const stage=input.outcome==='return'?(currentStage===1?0:3):currentStage+1;
  const {subject,section}=entry;
- const progress={stage,revision:previous.revision+1,identity:{subject,section},history:[...previous.history,{label:option[1],name:actor.name,remark,at:stamp}]};
+ const progress={stage,separateMatching:true,revision:previous.revision+1,identity:{subject,section},history:[...previous.history,{label:option[1],name:actor.name,remark,at:stamp}]};
  return {...record,progress:{...record.progress,[input.rowKey]:progress}};
 }
