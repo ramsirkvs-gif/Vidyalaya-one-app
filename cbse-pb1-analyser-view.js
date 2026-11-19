@@ -2,8 +2,12 @@ import {el,options} from './cbse-ui.js';
 import {pb1Metrics,pb1Risk} from './cbse-pb1-analyser-model.js';
 const pct=v=>v==null?'—':v.toFixed(1)+'%';
 const delta=(before,after)=>before==null||after==null?'—':(after-before>0?'+':'')+(after-before).toFixed(1)+' pp';
-const result=mark=>!mark?'Not entered':mark.absent?'AB':mark.score+'/'+mark.maximum+' ('+pct(mark.percentage)+')';
+const result=mark=>!mark?'Not entered':mark.absent?'AB (MM '+mark.maximum+')':mark.score+'/'+mark.maximum+' ('+pct(mark.percentage)+')';
 const choices=(items,label)=>[['',label],...items.map(value=>[value,value])];
+function maximumLabel(values){
+ const maxima=[...new Set(values.filter(value=>Number.isFinite(value)&&value>0))].sort((a,b)=>a-b);
+ return !maxima.length?'MM unavailable':maxima.length===1?'MM '+maxima[0]:'MM varies: '+maxima.join(' / ');
+}
 
 function table(parent,headers,rows){
  if(!rows.length){parent.append(el('p','No records match these filters.'));return;}
@@ -96,7 +100,9 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher}){
    const item=el('div');item.append(el('span',label),el('strong',String(value)));stats.append(item);
   }
   if(selected==='comparison'){
-   table(report,['Student','Roll','Class','Subject','Previous exam','Previous marks','PB-1 marks','Change','PB-1 result'],rows.map(row=>{
+   const monthlyMM=maximumLabel(rows.map(row=>row.before?.maximum));
+   const pb1MM=maximumLabel(rows.map(row=>row.current?.maximum??data.scopes[row.scope].maximum));
+   table(report,['Student','Roll','Class','Subject','Previous exam','Monthly marks ('+monthlyMM+')','PB-1 marks ('+pb1MM+')','Change','PB-1 result'],rows.map(row=>{
     const info=data.scopes[row.scope];
     return [row.name,row.roll,info.classId+' '+info.section,info.subject,row.before?.exam||'—',result(row.before),result(row.current),delta(row.before?.percentage,row.current?.percentage),
      !row.current?'Not entered':row.current.absent?'Absent':row.current.failed?'Below pass':row.current.borderline?'Borderline pass':'Pass'];
@@ -160,13 +166,23 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher}){
   function drawMarks(){
    previousPaper=paper.value;
    const index=Number(paper.value),scope=data.scopes[index],rows=data.rows.filter(row=>row.scope===index);
-   host.replaceChildren(el('p','Paper maximum: '+scope.maximum+' · Enter a score or AB. Leave a cell blank to keep its saved value.'));
+   const monthlyMM=maximumLabel(rows.map(row=>row.before?.maximum)),pb1MM=maximumLabel([scope.maximum]);
+   const maxima=el('div',undefined,'pb1-stats');
+   for(const [label,value] of [['Latest monthly test',monthlyMM],['Preboard 1',pb1MM]]){
+    const item=el('div');item.append(el('span',label),el('strong',value));maxima.append(item);
+   }
+   host.replaceChildren(el('h3','Class '+scope.classId+' '+scope.section+' · '+scope.subject),maxima,
+    el('p','Each percentage uses the marks earned divided by that exam’s maximum. Enter PB-1 marks or AB. A blank keeps the saved result.'));
    const editor=el('form');editor.dataset.portalTrackDirty='true';
    const inputs=rows.map(row=>{
-    const input=el('input');input.setAttribute('aria-label','PB-1 marks for '+row.name);input.autocomplete='off';input.maxLength=12;input.value=row.current?(row.current.absent?'AB':String(row.current.score)):'';
-    return {row,input,original:input.value};
+    const input=el('input');input.setAttribute('aria-label','PB-1 marks for '+row.name);input.autocomplete='off';input.maxLength=12;
+    const previousMaximumDiffers=row.current&&row.current.maximum!==scope.maximum;
+    input.value=row.current&&!previousMaximumDiffers?(row.current.absent?'AB':String(row.current.score)):'';
+    const entry=el('div');entry.append(input);
+    if(previousMaximumDiffers)entry.append(el('small','Saved: '+result(row.current)));
+    return {row,input,entry,original:input.value};
    });
-   table(editor,['Roll','Student','Previous marks','PB-1 marks'],inputs.map(({row,input})=>[row.roll,row.name,result(row.before),input]));
+   table(editor,['Roll','Student','Monthly marks ('+monthlyMM+')','PB-1 marks ('+pb1MM+')'],inputs.map(({row,entry})=>[row.roll,row.name,result(row.before),entry]));
    const pin=teacher?control(editor,'Personal PIN to save','input'):null;
    if(pin){pin.type='password';pin.required=true;pin.autocomplete='off';pin.inputMode='numeric';}
    editor.append(el('button','Save PB-1 marks'));host.append(editor);
