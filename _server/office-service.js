@@ -1,6 +1,6 @@
 import {officeRegularDirectory} from '../cbse-office-regular.js';
 import {randomBytes,createHash,randomUUID} from 'node:crypto';
-import {OFFICE_MEMBERS,officeMember,emptyOfficeWorkspace,applyOfficeWorkspace,transferOfficeRow,searchOfficeRows} from '../cbse-office-model.js';
+import {OFFICE_MEMBERS,NOC_OFFICE_IC,officeMember,emptyOfficeWorkspace,applyOfficeWorkspace,transferOfficeRow,searchOfficeRows} from '../cbse-office-model.js';
 import {encryptDisplayPIN,decryptDisplayPIN} from './pin-vault.js';
 export const OFFICE_COOKIE='vidyalaya_office';
 const digest=value=>createHash('sha256').update(value).digest('hex');
@@ -19,6 +19,10 @@ export function createOfficeService({db,read,principal,hashPIN,verifyPIN,pinPoli
   const access=await read('cbse/officeAccess/'+session.memberId);if(!access?.enabled||access.version!==session.version)fail('Office access changed. Sign in again.',401);return {id:session.memberId,principal:false};
  }
  return async(action,input,token,ip,session)=>{
+  if(action==='office-roll-ic-pin'){
+   await confirmPIN(NOC_OFFICE_IC.id,input.pin,ip);
+   return {id:NOC_OFFICE_IC.staffId,name:NOC_OFFICE_IC.name};
+  }
   if(action==='office-directory')return {members:OFFICE_MEMBERS};
   if(action==='office-login'){
    await curtain(session);const access=await confirmPIN(input.memberId,input.pin,ip),officeToken=randomBytes(32).toString('hex');await db.ref('cbse/officeSessions/'+digest(officeToken)).set({memberId:input.memberId,version:access.version,expires:now()+12*3600000});return {ok:true,memberId:input.memberId,officeToken};

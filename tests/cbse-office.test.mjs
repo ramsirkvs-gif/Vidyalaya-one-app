@@ -9,6 +9,23 @@ const row={task:'Audit',fund:'SF',voucherNo:'222',voucherDate:'2026-03-01',amoun
 const setPIN=(service,memberId=id,pin='123')=>service('office-pin-settings',{operation:'set-pin',memberId,pin},principal);
 async function login(service,memberId=id,pin='123'){const viewer=await service('view-login',{password:'synthetic-view'},'','office-view');const result=await service('office-login',{memberId,pin},'','office-test',{viewerToken:viewer.viewerToken});return {officeToken:result.officeToken,viewerToken:viewer.viewerToken};}
 const call=(service,operation,values={},token=principal,session={})=>service('office-workspace',{memberId:id,operation,...values},token,'office-test',session);
+test('ASO office PIN can place and clear an Afternoon Roll Call objection',async()=>{
+ const {service}=officeFixture();
+ await setPIN(service,'arjun-bori','345');
+ const viewer=await service('remember-view',{},principal);
+ const session={viewerToken:viewer.viewerToken};
+ const pin=(rollOperation,extra={})=>service('pin-submit',{
+  operation:'roll-call',staffId:'office:arjun-bori',pin:'345',rollOperation,...extra,
+ },'','office-test',session);
+ const hold={wing:'secondary',targets:['X:one'],remark:'Bring the pending record'};
+ await assert.rejects(pin('report'),/Afternoon NOC\/Hold/);
+ await assert.rejects(pin('object',{...hold,pin:'999'}),/office PIN is incorrect/);
+ const saved=await pin('object',hold);
+ const objection=Object.values(saved.rollCall.objections).find(item=>item.createdBy==='office:arjun-bori');
+ assert.equal(objection?.createdName,'Mr. Arjun Bori');
+ const released=await pin('clear',{objectionId:objection.id});
+ assert.equal(released.rollCall.objections[objection.id].status,'cleared');
+});
 test('unrelated register changes do not block voucher saves; stale edits to the same voucher still reject',async()=>{
  const {service}=officeFixture();await call(service,'save-row',{expectedRevision:0,rowId:'office_first',rowRevision:0,row});
  const second=await call(service,'save-row',{expectedRevision:0,rowId:'office_other',rowRevision:0,row:{...row,sourceKey:'synthetic:other',voucherNo:'999'}});assert.equal(Object.keys(second.workspace.rows).length,2);

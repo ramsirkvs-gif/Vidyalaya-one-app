@@ -7,6 +7,7 @@ export const OFFICE_MEMBERS=[
  {id:'sumit-puri',name:'Mr. Sumit Puri',designation:'JSA',title:'Pre-National audit Vidyalaya Level internal audit Paras — VVN Fund (IC Mr. Sumit Puri)'}
 ];
 export const officeMember=id=>OFFICE_MEMBERS.find(member=>member.id===id);
+export const NOC_OFFICE_IC={...officeMember('arjun-bori'),staffId:'office:arjun-bori'};
 const check=(ok,message)=>{if(!ok)throw Error(message);};
 const text=(value,max=5000)=>{check(typeof value==='string'&&value.length<=max,'A field is missing or too long.');return value.trim();};
 export const OFFICE_FIELDS={task:'Task / audit para',fund:'Fund',voucherNo:'Voucher number / range',voucherDate:'Voucher date (as recorded)',amount:'Voucher amount (as recorded)',details:'Details',tallyStatus:'Tally voucher status',objections:'Audit observations / objections',sourceResponsible:'Original responsible names / committee',resolution:'Resolution / remarks',chequeDate:'Cheque issue date (as recorded)',chequeNo:'Cheque number',bank:'Bank',chequeAmount:'Cheque amount (as recorded)',voucherCount:'Vouchers covered',voucherRange:'Cheque voucher range',voucherFile:'Voucher file number',summarySheet:'Summary sheet number',registerPage:'Cheque register page',reviewNote:'Import / reconciliation notes',officeNotes:'Office-level audit notes',statusRemark:'Pending remark / update',sourceKey:'Source reference'};
