@@ -114,11 +114,12 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
  async function pb1Workspace(input,actor){
   function scoped(draft,faculty,mission){
    const staff=staffIndex(faculty,mission),ids=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
-   return {staff,ids};
+   const identity=id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id;
+   return {staff,ids,identity};
   }
   const initial=await context(),scope=scoped(initial.draft,initial.faculty,initial.mission);
   if(input.operation==='pb1-read'||input.taskOperation==='pb1-read')
-   return pb1Report(initial.draft,initial.mission,scope.staff,scope.ids);
+   return pb1Report(initial.draft,initial.mission,scope.staff,scope.ids,scope.identity);
   if(!Array.isArray(input.entries)||!input.entries.length||input.entries.length>200)
    throw new AccessError('Enter at least one mark or AB.',400);
   const stamp=now();let reason;
@@ -129,8 +130,8 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      throw Error('Your access changed. Sign in or verify your PIN again.');
     const raw=current.mission||emptyMission(),draft=current.draft,{faculty,mission}=resolvedViewingData(draft,current.facultyDraft,raw);
     if((raw.revision||0)!==input.expectedRevision)throw Error('Mission 100 results changed. Reopen the analyser before saving.');
-    const {staff,ids}=scoped(draft,faculty,mission);
-    const report=pb1Report(draft,mission,staff,ids);
+    const {staff,ids,identity}=scoped(draft,faculty,mission);
+    const report=pb1Report(draft,mission,staff,ids,identity);
     const index=report.scopes.findIndex(info=>['classId','sectionId','subjectId'].every(key=>info[key]===input[key]));
     if(index<0)throw Error('This Preboard 1 paper is outside your assigned teaching scope.');
     const paper=report.scopes[index],roster=new Map(report.rows.filter(row=>row.scope===index).map(row=>[row.key,row])),seen=new Set();
@@ -157,7 +158,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   if(!result.committed||!result.snapshot.val())throw new AccessError(reason||'The marks could not be confirmed. Reopen the analyser.',409);
   const saved=result.snapshot.val(),{faculty,mission}=resolvedViewingData(saved.draft,saved.facultyDraft,saved.mission);
   const access=scoped(saved.draft,faculty,mission);
-  return pb1Report(saved.draft,mission,access.staff,access.ids);
+  return pb1Report(saved.draft,mission,access.staff,access.ids,access.identity);
  }
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
@@ -167,7 +168,8 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    if(!admin&&input.operation==='pb1-public'){
     if(!await read('cbse/taskMonitoring/published/updatedAt'))throw new AccessError('The Pre-Samagam plan is not published.',404);
     const {draft,faculty,mission}=await context();
-    const {scopes,rows}=pb1Report(draft,mission,staffIndex(faculty,mission));
+    const {scopes,rows}=pb1Report(draft,mission,staffIndex(faculty,mission),undefined,
+     id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id);
     const students=new Map();
     const label=key=>{
      if(!students.has(key))students.set(key,'Student '+createHmac('sha256',displayKey).update('pb1-public:'+key).digest('hex').slice(0,10).toUpperCase());
@@ -179,7 +181,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      current:current&&{...current,exam:'Preboard 1'},
     }))
      .sort((a,b)=>a.scope-b.scope||a.name.localeCompare(b.name));
-    return {scopes:scopes.map(({classId,section,subject,teacher,maximum})=>({classId,section,subject,teacher,maximum})),rows:publicRows};
+    return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum})=>({classId,section,subject,teacher,teachers,maximum})),rows:publicRows};
    }
    if(!admin&&input.operation==='pb1-directory'){
     const {draft,faculty,mission}=await context(),staff=staffIndex(faculty,mission);

@@ -24,6 +24,8 @@ function control(parent,label,tag='select'){
 function groups(rows,key){
  const grouped=new Map();for(const row of rows){const id=key(row);if(!grouped.has(id))grouped.set(id,[]);grouped.get(id).push(row);}return grouped;
 }
+const cohortHeaders=['Group','Paired / enrolled','Previous pass','PB-1 pass','Pass change','Previous average','PB-1 average','Average change','Remark'];
+const scopeTeachers=scope=>scope.teachers||(scope.teacher?[{key:scope.teacher,name:scope.teacher}]:[]);
 function cohortRow(label,rows){
  const m=pb1Metrics(rows),change=m.currentPass==null?null:m.currentPass-m.beforePass;
  return [label,m.paired+' / '+m.total,pct(m.beforePass),pct(m.currentPass),delta(m.beforePass,m.currentPass),
@@ -135,7 +137,7 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
   else if(refresh)toolbar.replaceChildren(button('Refresh results',async()=>renderPB1Analyser(host,await refresh(),{run,button,save,back,teacher,publicView,entryOnly,openEntry,refresh})));
   content.append(el('p','No Preboard 1 papers are available for this view.'));return;
  }
- const classSelect=control(filters,'Standard'),sectionSelect=control(filters,'Class / section'),subjectSelect=control(filters,'Subject'),teacherSelect=control(filters,'Teacher');
+ const classSelect=control(filters,'Standard'),subjectSelect=control(filters,'Subject'),teacherSelect=control(filters,'Teacher'),sectionSelect=control(filters,'Class / section');
  const search=control(filters,'Master search','input');search.type='search';search.placeholder=publicView?'Student label, class, subject or teacher':'Student, roll, class, subject or teacher';
  const values=(scopes,key)=>[...new Set(scopes.map(info=>info[key]).filter(Boolean))].sort();
  options(classSelect,choices(values(data.scopes,'classId'),'All standards'),'');
@@ -147,15 +149,48 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
  options(graphBy,[['subject','Subject'],['student','Student and subject']],'subject');
  function restrict(){
   const scopes=data.scopes.filter(info=>!classSelect.value||info.classId===classSelect.value);
-  options(sectionSelect,choices(values(scopes,'section'),'All sections'),sectionSelect.value);
   options(subjectSelect,choices(values(scopes,'subject'),'All subjects'),subjectSelect.value);
-  options(teacherSelect,choices(values(scopes,'teacher'),'All teachers'),teacherSelect.value);
+  const subjects=scopes.filter(info=>!subjectSelect.value||info.subject===subjectSelect.value);
+  const teachers=new Map(subjects.flatMap(info=>scopeTeachers(info)).map(({key,name})=>[key,name]));
+  options(teacherSelect,[['','All teachers'],...[...teachers].sort((a,b)=>a[1].localeCompare(b[1]))],teacherSelect.value);
+  const assigned=subjects.filter(info=>!teacherSelect.value||scopeTeachers(info).some(person=>person.key===teacherSelect.value));
+  options(sectionSelect,choices(values(assigned,'section'),'All sections'),sectionSelect.value);
  }
  restrict();
- classSelect.onchange=()=>{restrict();drawReport();};
- sectionSelect.onchange=subjectSelect.onchange=teacherSelect.onchange=riskFilter.onchange=riskPeriod.onchange=graphBy.onchange=drawReport;search.oninput=drawReport;
+ classSelect.onchange=subjectSelect.onchange=teacherSelect.onchange=()=>{restrict();drawReport();};
+ sectionSelect.onchange=riskFilter.onchange=riskPeriod.onchange=graphBy.onchange=drawReport;search.oninput=drawReport;
  function scopeMatches(info){
-  return (!classSelect.value||info.classId===classSelect.value)&&(!sectionSelect.value||info.section===sectionSelect.value)&&(!subjectSelect.value||info.subject===subjectSelect.value)&&(!teacherSelect.value||info.teacher===teacherSelect.value);
+  return (!classSelect.value||info.classId===classSelect.value)&&(!sectionSelect.value||info.section===sectionSelect.value)&&(!subjectSelect.value||info.subject===subjectSelect.value)&&(!teacherSelect.value||scopeTeachers(info).some(person=>person.key===teacherSelect.value));
+ }
+ const info=row=>data.scopes[row.scope];
+ const sectionLabel=row=>info(row).classId+' '+info(row).section;
+ function showCohorts(parent,title,grouped){
+  parent.append(el('h3',title));
+  table(parent,cohortHeaders,[...grouped].map(([label,group])=>cohortRow(label,group)));
+ }
+ function teacherGroups(rows){
+  const byTeacher=groups(rows.flatMap(row=>{
+   const teachers=scopeTeachers(info(row)).filter(person=>!teacherSelect.value||person.key===teacherSelect.value);
+   return (teachers.length?teachers:[{key:'',name:'Unassigned'}]).map(person=>({row,person}));
+  }),({person,row})=>JSON.stringify([person.key,info(row).classId,info(row).subject]));
+  return [...byTeacher.values()].map(group=>{
+   const {person,row}=group[0];
+   return [person.name+' · '+info(row).classId+' · '+info(row).subject,group.map(item=>item.row)];
+  });
+ }
+ function showStudentComparison(parent,rows){
+  const monthlyMM=maximumLabel(rows.map(row=>row.before?.maximum));
+  const pb1MM=maximumLabel(rows.map(row=>row.current?.maximum??info(row).maximum));
+  table(parent,['Student',...(publicView?[]:['Roll']),'Class','Subject','Previous exam','Monthly marks ('+monthlyMM+')','PB-1 marks ('+pb1MM+')','Change','PB-1 result'],rows.map(row=>[
+   row.name,...(publicView?[]:[row.roll]),sectionLabel(row),info(row).subject,row.before?.exam||'—',result(row.before),result(row.current),delta(row.before?.percentage,row.current?.percentage),
+   !row.current?'Not entered':row.current.absent?'Absent':({critical:'Critical fail',red:'Other fail',yellow:'Borderline',green:'Secure pass'})[row.current.band]||'Not assessed',
+  ]));
+ }
+ function showSupport(parent,rows,period,filter=''){
+  const names=ids=>ids.map(id=>data.scopes[id].subject).join(', ')||'—';
+  const risk=pb1Risk(rows,period).filter(({failed,borderline,unavailable})=>
+   filter==='one'?failed.length===1:filter==='multi'?failed.length>=2:filter==='border'?borderline.length:filter==='missing'?unavailable.length:failed.length||borderline.length||unavailable.length);
+  table(parent,['Student','Class','Failed subjects','Borderline subjects','Absent or missing'],risk.map(row=>[row.name,sectionLabel(row),names(row.failed),names(row.borderline),names(row.unavailable)]));
  }
  function drawReport(){
   report.replaceChildren();
@@ -170,8 +205,23 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
    if(!['graphs','risk'].includes(selected))return;
   }
   if(selected==='smart'){
-   if(rows.length)renderSmartAnalysis(report,rows);
-   else report.append(el('p','No records match these filters.'));
+   if(!rows.length){report.append(el('p','No records match these filters.'));return;}
+   const sections=[...new Set(rows.map(sectionLabel))].sort();
+   const selectedTeacher=teacherSelect.value?teacherSelect.selectedOptions[0]?.textContent:'';
+   report.append(el('p',[selectedTeacher,subjectSelect.value||'All subjects',sections.join(', ')].filter(Boolean).join(' · '),'pb1-scope-summary'));
+   renderSmartAnalysis(report,rows);
+   renderCategoryComparison(report,pb1CategoryCounts(rows,'before'),pb1CategoryCounts(rows,'current'));
+   report.append(el('h3','Monthly and PB-1 marks by section'));
+   renderMarksGraph(report,groups(rows,sectionLabel));
+   showCohorts(report,'Standard and section comparison',[
+    ...groups(rows,row=>'Class '+info(row).classId+' · all selected sections'),...groups(rows,sectionLabel),
+   ]);
+   showCohorts(report,'Subject comparison',groups(rows,row=>info(row).classId+' · '+info(row).subject));
+   showCohorts(report,'Teacher comparison · all selected sections',teacherGroups(rows));
+   report.append(el('h3','Student-by-student comparison'));
+   showStudentComparison(report,rows);
+   report.append(el('h3','Students needing support in PB-1'));
+   showSupport(report,rows,'current');
    return;
   }
   const previous=pb1CategoryCounts(rows,'before'),current=pb1CategoryCounts(rows,'current');
@@ -183,24 +233,10 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
   }
   if(selected==='comparison'){
    if(m.recorded)renderCategoryComparison(report,previous,current);
-   const monthlyMM=maximumLabel(rows.map(row=>row.before?.maximum));
-   const pb1MM=maximumLabel(rows.map(row=>row.current?.maximum??data.scopes[row.scope].maximum));
-   table(report,['Student',...(publicView?[]:['Roll']),'Class','Subject','Previous exam','Monthly marks ('+monthlyMM+')','PB-1 marks ('+pb1MM+')','Change','PB-1 result'],rows.map(row=>{
-    const info=data.scopes[row.scope];
-    return [row.name,...(publicView?[]:[row.roll]),info.classId+' '+info.section,info.subject,row.before?.exam||'—',result(row.before),result(row.current),delta(row.before?.percentage,row.current?.percentage),
-     !row.current?'Not entered':row.current.absent?'Absent':({critical:'Critical fail',red:'Other fail',yellow:'Borderline',green:'Secure pass'})[row.current.band]||'Not assessed'];
-   }));
+   showStudentComparison(report,rows);
   }else if(selected==='risk'){
-   const scopeIds=new Set(rows.map(row=>row.key));
-   const risk=pb1Risk(data.rows.filter(row=>scopeIds.has(row.key)),riskPeriod.value).filter(row=>{
-    const {failed,borderline,unavailable}=row;
-    return riskFilter.value==='one'?failed.length===1:riskFilter.value==='multi'?failed.length>=2:riskFilter.value==='border'?borderline.length:riskFilter.value==='missing'?unavailable.length:failed.length||borderline.length||unavailable.length;
-   });
-   report.append(el('p','Borderline and other support categories follow Mission 100’s grading rules. Counts cover subjects visible in this view.'));
-   const names=ids=>ids.map(id=>data.scopes[id].subject).join(', ')||'—';
-   table(report,['Student','Class','Failed subjects','Borderline subjects','Absent or missing'],risk.map(row=>{
-    const info=data.scopes[row.scope];return [row.name,info.classId+' '+info.section,names(row.failed),names(row.borderline),names(row.unavailable)];
-   }));
+   report.append(el('p','Support categories follow Mission 100’s grading rules for the selected papers.'));
+   showSupport(report,rows,riskPeriod.value,riskFilter.value);
   }else if(selected==='graphs'){
    report.append(el('p','Bars show average percentages. Where both tests have appeared results for the same students, the bars use that matched group. Otherwise each bar shows its available marks.'));
    const by=groups(rows,row=>{
@@ -209,11 +245,9 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
    });
    renderMarksGraph(report,by);
   }else{
-   const info=row=>data.scopes[row.scope];
    if(selected==='classes'){
     report.append(el('h3','Students passing all comparable enrolled papers'),el('p','This view uses students with appeared results in every visible enrolled paper in both periods.'));
-    const matchingStudents=new Set(rows.map(row=>row.key));
-    const complete=[...groups(data.rows.filter(row=>matchingStudents.has(row.key)),row=>row.key).values()]
+    const complete=[...groups(rows,row=>row.key).values()]
      .filter(group=>group.every(row=>row.before?.percentage!=null&&row.current?.percentage!=null))
      .map(group=>({scope:group[0].scope,before:{failed:group.some(row=>row.before.failed)},current:{failed:group.some(row=>row.current.failed)}}));
     const pass=(group,key)=>group.length?group.filter(row=>!row[key].failed).length/group.length*100:null;
@@ -223,12 +257,10 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
     }
     table(report,['Standard / section','Students fully comparable','Previous pass rate','PB-1 pass rate','Change'],results);
    }
-   report.append(el('h3',selected==='classes'?'Paper results by class and section':selected==='teachers'?'Results by assigned teacher and subject':'Results by subject'));
    const key=selected==='classes'?row=>info(row).classId+' '+info(row).section+' · '+info(row).subject:
-    selected==='teachers'?row=>(info(row).teacher||'Unassigned')+' · '+info(row).classId+' · '+info(row).subject:
     row=>info(row).classId+' · '+info(row).subject;
-   table(report,['Group','Paired / enrolled','Previous pass','PB-1 pass','Pass change','Previous average','PB-1 average','Average change','Remark'],
-    [...groups(rows,key)].map(([label,group])=>cohortRow(label,group)));
+   showCohorts(report,selected==='classes'?'Paper results by class and section':selected==='teachers'?'Results by assigned teacher and subject':'Results by subject',
+    selected==='teachers'?teacherGroups(rows):groups(rows,key));
    if(selected==='teachers')report.append(el('p','Teacher comparisons describe changes in assigned student results. They are a cohort measure.'));
   }
  }

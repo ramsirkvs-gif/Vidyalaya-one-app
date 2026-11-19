@@ -5,7 +5,7 @@ import {schoolPreboard1DateSheet} from './cbse-preboard1-datesheet.js';
 
 import {isMCQResult,isMonthlyResult} from './cbse-academic-exam-kind.js';
 
-export function pb1Scopes(draft,mission,staff,teacherIds){
+export function pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity=id=>id){
  const allocations=Object.values(mission.allocations||{}),scopes=[],seen=new Set();
  for(const classId of ['X','XII']){
   if(!draft?.classes?.[classId])continue;
@@ -17,15 +17,20 @@ export function pb1Scopes(draft,mission,staff,teacherIds){
     seen.add(key);
     const teachers=[...new Set(allocations.filter(a=>a.classId===classId&&a.sectionId===sectionId&&a.subjectId===subjectId).map(a=>a.staffId))];
     if(teacherIds&&!teachers.some(id=>teacherIds.has(id)))continue;
+    const namedTeachers=new Map();
+    for(const id of teachers){
+     const identity=teacherIdentity(id),name=staff[identity]?.name||staff[id]?.name;
+     if(name)namedTeachers.set(identity,{key:identity,name});
+    }
     scopes.push({classId,sectionId,section:section.name,subjectId,subject:subject.name,date:paper.date,maximum:paper.marks,
-     teacher:teachers.map(id=>staff[id]?.name).filter(Boolean).join(' / ')});
+     teachers:[...namedTeachers.values()],teacher:[...namedTeachers.values()].map(person=>person.name).join(' / ')});
    }
   }
  }
  return scopes;
 }
-export function pb1Report(draft,mission,staff,teacherIds){
- const scopes=pb1Scopes(draft,mission,staff,teacherIds),people=studentIndex(draft),byStudent={},rows=[];
+export function pb1Report(draft,mission,staff,teacherIds,teacherIdentity){
+ const scopes=pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity),people=studentIndex(draft),byStudent={},rows=[];
  for(const [id,mark] of Object.entries(mission.marks||{}))(byStudent[mark.studentKey]??={})[id]=mark;
  for(const [scope,info] of scopes.entries()){
   const {classId,sectionId,subjectId,date}=info;
