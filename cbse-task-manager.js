@@ -22,13 +22,31 @@ function form(){const f=el('form');f.dataset.portalTrackDirty='true';return f;}
 function button(label,fn){const b=el('button',label);b.type='button';b.onclick=()=>run(fn);return b;}
 async function request(input,asPrincipal=false){const ticket=epoch,token=asPrincipal&&user?await user.getIdToken():'',controller=new AbortController(),timer=setTimeout(()=>controller.abort(),45000);try{const response=await fetch('/api/staff-access',{method:'POST',signal:controller.signal,headers:{'Content-Type':'application/json',...(token?{Authorization:'Bearer '+token}:{})},body:JSON.stringify(input)});const result=await response.json();if(ticket!==epoch)throw Error('Session changed. Reopen Task manager.');if(!response.ok){const error=Error(result.error||'Request failed. Entries are retained.');error.curtainRequired=result.curtainRequired;error.status=response.status;throw error;}return result;}catch(e){if(e.name==='AbortError')throw Error('Request timed out. Your entries are retained; refresh to check whether the save completed.');throw e;}finally{clearTimeout(timer);}}
 async function run(fn){if(busy)return;busy=true;document.documentElement.dataset.portalBusy='true';const controls=[...document.querySelectorAll('button,input,select,textarea')].filter(b=>!b.disabled);controls.forEach(b=>b.disabled=true);message('Please wait…');try{await fn();if(status.textContent==='Please wait…')message('');}catch(e){message(e.message,true);}finally{busy=false;document.documentElement.dataset.portalBusy='false';controls.forEach(b=>b.disabled=false);}}
-function navigation(){nav.replaceChildren(principal?button('Sign out',async()=>{if(discard()){suppliedFigures=null;await authApi.signOut(auth);}}):button('Principal sign in / Manage tasks',()=>switchMode('principal')));}
-async function switchMode(next){if(!discard())return;history.replaceState(null,'','#'+next);await load();}
+function navigation(){
+ if(principal){
+  nav.replaceChildren(button('Sign out',async()=>{if(discard()){suppliedFigures=null;await authApi.signOut(auth);}}));
+  return;
+ }
+ const expanded=mode()==='principal';
+ const toggle=button('Principal sign-in',()=>switchMode(expanded?'staff':'principal'));
+ toggle.setAttribute('aria-expanded',String(expanded));
+ toggle.setAttribute('aria-controls','task-principal-sign-in');
+ nav.replaceChildren(toggle);
+ const panel=el('div',undefined,'task-principal-panel');panel.id='task-principal-sign-in';panel.hidden=!expanded;
+ nav.append(panel);
+ if(expanded&&authApi)renderPrincipalLogin(panel,password=>authApi.signInWithEmailAndPassword(auth,'ramsirkvs@gmail.com',password));
+ else if(expanded)panel.append(el('p','Principal sign-in is unavailable. Refresh to retry.'));
+}
+function switchMode(next){
+ if(!discard())return;
+ renderedMode=next;history.replaceState(null,'','#'+next);navigation();
+ nav.querySelector(next==='principal'?'input[type=password]':'button')?.focus();
+}
 function clearSuppliedFigures(id){if(suppliedFigures?.taskId===id){suppliedFigures=null;document.querySelector('.task-import-ready')?.remove();}}
 function adopt(result){store=result;staff=result.staff||staff;}
 async function admin(input){const result=await request({action:'task-principal',...input},true);adopt(result);return result;}
 async function load(){closeTaskPresentation();document.body.classList.remove('task-form-open');document.querySelectorAll('dialog.task-start-dialog').forEach(d=>d.remove());renderedMode=mode();navigation();host.replaceChildren();if(user){try{await admin({operation:'read'});principal=true;history.replaceState(null,'','#principal');navigation();drawPrincipal();return;}catch(error){if(![401,403].includes(error.status))throw error;}}
- adopt(await request({action:'task-read'}));drawStaff();if(mode()==='principal'){const login=el('section',undefined,'task-card');login.append(el('h2','Principal sign-in'),el('p','Sign in once to create a task, select classes, assign teachers and publish.'));renderPrincipalLogin(login,async password=>{await authApi.signInWithEmailAndPassword(auth,'ramsirkvs@gmail.com',password);});host.prepend(login);}}
+ adopt(await request({action:'task-read'}));drawStaff();}
 
 function catalogue(parent){
  const list=Object.entries(store.tasks||{}).map(([id,t])=>({
@@ -434,19 +452,20 @@ function principalReportEditor(parent,card,id,t,c){
  let n=3;for(const q of taskQuestions(old)){const written=q.kind==='text',input=field(editor,'Q'+(++n)+'. '+taskQuestionWording(q.label),q.id,written?'textarea':'number',old.values[q.id]??'');if(written){input.maxLength=10000;editor.append(remarkWordLimit(input,old.values[q.id]||''));}else{input.min='0';input.step='1';input.inputMode='numeric';if(q.kind==='students'&&headers.total!=null)input.max=String(q.id==='passed'&&Number.isSafeInteger(participation?.appeared)?Math.min(headers.total,participation.appeared):headers.total);}inputs[q.id]=input;}
  const remarks=field(editor,OVERALL_COMMENT_LABEL+' (optional)','principal-teacher-remarks','textarea',old.values.remarks||'');remarks.maxLength=10000;editor.append(remarkWordLimit(remarks,old.values.remarks||''));const actions=el('div',undefined,'task-actions');actions.append(el('button','Save submitted answers'),button('Cancel answer edits',()=>{if(editor.dataset.portalDirty==='true'&&!confirm('Discard these unsaved answer edits?'))return;editor.remove();}));editor.append(actions);editor.onsubmit=event=>{event.preventDefault();if([...card.querySelectorAll('form[data-portal-dirty="true"]')].some(f=>f!==editor)){message('Save other task edits and comments before saving these answers.',true);return;}run(async()=>{const values={remarks:remarks.value,...Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,input.tagName==='TEXTAREA'?input.value:input.value===''?null:Number(input.value)]))};await admin({operation:'edit-report',taskId:id,classId:c,expectedRevision:t.revision,reportRevision:old.revision||0,report:values});editor.dataset.portalDirty='false';drawAdminTask(card,id,store.tasks[id]);const saved=card.querySelector('[data-report-class="'+c+'"]');saved.open=true;saved.scrollIntoView({block:'start',behavior:'smooth'});message(c+' submitted answers saved successfully by Principal.');});};parent.append(editor);editor.scrollIntoView({block:'start',behavior:'smooth'});editor.querySelector('input,textarea')?.focus();
 }
-function teacherTaskHeading(task,tag='h2'){const heading=el(tag,undefined,'task-title-heading');if(task.priority===TASK_PRIORITIES[0]){heading.classList.add('task-urgent-heading');const icon=el('span','🚨','task-alarm-icon');icon.setAttribute('aria-hidden','true');heading.append(icon,el('span','Highly important · Most urgent','task-importance-label'),el('span',task.title,'task-heading-title'));}else heading.textContent=task.title;return heading;}
+function teacherTaskHeading(task,tag='h2'){const heading=el(tag,undefined,'task-title-heading');if(task.priority===TASK_PRIORITIES[0]){heading.classList.add('task-urgent-heading');const icon=el('span','🚨','task-alarm-icon');icon.setAttribute('aria-hidden','true');heading.append(icon,el('span','Most urgent task · Handle with care','task-importance-label'),el('span',task.title,'task-heading-title'));}else heading.textContent=task.title;return heading;}
 function drawStaff(){
- host.replaceChildren(el('h2','Published tasks'),el('p','The mentor list and submission status are open to everyone. Click Start & Submit Now for your class, then verify your existing personal PIN to open the questionnaire.'));
- host.append(button('Refresh status',async()=>{await load();}));
+ const tasks=Object.entries(store.tasks||{}).sort(([,a],[,b])=>TASK_PRIORITIES.indexOf(a.priority)-TASK_PRIORITIES.indexOf(b.priority));
+ host.replaceChildren(el('h2','Published tasks'));
  if(store.monitoringPublishedAt){
-  const plan=el('section',undefined,'task-card');
-  plan.append(el('h3',MONITORING_TITLE),button('Open published plan',()=>openPublishedMonitoring()));
+  const plan=el('section',undefined,'task-card task-public-card');
+  plan.append(teacherTaskHeading({title:MONITORING_TITLE,priority:TASK_PRIORITIES[0]},'h3'),button('Open published plan',()=>openPublishedMonitoring()));
   host.append(plan);
  }
- if(!store.monitoringPublishedAt&&!Object.keys(store.tasks||{}).length){host.append(el('p','No tasks are currently published.'));return;}
- for(const [id,t]of Object.entries(store.tasks)){const card=el('section',undefined,'task-card task-public-card');card.append(teacherTaskHeading(t),el('p',t.priority+(t.deadline?' · Deadline: '+t.deadline:'')));const table=el('table',undefined,'task-public-list'),thead=el('thead'),heading=el('tr');for(const label of ['SN','Class','Prime mentor / Survey IC','Tech / analytical support','Status','Action'])heading.append(el('th',label));thead.append(heading);table.append(thead);const tbody=el('tbody');
+ if(!store.monitoringPublishedAt&&!tasks.length)host.append(el('p','No tasks are currently published.'));
+ for(const [id,t]of tasks){const card=el('section',undefined,'task-card task-public-card');card.append(teacherTaskHeading(t),el('p',t.priority+(t.deadline?' · Deadline: '+t.deadline:'')));const table=el('table',undefined,'task-public-list'),thead=el('thead'),heading=el('tr');for(const label of ['SN','Class','Prime mentor / Survey IC','Tech / analytical support','Status','Action'])heading.append(el('th',label));thead.append(heading);table.append(thead);const tbody=el('tbody');
   for(const row of t.rows||[]){const tr=el('tr');tr.dataset.taskClass=row.classId;for(const [label,value]of [['SN',row.number],['Class',row.classId],['Prime mentor / Survey IC',row.mentor],['Tech / analytical support',row.support||'—'],['Status',row.status]]){const td=el('td',label==='Status'&&value==='Submitted'?'✓ Submitted':String(value));td.dataset.label=label;if(label==='Status')td.className=row.status==='Submitted'?'task-row-submitted':'task-row-pending';tr.append(td);}const action=el('td'),start=button('Start & Submit Now',()=>startSurvey(id,row));action.dataset.label='Action';if(!row.staffId){start.disabled=true;action.append(el('small','Principal assignment needed'));}action.append(start);tr.append(action);tbody.append(tr);}table.append(tbody);card.append(table);host.append(card);
  }
+ host.append(button('Refresh status',()=>load()));
 }
 function startSurvey(id,row){
  if(!discard())return;const dialog=el('dialog',undefined,'task-start-dialog'),title=el('h2','Start survey · '+row.classId);dialog.append(title,el('p',row.mentor+' · Verify your existing personal portal PIN.'));const f=form(),pin=field(f,'Existing personal portal PIN','start-pin','password'),error=el('p',undefined,'task-error');error.setAttribute('role','alert');pin.inputMode='numeric';pin.autocomplete='off';pin.required=true;f.append(error,el('button','Verify PIN and open survey'),button('Cancel',()=>{pin.value='';f.dataset.portalDirty='false';dialog.close();dialog.remove();}));
@@ -466,5 +485,5 @@ function reportForm(parent,id,t,c){parent.replaceChildren(el('h3',c));const h=t.
 }
 window.addEventListener('beforeunload',e=>{if(dirty()||busy){e.preventDefault();e.returnValue='';}});
 window.addEventListener('hashchange',()=>{if(dirty()){history.replaceState(null,'','#'+renderedMode);message('Save your entries or use the view buttons to discard them.');return;}run(load);});
-async function initialize(){try{const modules=await Promise.all([import('./firebase-client.js'),import('https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js')]);auth=modules[0].auth;authApi=modules[1];authApi.onAuthStateChanged(auth,current=>{closeTaskPresentation();epoch++;user=current;principal=false;selectedStaff='';store={tasks:{}};staff={};host.replaceChildren();navigation();load().catch(e=>message(e.message,true));});}catch(e){if(mode()==='staff')await load().catch(e=>message(e.message,true));else message('Principal authentication could not load. Check connectivity and retry.',true);}}
+async function initialize(){try{const modules=await Promise.all([import('./firebase-client.js'),import('https://www.gstatic.com/firebasejs/11.10.0/firebase-auth.js')]);auth=modules[0].auth;authApi=modules[1];authApi.onAuthStateChanged(auth,current=>{closeTaskPresentation();epoch++;user=current;principal=false;selectedStaff='';store={tasks:{}};staff={};host.replaceChildren();navigation();load().catch(e=>message(e.message,true));});}catch(e){await load().catch(error=>message(error.message,true));}}
 initialize();

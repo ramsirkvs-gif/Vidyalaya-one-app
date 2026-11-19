@@ -75,3 +75,11 @@
 .task-monitoring-sheet .task-principal-review{background:#fff0ee;color:#a12623;font-weight:700}
 .task-workflow-step .task-emergency-select{width:100%;min-width:9rem;margin:.35rem 0 0;font:inherit}
 .task-workflow-step button[hidden]{display:none}
+.task-page-header{display:flex;align-items:center;justify-content:space-between;gap:.65rem}
+.task-page-header h1{margin:.5rem 0}
+.task-app .task-page-header nav{position:relative;flex:0 0 auto;justify-content:flex-end;margin:0}
+.task-page-header nav>button{font-size:.78rem;padding:.4rem .65rem;min-height:34px}
+.task-principal-panel{position:absolute;z-index:5;top:calc(100% + .4rem);inset-inline-end:0;box-sizing:border-box;width:min(17rem,calc(100vw - 2rem));padding:.8rem;background:#fff;border:1px solid #c7ded9;border-radius:.55rem;box-shadow:0 8px 24px #132e3d29}
+.task-principal-panel .inline-principal-login{margin:0}
+.task-principal-panel input{font-size:16px}
+.task-form-open .task-page-header{display:none}
