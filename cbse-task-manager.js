@@ -454,12 +454,40 @@ function principalReportEditor(parent,card,id,t,c){
  const remarks=field(editor,OVERALL_COMMENT_LABEL+' (optional)','principal-teacher-remarks','textarea',old.values.remarks||'');remarks.maxLength=10000;editor.append(remarkWordLimit(remarks,old.values.remarks||''));const actions=el('div',undefined,'task-actions');actions.append(el('button','Save submitted answers'),button('Cancel answer edits',()=>{if(editor.dataset.portalDirty==='true'&&!confirm('Discard these unsaved answer edits?'))return;editor.remove();}));editor.append(actions);editor.onsubmit=event=>{event.preventDefault();if([...card.querySelectorAll('form[data-portal-dirty="true"]')].some(f=>f!==editor)){message('Save other task edits and comments before saving these answers.',true);return;}run(async()=>{const values={remarks:remarks.value,...Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,input.tagName==='TEXTAREA'?input.value:input.value===''?null:Number(input.value)]))};await admin({operation:'edit-report',taskId:id,classId:c,expectedRevision:t.revision,reportRevision:old.revision||0,report:values});editor.dataset.portalDirty='false';drawAdminTask(card,id,store.tasks[id]);const saved=card.querySelector('[data-report-class="'+c+'"]');saved.open=true;saved.scrollIntoView({block:'start',behavior:'smooth'});message(c+' submitted answers saved successfully by Principal.');});};parent.append(editor);editor.scrollIntoView({block:'start',behavior:'smooth'});editor.querySelector('input,textarea')?.focus();
 }
 function teacherTaskHeading(task,tag='h2'){const heading=el(tag,undefined,'task-title-heading');if(task.priority===TASK_PRIORITIES[0]){heading.classList.add('task-urgent-heading');const icon=el('span','🚨','task-alarm-icon');icon.setAttribute('aria-hidden','true');heading.append(icon,el('span','Most urgent task · Handle with care','task-importance-label'),el('span',task.title,'task-heading-title'));}else heading.textContent=task.title;return heading;}
+async function openNamedPB1Results(){
+ const read=()=>request({action:'task-read',operation:'pb1-named'});
+ try{return await read();}catch(error){if(!error.curtainRequired)throw error;}
+ return new Promise(resolve=>{
+  const dialog=el('dialog',undefined,'task-start-dialog'),heading=el('h2','Show student names');
+  heading.id='pb1-viewing-title';dialog.setAttribute('aria-labelledby',heading.id);
+  const login=el('form'),password=field(login,'Staff viewing password','pb1-viewing-password','password');
+  password.required=true;password.autocomplete='off';
+  const error=el('p',undefined,'task-error');error.setAttribute('role','alert');
+  const submit=el('button','Show names'),cancel=el('button','Cancel');cancel.type='button';cancel.onclick=()=>dialog.close();
+  login.append(submit,cancel,error);dialog.append(heading,login);
+  let result;
+  login.onsubmit=async event=>{
+   event.preventDefault();submit.disabled=true;error.textContent='';
+   const secret=password.value;password.value='';
+   try{await request({action:'view-login',password:secret});result=await read();dialog.close();}
+   catch(failure){error.textContent=failure.message;}
+   finally{submit.disabled=false;}
+  };
+  dialog.addEventListener('close',()=>{dialog.remove();resolve(result);},{once:true});
+  document.body.append(dialog);dialog.showModal();
+ });
+}
 async function openPB1Analyser(entryOnly=false){
  const asPrincipal=principal;
  if(!asPrincipal&&!entryOnly){
-  const data=await request({action:'task-read',operation:'pb1-public'});
-  renderPB1Analyser(host,data,{button,run,publicView:true,back:drawStaff,openEntry:()=>openPB1Analyser(true),
-   refresh:()=>request({action:'task-read',operation:'pb1-public'})});
+  const read=named=>request({action:'task-read',operation:named?'pb1-named':'pb1-public'});
+  let data,publicView=false;
+  try{data=await read(true);}catch(error){
+   if(!error.curtainRequired)throw error;
+   data=await read(false);publicView=true;
+  }
+  renderPB1Analyser(host,data,{button,run,publicView,back:drawStaff,openEntry:()=>openPB1Analyser(true),
+   openNames:publicView?openNamedPB1Results:undefined,refresh:read});
   return;
  }
  const open=async(staffId='',pin='')=>{
@@ -499,7 +527,7 @@ function drawStaff(){
   plan.append(teacherTaskHeading({title:MONITORING_TITLE,priority:TASK_PRIORITIES[0]},'h3'),button('Open published plan',()=>openPublishedMonitoring()));
   host.append(plan);
   const analyser=el('section',undefined,'task-card pb1-analyser');
-  analyser.append(el('h3','Pre-Samagam Wisdom Analyser'),el('p','Compare Preboard 1 progress by class, section, subject or student.'),
+  analyser.append(el('h3','Pre-Samagam Wisdom Analyser'),el('p','View Preboard 1 marks and remedial targets by class, section or subject.'),
    button('Open Wisdom Analyser',()=>openPB1Analyser()),button('Update PB-1 marks',()=>openPB1Analyser(true)));
   host.append(analyser);
  }

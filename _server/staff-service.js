@@ -180,8 +180,13 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
    if(admin&&['pb1-read','pb1-save','pb1-approve'].includes(input.operation))return pb1Workspace(input,{uid:adminIdentity.uid});
    if(!admin&&['pb1-read','pb1-save','pb1-approve'].includes(input.operation))throw new AccessError('Use a teacher PIN for marks entry or Principal sign-in for approval.',403);
-   if(!admin&&input.operation==='pb1-public'){
+   if(!admin&&['pb1-public','pb1-named'].includes(input.operation)){
     if(!await read('cbse/taskMonitoring/published/updatedAt'))throw new AccessError('The Pre-Samagam plan is not published.',404);
+    const named=input.operation==='pb1-named';
+    if(named){
+     const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
+     if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}
+    }
     const {draft,faculty,mission}=await context();
     const {scopes,rows}=pb1Report(draft,mission,staffIndex(faculty,mission),undefined,
      id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id);
@@ -190,8 +195,8 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      if(!students.has(key))students.set(key,'Student '+createHmac('sha256',displayKey).update('pb1-public:'+key).digest('hex').slice(0,10).toUpperCase());
      return students.get(key);
     };
-    const publicRows=rows.map(({scope,key,before,current})=>({
-     scope,key:label(key),name:label(key),
+    const publicRows=rows.map(({scope,key,name,roll,before,current})=>({
+     scope,key:named?key:label(key),name:named?name:label(key),...(named?{roll}:{}),
      before:before&&{...before,exam:'Monthly test · '+before.date.slice(0,7)},
      current:current&&{...current,exam:'Preboard 1'},
     }))

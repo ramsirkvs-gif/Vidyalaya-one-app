@@ -96,6 +96,10 @@ test('PB-1 uses assigned enrolled students, paper maxima, explicit absence and p
  assert.equal(anonymous.roll,undefined);
  assert.equal(anonymous.markId,undefined);
  assert.ok(!JSON.stringify(publicReport).includes('Synthetic Student'));
+ await assert.rejects(f.service('task-read',{operation:'pb1-named'}),/viewing password/);
+ const viewing=await f.service('remember-view',{},'principal');
+ const named=await f.service('task-read',{operation:'pb1-named'},'','test',{viewerToken:viewing.viewerToken});
+ assert.equal(named.rows.find(row=>row.current?.score===28).name,'Synthetic Student');
  const student=studentIndex(draft)['X:a:one'],latest=()=>studentProgress(student.key,f.data.cbse.mission,draft).subjects[0].latest;
  assert.equal(latest().score,12);
  await assert.rejects(f.teacher({taskOperation:'pb1-approve'}),/Teachers may only/);
