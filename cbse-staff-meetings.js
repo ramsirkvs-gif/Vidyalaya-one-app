@@ -124,17 +124,67 @@ async function showStaff(){
   const reports=result.meetings.filter(entry=>entry.published)
    .sort((a,b)=>(b.scheduledAt??b.createdAt)-(a.scheduledAt??a.createdAt));
   if(reports.length){
-   const {table,rows}=attendanceTable(['Meeting / agenda','Date and time','Report']);
+   const {table,rows}=attendanceTable(['Meeting / agenda','Date and time','Report','Upload signed minutes']);
+   table.classList.add('meeting-published-table');
    for(const entry of reports){
     const row=el('tr'),action=el('td');
     action.append(button('Read minutes / print',()=>showReport(entry.id)));
-    row.append(el('td',entry.agenda||'Staff meeting'),el('td',stamp(entry.scheduledAt??entry.createdAt)),action);
+    const signed=el('td');
+    signed.append(button(entry.signedMinutesRevision?'Replace signed PDF':'Upload signed PDF',()=>showSignedUploadChoices(entry)));
+    if(entry.signedMinutesRevision)signed.append(button('Download signed PDF',()=>downloadSignedMinutes(entry)));
+    row.append(el('td',entry.agenda||'Staff meeting'),el('td',stamp(entry.scheduledAt??entry.createdAt)),action,signed);
     rows.append(row);
    }
    published.append(table);
   }else published.append(el('p','No meeting minutes have been published.','meeting-register-empty'));
   content.append(published);
  }catch(error){if(error.curtainRequired){adminMode=false;showCurtain();}else throw error;}
+}
+function showSignedUploadChoices(entry){
+ content.replaceChildren(meetingCard(entry,false),el('h2','Upload signed minutes'));
+ if(meetingWriters(entry).length)content.append(button('Upload with writer PIN',()=>showSignedUpload(entry,false,showStaff)));
+ content.append(button('Upload as Principal',()=>showPrincipal(()=>showSignedUpload(entry,true,showStaff))),
+  button('Back to meeting register',showStaff));
+}
+function showSignedUpload(entry,principal,back){
+ adminMode=principal;
+ content.replaceChildren(meetingCard(entry,false),el('h2','Upload signed minutes'));
+ const form=el('form');
+ const file=field(form,'Signed PDF (up to 2 MB)');
+ file.type='file';file.accept='.pdf,application/pdf';file.required=true;
+ let person,pin;
+ if(!principal){
+  const writers=[...new Map(meetingWriters(entry).map(writer=>[writer.id,writer])).values()];
+  person=field(form,'Choose your name','select');person.required=true;
+  options(person,[['','Choose your name'],...writers.map(({id,name})=>[id,name])],writers.length===1?writers[0].id:'');
+  pin=password(form,'Personal PIN',true);
+ }
+ const submit=el('button',entry.signedMinutesRevision?'Replace signed PDF':'Upload signed PDF');
+ form.append(submit,button('Back to meeting register',back));
+ form.onsubmit=event=>{event.preventDefault();run(async()=>{
+  const selected=file.files[0];
+  if(!selected||selected.size>2097152)throw Error('Choose a PDF up to 2 MB.');
+  const secret=pin?.value;
+  if(pin)pin.value='';
+  const pdf=await new Promise((resolve,reject)=>{
+   const reader=new FileReader();
+   reader.onload=()=>resolve(reader.result.split(',')[1]);
+   reader.onerror=()=>reject(Error('The PDF could not be read.'));
+   reader.readAsDataURL(selected);
+  });
+  const values={meetingOperation:'signed-upload',meetingId:entry.id,expectedSignedRevision:entry.signedMinutesRevision||0,pdf};
+  saved(await (principal?principalRequest(values):pinRequest({id:entry.id,writerId:person.value},secret,values)));
+  await back();
+  message('Signed minutes uploaded.');
+ },submit);};
+ content.append(form);
+}
+async function downloadSignedMinutes(entry){
+ const {pdf}=await request({action:'staff-meetings-read',meetingId:entry.id,task:'signed-minutes'});
+ const bytes=Uint8Array.from(atob(pdf),character=>character.charCodeAt(0));
+ const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
+ const link=el('a');link.href=url;link.download='signed-meeting-minutes.pdf';link.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
 function choosePrincipalAttendance(meetings){
  content.replaceChildren(el('h2','Take attendance as Principal'));
@@ -472,7 +522,9 @@ async function drawPrincipal(){
    saved(await principalRequest({meetingOperation:'publish',meetingId:entry.id,expectedRevision:entry.revision}));
    await drawPrincipal();message('Report published to staff view.');
   }));
-  if(entry.published)reportActions.append(button('Stop publication',async()=>{
+  if(entry.published)reportActions.append(button(entry.signedMinutesRevision?'Replace signed PDF':'Upload signed PDF',()=>{
+   if(canLeave())showSignedUpload(entry,true,drawPrincipal);
+  }),button('Stop publication',async()=>{
    if(!canLeave())return;
    saved(await principalRequest({meetingOperation:'unpublish',meetingId:entry.id,expectedRevision:entry.revision}));
    await drawPrincipal();message('Report hidden from staff view.');

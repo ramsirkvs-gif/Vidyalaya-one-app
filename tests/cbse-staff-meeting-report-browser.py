@@ -101,6 +101,47 @@ def check_report(page, principal, versions, attendance_taker):
     assert page.pdf(format='A4').startswith(b'%PDF')
 
 
+def check_signed_upload(browser):
+    page = browser.new_page(viewport={'width': 360, 'height': 900})
+    entry = {
+        'id': 'sample', 'agenda': 'Published agenda', 'createdAt': CREATED,
+        'published': True, 'completed': True, 'submittedLanguages': ['en'],
+        'writers': [{'id': 'X:one', 'name': 'Alex Example', 'language': 'en'}],
+    }
+    pdf = b'%PDF-1.4\n%%EOF'
+    payload = None
+
+    def staff_access(route):
+        nonlocal payload
+        request = route.request.post_data_json
+        if request['action'] == 'pin-submit':
+            payload = request
+            entry['signedMinutesRevision'] = 1
+            route.fulfill(json={'ok': True, 'signedMinutesRevision': 1})
+        elif request.get('task') == 'signed-minutes':
+            route.fulfill(json={'pdf': payload['pdf']})
+        else:
+            route.fulfill(json={'meetings': [entry]})
+
+    page.route('**/api/staff-access', staff_access)
+    page.goto('http://127.0.0.1:8001/cbse-staff-meetings.html')
+    page.get_by_role('columnheader', name='Upload signed minutes').wait_for()
+    assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
+    page.get_by_role('button', name='Upload signed PDF').click()
+    page.get_by_role('button', name='Upload with writer PIN').click()
+    page.get_by_label('Signed PDF (up to 2 MB)').set_input_files({
+        'name': 'signed.pdf', 'mimeType': 'application/pdf', 'buffer': pdf,
+    })
+    page.get_by_label('Personal PIN').fill('123')
+    page.get_by_role('button', name='Upload signed PDF').click()
+    page.get_by_text('Signed minutes uploaded.').wait_for()
+    assert (payload['meetingOperation'], payload['staffId'], payload['pin']) == ('signed-upload', 'X:one', '123')
+    with page.expect_download() as download:
+        page.get_by_role('button', name='Download signed PDF').click()
+    assert download.value.path().read_bytes() == pdf
+    page.close()
+
+
 def check_remembered_curtain(browser):
     context = browser.new_context()
     logins = []
@@ -138,6 +179,7 @@ def check_remembered_curtain(browser):
 with sync_playwright() as playwright:
     browser = playwright.chromium.launch(executable_path='/usr/bin/chromium', args=['--no-sandbox'])
     check_remembered_curtain(browser)
+    check_signed_upload(browser)
     for principal in [False, True]:
         for versions, taker in [([ENGLISH, HINDI], 'Synthetic SMT'), ([HINDI], ''), ([ENGLISH], '')]:
             page = browser.new_page()

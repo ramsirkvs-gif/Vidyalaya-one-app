@@ -1,5 +1,5 @@
 import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
-import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList} from '../cbse-staff-meetings-model.js';
+import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList,minuteLanguages} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
@@ -191,6 +191,11 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     const staff=meeting.publishedReport===undefined&&meeting.savedAt?Object.fromEntries(entries(await directoryStaff()).map(([id,person])=>[id,{...person,wing:rollWing(person)}])):{};
     const report=publishedMeetingReport(meeting,staff);
     if(!report)throw new AccessError('The meeting report has not been published.',404);
+    if(input.task==='signed-minutes'){
+     const file=meeting.signedMinutesRevision&&await read('cbse/staffMeetingSignedMinutes/'+input.meetingId);
+     if(!file)throw new AccessError('Signed minutes have not been uploaded.',404);
+     return {ok:true,pdf:file.pdf};
+    }
     return {ok:true,report};
 
    }
@@ -243,6 +248,13 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     const minute=meetingMinute(meeting,input.language);
     return {ok:true,meeting:{id:meeting.id,createdAt:meeting.createdAt,scheduledAt:meeting.scheduledAt||meeting.createdAt,meetingAgenda:meeting.meetingAgenda||'',...minute,revision:minute.revision||0,language:input.language}};
    }
+   const signedUpload=operation==='signed-upload';
+   if(signedUpload){
+    if(typeof input.meetingId!=='string'||!/^[a-f0-9]{32}$/.test(input.meetingId))throw new AccessError('Choose a valid staff meeting.',400);
+    if(typeof input.pdf!=='string'||input.pdf.length>2796204)throw new AccessError('Choose a PDF up to 2 MB.',400);
+    const pdf=Buffer.from(input.pdf,'base64');
+    if(pdf.length>2097152||pdf.toString('base64')!==input.pdf||pdf.subarray(0,5).toString()!=='%PDF-')throw new AccessError('Choose a valid PDF up to 2 MB.',400);
+   }
    const stamp=now();let reason='';
    const result=await mcqTransaction(db,'cbse',current=>{
     if(current===null)return null;
@@ -250,11 +262,29 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     if(admin?current.adminUid!==admin.uid:!current.staffAccess?.[staffId]?.enabled||current.staffAccess[staffId].version!==pinIdentity.access.version){
      reason='Your access changed. Sign in or verify your PIN again.';return;
     }
+    if(signedUpload){
+     const id=input.meetingId,meeting=current.staffMeetings?.[id];
+     if(!meeting||!publishedMeetingReport(meeting,staff)){
+      reason='Publish the meeting report before uploading signed minutes.';return;
+     }
+     if(!admin&&!minuteLanguages.some(([language])=>canOpenMeeting(staff,meeting,actor,'minutes',language))){
+      reason='Only an assigned minutes writer or the Principal can upload signed minutes.';return;
+     }
+     const revision=meeting.signedMinutesRevision||0;
+     if(input.expectedSignedRevision!==revision){
+      reason='The signed minutes changed. Reopen the register before uploading again.';return;
+     }
+     return {...current,
+      staffMeetings:{...current.staffMeetings,[id]:{...meeting,signedMinutesRevision:revision+1}},
+      staffMeetingSignedMinutes:{...current.staffMeetingSignedMinutes,[id]:{pdf:input.pdf,uploadedAt:stamp,uploadedBy:admin?'principal':staffId}}
+     };
+    }
     try{return {...current,staffMeetings:applyStaffMeeting(current.staffMeetings,input,actor,staff,stamp)};}
     catch(error){reason=error.message;return;}
    },{restTransaction});
    if(!result.committed||!result.snapshot.val()?.staffMeetings)throw new AccessError(reason||'The meeting save was not confirmed. Refresh before retrying.',409);
    const meeting=result.snapshot.val().staffMeetings[input.meetingId];
+   if(signedUpload)return {ok:true,signedMinutesRevision:meeting.signedMinutesRevision};
    return {ok:true,revision:operation.startsWith('minutes-')?meetingMinute(meeting,input.language).revision:operation==='attendance-save'?meeting.attendanceRevision:meeting.revision};
   }
   if(action==='task-manager'){

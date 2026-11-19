@@ -210,6 +210,6 @@ export function staffMeetingList(store,{principal=false}={}){
    &&roster.length>0
    &&roster.every(({id})=>['present','absent'].includes(meeting.attendance?.[id]));
   const agenda=meeting.meetingAgenda||meeting.publishedReport?.versions?.[0]?.agenda||(published?meeting.agenda:undefined);
-  return {id,createdAt,scheduledAt:meeting.scheduledAt||createdAt,writers,published,completed,submittedLanguages:versions,returnedLanguages,attendanceWing:meeting.attendanceWing||'both',attendanceTakers:meeting.attendanceTakers||[],...(principal?{revision,minuteRevisions,roster:meeting.roster,expectedAttendees:meeting.hasAttendanceSelection?meeting.expectedAttendees||[]:null,attendanceTakersConfigured:!!meeting.attendanceTakersConfigured}:{}),...(agenda?{agenda}:{})};
+  return {id,createdAt,scheduledAt:meeting.scheduledAt||createdAt,writers,published,completed,signedMinutesRevision:meeting.signedMinutesRevision||0,submittedLanguages:versions,returnedLanguages,attendanceWing:meeting.attendanceWing||'both',attendanceTakers:meeting.attendanceTakers||[],...(principal?{revision,minuteRevisions,roster:meeting.roster,expectedAttendees:meeting.hasAttendanceSelection?meeting.expectedAttendees||[]:null,attendanceTakersConfigured:!!meeting.attendanceTakersConfigured}:{}),...(agenda?{agenda}:{})};
  });
 }

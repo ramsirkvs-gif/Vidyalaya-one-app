@@ -24,6 +24,12 @@ textarea{resize:vertical}
 .meeting-attendance th,.meeting-attendance td{text-align:left;border:1px solid #bdcfc4;padding:.5rem;overflow-wrap:anywhere}
 .meeting-attendance th{background:#eaf1ec}
 .meeting-attendance select{max-width:100%}
+.meeting-published-table button{max-width:100%;overflow-wrap:anywhere}
+.meeting-published-table td:last-child button+button{margin-top:.35rem}
+@media(max-width:560px){
+ .meeting-published-table{table-layout:fixed}
+ .meeting-published-table :is(th,td,.meeting-actions,button){padding:.3rem}
+}
 .meeting-minutes-text{white-space:pre-wrap;line-height:1.65;overflow-wrap:anywhere}
 .meeting-signature{min-width:6rem}
 .meeting-error{color:#9a2a27}
