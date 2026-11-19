@@ -3,6 +3,11 @@ import {academicMarkBand} from './cbse-academic-model.js';
 import {effectiveStudentMarks} from './cbse-maths-carryover.js';
 import {schoolPreboard1DateSheet} from './cbse-preboard1-datesheet.js';
 
+const MCQ_LABEL=/(?:^|[^a-z0-9])(?:mcqs?|multiple[\s_-]+choice)(?=$|[^a-z0-9])/i;
+function regularMark(mark,exam){
+ return [mark.examId,mark.importSource,exam.name,exam.type,exam.source].every(value=>!MCQ_LABEL.test(String(value||'')));
+}
+
 export function pb1Scopes(draft,mission,staff,teacherIds){
  const allocations=Object.values(mission.allocations||{}),scopes=[],seen=new Set();
  for(const classId of ['X','XII']){
@@ -32,7 +37,7 @@ export function pb1Report(draft,mission,staff,teacherIds){
    let before,current;
    for(const [id,mark] of Object.entries(effectiveStudentMarks(student,byStudent[student.key]))){
     const exam=mission.exams?.[mark.examId];
-    if(mark.subjectId!==subjectId||!exam||exam.classId!==classId)continue;
+    if(mark.subjectId!==subjectId||!exam||exam.classId!==classId||!regularMark(mark,exam))continue;
     const item={...mark,id,exam};
     const newer=other=>!other||exam.date>other.exam.date||exam.date===other.exam.date&&(mark.updatedAt||0)>=(other.updatedAt||0);
     if(exam.type==='PB-1'&&exam.date.startsWith(date.slice(0,7))){
@@ -63,14 +68,15 @@ export function pb1Metrics(rows){
   absent:rows.filter(row=>row.current?.absent).length,beforePass:pass('before'),currentPass:pass('current'),
   beforeAverage:average('before'),currentAverage:average('current')};
 }
-export function pb1Risk(rows){
+export function pb1Risk(rows,resultKey='current'){
  const students=new Map();
  for(const row of rows){
   if(!students.has(row.key))students.set(row.key,{name:row.name,scope:row.scope,failed:[],borderline:[],unavailable:[]});
   const student=students.get(row.key);
-  if(row.current?.failed)student.failed.push(row.scope);
-  if(row.current?.borderline)student.borderline.push(row.scope);
-  if(row.current?.percentage==null)student.unavailable.push(row.scope);
+  const result=row[resultKey];
+  if(result?.failed)student.failed.push(row.scope);
+  if(result?.borderline)student.borderline.push(row.scope);
+  if(result?.percentage==null)student.unavailable.push(row.scope);
  }
  return [...students.values()];
 }

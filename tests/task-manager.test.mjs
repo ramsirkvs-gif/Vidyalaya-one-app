@@ -22,13 +22,17 @@ test('PB-1 uses assigned enrolled students, paper maxima, explicit absence and p
  }});
  draft.classes.X.sections={a:section('A'),b:section('B')};
  mission.allocations={a:{classId:'X',sectionId:'a',subjectId:'english',staffId:'X:one'},b:{classId:'X',sectionId:'b',subjectId:'english',staffId:'X:two'}};
- mission.exams={earlier:{name:'October test',classId:'X',type:'test',date:'2026-10-19'}};
- mission.marks={earlier:{studentKey:'X:a:one',subjectId:'english',examId:'earlier',maximum:40,score:12,absent:false}};
+ mission.exams={earlier:{name:'October test',classId:'X',type:'test',date:'2026-10-19'},
+  practice:{name:'English MCQs',classId:'X',type:'test',date:'2026-11-10'}};
+ mission.marks={earlier:{studentKey:'X:a:one',subjectId:'english',examId:'earlier',maximum:40,score:12,absent:false},
+  practice:{studentKey:'X:a:one',subjectId:'english',examId:'practice',maximum:10,score:10,absent:false}};
  await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
  const data=await f.teacher({taskOperation:'pb1-read'});
  assert.equal(data.scopes.length,1);
  assert.equal(data.scopes[0].maximum,80);
  assert.equal(data.rows.length,2);
+ assert.equal(data.rows[0].before.exam,'October test');
+ assert.equal(pb1Risk(data.rows,'before')[0].failed.length,1);
  const save=(entries,extra={})=>f.teacher({taskOperation:'pb1-save',classId:'X',sectionId:'a',subjectId:'english',expectedRevision:0,entries,...extra});
  await assert.rejects(save([{key:'X:b:one',mark:55}]),/enrolled/);
  await assert.rejects(save([{key:'X:a:one',mark:55}],{sectionId:'b'}),/assigned/);

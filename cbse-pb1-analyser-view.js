@@ -26,11 +26,31 @@ function cohortRow(label,rows){
   pct(m.beforeAverage),pct(m.currentAverage),delta(m.beforeAverage,m.currentAverage),
   change==null?'Awaiting comparable results':change>0?'Pass rate increased':change<0?'Pass rate decreased':'Pass rate steady'];
 }
+function renderMarksGraph(parent,grouped){
+ const graph=el('div',undefined,'pb1-marks-graph');
+ for(const [label,rows] of grouped){
+  const article=el('section');article.append(el('h4',label));
+  const paired=rows.filter(row=>row.before?.percentage!=null&&row.current?.percentage!=null);
+  for(const [key,title] of [['before','Previous regular marks'],['current','Preboard 1']]){
+   const scores=(paired.length?paired:rows).flatMap(row=>row[key]?.percentage==null?[]:[row[key].percentage]);
+   const mean=scores.length?scores.reduce((sum,value)=>sum+value,0)/scores.length:null;
+   const line=el('div',undefined,'pb1-graph-line');
+   line.append(el('span',title),el('strong',mean==null?'No appeared marks':pct(mean)+' · '+scores.length+(scores.length===1?' result':' results')));
+   if(mean!=null){
+    const bar=el('progress');bar.max=100;bar.value=mean;bar.setAttribute('aria-hidden','true');
+    line.append(bar);
+   }
+   article.append(line);
+  }
+  graph.append(article);
+ }
+ if(graph.childElementCount)parent.append(graph);else parent.append(el('p','No records match these filters.'));
+}
 export function renderPB1Analyser(host,data,{run,button,save,back,teacher}){
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
  const filters=el('div',undefined,'pb1-filters'),report=el('div'),modes=[
   ['entry','Update PB-1 marks'],['comparison','Compare each student'],['classes','Class and standard comparison'],
-  ['subjects','Subject improvement'],['teachers','Teacher cohort comparison'],['risk','Students needing support'],
+  ['subjects','Subject improvement'],['teachers','Teacher cohort comparison'],['graphs','Marks graphs'],['risk','Students needing support'],
  ];
  let selected='comparison';
  const reportTabs=modes.map(([key,label])=>button(label,()=>{
@@ -46,7 +66,11 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher}){
  const values=(scopes,key)=>[...new Set(scopes.map(info=>info[key]).filter(Boolean))].sort();
  options(classSelect,choices(values(data.scopes,'classId'),'All standards'),'');
  const riskFilter=control(filters,'Support list');
- options(riskFilter,[['','All support cases'],['one','One subject failed'],['multi','Two or more subjects failed'],['border','Borderline pass'],['missing','Absent or missing PB-1']],'');
+ options(riskFilter,[['','All support cases'],['one','One subject failed'],['multi','Two or more subjects failed'],['border','Borderline pass'],['missing','Absent or missing marks']],'');
+ const riskPeriod=control(filters,'Categorize from');
+ options(riskPeriod,[['before','Previous regular marks'],['current','Preboard 1']],data.rows.some(row=>row.current)?'current':'before');
+ const graphBy=control(filters,'Graph by');
+ options(graphBy,[['subject','Subject'],['student','Student and subject']],'subject');
  function restrict(){
   const scopes=data.scopes.filter(info=>!classSelect.value||info.classId===classSelect.value);
   options(sectionSelect,choices(values(scopes,'section'),'All sections'),sectionSelect.value);
@@ -55,7 +79,7 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher}){
  }
  restrict();
  classSelect.onchange=()=>{restrict();drawReport();};
- sectionSelect.onchange=subjectSelect.onchange=teacherSelect.onchange=riskFilter.onchange=drawReport;search.oninput=drawReport;
+ sectionSelect.onchange=subjectSelect.onchange=teacherSelect.onchange=riskFilter.onchange=riskPeriod.onchange=graphBy.onchange=drawReport;search.oninput=drawReport;
  function scopeMatches(info){
   return (!classSelect.value||info.classId===classSelect.value)&&(!sectionSelect.value||info.section===sectionSelect.value)&&(!subjectSelect.value||info.subject===subjectSelect.value)&&(!teacherSelect.value||info.teacher===teacherSelect.value);
  }
@@ -79,7 +103,7 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher}){
    }));
   }else if(selected==='risk'){
    const scopeIds=new Set(rows.map(row=>row.key));
-   const risk=pb1Risk(data.rows.filter(row=>scopeIds.has(row.key))).filter(row=>{
+   const risk=pb1Risk(data.rows.filter(row=>scopeIds.has(row.key)),riskPeriod.value).filter(row=>{
     const {failed,borderline,unavailable}=row;
     return riskFilter.value==='one'?failed.length===1:riskFilter.value==='multi'?failed.length>=2:riskFilter.value==='border'?borderline.length:riskFilter.value==='missing'?unavailable.length:failed.length||borderline.length||unavailable.length;
    });
@@ -88,6 +112,13 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher}){
    table(report,['Student','Class','Failed subjects','Borderline subjects','Absent or missing'],risk.map(row=>{
     const info=data.scopes[row.scope];return [row.name,info.classId+' '+info.section,names(row.failed),names(row.borderline),names(row.unavailable)];
    }));
+  }else if(selected==='graphs'){
+   report.append(el('p','Bars show average percentages. Where both tests have appeared results for the same students, the bars use that matched group. Otherwise each bar shows its available marks.'));
+   const by=groups(rows,row=>{
+    const info=data.scopes[row.scope],paper=info.classId+' '+info.section+' · '+info.subject;
+    return graphBy.value==='student'?row.name+' · '+paper:paper;
+   });
+   renderMarksGraph(report,by);
   }else{
    const info=row=>data.scopes[row.scope];
    if(selected==='classes'){
@@ -157,7 +188,8 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher}){
   content.replaceChildren();
   if(selected==='entry'){drawEntry();return;}
   riskFilter.parentElement.hidden=selected!=='risk';
-  content.append(el('p','Changes use matching appeared results for each student and subject. AB and missing marks are excluded from comparisons.'),filters,report);
+  riskPeriod.parentElement.hidden=selected!=='risk';graphBy.parentElement.hidden=selected!=='graphs';
+  content.append(el('p','Uses regular Mission 100 marks and Preboard 1. MCQ results are excluded. Comparisons use matching appeared results.'),filters,report);
   drawReport();
  }
  drawMode();

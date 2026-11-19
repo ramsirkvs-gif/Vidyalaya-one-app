@@ -96,3 +96,9 @@
 .pb1-table th{position:sticky;top:0;background:#e5efec;z-index:1}
 .pb1-table tr:nth-child(even){background:#f6f9f8}
 .pb1-table input{width:7rem;min-width:0}
+.pb1-marks-graph{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,17rem),1fr));gap:.7rem}
+.pb1-marks-graph article{border:1px solid #c7ded9;border-radius:.6rem;background:#f6faf8;padding:.75rem}
+.pb1-marks-graph h4{margin:0 0 .65rem}
+.pb1-graph-line{display:grid;grid-template-columns:1fr auto;gap:.15rem .5rem;font-size:.85rem;margin:.5rem 0}
+.pb1-graph-line progress{grid-column:1/-1;width:100%;accent-color:#226c8e}
+.pb1-graph-line:nth-of-type(2) progress{accent-color:#177463}
