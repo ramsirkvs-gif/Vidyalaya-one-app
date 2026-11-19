@@ -47,7 +47,11 @@
 @media screen and (max-width:600px){.presentation-summary-row,.presentation-summary-row.has-comparison{grid-template-columns:1fr}.presentation-summary-box{padding:12px;gap:8px}.presentation-summary-box h4{font-size:14px}.presentation-summary-box .presentation-attendance-strip,.presentation-comparison-box table{font-size:12px}.presentation-comparison-box th,.presentation-comparison-box td{padding:6px 3px}.presentation-summary-row>.presentation-staffing-card{min-height:120px}.presentation-summary-row>.presentation-staffing-card h4{font-size:14px}}
 
 .task-register td:last-child{white-space:nowrap}
-.task-monitoring-sheet td{min-width:11rem;vertical-align:top}
-.task-monitoring-sheet textarea{box-sizing:border-box;width:100%;min-height:3.5rem;margin:0;resize:vertical;font:inherit}
-.task-monitoring-sheet output{display:block;font-weight:bold;padding-inline:.25rem}
-.task-monitoring-sheet output:empty{display:none}
+.task-monitoring-sheet td{vertical-align:top}
+.task-monitoring-sheet{font-size:.88rem}
+.task-monitoring-sheet td,.task-monitoring-sheet th{min-width:0;padding:.35rem .5rem;white-space:pre-wrap}
+.task-monitoring-sheet td{min-width:5.5rem}
+.task-monitoring-sheet .task-monitoring-caption{font-size:1rem;text-align:left;text-transform:none}
+.task-monitoring-cell{min-height:1.45em;outline-offset:2px;overflow-wrap:anywhere;cursor:text}
+.task-monitoring-cell:focus{outline:2px solid #197363;background:#fff}
+.task-monitoring [aria-pressed=true]{background:#d9eee7}

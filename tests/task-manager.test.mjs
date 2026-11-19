@@ -28,6 +28,16 @@ test('Task 2 workbook stays private and saves editable cells with revision check
  assert.equal((await save(1)).monitoring.revision,2);
  assert.deepEqual((await f.admin({operation:'monitoring-read'})).monitoring.sheets,sheets);
  assert.deepEqual(await f.service('task-read'),{tasks:{}});
+ await f.admin({operation:'monitoring-publish',expectedRevision:2});
+ await assert.rejects(f.service('task-read',{operation:'monitoring-read'}),/viewing password/);
+ const {viewerToken}=await f.service('remember-view',{},'principal');
+ const staffRead=()=>f.service('task-read',{operation:'monitoring-read'},'','test',{viewerToken});
+ assert.equal((await staffRead()).monitoring.sheets[0][5][4],'Teacher Two');
+ sheets[0][5][4]='Private edit';sheets[0].forEach(row=>row.push(''));sheets[0].push(Array(9).fill(''));
+ await save(3);
+ assert.equal((await staffRead()).monitoring.sheets[0][5][4],'Teacher Two');
+ await f.admin({operation:'monitoring-unpublish',expectedRevision:4});
+ await assert.rejects(staffRead(),/no longer published/);
 });
 const remark=lead=>lead+" "+'These are synthetic class-level observations for testing the survey. Regular practice, accessible materials, guided revision, and coordinated support may improve participation. Teachers can review progress weekly, discuss general learning barriers, provide clear feedback, and adjust classroom activities. No student names, identifying family details, private health information, or real school records are included.';
 const report={examContext:'Synthetic preboard',passed:20,failed:4,ptms:40,firstGeneration:null};

@@ -4,7 +4,7 @@ import {importTaskFiguresCSV,importTaskStrengthWorkbook,taskFiguresTemplate,deco
 import {TASK_CLASSES,TASK_AVAILABLE_CLASSES,TASK_PRIMARY_CLASSES,taskClasses,TASK_PRIORITIES,TASK_HEADERS,TASK_REPORT_COMMENTS,taskHeader,taskQuestions,taskQuestionLabels,taskCompatibleValues,taskSummary,taskQuestionIsWritten,taskQuestionWording,taskRemarkWordCount} from './cbse-task-manager-model.js';
 import {el,options} from './cbse-ui.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
-import {MONITORING_TITLE,MONITORING_SHEETS,validateMonitoringSheets,monitoringFormula} from './cbse-task-workbook.js';
+import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
 const host=document.getElementById('task-content'),nav=document.getElementById('task-nav'),status=document.getElementById('task-status');
 const OVERALL_COMMENT_LABEL='Overall situation — comments by CT / Prime mentor / Survey IC';
 let suppliedFigures=null,suppliedFiguresError='';const entryParams=new URLSearchParams(location.hash.slice(1));if(entryParams.has('figures')){try{suppliedFigures=decodePreparedTaskFigures(entryParams.get('figures'));}catch(error){suppliedFiguresError=error.message;}history.replaceState(null,'','#principal');}
@@ -33,7 +33,7 @@ function catalogue(parent){
   title:t.draft.title,updatedAt:Math.max(t.updatedAt||t.createdAt||0,...Object.values(t.reports||{}).map(report=>report.updatedAt||0)),state:t.published?'Published':'Draft',
   open:()=>openPrincipalTask(id,t),
  }));
- list.push({title:MONITORING_TITLE,updatedAt:store.monitoringUpdatedAt||0,state:store.monitoringUpdatedAt?'Private':'Awaiting workbook',open:openMonitoring});
+ list.push({title:MONITORING_TITLE,updatedAt:store.monitoringUpdatedAt||0,state:'Monitoring',open:openMonitoring});
  list.sort((a,b)=>b.updatedAt-a.updatedAt);
  const scroll=el('div',undefined,'task-scroll'),table=el('table',undefined,'task-totals task-register');
  const head=table.createTHead().insertRow(),body=table.createTBody();
@@ -62,66 +62,109 @@ async function openMonitoring(){
  const {monitoring}=await request({action:'task-principal',operation:'monitoring-read'},true);
  drawMonitoring(monitoring);
 }
-function drawMonitoring(record,importedSheets){
- const card=el('section',undefined,'task-card'),editor=form();
- const sheets=importedSheets||record?.sheets;
- host.replaceChildren(button('Back to task list',()=>{if(discard())drawPrincipal();}),card);
- card.append(el('h2',MONITORING_TITLE));
- if(!sheets){
-  const file=field(editor,'Pre-Samagam Excel workbook','monitoring-workbook','file');
-  file.accept='.xlsx';file.required=true;
-  editor.append(el('button','Load workbook'));
-  editor.onsubmit=event=>{event.preventDefault();run(async()=>{
-   const {ExcelJS,JSZip}=await taskExcel();
-   const workbook=await loadTaskWorkbook(await file.files[0].arrayBuffer(),ExcelJS,JSZip);
-   const values=MONITORING_SHEETS.map(({name,rows,columns})=>{
-    const sheet=workbook.getWorksheet(name);
-    if(!sheet||sheet.actualRowCount>rows||sheet.actualColumnCount>columns)throw Error('Choose the supplied Pre-Samagam workbook.');
-    return Array.from({length:rows},(_,r)=>Array.from({length:columns},(_,c)=>{
-     const cell=sheet.getCell(r+1,c+1);
-     if(cell.isMerged&&cell.master!==cell)return '';
-     return cell.formula?'='+cell.formula:cell.text;
-    }));
-   });
-   drawMonitoring(null,validateMonitoringSheets(values));
-  });};
- }else{
-  const actions=el('div',undefined,'task-actions'),scroll=el('div',undefined,'task-scroll');
-  const save=el('button','Save workbook');
-  const tabs=MONITORING_SHEETS.map(({name},index)=>button(name,()=>drawSheet(index)));
-  actions.append(...tabs,save);
-  function drawSheet(index){
-   tabs.forEach((tab,position)=>tab.setAttribute('aria-pressed',String(position===index)));
-   const sheet=sheets[index],table=el('table',undefined,'task-totals task-monitoring-sheet');
-   table.setAttribute('aria-label',MONITORING_SHEETS[index].name);
-   const header=table.createTHead().insertRow(),body=table.createTBody(),calculated=[];
-   header.append(el('th','#'));
-   for(let c=0;c<MONITORING_SHEETS[index].columns;c++)header.append(el('th',String.fromCharCode(65+c)));
-   sheet.forEach((values,r)=>{
-    const row=body.insertRow();row.append(el('th',String(r+1)));
-    values.forEach((value,c)=>{
-     const cell=row.insertCell(),input=el('textarea'),result=el('output');
-     input.rows=2;input.maxLength=500;input.value=value;
-     input.setAttribute('aria-label',String.fromCharCode(65+c)+(r+1));
-     input.oninput=()=>{values[c]=input.value;editor.dataset.portalDirty='true';};
-     input.onchange=refresh;
-     calculated.push(()=>{result.textContent=String(monitoringFormula(values[c],sheets,index));});
-     cell.append(input,result);
-    });
-   });
-   function refresh(){calculated.forEach(update=>update());}
-   refresh();scroll.replaceChildren(table);
-  }
-  drawSheet(0);
-  editor.append(actions,scroll);
-  if(importedSheets)editor.dataset.portalDirty='true';
-  let revision=record?.revision||0;
-  editor.onsubmit=event=>{event.preventDefault();run(async()=>{
-   const {monitoring}=await request({action:'task-principal',operation:'monitoring-save',expectedRevision:revision,sheets},true);
-   revision=monitoring.revision;store.monitoringUpdatedAt=monitoring.updatedAt;
-   editor.dataset.portalDirty='false';message('Task 2 workbook saved.');
-  });};
+async function openPublishedMonitoring(passwordValue){
+ try{
+  if(passwordValue!==undefined)await request({action:'view-login',password:passwordValue});
+  const {monitoring}=await request({action:'task-read',operation:'monitoring-read'});
+  drawMonitoring(monitoring,{staffView:true});
+ }catch(error){
+  if(!error.curtainRequired&&passwordValue===undefined)throw error;
+  if(passwordValue!==undefined)throw error;
+  const login=form(),password=field(login,'Staff viewing password','monitoring-password','password');
+  password.required=true;
+  login.append(el('button','Open published plan'));
+  login.onsubmit=event=>{event.preventDefault();const secret=password.value;password.value='';run(()=>openPublishedMonitoring(secret));};
+  host.replaceChildren(button('Back to task list',drawStaff),el('h2',MONITORING_TITLE),login);
  }
+}
+function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
+ const sheets=structuredClone(record.sheets),editor=form(),scroll=el('div',undefined,'task-scroll');
+ const card=el('section',undefined,'task-card task-monitoring'),actions=el('div',undefined,'task-actions');
+ const back=staffView?drawStaff:drawPrincipal;
+ host.replaceChildren(button('Back to task list',()=>{if(discard())back();}),card);
+ card.append(el('h2',MONITORING_TITLE));
+ const publication=record.published?.updatedAt;
+ if(!staffView)card.append(el('p',publication?'Published copy available to staff.':'Private draft'));
+ const tabs=MONITORING_SHEETS.map(({name},position)=>button(name,()=>drawSheet(position)));
+ actions.append(...tabs);
+ const markDirty=()=>{editor.dataset.portalDirty='true';};
+ async function update(operation){
+  const {monitoring}=await request({action:'task-principal',operation,expectedRevision:record.revision,...(operation==='monitoring-save'?{sheets}:{})},true);
+  store.monitoringUpdatedAt=monitoring.updatedAt;
+  editor.dataset.portalDirty='false';
+  drawMonitoring(monitoring,{index});
+  message({'monitoring-save':'Draft saved.','monitoring-publish':'Plan published to staff.','monitoring-unpublish':'Publication stopped.'}[operation]);
+ }
+ if(editing){
+  actions.append(button('Add row',()=>{
+   const sheet=sheets[index],length=sheet.length;
+   if(length>=MONITORING_LIMITS.rows)throw Error('This sheet has reached its row limit.');
+   sheet.push(Array(sheet[0].length).fill(''));
+   if(index===0){
+    const range=new RegExp("('Evaluation Plan'!\\$?[A-L]\\$?\\d+:\\$?[A-L]\\$?)"+length+"(?=[,)])",'gi');
+    for(const row of sheets[1])for(let c=0;c<row.length;c++)if(row[c].startsWith('='))row[c]=row[c].replace(range,(_,prefix)=>prefix+(length+1));
+   }
+   markDirty();drawSheet(index);scroll.querySelector('tbody tr:last-child [contenteditable]')?.focus();
+  }),button('Add column',()=>{
+   const sheet=sheets[index],width=sheet[0].length;
+   if(width>=MONITORING_LIMITS.columns)throw Error('This sheet has reached its column limit.');
+   sheet.forEach(row=>row.push(''));
+   const headingCell=String.fromCharCode(65+width)+(index===0?5:8);
+   markDirty();drawSheet(index);scroll.querySelector('[aria-label="'+headingCell+'"]')?.focus();
+  }),el('button','Save draft'),button('Cancel edits',()=>{if(discard())drawMonitoring(record,{index});}));
+ }else if(!staffView){
+  actions.append(button('Edit cells',()=>drawMonitoring(record,{index,editing:true})),
+   button(publication?'Update published plan':'Publish plan',async()=>{
+    if(confirm('Publish this saved plan for staff with viewing access?'))await update('monitoring-publish');
+   }));
+  if(publication)actions.append(button('Stop publication',async()=>{
+   if(confirm('Remove the published Task 2 plan from Staff View?'))await update('monitoring-unpublish');
+  }));
+ }
+ function drawSheet(position){
+  index=position;
+  tabs.forEach((tab,i)=>tab.setAttribute('aria-pressed',String(i===index)));
+  const sheet=sheets[index],table=el('table',undefined,'task-totals task-monitoring-sheet');
+  table.setAttribute('aria-label',MONITORING_SHEETS[index].name);
+  const body=table.createTBody(),restore=[];
+  const display=value=>value.startsWith('=')?monitoringFormula(value,sheets,index):value;
+  const width=sheet[0].length;
+  if(editing){
+   const heading=table.createTHead().insertRow();heading.append(el('th','#'));
+   for(let c=0;c<width;c++)heading.append(el('th',String.fromCharCode(65+c)));
+  }
+  sheet.forEach((values,r)=>{
+   const spacer=index===0?r===3:[2,5,6].includes(r);
+   if(!values.some(Boolean)&&(!editing||spacer))return;
+   const row=body.insertRow();
+   if(!editing&&(index===0?r<3:r<2)&&values[0]&&values.slice(1).every(value=>!value)){
+    const heading=el('th',values[0],'task-monitoring-caption');heading.colSpan=width;row.append(heading);return;
+   }
+   const header=index===0?r===4:r===3||r===7;
+   if(editing)row.append(el('th',String(r+1)));
+   values.forEach((value,c)=>{
+    const cell=el(!editing&&header?'th':'td');row.append(cell);
+    if(!editing){cell.textContent=display(value);return;}
+    const input=el('div',String(display(value)),'task-monitoring-cell');
+    input.contentEditable='plaintext-only';input.setAttribute('role','textbox');
+    input.setAttribute('aria-label',String.fromCharCode(65+c)+(r+1));
+    input.onfocus=()=>{input.textContent=values[c];};
+    input.oninput=()=>{
+     const next=input.innerText.slice(0,500);
+     if(input.innerText.length>500)input.textContent=next;
+     values[c]=next;markDirty();
+    };
+    input.onkeydown=event=>{if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();input.blur();}};
+    input.onblur=()=>{restore.forEach(refresh=>refresh());};
+    restore.push(()=>{if(document.activeElement!==input)input.textContent=display(values[c]);});
+    cell.append(input);
+   });
+  });
+  scroll.replaceChildren(table);
+ }
+ drawSheet(index);
+ editor.append(actions,scroll);
+ editor.onsubmit=event=>{event.preventDefault();if(editing)run(()=>update('monitoring-save'));};
  card.append(editor);
 }
 function drawPrincipal(){if(suppliedFigures&&Object.hasOwn(store.tasks||{},suppliedFigures.taskId)){const task=store.tasks[suppliedFigures.taskId];task.draft.headers={...task.draft.headers,...suppliedFigures.headers};task.summary=taskSummary(task);}host.replaceChildren(el('h2','Create and manage tasks'));host.append(el('p','1. Create task → 2. Select classes → 3. Assign teachers → 4. Prepare shared questions → 5. Save and publish → 6. Track submissions.','task-flow-guide'));
@@ -189,7 +232,12 @@ function teacherTaskHeading(task,tag='h2'){const heading=el(tag,undefined,'task-
 function drawStaff(){
  host.replaceChildren(el('h2','Published tasks'),el('p','The mentor list and submission status are open to everyone. Click Start & Submit Now for your class, then verify your existing personal PIN to open the questionnaire.'));
  host.append(button('Refresh status',async()=>{await load();}));
- if(!Object.keys(store.tasks||{}).length){host.append(el('p','No tasks are currently published.'));return;}
+ if(store.monitoringPublishedAt){
+  const plan=el('section',undefined,'task-card');
+  plan.append(el('h3',MONITORING_TITLE),button('Open published plan',()=>openPublishedMonitoring()));
+  host.append(plan);
+ }
+ if(!store.monitoringPublishedAt&&!Object.keys(store.tasks||{}).length){host.append(el('p','No tasks are currently published.'));return;}
  for(const [id,t]of Object.entries(store.tasks)){const card=el('section',undefined,'task-card task-public-card');card.append(teacherTaskHeading(t),el('p',t.priority+(t.deadline?' · Deadline: '+t.deadline:'')));const table=el('table',undefined,'task-public-list'),thead=el('thead'),heading=el('tr');for(const label of ['SN','Class','Prime mentor / Survey IC','Tech / analytical support','Status','Action'])heading.append(el('th',label));thead.append(heading);table.append(thead);const tbody=el('tbody');
   for(const row of t.rows||[]){const tr=el('tr');tr.dataset.taskClass=row.classId;for(const [label,value]of [['SN',row.number],['Class',row.classId],['Prime mentor / Survey IC',row.mentor],['Tech / analytical support',row.support||'—'],['Status',row.status]]){const td=el('td',label==='Status'&&value==='Submitted'?'✓ Submitted':String(value));td.dataset.label=label;if(label==='Status')td.className=row.status==='Submitted'?'task-row-submitted':'task-row-pending';tr.append(td);}const action=el('td'),start=button('Start & Submit Now',()=>startSurvey(id,row));action.dataset.label='Action';if(!row.staffId){start.disabled=true;action.append(el('small','Principal assignment needed'));}action.append(start);tr.append(action);tbody.append(tr);}table.append(tbody);card.append(table);host.append(card);
  }

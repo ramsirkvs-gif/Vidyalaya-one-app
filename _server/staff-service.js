@@ -2,6 +2,7 @@ import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
 import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList,minuteLanguages} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {validateMonitoringSheets} from '../cbse-task-workbook.js';
+import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
 import {primaryDirectory,primaryStaffEntry} from '../cbse-primary-roster.js';
@@ -111,23 +112,40 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal';if(admin)await principal(token);
    const monitoringPath='cbse/taskMonitoring';
-   if(admin&&input.operation==='monitoring-read')return {monitoring:await read(monitoringPath)};
-   if(admin&&input.operation==='monitoring-save'){
+   if(!admin&&input.operation==='monitoring-read'){
+    const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
+    if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}
+    const published=await read(monitoringPath+'/published');
+    if(!published)throw new AccessError('The monitoring plan is no longer published.',404);
+    return {monitoring:published};
+   }
+   if(admin&&input.operation==='monitoring-read')return {monitoring:await read(monitoringPath)||{sheets:TASK_MONITORING_SEED,revision:0}};
+   if(admin&&['monitoring-save','monitoring-publish','monitoring-unpublish'].includes(input.operation)){
+    const saving=input.operation==='monitoring-save';
     let sheets;
-    try{sheets=validateMonitoringSheets(input.sheets);}
+    try{if(saving)sheets=validateMonitoringSheets(input.sheets);}
     catch(error){throw new AccessError(error.message,400);}
     const known=await read(monitoringPath+'/revision');
     const result=await mcqTransaction(db,monitoringPath,current=>{
      if(current===null&&known)return null;
      if(input.expectedRevision!==(current?.revision||0))return;
-     return {sheets,revision:(current?.revision||0)+1,updatedAt:now()};
+     if(input.operation==='monitoring-unpublish'&&!current?.published)return;
+     const updatedAt=now(),revision=(current?.revision||0)+1;
+     if(saving)return {...current,sheets,revision,updatedAt};
+     const draft=current?.sheets||TASK_MONITORING_SEED;
+     const published=input.operation==='monitoring-publish'?{sheets:draft,updatedAt}:null;
+     return {...current,sheets:draft,published,revision,updatedAt};
     },{restTransaction});
     if(!result.committed||!result.snapshot.val())throw new AccessError('Task 2 changed. Reopen it before saving again.',409);
     return {monitoring:result.snapshot.val()};
    }
    const staff=await directoryStaff(),actor={principal:admin,ids:[]};
    const directory=Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active').map(([id,p])=>[id,{name:p.name,status:p.status}]));
-   const stored=withTaskExamParticipation(taskRosterStore(await read('cbse/taskManager'),staff,rollStaffIdentityIds));if(!admin)return taskCatalogue(stored,staff,TASK1_ROSTER);
+   const stored=withTaskExamParticipation(taskRosterStore(await read('cbse/taskManager'),staff,rollStaffIdentityIds));if(!admin){
+    const catalogue=taskCatalogue(stored,staff,TASK1_ROSTER);
+    const monitoringPublishedAt=await read(monitoringPath+'/published/updatedAt');
+    return monitoringPublishedAt?{...catalogue,monitoringPublishedAt}:catalogue;
+   }
    const monitoringUpdatedAt=await read(monitoringPath+'/updatedAt');
    if(!input.operation||input.operation==='read')return {...taskView(stored,actor),staff:directory,classFigures:stored.classFigures||{},monitoringUpdatedAt};
    let reason='';const id='task_'+randomUUID().replaceAll('-',''),known=await read('cbse/taskManager');
