@@ -111,10 +111,11 @@ function drawMonitoringSettings(record,index){
  });};
  card.append(editor);
 }
-function openMonitoringStep(record,key,staffView,allowUpdate=true){
+function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate){
  const entry=(staffView?record:record.published).assignments[key],progress=record.progress?.[key];
  const stage=monitoringStage(progress),step=MONITORING_STEPS[stage],dialog=el('dialog',undefined,'task-start-dialog');
  dialog.append(el('h2',entry.subject+' · '+entry.section));
+ if(practiceUpdate)dialog.append(el('p','Mock practice · no real status will change.','task-monitoring-notice'));
  if(staffView&&step?.label==='Samagam upload')dialog.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
  for(const item of progress?.history||[]){
   dialog.append(el('p',item.label+' · '+item.name+' · '+new Date(item.at).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})));
@@ -131,11 +132,13 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true){
   for(const input of [person,outcome,pin])input.required=true;
   outcome.onchange=()=>{remark.required=step.role==='exam'||outcome.value==='return';};outcome.onchange();
   const errorText=el('p',undefined,'task-error');errorText.setAttribute('role','status');
-  editor.append(el('button','Save status'),errorText);dialog.append(editor);
+  editor.append(el('button',practiceUpdate?'Save practice status':'Save status'),errorText);dialog.append(editor);
   editor.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(async()=>{
    try{
-    await request({action:'pin-submit',operation:'task-manager',taskOperation:'monitoring-update',staffId:person.value,pin:secret,rowKey:key,publicationRevision:record.revision,expectedRevision:progress?.revision||0,outcome:outcome.value,remark:remark.value});
-    dialog.close();await openPublishedMonitoring();message('Status saved.');
+    const result=await request({action:'pin-submit',operation:'task-manager',taskOperation:practiceUpdate?'monitoring-practice':'monitoring-update',staffId:person.value,pin:secret,rowKey:key,publicationRevision:record.revision,expectedRevision:progress?.revision||0,stage,outcome:outcome.value,remark:remark.value});
+    dialog.close();
+    if(practiceUpdate){practiceUpdate(result);message('Practice status saved.');}
+    else{await openPublishedMonitoring();message('Status saved.');}
    }catch(error){errorText.textContent=error.message;}
   });};
  }else if(staffView&&allowUpdate&&step)dialog.append(el('p','Awaiting a Principal assignment for '+step.label+'.'));
@@ -195,9 +198,21 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
  card.append(el('h2',MONITORING_TITLE));
  if(staffView)card.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
  const publication=record.published?.updatedAt;
+ let practice=null;
+ const practiceNotice=el('p','Mock practice · use your own PIN. These changes stay in this tab.','task-monitoring-notice');
+ if(staffView){practiceNotice.hidden=true;card.append(practiceNotice);}
  if(!staffView)card.append(el('p',publication?'Published copy available to staff.':'Private draft'));
  const tabs=MONITORING_SHEETS.map(({name},position)=>button(name,()=>drawSheet(position)));
  actions.append(...tabs);
+ if(staffView&&record.assignments){
+  const toggle=button('Mock practice with PIN',()=>{
+   practice=practice?null:{};
+   practiceNotice.hidden=!practice;reset.hidden=!practice;
+   toggle.textContent=practice?'Exit mock practice':'Mock practice with PIN';redrawSheet();
+  });
+  const reset=button('Reset practice',()=>{practice={};redrawSheet();message('Practice reset.');});
+  reset.hidden=true;actions.append(toggle,reset);
+ }
  const markDirty=()=>{editor.dataset.portalDirty='true';};
  async function update(operation){
   const {monitoring}=await request({action:'task-principal',operation,expectedRevision:record.revision,...(operation==='monitoring-save'?{sheets}:{})},true);
@@ -245,7 +260,8 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
   const width=sheet[0].length;
   const columnOrder=Array.from({length:width},(_,column)=>column);
   if(index===0&&!editing)columnOrder.splice(6,2,7,6);
-  const workflow=!editing&&index===0&&(staffView?record:record.published);
+  const viewRecord=practice?{...record,progress:practice}:record;
+  const workflow=!editing&&index===0&&(staffView?viewRecord:record.published);
   if(workflow)table.classList.add('task-monitoring-workflow');
   if(editing){
    const heading=table.createTHead().insertRow();heading.append(el('th','#'));
@@ -260,7 +276,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
    const header=index===0?r===4:r===3||r===7;
    const row=!editing&&index===0&&header?table.createTHead().insertRow():body.insertRow();
    const entry=workflow&&r>4?workflow.assignments?.['row_'+values[0]]:null;
-   const progress=entry?record.progress?.['row_'+values[0]]:null;
+   const progress=entry?viewRecord.progress?.['row_'+values[0]]:null;
    if(editing)row.append(el('th',String(r+1)));
    columnOrder.forEach(c=>{
     const value=values[c];
@@ -307,13 +323,21 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
      const latest=progress?.history?.at(-1)?.label;
      if(current&&latest&&MONITORING_STEPS.some(stage=>stage.options.some(([value,label])=>value==='return'&&label===latest)))
       cell.append(el('span',latest));
-     if(current&&staffView)cell.append(button('Update status',()=>openMonitoringStep(record,key,true)));
+     const practiceUpdate=practice?({stage,event})=>{
+      practice[key]={stage,separateMatching:true,history:[...(progress?.history||[]),event]};
+      redrawSheet();
+     }:undefined;
+     if(current&&staffView)cell.append(button(practice?'Practise status update':'Update status',()=>openMonitoringStep(viewRecord,key,true,true,practiceUpdate)));
      if(position===Math.min(stage,MONITORING_STEPS.length-1)&&progress?.history?.length)
-      cell.append(button('View history',()=>openMonitoringStep(record,key,staffView,false)));
+      cell.append(button('View history',()=>openMonitoringStep(viewRecord,key,staffView,false,practiceUpdate)));
     });
    }
   });
   scroll.replaceChildren(table);
+ }
+ function redrawSheet(){
+  const {scrollTop,scrollLeft}=scroll;
+  drawSheet(index);scroll.scrollTop=scrollTop;scroll.scrollLeft=scrollLeft;
  }
  drawSheet(index);
  editor.append(actions,scrollHint,scroll);

@@ -55,6 +55,13 @@ test('Task 2 tracks PIN-gated handoffs, corrections and authorized Exam closure 
  const submit=(staff,expectedRevision,outcome='advance',remark='',publicationRevision=3)=>f.service('pin-submit',{
   operation:'task-manager',taskOperation:'monitoring-update',staffId:'X:'+staff,pin:staff==='one'?'123':'456',rowKey:'row_1',publicationRevision,expectedRevision,outcome,remark,
  },'','test',session);
+ const practice=(staff,pin)=>f.service('pin-submit',{
+  operation:'task-manager',taskOperation:'monitoring-practice',staffId:'X:'+staff,pin,rowKey:'row_1',publicationRevision:3,stage:0,outcome:'advance',
+ },'','test',session);
+ await assert.rejects(practice('one','000'),/PIN/);
+ await assert.rejects(practice('two','456'),/another staff member/);
+ assert.equal((await practice('one','123')).stage,1);
+ assert.equal(f.data.cbse.taskMonitoring.progress,undefined);
  await assert.rejects(submit('two',0),/another staff member/);
  await submit('one',0);
  await submit('two',1,'return','Recheck totals');

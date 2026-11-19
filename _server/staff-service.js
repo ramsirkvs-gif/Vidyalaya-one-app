@@ -372,14 +372,25 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    if(!pinIdentity)throw new AccessError('Verify your existing personal PIN.',403);
    const id=pinIdentity.decoded.staffId,staff=await directoryStaff(),access=await read('cbse/staffAccess/'+id);
    if(!access?.enabled||access.version!==pinIdentity.access.version||staff[id]?.status!=='active')throw new AccessError('Staff access changed. Verify your PIN again.',403);
-   if(input.taskOperation==='monitoring-update'){
+   if(['monitoring-update','monitoring-practice'].includes(input.taskOperation)){
     const curtain=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
     if(curtain?.error){const error=new AccessError(curtain.error,curtain.status);error.curtainRequired=true;throw error;}
-    const path='cbse/taskMonitoring',known=await read(path+'/revision');
+    const path='cbse/taskMonitoring',actor={id,name:staff[id].name};
+    if(input.taskOperation==='monitoring-practice'){
+     if(typeof input.rowKey!=='string'||!/^row_[1-9]\d{0,5}$/.test(input.rowKey)||!Number.isInteger(input.stage)||input.stage<0)
+      throw new AccessError('Choose a valid practice step.',400);
+     const published=await read(path+'/published');
+     const mock={published,progress:{[input.rowKey]:{stage:input.stage,separateMatching:true,revision:0,history:[]}}};
+     try{
+      const result=monitoringAdvance(mock,{...input,expectedRevision:0},actor,now()).progress[input.rowKey];
+      return {ok:true,stage:result.stage,event:result.history[0]};
+     }catch(error){throw new AccessError(error.message,409);}
+    }
+    const known=await read(path+'/revision');
     let reason;
     const result=await mcqTransaction(db,path,current=>{
      if(current===null&&known)return null;
-     try{return monitoringAdvance(current||{},input,{id,name:staff[id].name},now());}
+     try{return monitoringAdvance(current||{},input,actor,now());}
      catch(error){reason=error.message;return;}
     },{restTransaction});
     if(!result.committed||!result.snapshot.val())throw new AccessError(reason||'The status could not be saved.',409);
