@@ -4,7 +4,9 @@ body{margin:0;padding:clamp(.65rem,3vw,2rem)}
 .meeting-letterhead{display:grid;grid-template-columns:clamp(2.75rem,13vw,6rem) minmax(0,1fr) clamp(2.75rem,13vw,6rem);gap:.9rem;align-items:center;text-align:center;padding:.9rem 0 1.1rem;border-bottom:2px solid #a9bdb2}
 .meeting-letterhead img{width:100%;height:clamp(2.75rem,12vw,5rem);object-fit:contain}
 .meeting-letterhead h1{font-size:clamp(1.3rem,4vw,2.4rem);margin:.4rem 0 0}
-.meeting-letterhead p{margin:0;font-weight:bold}
+.meeting-letterhead p{margin:0;font-weight:bold;line-height:1.45;overflow-wrap:anywhere}
+.meeting-letterhead p+p{margin-top:.3rem}
+.meeting-notepad [lang=hi]{font-family:"Noto Serif Devanagari","Noto Sans Devanagari",Mangal,serif}
 .meeting-actions{display:flex;align-items:center;flex-wrap:wrap;gap:.75rem 1.25rem}
 .meeting-actions a{color:#164f42;margin-right:auto}
 button,input,textarea,select{font:inherit;color:inherit}
@@ -22,7 +24,7 @@ textarea{resize:vertical}
 .meeting-attendance th,.meeting-attendance td{text-align:left;border:1px solid #bdcfc4;padding:.5rem;overflow-wrap:anywhere}
 .meeting-attendance th{background:#eaf1ec}
 .meeting-attendance select{max-width:100%}
-.meeting-minutes-text{white-space:pre-wrap;line-height:1.55;overflow-wrap:anywhere}
+.meeting-minutes-text{white-space:pre-wrap;line-height:1.65;overflow-wrap:anywhere}
 .meeting-signature{min-width:6rem}
 .meeting-error{color:#9a2a27}
 @media print{
@@ -32,8 +34,11 @@ textarea{resize:vertical}
  .meeting-notepad{max-width:none;margin:0;padding:0;background:#fff;border:0;box-shadow:none}
  .no-print{display:none!important}
  .meeting-attendance tr{break-inside:avoid}
+ .meeting-attendance thead{display:table-header-group}
  .meeting-signature{height:2rem}
- h1,h2,h3{break-after:avoid}
+ .meeting-letterhead{break-inside:avoid}
+ h1,h2,h3,h4{break-after:avoid}
+ .meeting-minutes-text{orphans:3;widows:3}
 }
 
 .meeting-writer-row label{flex:1 1 14rem;min-width:0}
@@ -43,8 +48,10 @@ textarea{resize:vertical}
 .meeting-setup button{margin:.35rem .65rem .35rem 0}
 .meeting-setup .meeting-actions button{margin-inline:0}
 .meeting-report-version{border-bottom:1px solid #bdcfc4;padding:.35rem 0 .75rem}
-.meeting-signatures{margin-top:1.2rem;break-inside:avoid}
-.meeting-signatures p{margin:1rem 0}
+.meeting-signatures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:clamp(.75rem,4vw,2.5rem);margin:1.2rem 0 .65rem;line-height:1.45;break-inside:avoid}
+.meeting-signature-block{overflow-wrap:anywhere;padding-top:2.5rem}
+.meeting-signature-block strong{display:block;border-top:1px solid;padding-top:.4rem}
+.meeting-signature-name{min-height:1.45em}
 
 .meeting-notepad .roll-objection-teacher-table input[type=checkbox]{margin:auto}
 .meeting-notepad .roll-objection-sections label{display:flex;flex-direction:row;align-items:center;margin:0}

@@ -274,13 +274,30 @@ function showEditor(meeting,identity){
  };
  content.append(form);
 }
+function reportSignatures(label,name,language='en'){
+ const signatures=el('div',undefined,'meeting-signatures');
+ const signer=el('div',undefined,'meeting-signature-block');
+ const principal=el('div',undefined,'meeting-signature-block');
+ const school=document.querySelector(`.meeting-letterhead p[lang="${language}"]`).textContent;
+ signer.append(el('strong',label),el('div',name||'','meeting-signature-name'));
+ principal.append(el('strong',language==='hi'?'प्राचार्य':'Principal'),el('div',school));
+ signatures.append(signer,principal);
+ return signatures;
+}
 async function showReport(id,principal=false){
  const {report}=await (principal?principalRequest({meetingOperation:'read',task:'report',meetingId:id}):staffRead(id));
  content.replaceChildren(el('h2','Staff meeting report'),el('p',stamp(report.scheduledAt??report.createdAt)));
- for(const version of report.versions){
+ for(const [language] of minuteLanguages){
+  const version=report.versions.find(entry=>entry.language===language);
+  if(!version)continue;
   const section=el('section',undefined,'meeting-report-version');section.lang=version.language;
   const hindi=version.language==='hi';
-  section.append(el('h3',hindi?'हिन्दी कार्यवृत्त':'English minutes'),el('h4',version.agenda,'meeting-minutes-text'),el('p',version.minutes,'meeting-minutes-text'),el('p',(hindi?'कार्यवृत्त लेखक: ':'Minute writer: ')+version.writerName));
+  section.append(
+   el('h3',hindi?'कार्यवृत्त (हिन्दी)':'Minutes (in English)'),
+   el('h4',version.agenda,'meeting-minutes-text'),
+   el('p',version.minutes,'meeting-minutes-text'),
+   reportSignatures(hindi?'कार्यवृत्त लेखक':'Minute writer',version.writerName,language)
+  );
   content.append(section);
  }
  const {table,rows}=attendanceTable(['Staff member','Attendance','Signature']);
@@ -289,9 +306,7 @@ async function showReport(id,principal=false){
  }
  content.append(el('h3','Staff attendance'),table);
  if(report.writers?.length)content.append(el('p','Assigned writers: '+report.writers.map(writer=>writer.name+' ('+(writer.language==='hi'?'Hindi':'English')+')').join(', ')));
- const signatures=el('div',undefined,'meeting-signatures');
- signatures.append(el('p','Attendance recorded by: '+(report.attendanceTakenBy||'________________'),undefined),el('p','Attendance signature: __________________'),el('p','Principal signature: __________________'));
- content.append(signatures);
+ content.append(reportSignatures('Attendance taker / SMT / HM',report.attendanceTakenBy));
  const actions=el('div',undefined,'meeting-actions no-print');
  actions.append(button('Print / Save as PDF',async()=>{await Promise.allSettled([...document.querySelectorAll('.meeting-letterhead img')].map(img=>img.decode()));window.print();}),button('Back to meeting register',()=>adminMode?drawPrincipal():showStaff()));
  content.append(actions);
