@@ -73,3 +73,5 @@
 .task-workflow-state.is-current{color:#8a4800}
 .task-workflow-state.is-complete{color:#22654d}
 .task-monitoring-sheet .task-principal-review{background:#fff0ee;color:#a12623;font-weight:700}
+.task-workflow-step .task-emergency-select{width:100%;min-width:9rem;margin:.35rem 0 0;font:inherit}
+.task-workflow-step button[hidden]{display:none}

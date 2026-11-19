@@ -86,7 +86,7 @@ function drawMonitoringSettings(record,index){
  card.append(el('h2','Task 2 workflow settings'));
  const people=Object.entries(staff).sort(([,a],[,b])=>a.name.localeCompare(b.name)).map(([id,p])=>[id,p.name]);
  if(Object.keys(record.published?.assignments||{}).length)card.append(button('Emergency assignment',()=>{
-  if(discard())drawEmergencyAssignment(record,index,people);
+  if(discard())drawMonitoring(record,{emergencyPeople:people});
  }));
  const reviewers=['Exam IC','Exam Co-IC'].map((label,i)=>{
   const select=field(editor,label,'exam-reviewer-'+i,'select');options(select,[['','No final-remark permission'],...people],record.reviewerIds?.[i]||'');return select;
@@ -113,38 +113,6 @@ function drawMonitoringSettings(record,index){
   drawMonitoring(monitoring,{index});message('Workflow settings saved. Publish the plan to apply them to Staff View.');
  });};
  card.append(editor);
-}
-function drawEmergencyAssignment(record,index,people){
- const editor=form(),card=el('section',undefined,'task-card'),published=record.published;
- const entries=Object.entries(published.assignments);
- host.replaceChildren(button('Back to workflow settings',()=>{if(discard())drawMonitoringSettings(record,index);}),card);
- card.append(el('h2','Emergency assignment'),
-  el('p','Choose a substitute for one published step. The change takes effect immediately. Completed steps keep their recorded history.'));
- const row=field(editor,'Evaluation row','emergency-row','select');
- options(row,entries.map(([id,{subject,section}])=>[id,id.slice(4)+' · '+subject+' · '+section]),entries[0][0]);
- const step=field(editor,'Workflow step','emergency-step','select');
- options(step,MONITORING_STEPS.map(({label},position)=>[String(position),label]),'0');
- const current=el('p');
- editor.append(current);
- const person=field(editor,'Substitute staff member','emergency-person','select');
- function showCurrent(){
-  const entry=published.assignments[row.value],position=Number(step.value);
-  current.textContent='Current assignment: '+(monitoringPeople(published,entry,position).map(({name})=>name).join(' / ')||'Unassigned');
-  options(person,[['','Use original assignment'],...people],entry.substitutes?.['step_'+position]?.id||'');
-  editor.dataset.portalDirty='false';
- }
- row.onchange=step.onchange=()=>{if(discard())showCurrent();else{row.value=editor.dataset.selectedRow;step.value=editor.dataset.selectedStep;}};
- editor.addEventListener('change',()=>{editor.dataset.selectedRow=row.value;editor.dataset.selectedStep=step.value;});
- editor.dataset.selectedRow=row.value;editor.dataset.selectedStep=step.value;
- person.onchange=()=>{editor.dataset.portalDirty='true';};showCurrent();
- editor.append(el('button','Save emergency assignment'));card.append(editor);
- editor.onsubmit=event=>{event.preventDefault();run(async()=>{
-  const selection={rowKey:row.value,stage:Number(step.value)};
-  const {monitoring}=await request({action:'task-principal',operation:'monitoring-emergency',expectedRevision:record.revision,staffId:person.value,...selection},true);
-  editor.dataset.portalDirty='false';store.monitoringUpdatedAt=monitoring.updatedAt;
-  drawMonitoringSettings(monitoring,index);
-  message('Emergency assignment updated in the published plan.');
- });};
 }
 function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate){
  const entry=(staffView?record:record.published).assignments[key],progress=record.progress?.[key];
@@ -223,20 +191,21 @@ function openMonitoringPractice(record,index){
  }
  draw();
 }
-function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
- const sheets=structuredClone(record.sheets),editor=form(),scroll=el('div',undefined,'task-scroll task-monitoring-scroll');
+function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyPeople}={}){
+ const sheets=structuredClone(emergencyPeople?record.published.sheets:record.sheets),editor=form(),scroll=el('div',undefined,'task-scroll task-monitoring-scroll');
  scroll.tabIndex=0;scroll.setAttribute('role','region');
  const scrollHint=el('p','Scroll sideways for more columns and down for more records.','task-monitoring-scroll-hint');
  const card=el('section',undefined,'task-card task-monitoring'),actions=el('div',undefined,'task-actions');
- const back=staffView?drawStaff:drawPrincipal;
- host.replaceChildren(button('Back to task list',()=>{if(discard())back();}),card);
+ const back=emergencyPeople?()=>drawMonitoringSettings(record,index):staffView?drawStaff:drawPrincipal;
+ host.replaceChildren(button(emergencyPeople?'Back to workflow settings':'Back to task list',()=>{if(discard())back();}),card);
  card.append(el('h2',MONITORING_TITLE));
  if(staffView)card.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
  const publication=record.published?.updatedAt;
  let practice=null;
  const practiceNotice=el('p','Mock practice · use your own PIN. These changes stay in this tab.','task-monitoring-notice');
  if(staffView){practiceNotice.hidden=true;card.append(practiceNotice);}
- if(!staffView)card.append(el('p',publication?'Published copy available to staff.':'Private draft'));
+ if(emergencyPeople)card.append(el('h3','Emergency assignment'),el('p','Choose a substitute in the workflow cell and save it there. Saved changes apply immediately to the published plan.'));
+ else if(!staffView)card.append(el('p',publication?'Published copy available to staff.':'Private draft'));
  const tabs=MONITORING_SHEETS.map(({name},position)=>button(name,()=>drawSheet(position)));
  actions.append(...tabs);
  if(staffView&&record.assignments){
@@ -273,7 +242,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
    const headingCell=String.fromCharCode(65+width)+(index===0?5:8);
    markDirty();drawSheet(index);scroll.querySelector('[aria-label="'+headingCell+'"]')?.focus();
   }),el('button','Save draft'),button('Cancel edits',()=>{if(discard())drawMonitoring(record,{index});}));
- }else if(!staffView){
+ }else if(!staffView&&!emergencyPeople){
   actions.append(button('Edit cells',()=>drawMonitoring(record,{index,editing:true})),
    button('Workflow settings',()=>drawMonitoringSettings(record,index)),
    button('Mock practice',()=>openMonitoringPractice(record,index)),
@@ -283,6 +252,29 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
   if(publication)actions.append(button('Stop publication',async()=>{
    if(confirm('Remove the published Task 2 plan from Staff View?'))await update('monitoring-unpublish');
   }));
+ }
+ const pendingSubstitutes=new Map();
+ function addEmergencyControl(cell,key,position,entry,step){
+  const id=key+':'+position,current=entry.substitutes?.['step_'+position]?.id||'';
+  const select=el('select',undefined,'task-emergency-select');
+  select.setAttribute('aria-label','Emergency substitute for row '+key.slice(4)+' · '+step.label);
+  const choices=[['','Use original assignment'],...emergencyPeople];
+  const chosen=pendingSubstitutes.get(id)??current;
+  const loadOptions=()=>{if(select.options.length===1)options(select,choices,select.value);};
+  options(select,[choices.find(([value])=>value===chosen)||[chosen,entry.substitutes?.['step_'+position]?.name||'Unavailable substitute']],chosen);
+  select.addEventListener('focus',loadOptions);select.addEventListener('pointerdown',loadOptions);
+  const save=button('Save emergency assignment',async()=>{
+   const {monitoring}=await request({action:'task-principal',operation:'monitoring-emergency',expectedRevision:record.revision,staffId:pendingSubstitutes.get(id),rowKey:key,stage:position},true);
+   record=monitoring;store.monitoringUpdatedAt=monitoring.updatedAt;
+   pendingSubstitutes.delete(id);editor.dataset.portalDirty=String(pendingSubstitutes.size>0);
+   redrawSheet();message('Emergency assignment updated in the published plan.');
+  });
+  save.hidden=!pendingSubstitutes.has(id);
+  select.onchange=()=>{
+   if(select.value===current)pendingSubstitutes.delete(id);else pendingSubstitutes.set(id,select.value);
+   save.hidden=!pendingSubstitutes.has(id);editor.dataset.portalDirty=String(pendingSubstitutes.size>0);
+  };
+  cell.append(select,save);
  }
  function drawSheet(position){
   index=position;
@@ -363,6 +355,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
       practice[key]={stage,separateMatching:true,history:[...(progress?.history||[]),event]};
       redrawSheet();
      }:undefined;
+     if(emergencyPeople)addEmergencyControl(cell,key,position,entry,step);
      if(current&&staffView)cell.append(button(practice?'Practise status update':'Update status',()=>openMonitoringStep(viewRecord,key,true,true,practiceUpdate)));
      if(position===Math.min(stage,MONITORING_STEPS.length-1)&&progress?.history?.length)
       cell.append(button('View history',()=>openMonitoringStep(viewRecord,key,staffView,false,practiceUpdate)));
