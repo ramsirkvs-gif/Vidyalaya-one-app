@@ -203,7 +203,13 @@ export function staffMeetingList(store,{principal=false}={}){
   const returnedLanguages=minutes.filter(([,minute])=>minute.returnedAt).map(([language])=>language);
   const minuteRevisions=Object.fromEntries(minutes.map(([language,minute])=>[language,minute.revision||0]));
   const published=!!meeting.publishedReport||meeting.publishedReport===undefined&&!!meeting.savedAt;
+  const roster=published&&meeting.roster?.length?meetingAttendanceRoster(meeting):[];
+  const completed=published
+   &&writers.every(({language})=>versions.includes(language))
+   &&returnedLanguages.length===0
+   &&roster.length>0
+   &&roster.every(({id})=>['present','absent'].includes(meeting.attendance?.[id]));
   const agenda=meeting.meetingAgenda||meeting.publishedReport?.versions?.[0]?.agenda||(published?meeting.agenda:undefined);
-  return {id,createdAt,scheduledAt:meeting.scheduledAt||createdAt,writers,published,submittedLanguages:versions,returnedLanguages,attendanceWing:meeting.attendanceWing||'both',attendanceTakers:meeting.attendanceTakers||[],...(principal?{revision,minuteRevisions,roster:meeting.roster,expectedAttendees:meeting.hasAttendanceSelection?meeting.expectedAttendees||[]:null,attendanceTakersConfigured:!!meeting.attendanceTakersConfigured}:{}),...(agenda?{agenda}:{})};
+  return {id,createdAt,scheduledAt:meeting.scheduledAt||createdAt,writers,published,completed,submittedLanguages:versions,returnedLanguages,attendanceWing:meeting.attendanceWing||'both',attendanceTakers:meeting.attendanceTakers||[],...(principal?{revision,minuteRevisions,roster:meeting.roster,expectedAttendees:meeting.hasAttendanceSelection?meeting.expectedAttendees||[]:null,attendanceTakersConfigured:!!meeting.attendanceTakersConfigured}:{}),...(agenda?{agenda}:{})};
  });
 }

@@ -63,7 +63,9 @@ test('attendance, Hindi and English save independently and the Principal control
  await pin(hi,'123','minutes-submit',{...corrected,expectedRevision:savedDraft.revision});
  assert.deepEqual((await call('staff-meetings-read',{})).meetings[0].returnedLanguages,[]);
  await assert.rejects(call('staff-meetings-read',{meetingId}),/not been published/);
+ assert.equal((await call('staff-meetings-read',{})).meetings[0].completed,false);
  const {revision:published}=await principal('publish',{expectedRevision:configured});
+ assert.equal((await call('staff-meetings-read',{})).meetings[0].completed,true);
  const {report}=await call('staff-meetings-read',{meetingId});
  assert.deepEqual(report.versions.map(v=>v.language),['hi','en']);
  assert.equal(report.versions[0].minutes,corrected.minutes);
@@ -75,6 +77,7 @@ test('attendance, Hindi and English save independently and the Principal control
  assert.equal(preview.report.versions[1].minutes,'Principal correction');
  assert.equal((await call('staff-meetings-read',{meetingId})).report.versions[1].minutes,english.minutes);
  await principal('unpublish',{expectedRevision:published});
+ assert.equal((await call('staff-meetings-read',{})).meetings[0].completed,false);
  await assert.rejects(call('staff-meetings-read',{meetingId}),/not been published/);
 });
 

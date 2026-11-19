@@ -30,6 +30,8 @@ def check_report(page, principal, versions, attendance_taker):
         'agenda': 'Report agenda',
         'createdAt': CREATED,
         'published': True,
+        'completed': bool(attendance_taker),
+        'attendanceTakers': [{'name': 'Synthetic SMT', 'role': 'SMT-1'}],
         'submittedLanguages': [version['language'] for version in versions],
     }
 
@@ -50,7 +52,12 @@ def check_report(page, principal, versions, attendance_taker):
     ))
     page.add_init_script('window.print = () => { window.printRequested = true; };')
     page.goto('http://127.0.0.1:8001/cbse-staff-meetings.html' + ('#principal' if principal else ''))
-    page.get_by_role('button', name='Preview report / print' if principal else 'Read minutes / print').click()
+    open_report = page.get_by_role('button', name='Preview report / print' if principal else 'Read minutes / print')
+    open_report.wait_for()
+    if not principal:
+        assert page.get_by_role('button', name='Attendance taker · PIN').is_visible() == (not attendance_taker)
+        assert page.get_by_role('button', name='Take attendance as Principal').is_visible() == (not attendance_taker)
+    open_report.click()
     page.get_by_role('heading', name='Staff meeting report').wait_for()
 
     assert page.locator('.meeting-letterhead p').all_text_contents() == [

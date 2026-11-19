@@ -94,9 +94,10 @@ async function showStaff(){
  try{
   const result=await staffRead();
   content.replaceChildren(el('h2','Meeting register'));
-  if(result.meetings.length)content.append(button('Take attendance as Principal',()=>choosePrincipalAttendance(result.meetings)));
-  else content.append(el('p','No staff meetings have been recorded.'));
-  for(const entry of result.meetings){
+  const activeMeetings=result.meetings.filter(entry=>!entry.completed);
+  if(activeMeetings.length)content.append(button('Take attendance as Principal',()=>choosePrincipalAttendance(activeMeetings)));
+  if(!result.meetings.length)content.append(el('p','No staff meetings have been recorded.'));
+  for(const entry of activeMeetings){
    const card=meetingCard(entry,false);
    const actions=el('div',undefined,'meeting-actions');
    if(entry.attendanceTakers?.length){
