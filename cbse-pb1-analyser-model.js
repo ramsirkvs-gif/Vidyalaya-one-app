@@ -82,7 +82,8 @@ export function pb1CategoryCounts(rows,key){
   if(Object.hasOwn(counts,mark.band))counts[mark.band]++;
  }
  const failed=counts.critical+counts.red,passed=counts.yellow+counts.pass+counts.green;
- return {...counts,failed,passed,passPercentage:counts.appeared?passed/counts.appeared*100:null,
+ return {...counts,failed,passed,enrolled:rows.length,passPercentage:counts.appeared?passed/counts.appeared*100:null,
+  enrolledPassPercentage:rows.length?passed/rows.length*100:null,
   average:counts.appeared?total/counts.appeared:null};
 }
 export function pb1SmartStudents(rows){
@@ -96,6 +97,7 @@ export function pb1SmartStudents(rows){
   const current=papers.filter(row=>appeared(row.current));
   const matched=current.filter(row=>appeared(row.before)),failed=current.some(row=>row.current.failed);
   return {papers,current,matched,failed,incomplete:current.length<papers.length,
+   absent:papers.some(row=>row.current?.absent),pending:papers.some(row=>!row.current),
    critical:current.some(row=>row.current.band==='critical'),
    borderline:!failed&&current.some(row=>row.current.band==='yellow'),
    percentage:current.length?current.reduce((sum,row)=>sum+row.current.percentage,0)/current.length:null,
@@ -105,13 +107,16 @@ export function pb1SmartStudents(rows){
 }
 export function pb1SmartSummary(rows){
  const students=pb1SmartStudents(rows);
- const summary={students:students.length,assessed:0,incomplete:0,passed:0,failed:0,critical:0,borderline:0,
+ const summary={students:students.length,assessed:0,incomplete:0,absent:0,pending:0,passed:0,enrolledPassed:0,failed:0,critical:0,borderline:0,
   score90:0,score75:0,score50:0,paired:0,previousPassed:0,pairedPassed:0};
  for(const student of students){
   if(student.incomplete)summary.incomplete++;
+  if(student.absent)summary.absent++;
+  if(student.pending)summary.pending++;
   if(!student.current.length)continue;
   summary.assessed++;
   if(student.failed)summary.failed++;else summary.passed++;
+  if(!student.failed&&!student.incomplete)summary.enrolledPassed++;
   if(student.critical)summary.critical++;
   if(student.borderline)summary.borderline++;
   for(const cutoff of [90,75,50])if(student.percentage>=cutoff)summary['score'+cutoff]++;

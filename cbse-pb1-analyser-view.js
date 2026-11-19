@@ -48,10 +48,12 @@ function renderCategoryComparison(parent,previous,current,showList){
   ['Pass above borderline (over 40%, below 75%)',previous.pass,current.pass,'green',mark=>mark?.band==='pass'],
   ['Secure pass',previous.green,current.green,'green',mark=>mark?.band==='green'],
   ['Total pass',previous.passed,current.passed,'green',mark=>mark?.percentage!=null&&!mark.failed],
-  ['Pass percentage',pct(previous.passPercentage),pct(current.passPercentage),'green'],
+  ['Pass percentage · appeared',pct(previous.passPercentage),pct(current.passPercentage),'green'],
+  ['Pass percentage · enrolled',pct(previous.enrolledPassPercentage),pct(current.enrolledPassPercentage),'green'],
   ['Absent (AB)',previous.absent,current.absent,'grey',mark=>mark?.absent],
   ['Not recorded',previous.missing,current.missing,'grey',mark=>!mark],
   ['Appeared',previous.appeared,current.appeared,'',mark=>mark?.percentage!=null],
+  ['Total enrolled',previous.enrolled,current.enrolled,''],
   ['Average percentage',pct(previous.average),pct(current.average),''],
  ];
  const countCell=(value,period,label,filter)=>{
@@ -64,7 +66,7 @@ function renderCategoryComparison(parent,previous,current,showList){
  table(parent,['Category','Latest monthly test','Preboard 1'],rows.map(([label,a,b,band,filter])=>[
   el('span',label,band?'band '+band:undefined),countCell(a,'before',label,filter),countCell(b,'current',label,filter),
  ]));
- parent.append(el('p','Counts are by student and subject. Total fail includes critical fails. Pass percentage is based on appeared papers. AB and missing marks are counted separately.'));
+ parent.append(el('p','Counts are by student and subject. Total fail includes critical fails. The enrolled pass percentage includes AB and pending entries in the denominator. Pending entries remain provisional.'));
 }
 function renderSmartAnalysis(parent,rows,showList){
  const stats=pb1SmartSummary(rows);
@@ -73,7 +75,10 @@ function renderSmartAnalysis(parent,rows,showList){
  const outOf=count=>count+' / '+stats.assessed;
  const strip=el('div',undefined,'pb1-stats pb1-smart-strip');
  const items=[
-  ['PB-1 pass percentage',pct(rate(stats.passed,stats.assessed)),'pass'],
+  ['Total enrolled',String(stats.students),'result',()=>true],
+  ['Appeared',stats.assessed+' / '+stats.students,'result',student=>student.current.length],
+  ['Pass percentage · appeared',pct(rate(stats.passed,stats.assessed)),'pass'],
+  ['Pass percentage · enrolled',pct(rate(stats.enrolledPassed,stats.students)),'result'],
   ['Students passed',outOf(stats.passed),'pass',student=>student.current.length&&!student.failed],
   ['Students failed',outOf(stats.failed),'decline',student=>student.failed],
   ['Critical fail',outOf(stats.critical),'decline',student=>student.critical],
@@ -83,7 +88,8 @@ function renderSmartAnalysis(parent,rows,showList){
   ['Scored 50%+',outOf(stats.score50),'result',student=>student.percentage>=50],
   ['Monthly → PB-1 pass rate',pct(previous)+' → '+pct(current),'result'],
   ['Change vs monthly',delta(previous,current),current==null?'result':current>=previous?'pass':'decline'],
-  ['Students with appeared marks',stats.assessed+' / '+stats.students,'result',student=>student.current.length],
+  ['Absent · Retest awaited',stats.absent+' / '+stats.students,'border',student=>student.absent],
+  ['Marks entry pending',stats.pending+' / '+stats.students,'border',student=>student.pending],
   ['Incomplete coverage',stats.incomplete+' / '+stats.students,'border',student=>student.incomplete],
  ];
  for(const [label,value,style,filter] of items){
@@ -92,7 +98,8 @@ function renderSmartAnalysis(parent,rows,showList){
   strip.append(tile);
  }
  parent.append(el('h3','Smart analysis · at a glance'),strip,
-  el('p','Counts are by student. Pass and score bands use appeared PB-1 papers in view. Score bands overlap and use each student’s average paper percentage. The monthly comparison uses matching appeared papers for '+stats.paired+' students.'));
+  el('p','Counts are by student. The appeared result uses the PB-1 papers each student appeared for. The enrolled result counts a student as passed only after every selected enrolled paper has an appeared pass. AB counts as a non-pass there. Blank marks are pending, so the enrolled result is provisional until entry is complete. Retest awaited and pending can overlap across subjects.'),
+  el('p','Score bands overlap and use each student’s average paper percentage. The monthly comparison uses matching appeared papers for '+stats.paired+' students.'));
 }
 function renderMarksGraph(parent,grouped){
  const graph=el('div',undefined,'pb1-marks-graph');
