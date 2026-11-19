@@ -73,6 +73,35 @@ export function pb1CategoryCounts(rows,key){
  return {...counts,failed,passed,passPercentage:counts.appeared?passed/counts.appeared*100:null,
   average:counts.appeared?total/counts.appeared:null};
 }
+export function pb1SmartSummary(rows){
+ const students=new Map();
+ for(const row of rows){
+  if(!students.has(row.key))students.set(row.key,[]);
+  students.get(row.key).push(row);
+ }
+ const summary={students:students.size,assessed:0,incomplete:0,passed:0,failed:0,critical:0,criticalCovered:0,borderline:0,
+  score90:0,score75:0,score50:0,paired:0,previousPassed:0,pairedPassed:0};
+ const appeared=mark=>Number.isFinite(mark?.percentage);
+ for(const papers of students.values()){
+  const current=papers.filter(row=>appeared(row.current));
+  if(current.length<papers.length)summary.incomplete++;
+  if(!current.length)continue;
+  summary.assessed++;
+  const fails=current.some(row=>row.current.failed);
+  if(fails)summary.failed++;else summary.passed++;
+  if(current.some(row=>row.current.band==='critical'))summary.critical++;
+  if(current.some(row=>row.current.hasCriticalRule))summary.criticalCovered++;
+  if(!fails&&current.some(row=>row.current.band==='yellow'))summary.borderline++;
+  const percentage=current.reduce((sum,row)=>sum+row.current.percentage,0)/current.length;
+  for(const cutoff of [90,75,50])if(percentage>=cutoff)summary['score'+cutoff]++;
+  const matched=current.filter(row=>appeared(row.before));
+  if(!matched.length)continue;
+  summary.paired++;
+  if(matched.every(row=>!row.before.failed))summary.previousPassed++;
+  if(matched.every(row=>!row.current.failed))summary.pairedPassed++;
+ }
+ return summary;
+}
 export function pb1Metrics(rows){
  const paired=rows.filter(row=>row.before?.percentage!=null&&row.current?.percentage!=null);
  const average=key=>paired.length?paired.reduce((sum,row)=>sum+row[key].percentage,0)/paired.length:null;

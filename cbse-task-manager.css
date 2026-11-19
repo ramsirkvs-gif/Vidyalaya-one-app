@@ -106,3 +106,5 @@
 .pb1-stats>.pb1-stat-decline{background:#fff0ea;border-color:#e9bfaf;color:#8a3b2b}
 .pb1-analyser .pb1-marks-graph{margin:0 0 .9rem}
 .pb1-analyser.task-card>button+button{margin-inline-start:.45rem}
+.pb1-smart-strip>.pb1-stat-result{background:#eef4ff;border-color:#c6d6f0;color:#214c7e}
+.pb1-smart-strip>.pb1-stat-border{background:#fff7df;border-color:#e9d49b;color:#6e4c00}

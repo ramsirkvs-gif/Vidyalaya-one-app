@@ -1,5 +1,5 @@
 import {el,options} from './cbse-ui.js';
-import {pb1Metrics,pb1Risk,pb1CategoryCounts} from './cbse-pb1-analyser-model.js';
+import {pb1Metrics,pb1Risk,pb1CategoryCounts,pb1SmartSummary} from './cbse-pb1-analyser-model.js';
 const pct=v=>v==null?'—':v.toFixed(1)+'%';
 const delta=(before,after)=>before==null||after==null?'—':(after-before>0?'+':'')+(after-before).toFixed(1)+' pp';
 const result=mark=>!mark?'Not entered':mark.absent?'AB (MM '+mark.maximum+')':mark.score+'/'+mark.maximum+' ('+pct(mark.percentage)+')';
@@ -53,6 +53,33 @@ function renderCategoryComparison(parent,previous,current){
  const note=limited.length?' Critical-fail rules cover '+limited.map(([label,summary])=>summary.criticalCovered+' of '+summary.appeared+' appeared '+label+' results').join(' and ')+'. Total fail includes all recorded failures.':'';
  parent.append(el('p','Counts are by student and subject. Pass percentage is based on appeared papers. AB and missing marks are counted separately.'+note));
 }
+function renderSmartAnalysis(parent,rows){
+ const stats=pb1SmartSummary(rows);
+ const rate=(count,total)=>total?100*count/total:null;
+ const previous=rate(stats.previousPassed,stats.paired),current=rate(stats.pairedPassed,stats.paired);
+ const outOf=count=>count+' / '+stats.assessed;
+ const strip=el('div',undefined,'pb1-stats pb1-smart-strip');
+ const items=[
+  ['PB-1 pass percentage',pct(rate(stats.passed,stats.assessed)),'pass'],
+  ['Students passed',outOf(stats.passed),'pass'],
+  ['Students failed',outOf(stats.failed),'decline'],
+  ['Critical fail',stats.criticalCovered?outOf(stats.critical):'—','decline'],
+  ['Borderline pass',outOf(stats.borderline),'border'],
+  ['Scored 90%+',outOf(stats.score90),'pass'],
+  ['Scored 75%+',outOf(stats.score75),'pass'],
+  ['Scored 50%+',outOf(stats.score50),'result'],
+  ['Monthly → PB-1 pass rate',pct(previous)+' → '+pct(current),'result'],
+  ['Change vs monthly',delta(previous,current),current==null?'result':current>=previous?'pass':'decline'],
+  ['Students with appeared marks',stats.assessed+' / '+stats.students,'result'],
+  ['Incomplete coverage',stats.incomplete+' / '+stats.students,'border'],
+ ];
+ for(const [label,value,style] of items){
+  const tile=el('div',undefined,'pb1-stat-'+style);tile.append(el('span',label),el('strong',value));strip.append(tile);
+ }
+ parent.append(el('h3','Smart analysis · at a glance'),strip,
+  el('p','Counts are by student. Pass and score bands use appeared PB-1 papers in view. Score bands overlap and use each student’s average paper percentage. The monthly comparison uses matching appeared papers for '+stats.paired+' students.'));
+ if(stats.criticalCovered<stats.assessed)parent.append(el('p','Critical-fail rules are available for at least one appeared paper for '+stats.criticalCovered+' of '+stats.assessed+' assessed students.'));
+}
 function renderMarksGraph(parent,grouped){
  const graph=el('div',undefined,'pb1-marks-graph');
  for(const [label,rows] of grouped){
@@ -76,13 +103,20 @@ function renderMarksGraph(parent,grouped){
 export function renderPB1Analyser(host,data,{run,button,save,back,teacher,publicView,entryOnly,openEntry,refresh}){
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
  const filters=el('div',undefined,'pb1-filters'),report=el('div'),modes=[];
+ if(!entryOnly)modes.push(['smart','Get smart analysis']);
  if(save&&!entryOnly)modes.push(['entry','Update PB-1 marks']);
  if(!entryOnly)modes.push(['comparison','Compare each student'],['classes','Class and standard comparison'],
   ['subjects','Subject improvement'],['teachers','Teacher cohort comparison'],['graphs','Marks graphs'],['risk','Students needing support']);
  let selected=entryOnly?'entry':'comparison';
- const reportTabs=modes.map(([key,label])=>button(label,()=>{
+ const reportTabs=modes.map(([key,label])=>button(label,async()=>{
   if(content.querySelector('[data-portal-dirty=true]')&&!confirm('Discard unsaved marks?'))return;
+  if(key==='smart'&&refresh){
+   data=await refresh();
+   options(classSelect,choices(values(data.scopes,'classId'),'All standards'),classSelect.value);
+   restrict();
+  }
   selected=key;drawMode();
+  if(key==='smart')report.scrollIntoView({block:'start'});
  }));
  card.append(el('h2',entryOnly?'Update PB-1 marks':'Pre-Samagam Wisdom Analyser'),
   el('p',teacher?'Your assigned Preboard 1 papers':publicView?'Classes X and XII · Student labels are anonymized':'Classes X and XII · Preboard 1'),toolbar,content);
@@ -134,6 +168,11 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
   if(rows.length&&!m.recorded){
    report.append(el('p','PB-1 marks have not been uploaded for this selection. Please upload the marks, then return here to analyse the results.','task-monitoring-notice'));
    if(!['graphs','risk'].includes(selected))return;
+  }
+  if(selected==='smart'){
+   if(rows.length)renderSmartAnalysis(report,rows);
+   else report.append(el('p','No records match these filters.'));
+   return;
   }
   const previous=pb1CategoryCounts(rows,'before'),current=pb1CategoryCounts(rows,'current');
   const stats=el('div',undefined,'pb1-stats');report.append(stats);
