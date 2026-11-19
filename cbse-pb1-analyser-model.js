@@ -1,9 +1,16 @@
-import {gradeThresholds,studentIndex} from './cbse-mission-model.js';
-import {academicMarkBand} from './cbse-academic-model.js';
+import {studentIndex} from './cbse-mission-model.js';
 import {effectiveStudentMarks} from './cbse-maths-carryover.js';
 import {schoolPreboard1DateSheet} from './cbse-preboard1-datesheet.js';
 
 import {isMCQResult,isMonthlyResult} from './cbse-academic-exam-kind.js';
+
+export function pb1ResultBand(percentage){
+ if(!Number.isFinite(percentage))return 'grey';
+ if(percentage<=25)return 'critical';
+ if(percentage<33)return 'red';
+ if(percentage<=40)return 'yellow';
+ return percentage<75?'pass':'green';
+}
 
 export function pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity=id=>id){
  const allocations=Object.values(mission.allocations||{}),scopes=[],seen=new Set();
@@ -48,11 +55,10 @@ export function pb1Report(draft,mission,staff,teacherIds,teacherIdentity){
    }
    const result=mark=>{
     if(!mark)return null;
-    const {redBelow,greenFrom}=gradeThresholds(mission,classId,subjectId,mark.examId);
-    const percentage=mark.absent?null:mark.score/mark.maximum*100;
-    const band=academicMarkBand(mark,redBelow,greenFrom);
+    const percentage=mark.absent?null:mark.score*100/mark.maximum;
+    const band=pb1ResultBand(percentage);
     return {score:mark.absent?null:mark.score,maximum:mark.maximum,percentage,absent:mark.absent,
-     band,hasCriticalRule:mark.importSource==='monthly_workbook_v1'&&Number.isFinite(mark.criticalBelow),
+     band,
      failed:band==='critical'||band==='red',borderline:band==='yellow',exam:mark.exam.name,date:mark.exam.date};
    };
    rows.push({scope,key:student.key,name:student.name,roll:student.roll??'',before:result(before),current:result(current),
@@ -63,7 +69,7 @@ export function pb1Report(draft,mission,staff,teacherIds,teacherIdentity){
  return {revision:mission.revision||0,scopes,rows};
 }
 export function pb1CategoryCounts(rows,key){
- const counts={critical:0,red:0,yellow:0,green:0,absent:0,missing:0,appeared:0,criticalCovered:0};
+ const counts={critical:0,red:0,yellow:0,pass:0,green:0,absent:0,missing:0,appeared:0};
  let total=0;
  for(const row of rows){
   const mark=row[key];
@@ -71,10 +77,9 @@ export function pb1CategoryCounts(rows,key){
   if(mark.absent){counts.absent++;continue;}
   if(mark.percentage==null){counts.missing++;continue;}
   counts.appeared++;total+=mark.percentage;
-  if(mark.hasCriticalRule)counts.criticalCovered++;
   if(Object.hasOwn(counts,mark.band))counts[mark.band]++;
  }
- const failed=counts.critical+counts.red,passed=counts.yellow+counts.green;
+ const failed=counts.critical+counts.red,passed=counts.yellow+counts.pass+counts.green;
  return {...counts,failed,passed,passPercentage:counts.appeared?passed/counts.appeared*100:null,
   average:counts.appeared?total/counts.appeared:null};
 }
@@ -84,7 +89,7 @@ export function pb1SmartSummary(rows){
   if(!students.has(row.key))students.set(row.key,[]);
   students.get(row.key).push(row);
  }
- const summary={students:students.size,assessed:0,incomplete:0,passed:0,failed:0,critical:0,criticalCovered:0,borderline:0,
+ const summary={students:students.size,assessed:0,incomplete:0,passed:0,failed:0,critical:0,borderline:0,
   score90:0,score75:0,score50:0,paired:0,previousPassed:0,pairedPassed:0};
  const appeared=mark=>Number.isFinite(mark?.percentage);
  for(const papers of students.values()){
@@ -95,7 +100,6 @@ export function pb1SmartSummary(rows){
   const fails=current.some(row=>row.current.failed);
   if(fails)summary.failed++;else summary.passed++;
   if(current.some(row=>row.current.band==='critical'))summary.critical++;
-  if(current.some(row=>row.current.hasCriticalRule))summary.criticalCovered++;
   if(!fails&&current.some(row=>row.current.band==='yellow'))summary.borderline++;
   const percentage=current.reduce((sum,row)=>sum+row.current.percentage,0)/current.length;
   for(const cutoff of [90,75,50])if(percentage>=cutoff)summary['score'+cutoff]++;

@@ -4,6 +4,7 @@ const pct=v=>v==null?'—':v.toFixed(1)+'%';
 const delta=(before,after)=>before==null||after==null?'—':(after-before>0?'+':'')+(after-before).toFixed(1)+' pp';
 const result=mark=>!mark?'Not entered':mark.absent?'AB (MM '+mark.maximum+')':mark.score+'/'+mark.maximum+' ('+pct(mark.percentage)+')';
 const choices=(items,label)=>[['',label],...items.map(value=>[value,value])];
+const gradingNote='Critical fail: 25% or below. Other fail: above 25% and below 33%. Borderline pass: 33% through 40%.';
 function maximumLabel(values){
  const maxima=[...new Set(values.filter(value=>Number.isFinite(value)&&value>0))].sort((a,b)=>a-b);
  return !maxima.length?'MM unavailable':maxima.length===1?'MM '+maxima[0]:'MM varies: '+maxima.join(' / ');
@@ -33,13 +34,13 @@ function cohortRow(label,rows){
   change==null?'Awaiting comparable results':change>0?'Pass rate increased':change<0?'Pass rate decreased':'Pass rate steady'];
 }
 function renderCategoryComparison(parent,previous,current){
- parent.append(el('h3','Mission 100 result categories'));
- const critical=summary=>summary.criticalCovered?summary.critical:'—';
+ parent.append(el('h3','Mission 100 result categories'),el('p',gradingNote));
  const rows=[
-  ['Critical fail',critical(previous),critical(current),'critical'],
+  ['Critical fail',previous.critical,current.critical,'critical'],
   ['Other fail',previous.red,current.red,'red'],
   ['Total fail',previous.failed,current.failed,'red'],
   ['Borderline',previous.yellow,current.yellow,'yellow'],
+  ['Pass above borderline (over 40%, below 75%)',previous.pass,current.pass,'green'],
   ['Secure pass',previous.green,current.green,'green'],
   ['Total pass',previous.passed,current.passed,'green'],
   ['Pass percentage',pct(previous.passPercentage),pct(current.passPercentage),'green'],
@@ -51,9 +52,7 @@ function renderCategoryComparison(parent,previous,current){
  table(parent,['Category','Latest monthly test','Preboard 1'],rows.map(([label,a,b,band])=>[
   el('span',label,band?'band '+band:undefined),a,b,
  ]));
- const limited=[['monthly',previous],['PB-1',current]].filter(([,summary])=>summary.appeared>summary.criticalCovered);
- const note=limited.length?' Critical-fail rules cover '+limited.map(([label,summary])=>summary.criticalCovered+' of '+summary.appeared+' appeared '+label+' results').join(' and ')+'. Total fail includes all recorded failures.':'';
- parent.append(el('p','Counts are by student and subject. Pass percentage is based on appeared papers. AB and missing marks are counted separately.'+note));
+ parent.append(el('p','Counts are by student and subject. Total fail includes critical fails. Pass percentage is based on appeared papers. AB and missing marks are counted separately.'));
 }
 function renderSmartAnalysis(parent,rows){
  const stats=pb1SmartSummary(rows);
@@ -65,7 +64,7 @@ function renderSmartAnalysis(parent,rows){
   ['PB-1 pass percentage',pct(rate(stats.passed,stats.assessed)),'pass'],
   ['Students passed',outOf(stats.passed),'pass'],
   ['Students failed',outOf(stats.failed),'decline'],
-  ['Critical fail',stats.criticalCovered?outOf(stats.critical):'—','decline'],
+  ['Critical fail',outOf(stats.critical),'decline'],
   ['Borderline pass',outOf(stats.borderline),'border'],
   ['Scored 90%+',outOf(stats.score90),'pass'],
   ['Scored 75%+',outOf(stats.score75),'pass'],
@@ -80,7 +79,6 @@ function renderSmartAnalysis(parent,rows){
  }
  parent.append(el('h3','Smart analysis · at a glance'),strip,
   el('p','Counts are by student. Pass and score bands use appeared PB-1 papers in view. Score bands overlap and use each student’s average paper percentage. The monthly comparison uses matching appeared papers for '+stats.paired+' students.'));
- if(stats.criticalCovered<stats.assessed)parent.append(el('p','Critical-fail rules are available for at least one appeared paper for '+stats.criticalCovered+' of '+stats.assessed+' assessed students.'));
 }
 function renderMarksGraph(parent,grouped){
  const graph=el('div',undefined,'pb1-marks-graph');
@@ -183,7 +181,7 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
   const pb1MM=maximumLabel(rows.map(row=>row.current?.maximum??info(row).maximum));
   table(parent,['Student',...(publicView?[]:['Roll']),'Class','Subject','Previous exam','Monthly marks ('+monthlyMM+')','PB-1 marks ('+pb1MM+')','Change','PB-1 result'],rows.map(row=>[
    row.name,...(publicView?[]:[row.roll]),sectionLabel(row),info(row).subject,row.before?.exam||'—',result(row.before),result(row.current),delta(row.before?.percentage,row.current?.percentage),
-   !row.current?'Not entered':row.current.absent?'Absent':({critical:'Critical fail',red:'Other fail',yellow:'Borderline',green:'Secure pass'})[row.current.band]||'Not assessed',
+   !row.current?'Not entered':row.current.absent?'Absent':({critical:'Critical fail',red:'Other fail',yellow:'Borderline pass',pass:'Pass',green:'Secure pass'})[row.current.band]||'Not assessed',
   ]));
  }
  function showSupport(parent,rows,period,filter=''){
@@ -235,7 +233,7 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
    if(m.recorded)renderCategoryComparison(report,previous,current);
    showStudentComparison(report,rows);
   }else if(selected==='risk'){
-   report.append(el('p','Support categories follow Mission 100’s grading rules for the selected papers.'));
+   report.append(el('p',gradingNote));
    showSupport(report,rows,riskPeriod.value,riskFilter.value);
   }else if(selected==='graphs'){
    report.append(el('p','Bars show average percentages. Where both tests have appeared results for the same students, the bars use that matched group. Otherwise each bar shows its available marks.'));

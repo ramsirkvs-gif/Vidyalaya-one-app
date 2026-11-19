@@ -12,17 +12,22 @@ import {TASK1_ROSTER,taskRosterStore} from '../cbse-task-manager-roster.js';
 import {TASK_AVAILABLE_CLASSES,taskClasses} from '../cbse-task-manager-model.js';
 import {MONITORING_SHEETS,monitoringFormula} from '../cbse-task-workbook.js';
 import {monitoringStage} from '../cbse-task-monitoring-workflow.js';
-import {pb1CategoryCounts,pb1Metrics,pb1Risk,pb1SmartSummary} from '../cbse-pb1-analyser-model.js';
+import {pb1CategoryCounts,pb1Metrics,pb1Risk,pb1SmartSummary,pb1ResultBand} from '../cbse-pb1-analyser-model.js';
+
+test('Wisdom Analyser includes 25 in critical fail and 33 through 40 in borderline pass',()=>{
+ assert.deepEqual([null,0,25,25.01,32.99,33,40,40.01,74.99,75,90].map(pb1ResultBand),
+  ['grey','critical','critical','red','red','yellow','yellow','pass','pass','green','green']);
+});
 
 test('smart PB-1 summary counts each student once and compares matching papers',()=>{
- const mark=(percentage,band='green')=>({percentage,band,hasCriticalRule:true,failed:['red','critical'].includes(band)});
+ const mark=(percentage,band='green')=>({percentage,band,failed:['red','critical'].includes(band)});
  const rows=[
   {key:'a',before:mark(70),current:mark(95)},{key:'a',before:mark(80),current:mark(85)},
   {key:'b',before:mark(25,'red'),current:mark(34,'yellow')},{key:'b',before:mark(45),current:null},
   {key:'c',before:null,current:mark(20,'critical')},{key:'d',before:mark(55),current:{absent:true}},
  ];
  assert.deepEqual(pb1SmartSummary(rows),{students:4,assessed:3,incomplete:2,passed:2,failed:1,critical:1,
-  criticalCovered:3,borderline:1,score90:1,score75:1,score50:1,paired:2,previousPassed:1,pairedPassed:2});
+  borderline:1,score90:1,score75:1,score50:1,paired:2,previousPassed:1,pairedPassed:2});
 });
 
 test('PB-1 uses assigned enrolled students, paper maxima, explicit absence and paired comparisons',async()=>{
@@ -59,7 +64,7 @@ test('PB-1 uses assigned enrolled students, paper maxima, explicit absence and p
  assert.equal(categories.absent,1);
  assert.equal(categories.passPercentage,100);
  assert.equal(categories.average,35);
- assert.equal(categories.criticalCovered,0);
+ assert.equal(categories.critical,0);
  await assert.rejects(save([{key:'X:a:one',mark:30}]),/results changed/);
  const principal=await f.admin({operation:'pb1-read'});assert.equal(principal.scopes.length,2);
  await assert.rejects(f.service('task-read',{operation:'pb1-public'}),/not published/);
