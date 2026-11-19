@@ -15,6 +15,13 @@ export function monitoringStage(progress){
  return progress?.separateMatching||stage<4?stage:stage+1;
 }
 
+export function monitoringPeople(published,entry,position){
+ const substitute=entry?.substitutes?.['step_'+position];
+ if(substitute)return [substitute];
+ const role=MONITORING_STEPS[position]?.role;
+ return role==='exam'?published?.examReviewers||[]:[entry?.roles?.[role]].filter(Boolean);
+}
+
 export function monitoringAssignments(sheets,staff,overrides={}){
  const names=new Map(),records={};
  const normalize=name=>String(name||'').toLowerCase().replace(/^(mr|mrs|ms|dr|shri|smt)\.?\s+/,'').replace(/[^\p{L}\p{N}]/gu,'');
@@ -49,7 +56,7 @@ export function monitoringAdvance(record,input,actor,stamp){
  const currentStage=monitoringStage(previous);
  const step=MONITORING_STEPS[currentStage];
  if(!step)throw Error('This row is already closed.');
- const eligible=step.role==='exam'?record.published.examReviewers:[entry.roles?.[step.role]];
+ const eligible=monitoringPeople(record.published,entry,currentStage);
  if(!eligible?.some(person=>person?.id===actor.id))throw Error('This step is assigned to another staff member.');
  const option=step.options.find(([value])=>value===input.outcome);
  if(!option)throw Error('Choose a valid status.');

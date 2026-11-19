@@ -78,10 +78,18 @@ test('Task 2 tracks PIN-gated handoffs, corrections and authorized Exam closure 
  await assert.rejects(submit('one',8),/Enter a remark/);
  await f.admin({operation:'monitoring-publish',expectedRevision:3});
  await assert.rejects(submit('one',8,'advance','Received'),/changed/);
- await submit('one',8,'advance','Received',4);
+ const emergency={operation:'monitoring-emergency',rowKey:'row_1',stage:6,staffId:'X:two',expectedRevision:4};
+ await assert.rejects(f.service('task-principal',emergency,'outsider'),/Principal/);
+ await f.admin(emergency);
+ await assert.rejects(submit('one',8,'advance','Received',5),/another staff member/);
+ await f.admin({operation:'monitoring-publish',expectedRevision:5});
+ await submit('two',8,'advance','Received',6);
  const {monitoring}=await f.service('task-read',{operation:'monitoring-read'},'','test',session);
  assert.equal(monitoringStage(monitoring.progress.row_1),7);
  assert.equal(monitoring.progress.row_1.history.at(-1).remark,'Received');
+ assert.equal(monitoring.progress.row_1.history.at(-1).name,'Synthetic Teacher two');
+ await f.admin({...emergency,staffId:'',expectedRevision:6});
+ assert.equal((await f.admin({operation:'monitoring-read'})).monitoring.published.assignments.row_1.substitutes.step_6,undefined);
 });
 test('existing Task 2 progress treats the old combined upload and matching step as complete',()=>{
  assert.deepEqual([0,1,2,3,4,5,6].map(stage=>monitoringStage({stage})),[0,1,2,3,5,6,7]);

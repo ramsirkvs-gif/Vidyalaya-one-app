@@ -2,7 +2,7 @@ import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
 import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList,minuteLanguages} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {validateMonitoringSheets} from '../cbse-task-workbook.js';
-import {monitoringAssignments,monitoringAdvance,MONITORING_ROLES} from '../cbse-task-monitoring-workflow.js';
+import {monitoringAssignments,monitoringAdvance,MONITORING_ROLES,MONITORING_STEPS} from '../cbse-task-monitoring-workflow.js';
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
@@ -121,13 +121,24 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     return {monitoring:{...published,progress:progress||{}}};
    }
    if(admin&&input.operation==='monitoring-read')return {monitoring:await read(monitoringPath)||{sheets:TASK_MONITORING_SEED,revision:0}};
-   if(admin&&['monitoring-save','monitoring-settings','monitoring-publish','monitoring-unpublish'].includes(input.operation)){
+   if(admin&&['monitoring-save','monitoring-settings','monitoring-publish','monitoring-unpublish','monitoring-emergency'].includes(input.operation)){
     const saving=input.operation==='monitoring-save';
     const settings=input.operation==='monitoring-settings',publishing=input.operation==='monitoring-publish';
-    const directory=settings||publishing?await directoryStaff():{};
-    let sheets,overrides,reviewerIds,reason;
+    const emergency=input.operation==='monitoring-emergency';
+    const directory=settings||publishing||emergency?await directoryStaff():{};
+    let sheets,overrides,reviewerIds,substitute,reason;
     try{
      if(saving)sheets=validateMonitoringSheets(input.sheets);
+     if(emergency){
+      if(typeof input.rowKey!=='string'||!/^row_[1-9]\d{0,5}$/.test(input.rowKey)||!Number.isInteger(input.stage)||!MONITORING_STEPS[input.stage])
+       throw Error('Choose a published row and workflow step.');
+      if(input.staffId!==''){
+       const person=typeof input.staffId==='string'&&Object.hasOwn(directory,input.staffId)?directory[input.staffId]:null;
+       const id=person?.pinOwnerId||input.staffId;
+       if(person?.status!=='active'||directory[id]?.status!=='active')throw Error('Choose an active staff member.');
+       substitute={id,name:directory[id].name};
+      }
+     }
      if(settings){
       if(!input.overrides||Array.isArray(input.overrides)||typeof input.overrides!=='object'||Object.keys(input.overrides).length>160)throw Error('Invalid row assignments.');
       const active=id=>typeof id==='string'&&Object.hasOwn(directory,id)&&directory[id].status==='active';
@@ -153,10 +164,26 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      const updatedAt=now(),revision=(current?.revision||0)+1;
      if(saving)return {...current,sheets,revision,updatedAt};
      const draft=current?.sheets||TASK_MONITORING_SEED;
+     if(emergency){
+      const published=current?.published,entry=published?.assignments?.[input.rowKey];
+      if(!entry){reason='Publish the workflow row before changing its assignment.';return;}
+      const substitutes={...entry.substitutes},step='step_'+input.stage;
+      if(substitute)substitutes[step]=substitute;else delete substitutes[step];
+      const {subject,section}=entry;
+      const emergencyAssignments={...current.emergencyAssignments};
+      if(Object.keys(substitutes).length)emergencyAssignments[input.rowKey]={subject,section,substitutes};
+      else delete emergencyAssignments[input.rowKey];
+      return {...current,updatedAt,revision,emergencyAssignments,
+       published:{...published,revision,assignments:{...published.assignments,[input.rowKey]:{...entry,substitutes}}}};
+     }
      if(settings)return {...current,sheets:draft,overrides,reviewerIds,revision,updatedAt};
      let published=null;
      if(publishing)try{
       const assignments=monitoringAssignments(draft,directory,current?.overrides);
+      for(const [key,entry] of Object.entries(assignments)){
+       const previous=current?.emergencyAssignments?.[key];
+       if(previous?.subject===entry.subject&&previous.section===entry.section)entry.substitutes=previous.substitutes||{};
+      }
       for(const [key,progress] of Object.entries(current?.progress||{})){
        const initial=progress.identity||current.published?.assignments?.[key],next=assignments[key];
        if(initial&&(!next||next.subject!==initial.subject||next.section!==initial.section))

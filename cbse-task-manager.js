@@ -5,7 +5,7 @@ import {TASK_CLASSES,TASK_AVAILABLE_CLASSES,TASK_PRIMARY_CLASSES,taskClasses,TAS
 import {el,options} from './cbse-ui.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
-import {MONITORING_ROLES,MONITORING_STEPS,monitoringAssignments,monitoringAdvance,monitoringStage} from './cbse-task-monitoring-workflow.js';
+import {MONITORING_ROLES,MONITORING_STEPS,monitoringAssignments,monitoringAdvance,monitoringStage,monitoringPeople} from './cbse-task-monitoring-workflow.js';
 const SAMAGAM_REPORTING_NOTICE='Upload marks to Samagam only after both the Subject Teacher and the Class Teacher have completed their reporting to the Principal.';
 const host=document.getElementById('task-content'),nav=document.getElementById('task-nav'),status=document.getElementById('task-status');
 const OVERALL_COMMENT_LABEL='Overall situation — comments by CT / Prime mentor / Survey IC';
@@ -85,6 +85,9 @@ function drawMonitoringSettings(record,index){
  host.replaceChildren(button('Back to plan',()=>{if(discard())drawMonitoring(record,{index});}),card);
  card.append(el('h2','Task 2 workflow settings'));
  const people=Object.entries(staff).sort(([,a],[,b])=>a.name.localeCompare(b.name)).map(([id,p])=>[id,p.name]);
+ if(Object.keys(record.published?.assignments||{}).length)card.append(button('Emergency assignment',()=>{
+  if(discard())drawEmergencyAssignment(record,index,people);
+ }));
  const reviewers=['Exam IC','Exam Co-IC'].map((label,i)=>{
   const select=field(editor,label,'exam-reviewer-'+i,'select');options(select,[['','No final-remark permission'],...people],record.reviewerIds?.[i]||'');return select;
  });
@@ -111,6 +114,38 @@ function drawMonitoringSettings(record,index){
  });};
  card.append(editor);
 }
+function drawEmergencyAssignment(record,index,people){
+ const editor=form(),card=el('section',undefined,'task-card'),published=record.published;
+ const entries=Object.entries(published.assignments);
+ host.replaceChildren(button('Back to workflow settings',()=>{if(discard())drawMonitoringSettings(record,index);}),card);
+ card.append(el('h2','Emergency assignment'),
+  el('p','Choose a substitute for one published step. The change takes effect immediately. Completed steps keep their recorded history.'));
+ const row=field(editor,'Evaluation row','emergency-row','select');
+ options(row,entries.map(([id,{subject,section}])=>[id,id.slice(4)+' · '+subject+' · '+section]),entries[0][0]);
+ const step=field(editor,'Workflow step','emergency-step','select');
+ options(step,MONITORING_STEPS.map(({label},position)=>[String(position),label]),'0');
+ const current=el('p');
+ editor.append(current);
+ const person=field(editor,'Substitute staff member','emergency-person','select');
+ function showCurrent(){
+  const entry=published.assignments[row.value],position=Number(step.value);
+  current.textContent='Current assignment: '+(monitoringPeople(published,entry,position).map(({name})=>name).join(' / ')||'Unassigned');
+  options(person,[['','Use original assignment'],...people],entry.substitutes?.['step_'+position]?.id||'');
+  editor.dataset.portalDirty='false';
+ }
+ row.onchange=step.onchange=()=>{if(discard())showCurrent();else{row.value=editor.dataset.selectedRow;step.value=editor.dataset.selectedStep;}};
+ editor.addEventListener('change',()=>{editor.dataset.selectedRow=row.value;editor.dataset.selectedStep=step.value;});
+ editor.dataset.selectedRow=row.value;editor.dataset.selectedStep=step.value;
+ person.onchange=()=>{editor.dataset.portalDirty='true';};showCurrent();
+ editor.append(el('button','Save emergency assignment'));card.append(editor);
+ editor.onsubmit=event=>{event.preventDefault();run(async()=>{
+  const selection={rowKey:row.value,stage:Number(step.value)};
+  const {monitoring}=await request({action:'task-principal',operation:'monitoring-emergency',expectedRevision:record.revision,staffId:person.value,...selection},true);
+  editor.dataset.portalDirty='false';store.monitoringUpdatedAt=monitoring.updatedAt;
+  drawMonitoringSettings(monitoring,index);
+  message('Emergency assignment updated in the published plan.');
+ });};
+}
 function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate){
  const entry=(staffView?record:record.published).assignments[key],progress=record.progress?.[key];
  const stage=monitoringStage(progress),step=MONITORING_STEPS[stage],dialog=el('dialog',undefined,'task-start-dialog');
@@ -122,7 +157,7 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate
   if(item.remark)dialog.append(el('p',item.remark));
  }
  const close=button('Close',()=>dialog.close());dialog.append(close);
- const eligible=step?.role==='exam'?record.examReviewers||[]:[entry.roles?.[step?.role]].filter(Boolean);
+ const eligible=monitoringPeople(record,entry,stage);
  if(staffView&&allowUpdate&&step&&eligible.length){
   const editor=form(),person=field(editor,'Your name','monitoring-staff','select'),outcome=field(editor,'Status','monitoring-outcome','select');
   options(person,[['','Choose your name'],...eligible.map(({id,name})=>[id,name])],'');
@@ -314,11 +349,12 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
      const cell=row.insertCell();cell.className='task-workflow-step';
      if(step.review)cell.classList.add('task-principal-review');
      if(!entry){cell.textContent='Awaiting workflow publication';return;}
-     const assigned=step.role==='exam'?workflow.examReviewers?.map(person=>person.name).join(' / '):entry.roles?.[step.role]?.name;
+     const assigned=monitoringPeople(workflow,entry,position).map(({name})=>name).join(' / ');
      const current=position===stage,complete=position<stage;
      const state=complete?'Completed':current?(assigned?'Action due':'Assignment needed'):'Waiting';
      cell.append(el('strong',state,'task-workflow-state'+(current?' is-current':complete?' is-complete':'')));
      if(assigned)cell.append(el('span',assigned));
+     if(entry.substitutes?.['step_'+position]&&!complete)cell.append(el('span','Emergency substitute'));
      if(complete)cell.append(el('span',step.options[0][1]));
      const latest=progress?.history?.at(-1)?.label;
      if(current&&latest&&MONITORING_STEPS.some(stage=>stage.options.some(([value,label])=>value==='return'&&label===latest)))
