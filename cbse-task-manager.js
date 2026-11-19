@@ -111,7 +111,7 @@ function drawMonitoringSettings(record,index){
  });};
  card.append(editor);
 }
-function openMonitoringStep(record,key,staffView){
+function openMonitoringStep(record,key,staffView,allowUpdate=true){
  const entry=(staffView?record:record.published).assignments[key],progress=record.progress?.[key];
  const stage=progress?.stage||0,step=MONITORING_STEPS[stage],dialog=el('dialog',undefined,'task-start-dialog');
  dialog.append(el('h2',entry.subject+' · '+entry.section));
@@ -121,8 +121,8 @@ function openMonitoringStep(record,key,staffView){
   if(item.remark)dialog.append(el('p',item.remark));
  }
  const close=button('Close',()=>dialog.close());dialog.append(close);
- const eligible=step?.role==='exam'?record.examReviewers||[]:[entry.roles[step?.role]].filter(Boolean);
- if(staffView&&step&&eligible.length){
+ const eligible=step?.role==='exam'?record.examReviewers||[]:[entry.roles?.[step?.role]].filter(Boolean);
+ if(staffView&&allowUpdate&&step&&eligible.length){
   const editor=form(),person=field(editor,'Your name','monitoring-staff','select'),outcome=field(editor,'Status','monitoring-outcome','select');
   options(person,[['','Choose your name'],...eligible.map(({id,name})=>[id,name])],'');
   options(outcome,[['','Choose status'],...step.options],'');
@@ -138,7 +138,7 @@ function openMonitoringStep(record,key,staffView){
     dialog.close();await openPublishedMonitoring();message('Status saved.');
    }catch(error){errorText.textContent=error.message;}
   });};
- }else if(staffView&&step)dialog.append(el('p','Awaiting a Principal assignment for '+step.label+'.'));
+ }else if(staffView&&allowUpdate&&step)dialog.append(el('p','Awaiting a Principal assignment for '+step.label+'.'));
  dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
 }
 function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
@@ -196,6 +196,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
   const display=value=>value.startsWith('=')?monitoringFormula(value,sheets,index):value;
   const width=sheet[0].length;
   const workflow=!editing&&index===0&&(staffView?record:record.published);
+  if(workflow)table.classList.add('task-monitoring-workflow');
   if(editing){
    const heading=table.createTHead().insertRow();heading.append(el('th','#'));
    for(let c=0;c<width;c++)heading.append(el('th',String.fromCharCode(65+c)));
@@ -205,7 +206,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
    if(!values.some(Boolean)&&(!editing||spacer))return;
    const row=body.insertRow();
    if(!editing&&(index===0?r<3:r<2)&&values[0]&&values.slice(1).every(value=>!value)){
-    const heading=el('th',values[0],'task-monitoring-caption');heading.colSpan=width+(workflow?1:0);row.append(heading);return;
+    const heading=el('th',values[0],'task-monitoring-caption');heading.colSpan=width+(workflow?MONITORING_STEPS.length:0);row.append(heading);return;
    }
    const header=index===0?r===4:r===3||r===7;
    const entry=workflow&&r>4?workflow.assignments?.['row_'+values[0]]:null;
@@ -215,7 +216,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
     const cell=el(!editing&&header?'th':'td');row.append(cell);
     if(!editing){
      const assignedRole=entry&&MONITORING_ROLES[c-4]?.[0];
-     cell.textContent=assignedRole?(entry.roles[assignedRole]?.name||value||'Unassigned'):display(value);
+     cell.textContent=assignedRole?(entry.roles?.[assignedRole]?.name||value||'Unassigned'):display(value);
      return;
     }
     const input=el('div',String(display(value)),'task-monitoring-cell');
@@ -233,14 +234,27 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false}={}){
     cell.append(input);
    });
    if(workflow&&r>=4){
-    if(r===4){row.append(el('th','Status / next action'));return;}
-    const key='row_'+values[0],cell=row.insertCell();
-    if(!entry){cell.textContent='Awaiting workflow publication';return;}
-    const step=MONITORING_STEPS[progress?.stage||0];
-    const eligible=step?.role==='exam'?workflow.examReviewers?.map(person=>person.name).join(' / '):entry.roles[step?.role]?.name;
-    cell.append(el('strong',step?step.label+' · '+(eligible||'Assignment needed'):'Closed'));
-    if(progress?.history?.length)cell.append(el('p',progress.history.at(-1).label));
-    if(staffView||progress)cell.append(button(staffView&&step?'Update status':'View history',()=>openMonitoringStep(record,key,staffView)));
+    if(r===4){
+     for(const {label} of MONITORING_STEPS){const heading=el('th',label,'task-workflow-step');heading.scope='col';row.append(heading);}
+     return;
+    }
+    const key='row_'+values[0],stage=progress?.stage||0;
+    MONITORING_STEPS.forEach((step,position)=>{
+     const cell=row.insertCell();cell.className='task-workflow-step';
+     if(!entry){cell.textContent='Awaiting workflow publication';return;}
+     const assigned=step.role==='exam'?workflow.examReviewers?.map(person=>person.name).join(' / '):entry.roles?.[step.role]?.name;
+     const current=position===stage,complete=position<stage;
+     const state=complete?'Completed':current?(assigned?'Action due':'Assignment needed'):'Waiting';
+     cell.append(el('strong',state,'task-workflow-state'+(current?' is-current':complete?' is-complete':'')));
+     if(assigned)cell.append(el('span',assigned));
+     if(complete)cell.append(el('span',step.options[0][1]));
+     const latest=progress?.history?.at(-1)?.label;
+     if(current&&latest&&MONITORING_STEPS.some(stage=>stage.options.some(([value,label])=>value==='return'&&label===latest)))
+      cell.append(el('span',latest));
+     if(current&&staffView)cell.append(button('Update status',()=>openMonitoringStep(record,key,true)));
+     if(position===Math.min(stage,MONITORING_STEPS.length-1)&&progress?.history?.length)
+      cell.append(button('View history',()=>openMonitoringStep(record,key,staffView,false)));
+    });
    }
   });
   scroll.replaceChildren(table);
