@@ -27,20 +27,20 @@ function navigation(){
   nav.replaceChildren(button('Sign out',async()=>{if(discard()){suppliedFigures=null;await authApi.signOut(auth);}}));
   return;
  }
- const expanded=mode()==='principal';
- const toggle=button('Principal sign-in',()=>switchMode(expanded?'staff':'principal'));
- toggle.setAttribute('aria-expanded',String(expanded));
- toggle.setAttribute('aria-controls','task-principal-sign-in');
- nav.replaceChildren(toggle);
- const panel=el('div',undefined,'task-principal-panel');panel.id='task-principal-sign-in';panel.hidden=!expanded;
- nav.append(panel);
- if(expanded&&authApi)renderPrincipalLogin(panel,password=>authApi.signInWithEmailAndPassword(auth,'ramsirkvs@gmail.com',password));
- else if(expanded)panel.append(el('p','Principal sign-in is unavailable. Refresh to retry.'));
-}
-function switchMode(next){
- if(!discard())return;
- renderedMode=next;history.replaceState(null,'','#'+next);navigation();
- nav.querySelector(next==='principal'?'input[type=password]':'button')?.focus();
+ const panel=el('div',undefined,'task-principal-panel');panel.id='task-principal-sign-in';panel.hidden=true;
+ const toggle=button('Principal sign-in',()=>{
+  if(!discard())return;
+  panel.hidden=!panel.hidden;
+  toggle.setAttribute('aria-expanded',String(!panel.hidden));
+  if(panel.hidden){panel.replaceChildren();return;}
+  if(authApi){
+   renderPrincipalLogin(panel,password=>authApi.signInWithEmailAndPassword(auth,'ramsirkvs@gmail.com',password));
+   panel.querySelector('input').focus();
+  }else panel.append(el('p','Principal sign-in is unavailable. Refresh to retry.'));
+ });
+ toggle.setAttribute('aria-expanded','false');
+ toggle.setAttribute('aria-controls',panel.id);
+ nav.replaceChildren(toggle,panel);
 }
 function clearSuppliedFigures(id){if(suppliedFigures?.taskId===id){suppliedFigures=null;document.querySelector('.task-import-ready')?.remove();}}
 function adopt(result){store=result;staff=result.staff||staff;}

@@ -28,6 +28,9 @@ try:
         ctx=browser.new_context();ctx.route('https://www.gstatic.com/firebasejs/**',sdk)
         page=ctx.new_page();errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
         page.goto(BASE+'cbse-task-manager.html#principal')
+        sign_in=page.get_by_role('button',name='Principal sign-in',exact=True)
+        sign_in.wait_for();assert page.get_by_label('Principal password',exact=True).count()==0
+        sign_in.click()
         page.get_by_label('Principal password',exact=True).fill('synthetic-password');page.get_by_role('button',name='Sign in here',exact=True).click()
         page.get_by_role('button',name='Create Task 1 unpublished draft',exact=True).click()
         card=page.locator('#task-task1');card.get_by_text('Unpublished — private to Principal',exact=True).wait_for()
@@ -201,12 +204,12 @@ try:
         before=api({'action':'task-principal','operation':'read'})['tasks']['task1']['draft']['headers']['IX A']['total']
         prepared=ctx.new_page();prepared.goto(BASE+'cbse-task-manager.html#principal&figures='+staged);prepared.locator('.task-import-ready').wait_for();assert prepared.url.endswith('#principal');prepared.get_by_role('row').filter(has_text='Vidyalaya Level Confidential Survey').get_by_role('button').click();assert prepared.locator('[name=preview-class]').count()==0;assert prepared.get_by_label('Total students · IX A',exact=True).input_value()=='41';assert api({'action':'task-principal','operation':'read'})['tasks']['task1']['draft']['headers']['IX A']['total']==before
         prepared.get_by_role('button',name='Save and publish task',exact=True).click();prepared.get_by_role('status').get_by_text('Published. Reports remain restricted',exact=False).wait_for();assert api({'action':'task-principal','operation':'read'})['tasks']['task1']['published']['headers']['IX A']['total']==41;prepared.close()
-        outsider=browser.new_context();outsider.route('https://www.gstatic.com/firebasejs/**',sdk);unverified=outsider.new_page();unverified.goto(BASE+'cbse-task-manager.html#principal&figures='+staged);unverified.get_by_label('Principal password',exact=True).wait_for();assert unverified.locator('.task-import-ready').count()==0;assert unverified.locator('.task-assignment-section').count()==0;outsider.close()
+        outsider=browser.new_context();outsider.route('https://www.gstatic.com/firebasejs/**',sdk);unverified=outsider.new_page();unverified.goto(BASE+'cbse-task-manager.html#principal&figures='+staged);unverified.get_by_role('button',name='Principal sign-in',exact=True).wait_for();assert unverified.get_by_label('Principal password',exact=True).count()==0;assert unverified.locator('.task-import-ready').count()==0;assert unverified.locator('.task-assignment-section').count()==0;outsider.close()
         page.get_by_role('button',name='Refresh tasks',exact=True).click();card.get_by_role('button',name='Stop publication',exact=True).wait_for()
         card.get_by_role('button',name='Stop publication',exact=True).click();page.get_by_role('status').get_by_text('Publication stopped.',exact=False).wait_for()
         current=api({'action':'task-principal','operation':'read'})['tasks']['task1'];assert not current.get('published');assert len(current['reports'])==1;assert current['comment']=='Synthetic private review'
         card.get_by_role('button',name='Prepare presentation report',exact=True).click();page.locator('.task-presentation').wait_for()
-        page.locator('#task-nav button').evaluate('(button)=>button.click()');page.get_by_label('Principal password',exact=True).wait_for();assert page.locator('#task-task1').count()==0;assert page.locator('.task-presentation').count()==0;assert not page.locator('.task-app').evaluate('(node)=>node.inert')
+        page.locator('#task-nav button').evaluate('(button)=>button.click()');sign_in.wait_for();assert page.get_by_label('Principal password',exact=True).count()==0;assert page.locator('#task-task1').count()==0;assert page.locator('.task-presentation').count()==0;assert not page.locator('.task-app').evaluate('(node)=>node.inert')
         assert not errors,errors
         print('PASS Principal totals/comment, stop publication retains reports, and explicit logout clears protected DOM')
         browser.close()
