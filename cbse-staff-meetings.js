@@ -7,6 +7,7 @@ import {renderPrincipalLogin} from './cbse-principal-login.js';
 const content=document.getElementById('meetings-content'),status=document.getElementById('meetings-status');
 const chamber=document.querySelector('.meeting-actions a');
 const staffButton=document.getElementById('meetings-staff'),manageButton=document.getElementById('meetings-manage');
+const SIGNED_MINUTES_FOLDER='https://drive.google.com/drive/folders/1rxs7-C467M2zEBpTpMCg2CWmVUK3UQ5i?usp=sharing';
 const ist=new Intl.DateTimeFormat('en-IN',{dateStyle:'long',timeStyle:'short',timeZone:'Asia/Kolkata'});
 const stamp=ms=>ist.format(ms)+' IST';
 let busy=false,auth,authApi,watching=false,adminMode=false,savedSetupId=null;
@@ -130,8 +131,8 @@ async function showStaff(){
     const row=el('tr'),action=el('td');
     action.append(button('Read minutes / print',()=>showReport(entry.id)));
     const signed=el('td');
-    signed.append(button(entry.signedMinutesRevision?'Replace signed PDF':'Upload signed PDF',()=>showSignedUploadChoices(entry)));
-    if(entry.signedMinutesRevision)signed.append(button('Download signed PDF',()=>downloadSignedMinutes(entry)));
+    signed.append(button(entry.signedMinutesRevision?'Replace signed PDF link':'Upload signed PDF',()=>showSignedUploadChoices(entry)));
+    if(entry.signedMinutesRevision)signed.append(button('Open signed PDF',()=>downloadSignedMinutes(entry)));
     row.append(el('td',entry.agenda||'Staff meeting'),el('td',stamp(entry.scheduledAt??entry.createdAt)),action,signed);
     rows.append(row);
    }
@@ -150,8 +151,11 @@ function showSignedUpload(entry,principal,back){
  adminMode=principal;
  content.replaceChildren(meetingCard(entry,false),el('h2','Upload signed minutes'));
  const form=el('form');
- const file=field(form,'Signed PDF (up to 2 MB)');
- file.type='file';file.accept='.pdf,application/pdf';file.required=true;
+ const folder=el('a','Open upload folder in Google Drive');
+ folder.href=SIGNED_MINUTES_FOLDER;folder.target='_blank';folder.rel='noopener noreferrer';
+ form.append(folder,el('p','Upload the signed PDF to the folder, then paste the share link for that file.'));
+ const driveUrl=field(form,'Google Drive PDF link');
+ driveUrl.type='url';driveUrl.required=true;driveUrl.maxLength=2048;
  let person,pin;
  if(!principal){
   const writers=[...new Map(meetingWriters(entry).map(writer=>[writer.id,writer])).values()];
@@ -159,28 +163,21 @@ function showSignedUpload(entry,principal,back){
   options(person,[['','Choose your name'],...writers.map(({id,name})=>[id,name])],writers.length===1?writers[0].id:'');
   pin=password(form,'Personal PIN',true);
  }
- const submit=el('button',entry.signedMinutesRevision?'Replace signed PDF':'Upload signed PDF');
+ const submit=el('button','Save signed PDF link');
  form.append(submit,button('Back to meeting register',back));
  form.onsubmit=event=>{event.preventDefault();run(async()=>{
-  const selected=file.files[0];
-  if(!selected||selected.size>2097152)throw Error('Choose a PDF up to 2 MB.');
   const secret=pin?.value;
   if(pin)pin.value='';
-  const pdf=await new Promise((resolve,reject)=>{
-   const reader=new FileReader();
-   reader.onload=()=>resolve(reader.result.split(',')[1]);
-   reader.onerror=()=>reject(Error('The PDF could not be read.'));
-   reader.readAsDataURL(selected);
-  });
-  const values={meetingOperation:'signed-upload',meetingId:entry.id,expectedSignedRevision:entry.signedMinutesRevision||0,pdf};
+  const values={meetingOperation:'signed-upload',meetingId:entry.id,expectedSignedRevision:entry.signedMinutesRevision||0,driveUrl:driveUrl.value.trim()};
   saved(await (principal?principalRequest(values):pinRequest({id:entry.id,writerId:person.value},secret,values)));
   await back();
-  message('Signed minutes uploaded.');
+  message('Signed PDF link saved.');
  },submit);};
  content.append(form);
 }
 async function downloadSignedMinutes(entry){
- const {pdf}=await request({action:'staff-meetings-read',meetingId:entry.id,task:'signed-minutes'});
+ const {pdf,driveUrl}=await request({action:'staff-meetings-read',meetingId:entry.id,task:'signed-minutes'});
+ if(driveUrl){location.assign(driveUrl);return;}
  const bytes=Uint8Array.from(atob(pdf),character=>character.charCodeAt(0));
  const url=URL.createObjectURL(new Blob([bytes],{type:'application/pdf'}));
  const link=el('a');link.href=url;link.download='signed-meeting-minutes.pdf';link.click();
@@ -522,7 +519,7 @@ async function drawPrincipal(){
    saved(await principalRequest({meetingOperation:'publish',meetingId:entry.id,expectedRevision:entry.revision}));
    await drawPrincipal();message('Report published to staff view.');
   }));
-  if(entry.published)reportActions.append(button(entry.signedMinutesRevision?'Replace signed PDF':'Upload signed PDF',()=>{
+  if(entry.published)reportActions.append(button(entry.signedMinutesRevision?'Replace signed PDF link':'Upload signed PDF',()=>{
    if(canLeave())showSignedUpload(entry,true,drawPrincipal);
   }),button('Stop publication',async()=>{
    if(!canLeave())return;

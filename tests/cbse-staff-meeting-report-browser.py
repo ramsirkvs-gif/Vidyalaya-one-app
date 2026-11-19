@@ -108,7 +108,7 @@ def check_signed_upload(browser):
         'published': True, 'completed': True, 'submittedLanguages': ['en'],
         'writers': [{'id': 'X:one', 'name': 'Alex Example', 'language': 'en'}],
     }
-    pdf = b'%PDF-1.4\n%%EOF'
+    drive_url = 'https://drive.google.com/file/d/SyntheticPdf123/view'
     payload = None
 
     def staff_access(route):
@@ -119,7 +119,7 @@ def check_signed_upload(browser):
             entry['signedMinutesRevision'] = 1
             route.fulfill(json={'ok': True, 'signedMinutesRevision': 1})
         elif request.get('task') == 'signed-minutes':
-            route.fulfill(json={'pdf': payload['pdf']})
+            route.fulfill(json={'driveUrl': payload['driveUrl']})
         else:
             route.fulfill(json={'meetings': [entry]})
 
@@ -129,16 +129,17 @@ def check_signed_upload(browser):
     assert page.evaluate('document.documentElement.scrollWidth <= innerWidth')
     page.get_by_role('button', name='Upload signed PDF').click()
     page.get_by_role('button', name='Upload with writer PIN').click()
-    page.get_by_label('Signed PDF (up to 2 MB)').set_input_files({
-        'name': 'signed.pdf', 'mimeType': 'application/pdf', 'buffer': pdf,
-    })
+    assert '/drive/folders/1rxs7-C467M2zEBpTpMCg2CWmVUK3UQ5i' in page.get_by_role('link', name='Open upload folder in Google Drive').get_attribute('href')
+    page.get_by_label('Google Drive PDF link').fill(drive_url)
     page.get_by_label('Personal PIN').fill('123')
-    page.get_by_role('button', name='Upload signed PDF').click()
-    page.get_by_text('Signed minutes uploaded.').wait_for()
-    assert (payload['meetingOperation'], payload['staffId'], payload['pin']) == ('signed-upload', 'X:one', '123')
-    with page.expect_download() as download:
-        page.get_by_role('button', name='Download signed PDF').click()
-    assert download.value.path().read_bytes() == pdf
+    page.get_by_role('button', name='Save signed PDF link').click()
+    page.get_by_text('Signed PDF link saved.').wait_for()
+    assert (payload['meetingOperation'], payload['staffId'], payload['pin'], payload['driveUrl']) == (
+        'signed-upload', 'X:one', '123', drive_url,
+    )
+    page.route(drive_url, lambda route: route.fulfill(body='Synthetic Drive PDF'))
+    page.get_by_role('button', name='Open signed PDF').click()
+    page.wait_for_url(drive_url)
     page.close()
 
 

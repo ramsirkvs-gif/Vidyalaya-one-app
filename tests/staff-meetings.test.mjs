@@ -82,6 +82,10 @@ test('attendance, Hindi and English save independently and the Principal control
  assert.equal((await principal('signed-upload',{...signed,expectedSignedRevision:1})).signedMinutesRevision,2);
  assert.equal((await call('staff-meetings-read',{})).meetings[0].signedMinutesRevision,2);
  assert.equal((await call('staff-meetings-read',{meetingId,task:'signed-minutes'})).pdf,pdf);
+ await assert.rejects(pin(hi,'123','signed-upload',{expectedSignedRevision:2,driveUrl:'https://drive.google.com/drive/folders/synthetic-folder'}),/share link for the PDF/);
+ const driveUrl='https://drive.google.com/file/d/SyntheticPdf123/view';
+ assert.equal((await pin(hi,'123','signed-upload',{expectedSignedRevision:2,driveUrl:driveUrl+'?usp=sharing'})).signedMinutesRevision,3);
+ assert.equal((await call('staff-meetings-read',{meetingId,task:'signed-minutes'})).driveUrl,driveUrl);
  await assert.rejects(f.service('staff-meetings-read',{meetingId,task:'signed-minutes'}),/viewing password/);
  await principal('minutes-edit',{...english,minutes:'Principal correction',expectedRevision:2});
  const preview=await principal('read',{task:'report'});

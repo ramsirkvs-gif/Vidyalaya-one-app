@@ -229,7 +229,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     if(input.task==='signed-minutes'){
      const file=meeting.signedMinutesRevision&&await read('cbse/staffMeetingSignedMinutes/'+input.meetingId);
      if(!file)throw new AccessError('Signed minutes have not been uploaded.',404);
-     return {ok:true,pdf:file.pdf};
+     return {ok:true,...(file.driveUrl?{driveUrl:file.driveUrl}:{pdf:file.pdf})};
     }
     return {ok:true,report};
 
@@ -284,11 +284,25 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     return {ok:true,meeting:{id:meeting.id,createdAt:meeting.createdAt,scheduledAt:meeting.scheduledAt||meeting.createdAt,meetingAgenda:meeting.meetingAgenda||'',...minute,revision:minute.revision||0,language:input.language}};
    }
    const signedUpload=operation==='signed-upload';
+   let signedFile;
    if(signedUpload){
     if(typeof input.meetingId!=='string'||!/^[a-f0-9]{32}$/.test(input.meetingId))throw new AccessError('Choose a valid staff meeting.',400);
-    if(typeof input.pdf!=='string'||input.pdf.length>2796204)throw new AccessError('Choose a PDF up to 2 MB.',400);
-    const pdf=Buffer.from(input.pdf,'base64');
-    if(pdf.length>2097152||pdf.toString('base64')!==input.pdf||pdf.subarray(0,5).toString()!=='%PDF-')throw new AccessError('Choose a valid PDF up to 2 MB.',400);
+    if(input.driveUrl!==undefined){
+     let url;
+     try{url=new URL(input.driveUrl);}catch{}
+     const fileId=url?.pathname.match(/^\/file\/d\/([A-Za-z0-9_-]{10,})\/(?:view|preview)\/?$/)?.[1];
+     if(typeof input.driveUrl!=='string'||input.driveUrl.length>2048||url?.origin!=='https://drive.google.com'||url.username||url.password||!fileId)
+      throw new AccessError('Paste the Google Drive share link for the PDF file.',400);
+     const share=new URL('https://drive.google.com/file/d/'+fileId+'/view');
+     const resourceKey=url.searchParams.get('resourcekey');
+     if(resourceKey&&/^[A-Za-z0-9_-]{1,200}$/.test(resourceKey))share.searchParams.set('resourcekey',resourceKey);
+     signedFile={driveUrl:share.href};
+    }else{
+     if(typeof input.pdf!=='string'||input.pdf.length>2796204)throw new AccessError('Choose a PDF up to 2 MB.',400);
+     const pdf=Buffer.from(input.pdf,'base64');
+     if(pdf.length>2097152||pdf.toString('base64')!==input.pdf||pdf.subarray(0,5).toString()!=='%PDF-')throw new AccessError('Choose a valid PDF up to 2 MB.',400);
+     signedFile={pdf:input.pdf};
+    }
    }
    const stamp=now();let reason='';
    const result=await mcqTransaction(db,'cbse',current=>{
@@ -311,7 +325,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      }
      return {...current,
       staffMeetings:{...current.staffMeetings,[id]:{...meeting,signedMinutesRevision:revision+1}},
-      staffMeetingSignedMinutes:{...current.staffMeetingSignedMinutes,[id]:{pdf:input.pdf,uploadedAt:stamp,uploadedBy:admin?'principal':staffId}}
+      staffMeetingSignedMinutes:{...current.staffMeetingSignedMinutes,[id]:{...signedFile,uploadedAt:stamp,uploadedBy:admin?'principal':staffId}}
      };
     }
     try{return {...current,staffMeetings:applyStaffMeeting(current.staffMeetings,input,actor,staff,stamp)};}
