@@ -85,31 +85,39 @@ export function pb1CategoryCounts(rows,key){
  return {...counts,failed,passed,passPercentage:counts.appeared?passed/counts.appeared*100:null,
   average:counts.appeared?total/counts.appeared:null};
 }
-export function pb1SmartSummary(rows){
- const students=new Map();
+export function pb1SmartStudents(rows){
+ const grouped=new Map();
  for(const row of rows){
-  if(!students.has(row.key))students.set(row.key,[]);
-  students.get(row.key).push(row);
+  if(!grouped.has(row.key))grouped.set(row.key,[]);
+  grouped.get(row.key).push(row);
  }
- const summary={students:students.size,assessed:0,incomplete:0,passed:0,failed:0,critical:0,borderline:0,
-  score90:0,score75:0,score50:0,paired:0,previousPassed:0,pairedPassed:0};
  const appeared=mark=>Number.isFinite(mark?.percentage);
- for(const papers of students.values()){
+ return [...grouped.values()].map(papers=>{
   const current=papers.filter(row=>appeared(row.current));
-  if(current.length<papers.length)summary.incomplete++;
-  if(!current.length)continue;
+  const matched=current.filter(row=>appeared(row.before)),failed=current.some(row=>row.current.failed);
+  return {papers,current,matched,failed,incomplete:current.length<papers.length,
+   critical:current.some(row=>row.current.band==='critical'),
+   borderline:!failed&&current.some(row=>row.current.band==='yellow'),
+   percentage:current.length?current.reduce((sum,row)=>sum+row.current.percentage,0)/current.length:null,
+   previousPassed:matched.length>0&&matched.every(row=>!row.before.failed),
+   pairedPassed:matched.length>0&&matched.every(row=>!row.current.failed)};
+ });
+}
+export function pb1SmartSummary(rows){
+ const students=pb1SmartStudents(rows);
+ const summary={students:students.length,assessed:0,incomplete:0,passed:0,failed:0,critical:0,borderline:0,
+  score90:0,score75:0,score50:0,paired:0,previousPassed:0,pairedPassed:0};
+ for(const student of students){
+  if(student.incomplete)summary.incomplete++;
+  if(!student.current.length)continue;
   summary.assessed++;
-  const fails=current.some(row=>row.current.failed);
-  if(fails)summary.failed++;else summary.passed++;
-  if(current.some(row=>row.current.band==='critical'))summary.critical++;
-  if(!fails&&current.some(row=>row.current.band==='yellow'))summary.borderline++;
-  const percentage=current.reduce((sum,row)=>sum+row.current.percentage,0)/current.length;
-  for(const cutoff of [90,75,50])if(percentage>=cutoff)summary['score'+cutoff]++;
-  const matched=current.filter(row=>appeared(row.before));
-  if(!matched.length)continue;
-  summary.paired++;
-  if(matched.every(row=>!row.before.failed))summary.previousPassed++;
-  if(matched.every(row=>!row.current.failed))summary.pairedPassed++;
+  if(student.failed)summary.failed++;else summary.passed++;
+  if(student.critical)summary.critical++;
+  if(student.borderline)summary.borderline++;
+  for(const cutoff of [90,75,50])if(student.percentage>=cutoff)summary['score'+cutoff]++;
+  if(student.matched.length)summary.paired++;
+  if(student.previousPassed)summary.previousPassed++;
+  if(student.pairedPassed)summary.pairedPassed++;
  }
  return summary;
 }

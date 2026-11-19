@@ -108,3 +108,10 @@
 .pb1-analyser.task-card>button+button{margin-inline-start:.45rem}
 .pb1-smart-strip>.pb1-stat-result{background:#eef4ff;border-color:#c6d6f0;color:#214c7e}
 .pb1-smart-strip>.pb1-stat-border{background:#fff7df;border-color:#e9d49b;color:#6e4c00}
+.pb1-analyser .pb1-primary-action{background:#176651;color:#fff;border-color:#176651;font-weight:700}
+.pb1-list-button{margin-top:.35rem}
+.pb1-count-with-link{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+.pb1-count-with-link .pb1-list-button{margin:0}
+.pb1-student-dialog{width:min(48rem,calc(100vw - 1.5rem));max-height:85dvh;overflow:auto}
+.pb1-student-dialog .pb1-table-wrap{max-height:50dvh}
+.pb1-list-marks{white-space:pre-line}
