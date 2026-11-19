@@ -45,10 +45,10 @@ export function pb1Report(draft,mission,staff,teacherIds){
     if(!mark)return null;
     const {redBelow,greenFrom}=gradeThresholds(mission,classId,subjectId,mark.examId);
     const percentage=mark.absent?null:mark.score/mark.maximum*100;
-    const pass=mark.importSource==='monthly_workbook_v1'?mark.passFrom/mark.maximum*100:redBelow;
+    const band=academicMarkBand(mark,redBelow,greenFrom);
     return {score:mark.absent?null:mark.score,maximum:mark.maximum,percentage,absent:mark.absent,
-     failed:['critical','red'].includes(academicMarkBand(mark,redBelow,greenFrom)),
-     borderline:percentage!==null&&percentage>=pass&&percentage<pass+5,exam:mark.exam.name,date:mark.exam.date};
+     band,hasCriticalRule:mark.importSource==='monthly_workbook_v1'&&Number.isFinite(mark.criticalBelow),
+     failed:band==='critical'||band==='red',borderline:band==='yellow',exam:mark.exam.name,date:mark.exam.date};
    };
    rows.push({scope,key:student.key,name:student.name,roll:student.roll??'',before:result(before),current:result(current),
     ...(current&&!current.sourceSubjectId?{markId:current.id,examId:current.examId}:{})});
@@ -56,6 +56,22 @@ export function pb1Report(draft,mission,staff,teacherIds){
  }
  rows.sort((a,b)=>a.scope-b.scope||String(a.roll).localeCompare(String(b.roll),undefined,{numeric:true})||a.name.localeCompare(b.name));
  return {revision:mission.revision||0,scopes,rows};
+}
+export function pb1CategoryCounts(rows,key){
+ const counts={critical:0,red:0,yellow:0,green:0,absent:0,missing:0,appeared:0,criticalCovered:0};
+ let total=0;
+ for(const row of rows){
+  const mark=row[key];
+  if(!mark){counts.missing++;continue;}
+  if(mark.absent){counts.absent++;continue;}
+  if(mark.percentage==null){counts.missing++;continue;}
+  counts.appeared++;total+=mark.percentage;
+  if(mark.hasCriticalRule)counts.criticalCovered++;
+  if(Object.hasOwn(counts,mark.band))counts[mark.band]++;
+ }
+ const failed=counts.critical+counts.red,passed=counts.yellow+counts.green;
+ return {...counts,failed,passed,passPercentage:counts.appeared?passed/counts.appeared*100:null,
+  average:counts.appeared?total/counts.appeared:null};
 }
 export function pb1Metrics(rows){
  const paired=rows.filter(row=>row.before?.percentage!=null&&row.current?.percentage!=null);

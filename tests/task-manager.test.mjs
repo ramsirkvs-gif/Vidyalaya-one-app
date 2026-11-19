@@ -12,7 +12,7 @@ import {TASK1_ROSTER,taskRosterStore} from '../cbse-task-manager-roster.js';
 import {TASK_AVAILABLE_CLASSES,taskClasses} from '../cbse-task-manager-model.js';
 import {MONITORING_SHEETS,monitoringFormula} from '../cbse-task-workbook.js';
 import {monitoringStage} from '../cbse-task-monitoring-workflow.js';
-import {pb1Metrics,pb1Risk} from '../cbse-pb1-analyser-model.js';
+import {pb1CategoryCounts,pb1Metrics,pb1Risk} from '../cbse-pb1-analyser-model.js';
 
 test('PB-1 uses assigned enrolled students, paper maxima, explicit absence and paired comparisons',async()=>{
  const f=taskFixture(),draft=f.data.cbse.draft,mission=f.data.cbse.mission;
@@ -42,6 +42,13 @@ test('PB-1 uses assigned enrolled students, paper maxima, explicit absence and p
  assert.equal(saved.rows[1].current.absent,true);
  assert.deepEqual(pb1Metrics(saved.rows),{paired:1,total:2,recorded:2,absent:1,beforePass:0,currentPass:100,beforeAverage:30,currentAverage:35});
  assert.equal(pb1Risk(saved.rows)[0].borderline.length,1);
+ assert.equal(pb1CategoryCounts(saved.rows,'before').failed,1);
+ const categories=pb1CategoryCounts(saved.rows,'current');
+ assert.equal(categories.yellow,1);
+ assert.equal(categories.absent,1);
+ assert.equal(categories.passPercentage,100);
+ assert.equal(categories.average,35);
+ assert.equal(categories.criticalCovered,0);
  await assert.rejects(save([{key:'X:a:one',mark:30}]),/results changed/);
  const principal=await f.admin({operation:'pb1-read'});assert.equal(principal.scopes.length,2);
  await assert.rejects(f.service('task-read',{operation:'pb1-public'}),/not published/);

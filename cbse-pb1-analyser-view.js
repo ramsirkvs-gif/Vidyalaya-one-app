@@ -1,5 +1,5 @@
 import {el,options} from './cbse-ui.js';
-import {pb1Metrics,pb1Risk} from './cbse-pb1-analyser-model.js';
+import {pb1Metrics,pb1Risk,pb1CategoryCounts} from './cbse-pb1-analyser-model.js';
 const pct=v=>v==null?'—':v.toFixed(1)+'%';
 const delta=(before,after)=>before==null||after==null?'—':(after-before>0?'+':'')+(after-before).toFixed(1)+' pp';
 const result=mark=>!mark?'Not entered':mark.absent?'AB (MM '+mark.maximum+')':mark.score+'/'+mark.maximum+' ('+pct(mark.percentage)+')';
@@ -29,6 +29,29 @@ function cohortRow(label,rows){
  return [label,m.paired+' / '+m.total,pct(m.beforePass),pct(m.currentPass),delta(m.beforePass,m.currentPass),
   pct(m.beforeAverage),pct(m.currentAverage),delta(m.beforeAverage,m.currentAverage),
   change==null?'Awaiting comparable results':change>0?'Pass rate increased':change<0?'Pass rate decreased':'Pass rate steady'];
+}
+function renderCategoryComparison(parent,previous,current){
+ parent.append(el('h3','Mission 100 result categories'));
+ const critical=summary=>summary.criticalCovered?summary.critical:'—';
+ const rows=[
+  ['Critical fail',critical(previous),critical(current),'critical'],
+  ['Other fail',previous.red,current.red,'red'],
+  ['Total fail',previous.failed,current.failed,'red'],
+  ['Borderline',previous.yellow,current.yellow,'yellow'],
+  ['Secure pass',previous.green,current.green,'green'],
+  ['Total pass',previous.passed,current.passed,'green'],
+  ['Pass percentage',pct(previous.passPercentage),pct(current.passPercentage),'green'],
+  ['Absent (AB)',previous.absent,current.absent,'grey'],
+  ['Not recorded',previous.missing,current.missing,'grey'],
+  ['Appeared',previous.appeared,current.appeared,''],
+  ['Average percentage',pct(previous.average),pct(current.average),''],
+ ];
+ table(parent,['Category','Latest monthly test','Preboard 1'],rows.map(([label,a,b,band])=>[
+  el('span',label,band?'band '+band:undefined),a,b,
+ ]));
+ const limited=[['monthly',previous],['PB-1',current]].filter(([,summary])=>summary.appeared>summary.criticalCovered);
+ const note=limited.length?' Critical-fail rules cover '+limited.map(([label,summary])=>summary.criticalCovered+' of '+summary.appeared+' appeared '+label+' results').join(' and ')+'. Total fail includes all recorded failures.':'';
+ parent.append(el('p','Counts are by student and subject. Pass percentage is based on appeared papers. AB and missing marks are counted separately.'+note));
 }
 function renderMarksGraph(parent,grouped){
  const graph=el('div',undefined,'pb1-marks-graph');
@@ -112,24 +135,21 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
    report.append(el('p','PB-1 marks have not been uploaded for this selection. Please upload the marks, then return here to analyse the results.','task-monitoring-notice'));
    if(!['graphs','risk'].includes(selected))return;
   }
-  const appeared=rows.filter(row=>row.current?.percentage!=null);
-  const overall=appeared.length?appeared.reduce((sum,row)=>sum+row.current.percentage,0)/appeared.length:null;
-  const pass=appeared.length?appeared.filter(row=>!row.current.failed).length/appeared.length*100:null;
+  const previous=pb1CategoryCounts(rows,'before'),current=pb1CategoryCounts(rows,'current');
   const stats=el('div',undefined,'pb1-stats');report.append(stats);
-  for(const [label,value,style] of [['PB-1 mean percentage',pct(overall),'result'],['PB-1 paper pass rate',pct(pass),'pass'],
-   ['Monthly → PB-1 mean',delta(m.beforeAverage,m.currentAverage),m.currentAverage==null?'':m.currentAverage>=m.beforeAverage?'pass':'decline'],
+  for(const [label,value,style] of [['PB-1 paper pass rate',pct(current.passPercentage),'pass'],
    ['Paired pass-rate change',delta(m.beforePass,m.currentPass),m.currentPass==null?'':m.currentPass>=m.beforePass?'pass':'decline'],
    ['PB-1 entries',m.recorded+' / '+m.total,''],['Comparable results',m.paired,''],['PB-1 absent',m.absent,'']]){
    const item=el('div',undefined,style?'pb1-stat-'+style:undefined);item.append(el('span',label),el('strong',String(value)));stats.append(item);
   }
   if(selected==='comparison'){
-   if(m.recorded)renderMarksGraph(report,[['Selected papers · monthly and PB-1',rows]]);
+   if(m.recorded)renderCategoryComparison(report,previous,current);
    const monthlyMM=maximumLabel(rows.map(row=>row.before?.maximum));
    const pb1MM=maximumLabel(rows.map(row=>row.current?.maximum??data.scopes[row.scope].maximum));
    table(report,['Student',...(publicView?[]:['Roll']),'Class','Subject','Previous exam','Monthly marks ('+monthlyMM+')','PB-1 marks ('+pb1MM+')','Change','PB-1 result'],rows.map(row=>{
     const info=data.scopes[row.scope];
     return [row.name,...(publicView?[]:[row.roll]),info.classId+' '+info.section,info.subject,row.before?.exam||'—',result(row.before),result(row.current),delta(row.before?.percentage,row.current?.percentage),
-     !row.current?'Not entered':row.current.absent?'Absent':row.current.failed?'Below pass':row.current.borderline?'Borderline pass':'Pass'];
+     !row.current?'Not entered':row.current.absent?'Absent':({critical:'Critical fail',red:'Other fail',yellow:'Borderline',green:'Secure pass'})[row.current.band]||'Not assessed'];
    }));
   }else if(selected==='risk'){
    const scopeIds=new Set(rows.map(row=>row.key));
@@ -137,7 +157,7 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
     const {failed,borderline,unavailable}=row;
     return riskFilter.value==='one'?failed.length===1:riskFilter.value==='multi'?failed.length>=2:riskFilter.value==='border'?borderline.length:riskFilter.value==='missing'?unavailable.length:failed.length||borderline.length||unavailable.length;
    });
-   report.append(el('p','Borderline means within 5 percentage points above the applicable pass mark. Counts cover subjects visible in this login.'));
+   report.append(el('p','Borderline and other support categories follow Mission 100’s grading rules. Counts cover subjects visible in this view.'));
    const names=ids=>ids.map(id=>data.scopes[id].subject).join(', ')||'—';
    table(report,['Student','Class','Failed subjects','Borderline subjects','Absent or missing'],risk.map(row=>{
     const info=data.scopes[row.scope];return [row.name,info.classId+' '+info.section,names(row.failed),names(row.borderline),names(row.unavailable)];
@@ -168,7 +188,7 @@ export function renderPB1Analyser(host,data,{run,button,save,back,teacher,public
    const key=selected==='classes'?row=>info(row).classId+' '+info(row).section+' · '+info(row).subject:
     selected==='teachers'?row=>(info(row).teacher||'Unassigned')+' · '+info(row).classId+' · '+info(row).subject:
     row=>info(row).classId+' · '+info(row).subject;
-   table(report,['Group','Paired / enrolled','Previous pass','PB-1 pass','Pass change','Previous mean','PB-1 mean','Mean change','Remark'],
+   table(report,['Group','Paired / enrolled','Previous pass','PB-1 pass','Pass change','Previous average','PB-1 average','Average change','Remark'],
     [...groups(rows,key)].map(([label,group])=>cohortRow(label,group)));
    if(selected==='teachers')report.append(el('p','Teacher comparisons describe changes in assigned student results. They are a cohort measure.'));
   }
