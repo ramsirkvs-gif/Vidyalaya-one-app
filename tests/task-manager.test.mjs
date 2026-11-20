@@ -582,3 +582,29 @@ test('PB-1 evaluator names follow seniority, consolidate aliases and include pub
  const saved=await f.teacher({taskOperation:'pb1-save',classId:'X',sectionId:'a',subjectId:'english',expectedRevision:own.revision,entries:[{key:own.rows[0].key,mark:40}]},'X:senior','321');
  assert.equal(saved.rows[0].current.score,40);
 });
+
+test('published Task 2 recovers the verified Avinash alias without changing explicit assignments',async()=>{
+ const f=taskFixture();
+ f.data.cbse.facultyDraft.classes.X.teachers.one.name='MR. AVINASH SINGH';
+ await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');
+ const sheets=MONITORING_SHEETS.map(({rows,columns})=>Array.from({length:rows},()=>Array(columns).fill('')));
+ sheets[0][5].splice(0,7,'1','AI','X A','','MR. AVINASH SINGH','Synthetic Teacher two','MR. AVINASH SINGH');
+ await f.admin({operation:'monitoring-save',expectedRevision:0,sheets});
+ await f.admin({operation:'monitoring-publish',expectedRevision:1});
+ const source=f.data.cbse.taskMonitoring;
+ assert.equal(source.published.assignments.row_1.roles.evaluator.id,'X:one');
+ delete source.published.assignments.row_1.roles.evaluator;
+ const {viewerToken}=await f.service('remember-view',{},'principal'),session={viewerToken};
+ const read=()=>f.service('task-read',{operation:'monitoring-read'},'','test',session);
+ assert.equal((await read()).monitoring.assignments.row_1.roles.evaluator.id,'X:one');
+ const submit=(staffId,pin)=>f.service('pin-submit',{operation:'task-manager',taskOperation:'monitoring-update',
+  staffId,pin,rowKey:'row_1',publicationRevision:2,expectedRevision:0,outcome:'advance'},'','test',session);
+ source.overrides={row_1:{evaluator:''}};
+ assert.equal((await read()).monitoring.assignments.row_1.roles.evaluator,undefined);
+ await assert.rejects(submit('X:one','123'),/another staff member/);
+ delete source.overrides;
+ await assert.rejects(submit('X:two','456'),/another staff member/);
+ assert.equal((await submit('X:one','123')).ok,true);
+ assert.equal((await read()).monitoring.progress.row_1.stage,1);
+});

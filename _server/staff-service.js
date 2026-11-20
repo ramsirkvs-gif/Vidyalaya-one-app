@@ -2,7 +2,7 @@ import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
 import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList,minuteLanguages} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {validateMonitoringSheets} from '../cbse-task-workbook.js';
-import {monitoringAssignments,monitoringAdvance,MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES} from '../cbse-task-monitoring-workflow.js';
+import {monitoringAssignments,monitoringAdvance,resolvePublishedAvinashAssignments,MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES} from '../cbse-task-monitoring-workflow.js';
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {evaluatorDirectory,withPublishedPB1Evaluators} from './pb1-evaluators.js';
 import {pb1Report,pb1Scopes,paperDiscussionComment} from '../cbse-pb1-analyser-model.js';
@@ -345,13 +345,17 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    if(!admin&&input.operation==='monitoring-read'){
     const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
     if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}
-    const {published,progress}=await read(monitoringPath)||{};
+    const {published,progress,overrides}=await read(monitoringPath)||{};
     if(!published)throw new AccessError('The monitoring plan is no longer published.',404);
-    return {monitoring:{...published,examReviewers:await finalExamReviewers(),progress:progress||{}}};
+    const staff=await directoryStaff();
+    return {monitoring:{...resolvePublishedAvinashAssignments(published,staff,overrides),examReviewers:await finalExamReviewers(staff),progress:progress||{}}};
    }
    if(admin&&input.operation==='monitoring-read'){
     const monitoring=await read(monitoringPath)||{sheets:TASK_MONITORING_SEED,revision:0};
-    if(monitoring.published)monitoring.published={...monitoring.published,examReviewers:await finalExamReviewers()};
+    if(monitoring.published){
+     const staff=await directoryStaff();
+     monitoring.published={...resolvePublishedAvinashAssignments(monitoring.published,staff,monitoring.overrides),examReviewers:await finalExamReviewers(staff)};
+    }
     return {monitoring};
    }
    if(admin&&['monitoring-save','monitoring-settings','monitoring-publish','monitoring-unpublish','monitoring-emergency'].includes(input.operation)){
@@ -653,8 +657,8 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     if(input.taskOperation==='monitoring-practice'){
      if(typeof input.rowKey!=='string'||!/^row_[1-9]\d{0,5}$/.test(input.rowKey)||!Number.isInteger(input.stage)||input.stage<0)
       throw new AccessError('Choose a valid practice step.',400);
-     const published=await read(path+'/published');
-     const mock={published:published&&{...published,examReviewers},progress:{[input.rowKey]:{stage:input.stage,separateMatching:true,revision:0,history:[]}}};
+     const {published,overrides}=await read(path)||{};
+     const mock={published:published&&{...resolvePublishedAvinashAssignments(published,staff,overrides),examReviewers},progress:{[input.rowKey]:{stage:input.stage,separateMatching:true,revision:0,history:[]}}};
      try{
       const result=monitoringAdvance(mock,{...input,expectedRevision:0},actor,now()).progress[input.rowKey];
       return {ok:true,stage:result.stage,event:result.history[0]};
@@ -666,7 +670,9 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      if(current===null&&known)return null;
      try{
       const state=current||{},published=state.published;
-      return monitoringAdvance({...state,published:published&&{...published,examReviewers}},input,actor,now());
+      const effective=resolvePublishedAvinashAssignments(published,staff,state.overrides);
+      const next=monitoringAdvance({...state,published:effective&&{...effective,examReviewers}},input,actor,now());
+      return {...next,published:{...published,examReviewers}};
      }
      catch(error){reason=error.message;return;}
     },{restTransaction});

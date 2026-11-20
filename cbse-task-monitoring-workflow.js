@@ -1,3 +1,5 @@
+import {isAvinashGuestProfile} from './cbse-faculty-guest.js';
+
 export const FINAL_EXAM_IC_NAMES=['Mr. Paramveer Meena','Mr. Sunil Kumar'];
 export const MONITORING_ROLES=[['evaluator','Evaluator'],['checker','Checker'],['matching','Matching IC']];
 export const MONITORING_STEPS=[
@@ -23,12 +25,33 @@ export function monitoringPeople(published,entry,position){
  return [substitute||entry?.roles?.[role]].filter(Boolean);
 }
 
+const assignmentNameKey=name=>isAvinashGuestProfile({name})?'avinashsingh':
+ String(name||'').toLowerCase().replace(/^(mr|mrs|ms|dr|shri|smt)\.?\s+/,'').replace(/[^\p{L}\p{N}]/gu,'');
+
+export function resolvePublishedAvinashAssignments(published,staff,overrides={}){
+ if(!published?.assignments||!Array.isArray(published.sheets?.[0]))return published;
+ const owners=new Set(Object.entries(staff).filter(([,person])=>person.status==='active'&&isAvinashGuestProfile(person))
+  .map(([id,person])=>person.pinOwnerId||id).filter(id=>staff[id]?.status==='active'));
+ if(owners.size!==1)return published;
+ const id=[...owners][0],assignments={...published.assignments};
+ for(const [serial,subject,section,...cells] of published.sheets[0].slice(5)){
+  const key='row_'+serial,entry=assignments[key];
+  if(!entry||entry.subject!==subject||entry.section!==section)continue;
+  const roles={...entry.roles};
+  MONITORING_ROLES.forEach(([role],index)=>{
+   if(!roles[role]&&!Object.hasOwn(overrides[key]||{},role)&&isAvinashGuestProfile({name:cells[index+1]}))
+    roles[role]={id,name:staff[id].name};
+  });
+  assignments[key]={...entry,roles};
+ }
+ return {...published,assignments};
+}
+
 export function monitoringAssignments(sheets,staff,overrides={}){
  const names=new Map(),records={};
- const normalize=name=>String(name||'').toLowerCase().replace(/^(mr|mrs|ms|dr|shri|smt)\.?\s+/,'').replace(/[^\p{L}\p{N}]/gu,'');
  for(const [id,person] of Object.entries(staff)){
   if(person.status!=='active')continue;
-  const key=normalize(person.name),owner=person.pinOwnerId||id;
+  const key=assignmentNameKey(person.name),owner=person.pinOwnerId||id;
   if(key){const matches=names.get(key)||new Set();matches.add(owner);names.set(key,matches);}
  }
  for(const row of sheets[0].slice(5)){
@@ -38,7 +61,7 @@ export function monitoringAssignments(sheets,staff,overrides={}){
    throw Error('Each evaluation row needs a unique positive SN, subject and class / section.');
   const roles={};
   MONITORING_ROLES.forEach(([role],index)=>{
-   const selected=overrides[key]?.[role],matches=names.get(normalize(row[index+4]));
+   const selected=overrides[key]?.[role],matches=names.get(assignmentNameKey(row[index+4]));
    const id=selected===undefined?(matches?.size===1?[...matches][0]:''):selected;
    const owner=Object.hasOwn(staff,id)?staff[id].pinOwnerId||id:'';
    if(owner&&staff[owner]?.status==='active')roles[role]={id:owner,name:staff[owner].name};
