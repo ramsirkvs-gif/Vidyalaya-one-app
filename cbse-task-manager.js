@@ -561,16 +561,19 @@ function drawAnalyserCards(){
  }
  host.append(cards);
 }
+function taskMarksGuidance(text){
+ const guidance=el('p',undefined,'task-marks-guidance'),arrow=el('span','↓','task-marks-arrow');
+ arrow.setAttribute('aria-hidden','true');
+ guidance.append(el('strong',text),arrow);
+ return guidance;
+}
 function drawStaff(){
  const tasks=Object.entries(store.tasks||{}).sort(([,a],[,b])=>TASK_PRIORITIES.indexOf(a.priority)-TASK_PRIORITIES.indexOf(b.priority));
  host.replaceChildren(el('h2','Published tasks'));
  if(store.monitoringPublishedAt){
   const plan=el('section',undefined,'task-card task-public-card');
   plan.append(teacherTaskHeading({title:MONITORING_TITLE,priority:TASK_PRIORITIES[0]},'h3'),button('Open published plan',()=>openPublishedMonitoring()));
-  const guidance=el('p',undefined,'task-marks-guidance'),arrow=el('span','↓','task-marks-arrow');
-  arrow.setAttribute('aria-hidden','true');
-  guidance.append(el('strong','First update the task status, then enter marks.'),arrow);
-  host.append(plan,guidance);
+  host.append(taskMarksGuidance('Update the task status'),plan,taskMarksGuidance('First update the task status, then enter marks.'));
   drawAnalyserCards();
  }
  if(!store.monitoringPublishedAt&&!tasks.length)host.append(el('p','No tasks are currently published.'));
