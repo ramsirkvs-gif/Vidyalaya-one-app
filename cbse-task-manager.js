@@ -635,7 +635,7 @@ function drawStaff(){
   host.append(taskMarksGuidance('Update the task status'),plan,taskMarksGuidance('First update the task status, then enter marks.'));
   drawAnalyserCards();
   host.append(taskMarksGuidance('Discuss the results with the Principal again before entering marks in Samagam.',{arrowFirst:true}));
-  host.append(taskMarksGuidance('Get the app’s marks slip signed after the discussion. After uploading the marks, select “Uploaded on Samagam” in Task 2.',{arrowFirst:true}));
+  host.append(taskMarksGuidance('Get the Principal’s signature and upload the marks on Samagam with the Matching IC.',{arrowFirst:true}));
  }
  if(!store.monitoringPublishedAt&&!tasks.length)host.append(el('p','No tasks are currently published.'));
  for(const [id,t]of tasks){const card=el('section',undefined,'task-card task-public-card');card.append(teacherTaskHeading(t),el('p',t.priority+(t.deadline?' · Deadline: '+t.deadline:'')));const table=el('table',undefined,'task-public-list'),thead=el('thead'),heading=el('tr');for(const label of ['SN','Class','Prime mentor / Survey IC','Tech / analytical support','Status','Action'])heading.append(el('th',label));thead.append(heading);table.append(thead);const tbody=el('tbody');
