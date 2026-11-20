@@ -653,8 +653,8 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
     const result=await send('pb1-approve',{classId,sectionId,subjectId,expectedRevision,discussionComment});
     message(exam.current+' marks approved and frozen.'+(exam.mission?' Mission 100 now uses them for this paper.':''));return result;
    }:undefined,
-   save:async({classId,sectionId,subjectId},expectedRevision,entries,secret)=>{
-    const result=await send('pb1-save',{classId,sectionId,subjectId,expectedRevision,entries},secret);
+   save:async({classId,sectionId,subjectId,maximum},expectedRevision,entries,secret)=>{
+    const result=await send('pb1-save',{classId,sectionId,subjectId,expectedRevision,expectedMaximum:maximum,entries},secret);
     message(exam.current+' marks saved.'+(exam.mission?' Mission 100 uses them after Principal approval.':''));return result;
    }});
  };

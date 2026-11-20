@@ -537,7 +537,9 @@ test('PB-1 reclassifies a monthly borderline student immediately and Mission fol
  assert.equal(reopened.scopes[0].discussionComment,comment);
  assert.equal(reopened.rows[0].current.score,48);
  assert.equal(latest().subjects[0].latest.score,15);
- const corrected=await f.teacher({...correction,expectedRevision:reopened.revision});
+ const correctionFromOpenPage={...correction,expectedRevision:reopened.revision-1,expectedMaximum:80};
+ await assert.rejects(f.teacher({...correctionFromOpenPage,entries:[{key,mark:62,previous:null}]}),/changed for these marks/);
+ const corrected=await f.teacher({...correctionFromOpenPage,entries:[{key,mark:62,previous:{score:48,absent:false,maximum:80}}]});
  assert.equal(corrected.rows[0].current.score,62);
  assert.equal(latest().subjects[0].latest.score,15);
  await f.admin({...approval,discussionComment:comment,expectedRevision:corrected.revision});

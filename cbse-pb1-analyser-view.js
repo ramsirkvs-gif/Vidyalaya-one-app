@@ -675,6 +675,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    if(scope.approvedAt){
     host.append(el('p','Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),'task-monitoring-notice'));
     if(unfreeze)host.append(button('Unfreeze for emergency correction',()=>reopenPaper(scope,drawMarks)));
+    if(teacher)host.append(el('p','Ask the Principal to unfreeze this paper for corrections.'));
     if(scope.discussionComment)host.append(el('h4','Principal’s comment to teacher'),el('p',scope.discussionComment,'pb1-discussion-comment'));
     table(host,['Roll','Student',exam.baseline+' marks ('+monthlyMM+')','Approved '+exam.short+' marks ('+pb1MM+')'],
      rows.map(row=>[row.roll,row.name,result(row.before),result(row.current)]));
@@ -725,7 +726,8 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
      const value=input.value.trim().toUpperCase();
      const absent=value==='ABS'||value==='AB';
      if(!absent&&(!/^\d+(?:\.\d+)?$/.test(value)||Number(value)>scope.maximum))throw Error('Enter ABS or marks from 0 to '+scope.maximum+' for '+row.name+'.');
-     return {key:row.key,mark:absent?'AB':Number(value)};
+     const previous=row.current?{score:row.current.score,absent:!!row.current.absent,maximum:row.current.maximum}:null;
+     return {key:row.key,mark:absent?'AB':Number(value),...(exam.mission?{previous}:{})};
     });
     if(!changed.length)return;
     if(pin&&!pin.value){

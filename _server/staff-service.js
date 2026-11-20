@@ -244,7 +244,8 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     if(actor.uid?current.adminUid!==actor.uid:!current.staffAccess?.[actor.id]?.enabled||current.staffAccess[actor.id].version!==actor.accessVersion)
      throw Error('Your access changed. Sign in or verify your PIN again.');
     const raw=current.mission||emptyMission(),draft=current.draft,{faculty,mission}=resolvedViewingData(draft,current.facultyDraft,raw);
-    if((raw.revision||0)!==input.expectedRevision)throw Error('Mission 100 results changed. Reopen the analyser before saving.');
+    const stale=(raw.revision||0)!==input.expectedRevision;
+    if(stale&&(approving||unfreezing))throw Error('Mission 100 results changed. Reopen the analyser before saving.');
     const assigned=pb1Mission(draft,mission,current.taskMonitoring?.published);
     const {staff,ids,identity}=scoped(draft,faculty,assigned);
     const report=pb1Report(draft,assigned,staff,ids,identity);
@@ -258,7 +259,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      const pb1Approvals={...raw.pb1Approvals,[approvalKey]:{unfrozenAt:stamp,discussionComment:existingApproval.discussionComment||''}};
      return {...current,mission:{...raw,pb1Approvals,revision:(raw.revision||0)+1}};
     }
-    if(existingApproval?.approvedAt)throw Error('This Preboard 1 paper is approved and frozen.');
+    if(existingApproval?.approvedAt)throw Error('This Preboard 1 paper is approved and frozen. Ask the Principal to unfreeze it for correction.');
     if(approving){
      if(!roster.size||[...roster.values()].some(row=>!row.current||!row.markId))
       throw Error('Enter marks or AB for every enrolled student before approving this paper.');
@@ -270,6 +271,11 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      const pb1Approvals={...raw.pb1Approvals,[approvalKey]:{approvedAt:stamp,marks,discussionComment:paperDiscussionComment(input.discussionComment)}};
      return {...current,mission:{...raw,pb1Approvals,revision:(raw.revision||0)+1}};
     }
+    if(stale&&(input.expectedMaximum!==paper.maximum||input.entries.some(entry=>{
+     const current=roster.get(entry?.key)?.current;
+     const previous=entry?.previous;
+     return current?(!previous||current.score!==previous.score||!!current.absent!==previous.absent||current.maximum!==previous.maximum):previous!==null;
+    })))throw Error('Mission 100 results changed for these marks. Reopen this paper before saving.');
     const stable=parts=>createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0,24);
     const defaultExam='pb1_'+stable([paper.classId,paper.date,paper.subject]);
     const exams={...raw.exams},marks={...raw.marks};
