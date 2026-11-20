@@ -55,31 +55,32 @@ function mathsOption(scope){
 const subjectGroup=scope=>mathsOption(scope)?'Mathematics':scope.subject;
 const mathsSection=(a,b)=>!!mathsOption(a)&&!!mathsOption(b)&&a.section===b.section;
 
-function paperSlip(scope,data,exam){
+function paperSlip(scope,data,exam,canPrint){
  const papers=data.scopes.filter(other=>other===scope||mathsSection(scope,other));
  const rows=data.rows.filter(row=>papers.includes(data.scopes[row.scope])).sort(compareRoll);
- if(papers.length===1)return marksSlip(scope,rows,exam,data);
+ if(papers.length===1)return marksSlip(scope,rows,exam,data,canPrint);
  const teachers=[...new Map(papers.flatMap(scopeTeachers).map(person=>[person.key,person])).values()];
  const notes=[...new Set(papers.map(paper=>paper.discussionComment).filter(Boolean))];
  const approval=papers.every(paper=>paper.approvedAt)?Math.max(...papers.map(paper=>paper.approvedAt)):0;
  marksSlip({...scope,subject:'Mathematics',approvedAt:approval,teachers,
-  teacher:teachers.map(person=>person.name).join(' / '),discussionComment:notes.join('\n\n')},rows,exam,data);
+  teacher:teachers.map(person=>person.name).join(' / '),discussionComment:notes.join('\n\n')},rows,exam,data,canPrint);
 }
 
-function marksSlip(scope,rows,exam,data){
+function marksSlip(scope,rows,exam,data,canPrint){
  const dialog=el('dialog',undefined,'task-start-dialog pb1-marks-slip'),article=el('article');
  const heading=el('header'),title=el('h2',exam.short+' Marks Slip');
  title.id='paper-slip-title';dialog.setAttribute('aria-labelledby',title.id);
  heading.append(el('p','PM SHRI Kendriya Vidyalaya No. 1 Itanagar'),title,
   el('p','Class '+scope.classId+' '+scope.section+' · '+scope.subject+' · Maximum marks '+scope.maximum),
-  el('p','Final marks discussion with the Principal'),
+  el('p',canPrint?'Final marks discussion with the Principal':'View-only preview'),
   el('p',scope.approvedAt?'Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}):
    'Discussion copy · approval pending'));
  if(scope.teacher)heading.append(el('p','Assigned teacher(s) · '+scope.teacher));
  article.append(heading);
  const maths=rows.some(row=>mathsOption(data.scopes[row.scope]));
- const columns=['Roll','Student',exam.short+' marks',...(maths?['Remark']:[])];
- const marks=rows.map(({roll,name,current,scope:index})=>[roll,name,current?.absent?'AB':current?.score??'Pending',
+ const showRoll=rows.some(row=>row.roll!=null&&row.roll!=='');
+ const columns=[...(showRoll?['Roll']:[]),'Student',exam.short+' marks',...(maths?['Remark']:[])];
+ const marks=rows.map(({roll,name,current,scope:index})=>[...(showRoll?[roll]:[]),name,current?.absent?'AB':current?.score??'Pending',
   ...(maths?[mathsOption(data.scopes[index])]:[])]);
 
  table(article,columns,marks);
@@ -126,9 +127,18 @@ function marksSlip(scope,rows,exam,data){
  matchingSignature.append(note,el('div',scope.classId==='X'?'Samagam Matching IC · Class X Exam Core Team':'Samagam Matching IC'));
  article.append(signatures,matchingSignature);
  const actions=el('div',undefined,'task-actions pb1-slip-actions');
- const print=el('button','Print / Save as PDF'),close=el('button','Close');
- print.type=close.type='button';print.onclick=()=>window.print();close.onclick=()=>dialog.close();
- actions.append(print,close);dialog.append(actions,article);
+ const close=el('button','Close');
+ close.type='button';close.onclick=()=>dialog.close();
+ actions.append(close);dialog.append(actions,article);
+ if(!canPrint){
+  const request=el('button','Request a printed copy');
+  request.type='button';request.onclick=()=>window.alert('Please contact the Principal for a printed copy or PDF.');
+  actions.prepend(request);
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+  document.body.append(dialog);dialog.showModal();return;
+ }
+ const print=el('button','Print / Save as PDF');
+ print.type='button';print.onclick=()=>window.print();actions.prepend(print);
  const printSlip=article.cloneNode(true);printSlip.classList.add('pb1-print-slip');
  printSlip.querySelector('[id]')?.removeAttribute('id');
  const field=el('textarea'),hint=el('small','These instructions apply to this printed copy.');
@@ -480,8 +490,8 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
  function openTeacherCopy(entered){
   const papers=[...new Set(entered.map(row=>row.scope))].filter((index,position,items)=>
    !items.slice(0,position).some(other=>mathsSection(data.scopes[index],data.scopes[other])));
-  return choosePaper(papers,'Subject teacher copy / PDF','Preview marks slip / PDF',
-   index=>paperSlip(data.scopes[index],data,exam),subjectGroup);
+  return choosePaper(papers,approve?'Subject teacher copy / PDF':'Marks slip preview','Preview marks slip',
+   index=>paperSlip(data.scopes[index],data,exam,!!approve),subjectGroup);
  }
  function choosePaper(papers,titleText,actionText,next,labelSubject=paper=>paper.subject){
   if(papers.length===1)return next(papers[0]);
@@ -582,7 +592,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   }
   if(unfreeze&&frozenPapers.length)paperActions.append(button('Unfreeze for emergency correction',()=>
    choosePaper(frozenPapers,'Choose a paper to unfreeze','Continue to unfreeze',index=>reopenPaper(data.scopes[index],drawReport))));
-  if(approve)paperActions.append(button('Subject teacher copy / PDF',()=>openTeacherCopy(entered)));
+  paperActions.append(button(approve?'Subject teacher copy / PDF':'Preview marks slip',()=>openTeacherCopy(entered)));
   if(paperActions.childElementCount)report.append(paperActions);
   renderSmartAnalysis(report,rows,(title,filter,paperFilter=()=>true)=>
    showMarks(pb1SmartStudents(rows).filter(filter).flatMap(student=>student.papers.filter(paperFilter)),{title}),exam);
@@ -655,14 +665,12 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    }
    host.replaceChildren(el('h3','Class '+scope.classId+' '+scope.section+' · '+scope.subject),maxima,
     el('p','Each percentage uses the marks earned divided by that exam’s maximum.'));
-   if(approve){
-    const print=button('Preview marks slip / PDF',()=>{
-     if(host.querySelector('[data-portal-dirty=true]'))throw Error('Save your mark changes before printing the slip.');
-     paperSlip(scope,data,exam);
-    });
-    print.disabled=!data.rows.some(row=>row.current&&(row.scope===index||mathsSection(scope,data.scopes[row.scope])));
-    host.append(print);
-   }
+   const preview=button(approve?'Preview marks slip / PDF':'Preview marks slip',()=>{
+    if(host.querySelector('[data-portal-dirty=true]'))throw Error('Save your mark changes before previewing the slip.');
+    paperSlip(scope,data,exam,!!approve);
+   });
+   preview.disabled=!data.rows.some(row=>row.current&&(row.scope===index||mathsSection(scope,data.scopes[row.scope])));
+   host.append(preview);
    if(scope.approvedAt){
     host.append(el('p','Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),'task-monitoring-notice'));
     if(unfreeze)host.append(button('Unfreeze for emergency correction',()=>reopenPaper(scope,drawMarks)));
