@@ -74,7 +74,9 @@ function marksSlip(scope,rows,exam,data,{editableInstructions=false}={}){
  feedback.append(el('h3','Principal’s instructions for remedial action'),instructions);
  article.append(summary,performance,feedback);
  const signatures=el('div',undefined,'pb1-slip-signatures');
- signatures.append(el('div','Subject teacher'),el('div','Class teacher'),el('div','Principal'));
+ const checker=el('div','Cross-checker');
+ checker.append(el('small','Totalling and unchecked questions'));
+ signatures.append(el('div','Subject teacher'),checker,el('div','Class teacher'),el('div','Principal'));
  const note=el('p',undefined,'pb1-slip-verification');
  note.append(el('strong','Exam IC / Samagam Matching IC'),document.createTextNode(' — During Samagam entry, carefully verify each student’s marks against the teacher’s list on this slip.'));
  const matchingSignature=el('div',undefined,'pb1-slip-matching-signature');
