@@ -725,12 +725,18 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     });
     if(!changed.length)return;
     if(pin&&!pin.value){
-     pin.focus();
-     throw Error('Enter your personal PIN to save changed marks.');
+     saveStatus.textContent='Enter your personal PIN to save changed marks.';
+     throw Error(saveStatus.textContent);
     }
-    const secret=pin?.value;if(pin)pin.value='';
-    const next=await save(scope,data.revision,changed,secret);
-    editor.dataset.portalDirty='false';data=next;drawMarks(true);
+    saveStatus.textContent='Saving marks…';
+    try{
+     const next=await save(scope,data.revision,changed,pin?.value);
+     editor.dataset.portalDirty='false';data=next;drawMarks(true);
+    }catch(error){
+     if(pin)pin.value='';
+     saveStatus.textContent=error.message;
+     throw error;
+    }
    });
    editor.onsubmit=event=>{
     event.preventDefault();
@@ -742,14 +748,14 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     const students=el('ul');
     for(const {row} of blanks)students.append(el('li',row.name));
     const fill=el('button','Continue filling marks');fill.type='button';fill.onclick=()=>dialog.close('fill');
-    const proceed=el('button',changed?'Save entered marks only':'Leave pending and go back');proceed.type='button';
-    proceed.onclick=()=>dialog.close(changed?'save':'back');
-    dialog.append(title,el('p','Blank marks can stay pending. If a student was absent, enter ABS.'),students,proceed,fill);
+    const proceed=el('button','OK');proceed.type='button';
+    proceed.onclick=()=>dialog.close('confirm');
+    dialog.append(title,el('p',changed?'Select OK to save entered marks and leave blanks pending.':'Select OK to leave these marks pending.'),students,proceed,fill);
     dialog.addEventListener('close',()=>{
      const action=dialog.returnValue;dialog.remove();
-     if(action==='save')saveMarks();
-     else if(action==='back')run(back);
-     else blanks[0].input.focus();
+     if(action!=='confirm'){blanks[0].input.focus();return;}
+     if(changed)saveMarks();
+     else saveStatus.textContent='Blank marks are still pending.';
     },{once:true});
     document.body.append(dialog);dialog.showModal();proceed.focus();
    };
