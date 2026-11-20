@@ -120,6 +120,10 @@ function groups(rows,key){
  const grouped=new Map();for(const row of rows){const id=key(row);if(!grouped.has(id))grouped.set(id,[]);grouped.get(id).push(row);}return grouped;
 }
 const scopeTeachers=scope=>scope.teachers||(scope.teacher?[{key:scope.teacher,name:scope.teacher}]:[]);
+function teacherOptions(scopes){
+ const teachers=new Map(scopes.flatMap(scopeTeachers).map(({key,name})=>[key,name]));
+ return [['','All teachers'],...[...teachers].sort((a,b)=>a[1].localeCompare(b[1]))];
+}
 export const PB1_ANALYSER={title:'Pre-Samagam Wisdom Analyser · PB-1 X and XII',short:'PB-1',current:'Preboard 1',previous:'Latest monthly test',baseline:'Monthly',classes:'Classes X and XII',mission:true};
 export const HALF_YEARLY_ANALYSER={title:'Pre-Samagam Wisdom Analyser · XI Half-Yearly',short:'Half-Yearly',current:'Half-Yearly',previous:'Previous test',baseline:'Previous',classes:'Class XI'};
 
@@ -262,8 +266,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   const scopes=data.scopes.filter(info=>!classSelect.value||info.classId===classSelect.value);
   options(subjectSelect,choices(values(scopes,'subject'),'All subjects'),subjectSelect.value);
   const subjects=scopes.filter(info=>!subjectSelect.value||info.subject===subjectSelect.value);
-  const teachers=new Map(subjects.flatMap(info=>scopeTeachers(info)).map(({key,name})=>[key,name]));
-  options(teacherSelect,[['','All teachers'],...[...teachers].sort((a,b)=>a[1].localeCompare(b[1]))],teacherSelect.value);
+  options(teacherSelect,teacherOptions(subjects),teacherSelect.value);
   const assigned=subjects.filter(info=>!teacherSelect.value||scopeTeachers(info).some(person=>person.key===teacherSelect.value));
   const rosterSections=!subjectSelect.value&&!teacherSelect.value?(data.roster||[]).filter(row=>!classSelect.value||row.classId===classSelect.value):[];
   options(sectionSelect,choices(values([...assigned,...rosterSections],'section'),'All sections'),sectionSelect.value);
@@ -501,15 +504,27 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
  function drawEntry(){
   const panel=el('section'),choicesBar=el('div',undefined,'pb1-filters'),host=el('div');
   content.append(panel);panel.append(choicesBar,host);
+  const assignedTeacher=approve?control(choicesBar,'Teacher'):null;
+  if(assignedTeacher)options(assignedTeacher,teacherOptions(data.scopes));
   const cls=control(choicesBar,'Standard'),paper=control(choicesBar,'Class / section and subject');
-  options(cls,values(data.scopes,'classId').map(value=>[value,value]),requestedPaper?.classId);
+  const teacherPapers=scope=>!assignedTeacher?.value||scopeTeachers(scope).some(person=>person.key===assignedTeacher.value);
+  function updateStandards(selected){
+   const standards=values(data.scopes.filter(teacherPapers),'classId');
+   options(cls,approve?choices(standards,'All standards'):standards.map(value=>[value,value]),selected);
+  }
+  updateStandards(requestedPaper?.classId);
   function drawChoices(preferredIndex=-1){
-   options(paper,data.scopes.flatMap((scope,index)=>scope.classId===cls.value?[[String(index),scope.section+' · '+scope.subject]]:[]),String(preferredIndex));
+   options(paper,data.scopes.flatMap((scope,index)=>teacherPapers(scope)&&(!cls.value||scope.classId===cls.value)?
+    [[String(index),(cls.value?'':scope.classId+' ')+scope.section+' · '+scope.subject]]:[]),String(preferredIndex));
    drawMarks();
   }
   const canSwitch=()=>!host.querySelector('[data-portal-dirty=true]')||confirm('Discard unsaved marks?');
-  let previousClass=cls.value,previousPaper='';
-  cls.onchange=()=>{if(canSwitch()){previousClass=cls.value;drawChoices();}else cls.value=previousClass;};
+  let previousClass=cls.value,previousTeacher=assignedTeacher?.value,previousPaper='';
+  if(assignedTeacher)assignedTeacher.onchange=()=>{
+   if(!canSwitch()){assignedTeacher.value=previousTeacher;return;}
+   previousTeacher=assignedTeacher.value;updateStandards('');previousClass=cls.value;drawChoices(Number(previousPaper));
+  };
+  cls.onchange=()=>{if(canSwitch()){previousClass=cls.value;drawChoices(Number(previousPaper));}else cls.value=previousClass;};
   paper.onchange=()=>{if(canSwitch())drawMarks();else paper.value=previousPaper;};
   const requestedIndex=requestedPaper?data.scopes.findIndex(scope=>['classId','section','subject'].every(key=>scope[key]===requestedPaper[key])):-1;
   if(requestedPaper&&requestedIndex<0)panel.prepend(el('p','The requested paper is outside your assigned scope. Choose one of your assigned papers.','task-monitoring-notice'));
