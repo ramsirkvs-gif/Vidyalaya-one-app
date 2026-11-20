@@ -138,6 +138,10 @@
 .pb1-class-summary{margin:1rem 0;padding:.8rem;border:1px solid #bfd8c6;border-radius:.6rem;background:#f6fbf6}
 .pb1-class-summary h4,.pb1-class-summary h5{margin:.3rem 0 .6rem}
 
+.task-direct-marks .task-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:0}
+.task-app .task-direct-marks button{min-height:44px;background:#176651;color:#fff;border-color:#176651;font-weight:700;white-space:normal}
+.task-app .task-direct-marks button:hover{background:#10503f}
+@media(max-width:640px){.task-direct-marks .task-actions{grid-template-columns:minmax(0,1fr)}}
 .task-analyser-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin:0 0 1.25rem}
 .task-app .task-analyser-cards .task-card{display:flex;flex-direction:column;margin:0}
 .task-analyser-cards .task-actions{margin:auto 0 0;gap:.5rem}

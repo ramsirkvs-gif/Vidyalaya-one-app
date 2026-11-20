@@ -696,7 +696,14 @@ function taskMarksGuidance(text,{arrowFirst=false}={}){
 }
 function drawStaff(){
  const tasks=Object.entries(store.tasks||{}).sort(([,a],[,b])=>TASK_PRIORITIES.indexOf(a.priority)-TASK_PRIORITIES.indexOf(b.priority));
- host.replaceChildren(el('h2','Published tasks'));
+ const entry=el('section',undefined,'task-card task-direct-marks');
+ const actions=el('div',undefined,'task-actions');
+ actions.append(
+  button('Enter PB-1 marks · Classes X and XII',()=>openPB1Analyser(true)),
+  button('Enter Half-Yearly marks · Class XI',()=>openPB1Analyser(true,'half-yearly')),
+ );
+ entry.append(el('h2','Direct marks entry'),actions);
+ host.replaceChildren(entry,el('h2','Published tasks'));
  if(store.monitoringPublishedAt){
   const plan=el('section',undefined,'task-card task-public-card');
   plan.append(teacherTaskHeading({title:MONITORING_TITLE,priority:TASK_PRIORITIES[0]},'h3'),button('Click here to report before entering marks',()=>openPublishedMonitoring()));
