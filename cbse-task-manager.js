@@ -545,7 +545,7 @@ async function openPB1Analyser(entryOnly=false,examId){
   login.append(el('button','Open marks entry'));
   login.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(()=>open(person.value,secret));};
   card.append(login);
- }else card.append(el('p','No teachers are assigned to '+exam.current+' papers.'));
+ }else card.append(el('p','No evaluators are assigned to '+exam.current+' papers.'));
  host.replaceChildren(button('Back to Wisdom Analyser',()=>{if(discard())return openExam();}),card);
 }
 function drawAnalyserCards(){

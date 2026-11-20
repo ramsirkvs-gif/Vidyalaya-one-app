@@ -4,6 +4,7 @@ import {withTaskExamParticipation} from './task-exam-participation.js';
 import {validateMonitoringSheets} from '../cbse-task-workbook.js';
 import {monitoringAssignments,monitoringAdvance,MONITORING_ROLES,MONITORING_STEPS} from '../cbse-task-monitoring-workflow.js';
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
+import {evaluatorDirectory,withPublishedPB1Evaluators} from './pb1-evaluators.js';
 import {pb1Report,pb1Scopes} from '../cbse-pb1-analyser-model.js';
 import {halfYearlyReport,importHalfYearly,updateHalfYearly} from '../cbse-half-yearly-analyser-model.js';
 import {pb1ApprovalKey} from '../cbse-academic-exam-kind.js';
@@ -199,13 +200,16 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
  }));
  const pb1Roster=draft=>Object.values(studentIndex(draft)).filter(p=>['X','XII'].includes(p.classId))
   .map(({key,name,roll,classId,section})=>({key,name,roll:roll??'',classId,section}));
+ const pb1Mission=(draft,mission,published)=>withPublishedPB1Evaluators(mission,published,pb1Scopes(draft,mission,{}));
  async function pb1Workspace(input,actor){
   function scoped(draft,faculty,mission){
-   const staff=staffIndex(faculty,mission),ids=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
+   const staff=staffIndex(faculty,mission,{includeRollOnly:true}),ids=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
    const identity=id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id;
    return {staff,ids,identity};
   }
-  const initial=await context(),scope=scoped(initial.draft,initial.faculty,initial.mission);
+  const [initial,published]=await Promise.all([context(),read('cbse/taskMonitoring/published')]);
+  initial.mission=pb1Mission(initial.draft,initial.mission,published);
+  const scope=scoped(initial.draft,initial.faculty,initial.mission);
   if(input.operation==='pb1-read'||input.taskOperation==='pb1-read')
    return {...pb1Report(initial.draft,initial.mission,scope.staff,scope.ids,scope.identity),...(actor.uid?{roster:pb1Roster(initial.draft),classSections:pb1Sections(initial.draft,initial.faculty)}:{})};
   const approving=input.operation==='pb1-approve'&&!!actor.uid;
@@ -219,8 +223,9 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      throw Error('Your access changed. Sign in or verify your PIN again.');
     const raw=current.mission||emptyMission(),draft=current.draft,{faculty,mission}=resolvedViewingData(draft,current.facultyDraft,raw);
     if((raw.revision||0)!==input.expectedRevision)throw Error('Mission 100 results changed. Reopen the analyser before saving.');
-    const {staff,ids,identity}=scoped(draft,faculty,mission);
-    const report=pb1Report(draft,mission,staff,ids,identity);
+    const assigned=pb1Mission(draft,mission,current.taskMonitoring?.published);
+    const {staff,ids,identity}=scoped(draft,faculty,assigned);
+    const report=pb1Report(draft,assigned,staff,ids,identity);
     const index=report.scopes.findIndex(info=>['classId','sectionId','subjectId'].every(key=>info[key]===input[key]));
     if(index<0)throw Error('This Preboard 1 paper is outside your assigned teaching scope.');
     const paper=report.scopes[index],roster=new Map(report.rows.filter(row=>row.scope===index).map(row=>[row.key,row])),seen=new Set();
@@ -259,8 +264,9 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   },{restTransaction});
   if(!result.committed||!result.snapshot.val())throw new AccessError(reason||'The marks could not be confirmed. Reopen the analyser.',409);
   const saved=result.snapshot.val(),{faculty,mission}=resolvedViewingData(saved.draft,saved.facultyDraft,saved.mission);
-  const access=scoped(saved.draft,faculty,mission);
-  return {...pb1Report(saved.draft,mission,access.staff,access.ids,access.identity),...(actor.uid?{roster:pb1Roster(saved.draft),classSections:pb1Sections(saved.draft,faculty)}:{})};
+  const assigned=pb1Mission(saved.draft,mission,saved.taskMonitoring?.published);
+  const access=scoped(saved.draft,faculty,assigned);
+  return {...pb1Report(saved.draft,assigned,access.staff,access.ids,access.identity),...(actor.uid?{roster:pb1Roster(saved.draft),classSections:pb1Sections(saved.draft,faculty)}:{})};
  }
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
@@ -279,8 +285,8 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     let report;
     if(halfYearly)report=halfYearlyReport(await read(halfYearlyPath));
     else{
-     const {draft,faculty,mission}=await context();
-     report=pb1Report(draft,mission,staffIndex(faculty,mission),undefined,id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id);
+     const [{draft,faculty,mission},published]=await Promise.all([context(),read('cbse/taskMonitoring/published')]);
+     report=pb1Report(draft,pb1Mission(draft,mission,published),staffIndex(faculty,mission,{includeRollOnly:true}),undefined,id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id);
      report.roster=pb1Roster(draft);
      report.classSections=pb1Sections(draft,faculty);
     }
@@ -300,14 +306,14 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      ...(!halfYearly?{classSections,...(!named?{classRoster:roster.map(({key,classId,section})=>({key:label(key),name:label(key),classId,section}))}:{})}:{})};
    }
    if(!admin&&input.operation==='pb1-directory'){
-    const {draft,faculty,mission}=await context(),staff=staffIndex(faculty,mission);
-    const xi=halfYearly?await read(halfYearlyPath):null;
-    const teachers=Object.entries(staff).filter(([id,person])=>{
-     if(person.status!=='active')return false;
-     const ids=new Set(teacherIdentityIds(id,faculty,mission));
-     return halfYearly?Object.values(xi?.papers||{}).some(p=>ids.has(p.teacherId)):pb1Scopes(draft,mission,staff,ids).length;
-    })
-     .map(([id,{name}])=>({id,name})).sort((a,b)=>a.name.localeCompare(b.name));
+    const [{draft,faculty,mission},source,access]=await Promise.all([
+     context(),read(halfYearly?halfYearlyPath:'cbse/taskMonitoring/published'),read('cbse/staffAccess'),
+    ]);
+    const staff=staffIndex(faculty,mission,{includeRollOnly:true});
+    const assigned=halfYearly?Object.values(source?.papers||{}).map(p=>p.teacherId):
+     pb1Scopes(draft,pb1Mission(draft,mission,source),staff).flatMap(p=>p.teachers.map(teacher=>teacher.key));
+    const teachers=evaluatorDirectory(staff,access||{},id=>teacherIdentityIds(id,faculty,mission),new Set(assigned),
+     id=>avinashBibekIdentityIds(id,faculty,mission)?.[0]||id);
     return {teachers};
    }
    const monitoringPath='cbse/taskMonitoring';

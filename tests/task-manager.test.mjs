@@ -508,3 +508,34 @@ test('PB-1 class breakdown includes coded enrollment, class teacher and AI metad
  assert.ok(report.rows.every(row=>report.classRoster.some(student=>student.key===row.key)));
  assert.ok(!JSON.stringify(report).includes('Synthetic No Papers'));
 });
+
+test('PB-1 evaluator names follow seniority, consolidate aliases and include published paper assignments',async()=>{
+ const f=taskFixture(),{draft,facultyDraft,mission}=f.data.cbse;
+ const teacher=(name,designation)=>({name,designation,status:'active',subjects:'',teachingSections:''});
+ facultyDraft.classes.X.teachers={
+  junior:teacher('MR. ABHISHEK SINGH','TGT-English'),
+  senior:teacher('MRS. E.T. ZIRDO','PGT-English'),
+  ganga:teacher('LAISHRAM GANGA DEVI','PGT-Chemistry'),
+ };
+ facultyDraft.classes.XII.teachers={ganga:teacher('MS. L. GANGA DEVI','PGT-Chemistry')};
+ draft.classes.X.sections={a:{name:'A',subjects:{english:{name:'English',code:'184'}},students:{
+  one:{name:'Synthetic Student',roll:1,subjects:{english:true}},
+ }}};
+ draft.classes.XII.sections={a:{name:'A',subjects:{chem:{name:'Chemistry',code:'043'}},students:{}}};
+ mission.allocations={one:{classId:'X',sectionId:'a',subjectId:'english',staffId:'X:junior'},
+  two:{classId:'XII',sectionId:'a',subjectId:'chem',staffId:'X:ganga'}};
+ f.data.cbse.taskMonitoring={published:{assignments:{
+  row_1:{subject:'ENGLISH',section:'Class 10-A',roles:{evaluator:{id:'X:senior'}}},
+  row_2:{subject:'ENGLISH',section:'Class 11-A',roles:{evaluator:{id:'XII:ganga'}}},
+ }}};
+ await f.service('set-pin',{staffId:'X:senior',pin:'321'},'principal');
+ await f.service('set-pin',{staffId:'XII:ganga',pin:'654'},'principal');
+ f.data.cbse.staffAccess['X:ganga'].enabled=false;
+ const {teachers}=await f.service('task-read',{operation:'pb1-directory'});
+ assert.deepEqual(teachers.map(({id})=>id),['X:senior','XII:ganga','X:junior']);
+ const own=await f.teacher({taskOperation:'pb1-read'},'X:senior','321');
+ assert.equal(own.scopes.length,1);
+ assert.equal(own.scopes[0].subjectId,'english');
+ const saved=await f.teacher({taskOperation:'pb1-save',classId:'X',sectionId:'a',subjectId:'english',expectedRevision:own.revision,entries:[{key:own.rows[0].key,mark:40}]},'X:senior','321');
+ assert.equal(saved.rows[0].current.score,40);
+});

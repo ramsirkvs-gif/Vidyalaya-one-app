@@ -25,7 +25,7 @@ export function pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity=id=>id)
     }
     const additional=paper.codes.some(code=>['417','843'].includes(code))||subject.additional===true||/\badditional\b/i.test(subject.name);
     const approvedAt=mission.pb1Approvals?.[pb1ApprovalKey(classId,sectionId,subjectId)]?.approvedAt||0;
-    scopes.push({classId,sectionId,section:section.name,subjectId,subject:subject.name,date:paper.date,maximum:paper.marks,approvedAt,additional,
+    scopes.push({classId,sectionId,section:section.name,subjectId,subject:subject.name,paperName:paper.name,date:paper.date,maximum:paper.marks,approvedAt,additional,
      teachers:[...namedTeachers.values()],teacher:[...namedTeachers.values()].map(person=>person.name).join(' / ')});
    }
   }
