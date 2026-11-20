@@ -3,6 +3,15 @@ import {pb1ClassAnalysis} from './cbse-pb1-class-analysis.js';
 import {pb1Metrics,pb1CategoryCounts,pb1SmartSummary,pb1SmartStudents,PAPER_COMMENT_LIMIT} from './cbse-pb1-analyser-model.js';
 const pct=v=>v==null?'—':v.toFixed(1)+'%';
 const delta=(before,after)=>before==null||after==null?'—':(after-before>0?'+':'')+(after-before).toFixed(1)+' pp';
+function trend(before,after){
+ const change=before==null||after==null?null:Number((after-before).toFixed(1));
+ if(change==null)return null;
+ return {style:change>0?'pass':change<0?'decline':'result',
+  label:change>0?'↑ Increased':change<0?'↓ Decreased':'→ No change'};
+}
+function trendLabel(direction){
+ return el('span',direction.label,'pb1-trend pb1-trend-'+direction.style);
+}
 const result=mark=>!mark?'Not entered':mark.absent?'AB (MM '+mark.maximum+')':mark.score+'/'+mark.maximum+' ('+pct(mark.percentage)+')';
 const choices=(items,label)=>[['',label],...items.map(value=>[value,value])];
 const originalRemedialInstructions=[
@@ -172,10 +181,10 @@ export const HALF_YEARLY_ANALYSER={title:'Pre-Samagam Wisdom Analyser · Class X
 
 const cohortHeaders=exam=>['Group','Paired / enrolled','Previous pass',exam.short+' pass','Pass change','Previous average',exam.short+' average','Average change','Remark'];
 function cohortRow(label,rows){
- const m=pb1Metrics(rows),change=m.currentPass==null?null:m.currentPass-m.beforePass;
+ const m=pb1Metrics(rows),direction=trend(m.beforePass,m.currentPass);
  return [label,m.paired+' / '+m.total,pct(m.beforePass),pct(m.currentPass),delta(m.beforePass,m.currentPass),
   pct(m.beforeAverage),pct(m.currentAverage),delta(m.beforeAverage,m.currentAverage),
-  change==null?'Awaiting comparable results':change>0?'Pass rate increased':change<0?'Pass rate decreased':'Pass rate steady'];
+  direction?trendLabel(direction):'Awaiting comparable results'];
 }
 function studentListButton(label,title,open){
  const action=el('button',label,'pb1-list-button');action.type='button';
@@ -217,6 +226,7 @@ function renderSmartAnalysis(parent,rows,showList,exam){
  const stats=pb1SmartSummary(rows);
  const rate=(count,total)=>total?100*count/total:null;
  const previous=rate(stats.previousPassed,stats.paired),current=rate(stats.pairedPassed,stats.paired);
+ const direction=trend(previous,current),passRateLabel=exam.baseline+' → '+exam.short+' pass rate';
  const outOf=count=>count+' / '+stats.assessed;
  const strip=el('div',undefined,'pb1-stats pb1-smart-strip');
  const items=[
@@ -231,14 +241,15 @@ function renderSmartAnalysis(parent,rows,showList,exam){
   ['Scored 90%+',outOf(stats.score90),'pass',student=>student.percentage>=90],
   ['Scored 75%+',outOf(stats.score75),'pass',student=>student.percentage>=75],
   ['Scored 50%+',outOf(stats.score50),'result',student=>student.percentage>=50],
-  [exam.baseline+' → '+exam.short+' pass rate',pct(previous)+' → '+pct(current),'result'],
-  ['Change vs '+exam.baseline.toLowerCase(),delta(previous,current),current==null?'result':current>=previous?'pass':'decline'],
+  [passRateLabel,pct(previous)+' → '+pct(current),direction?.style||'result'],
+  ['Change vs '+exam.baseline.toLowerCase(),delta(previous,current),direction?.style||'result'],
   ['Absent · Retest awaited',stats.absent+' / '+stats.students,'border',student=>student.absent],
   ['Marks entry pending',stats.pending+' / '+stats.students,'border',student=>student.pending],
   ['Incomplete coverage',stats.incomplete+' / '+stats.students,'border',student=>student.incomplete],
  ];
  for(const [label,value,style,filter,paperFilter] of items){
   const tile=el('div',undefined,'pb1-stat-'+style);tile.append(el('span',label),el('strong',value));
+  if(label===passRateLabel&&direction)tile.append(trendLabel(direction));
   if(filter&&parseInt(value,10)>0)tile.append(studentListButton('View students',label+' · '+exam.short,()=>showList(label+' · '+exam.short,filter,paperFilter)));
   strip.append(tile);
  }

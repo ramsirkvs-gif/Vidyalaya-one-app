@@ -234,3 +234,8 @@
 @media(max-width:640px){
  .task-sheet-cards tbody td.task-workflow-final{min-width:0}
 }
+
+.pb1-trend{display:block;margin-top:.3rem;font-size:.85rem;font-weight:700}
+.pb1-trend-pass{color:#216441}
+.pb1-trend-decline{color:#9d3227}
+.pb1-trend-result{color:#405c6b}
