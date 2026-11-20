@@ -619,10 +619,11 @@ function drawAnalyserCards(){
  }
  host.append(cards);
 }
-function taskMarksGuidance(text){
+function taskMarksGuidance(text,{arrowFirst=false}={}){
  const guidance=el('p',undefined,'task-marks-guidance'),arrow=el('span','↓','task-marks-arrow');
  arrow.setAttribute('aria-hidden','true');
- guidance.append(el('strong',text),arrow);
+ const label=el('strong',text);
+ guidance.append(...(arrowFirst?[arrow,label]:[label,arrow]));
  return guidance;
 }
 function drawStaff(){
@@ -633,6 +634,7 @@ function drawStaff(){
   plan.append(teacherTaskHeading({title:MONITORING_TITLE,priority:TASK_PRIORITIES[0]},'h3'),button('Open published plan',()=>openPublishedMonitoring()));
   host.append(taskMarksGuidance('Update the task status'),plan,taskMarksGuidance('First update the task status, then enter marks.'));
   drawAnalyserCards();
+  host.append(taskMarksGuidance('Discuss the results with the Principal again before entering marks in Samagam.',{arrowFirst:true}));
  }
  if(!store.monitoringPublishedAt&&!tasks.length)host.append(el('p','No tasks are currently published.'));
  for(const [id,t]of tasks){const card=el('section',undefined,'task-card task-public-card');card.append(teacherTaskHeading(t),el('p',t.priority+(t.deadline?' · Deadline: '+t.deadline:'')));const table=el('table',undefined,'task-public-list'),thead=el('thead'),heading=el('tr');for(const label of ['SN','Class','Prime mentor / Survey IC','Tech / analytical support','Status','Action'])heading.append(el('th',label));thead.append(heading);table.append(thead);const tbody=el('tbody');
