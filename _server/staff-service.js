@@ -168,7 +168,9 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   }
   const stamp=now();let reason;
   const transaction=await mcqTransaction(db,'cbse',current=>{
-   if(!current)return;
+   // Firebase may call the updater with an empty local cache before loading the server value.
+   if(current===null)return null;
+   reason='';
    try{
     if(actor.uid?current.adminUid!==actor.uid:!current.staffAccess?.[actor.id]?.enabled||current.staffAccess[actor.id].version!==actor.accessVersion)
      throw Error('Your access changed. Sign in or verify your PIN again.');
@@ -209,8 +211,9 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     return {...current,taskHalfYearly:next};
    }catch(error){reason=error.message;return;}
   },{restTransaction});
-  if(!transaction.committed)throw new AccessError(reason||'Class XI changes could not be saved. Refresh and retry.',409);
-  return {...halfYearlyReport(transaction.snapshot.val().taskHalfYearly,ids),...(ids?{teacherIds:[...ids]}:{})};
+  const saved=transaction.committed&&transaction.snapshot?.val()?.taskHalfYearly;
+  if(!saved)throw new AccessError(reason||'Class XI changes could not be saved. Refresh and retry.',409);
+  return {...halfYearlyReport(saved,ids),...(ids?{teacherIds:[...ids]}:{})};
  }
  const pb1Sections=(draft,faculty)=>['X','XII'].flatMap(classId=>entries(draft?.classes?.[classId]?.sections).map(([id,section])=>{
   const group=faculty?.classes?.[classId];

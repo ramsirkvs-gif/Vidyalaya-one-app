@@ -427,6 +427,18 @@ test('Class XI CSV import, PIN entry and approval keep Half-Yearly results separ
  const upload={operation:'half-yearly-import',exam,expectedRevision:0,csv};
  await assert.rejects(f.service('task-principal',upload,'outsider'),/Principal access/);
  await assert.rejects(f.admin({...upload,csv:csv+'A,1,"Synthetic, First",English,15,40,80,X:one\n'}),/already has a row/);
+ const ref=f.db.ref;
+ f.db.ref=path=>{
+  const target=ref(path);
+  if(path==='cbse'){
+   const transaction=target.transaction;
+   target.transaction=update=>{
+    assert.equal(update(null),null,'Retry once Firebase loads the Class XI database');
+    return transaction(update);
+   };
+  }
+  return target;
+ };
  const imported=await f.admin(upload);
  const {teachers,paperCount}=await directory();
  assert.equal(paperCount,1);

@@ -583,15 +583,29 @@ function halfYearlyImportPanel(roster,upload){
  template.download='Class-XI-Half-Yearly-template.csv';
  const file=field(editor,'Class XI roster and PT-1 marks CSV','xi-roster-csv','file');
  file.accept='.csv,text/csv';file.required=true;
- editor.append(el('button','Import Class XI CSV'));
+ const feedback=el('p');
+ feedback.setAttribute('role','status');
+ feedback.hidden=true;
+ editor.append(el('button','Import Class XI CSV'),feedback);
  editor.onsubmit=event=>{
   event.preventDefault();
   run(async()=>{
-   const selected=file.files[0];
-   if(!selected||selected.size>HALF_YEARLY_CSV_LIMIT)throw Error('Choose a CSV up to 256 KB.');
-   if([...host.querySelectorAll('form[data-portal-dirty="true"]')].some(active=>active!==editor))throw Error('Save your mark changes before importing a roster.');
-   if(!confirm('Import this Class XI roster and previous marks? Saved Half-Yearly marks are retained.'))return;
-   await upload(await selected.text());
+   feedback.hidden=true;
+   feedback.className='';
+   try{
+    const selected=file.files[0];
+    if(!selected||selected.size>HALF_YEARLY_CSV_LIMIT)throw Error('Choose a CSV up to 256 KB.');
+    if([...host.querySelectorAll('form[data-portal-dirty="true"]')].some(active=>active!==editor))throw Error('Save your mark changes before importing a roster.');
+    if(!confirm('Import this Class XI roster and previous marks? Saved Half-Yearly marks are retained.'))return;
+    feedback.textContent='Importing Class XI roster and PT-1 marks…';
+    feedback.hidden=false;
+    await upload(await selected.text());
+   }catch(error){
+    feedback.className='task-error';
+    feedback.textContent=error.message;
+    feedback.hidden=false;
+    throw error;
+   }
   });
  };
  details.append(el('summary','Import Class XI roster and PT-1 marks'),el('p','Use one row per student and subject. Enter the previous and Half-Yearly maximum marks for each paper. Use - for subjects the student is not enrolled in. Use AB for enrolled students who were absent from PT-1. Leave marks blank only if an enrolled student’s PT-1 result is unavailable. Teacher accepts the exact portal name or staff ID. Leave it blank for Principal-only entry.'),template,editor);
@@ -620,13 +634,13 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
    openNames:publicView?()=>openNamedPB1Results(examId):undefined,refresh:read});
   return;
  }
- const open=async(staffId='',pin='')=>{
+ const open=async(staffId='',pin='',savedReport)=>{
   const send=(operation,values={},secret='')=>request(asPrincipal?{action:'task-principal',operation,exam:examId,...values}:
    {action:'pin-submit',operation:'task-manager',taskOperation:operation,exam:examId,staffId,pin:secret,...values},asPrincipal);
-  const data=await send('pb1-read',{},pin);
+  const data=savedReport||await send('pb1-read',{},pin);
   const setup=asPrincipal&&examId?revision=>halfYearlyImportPanel(data.roster,async csv=>{
-   await send('half-yearly-import',{csv,expectedRevision:revision()});
-   await openExam();
+   const imported=await send('half-yearly-import',{csv,expectedRevision:revision()});
+   await open('', '', imported);
    message('Class XI roster and PT-1 marks imported.');
   }):undefined;
   renderPB1Analyser(host,data,{button,run,exam,setup,teacher:!asPrincipal,entryOnly,requestedPaper,
