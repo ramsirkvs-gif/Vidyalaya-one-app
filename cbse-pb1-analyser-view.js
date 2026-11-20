@@ -34,14 +34,16 @@ function table(parent,headers,rows){
  }
  scroll.append(table);parent.append(scroll);
 }
-function marksSlip(scope,rows,exam,data,{editableInstructions=false}={}){
+function marksSlip(scope,rows,exam,data,{editableInstructions=false,teacherCopy=false}={}){
  const dialog=el('dialog',undefined,'task-start-dialog pb1-marks-slip'),article=el('article');
  const heading=el('header'),title=el('h2',exam.short+' Marks Slip');
+ const teacherDraft=teacherCopy&&!scope.approvedAt;
  title.id='paper-slip-title';dialog.setAttribute('aria-labelledby',title.id);
  heading.append(el('p','PM SHRI Kendriya Vidyalaya No. 1 Itanagar'),title,
   el('p','Class '+scope.classId+' '+scope.section+' · '+scope.subject+' · Maximum marks '+scope.maximum),
-  el('p','Final marks discussion with the Principal'),
-  el('p',scope.approvedAt?'Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}):'Discussion copy · approval pending'));
+  el('p',teacherDraft?'Teacher’s own copy for analysis':'Final marks discussion with the Principal'),
+  el('p',scope.approvedAt?'Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}):
+   teacherDraft?'Discussion with the Principal and freezing of marks by the Principal are pending.':'Discussion copy · approval pending'));
  if(scope.teacher)heading.append(el('p','Assigned teacher(s) · '+scope.teacher));
  article.append(heading);
  const columns=['Roll','Student',exam.short+' marks'];
@@ -612,7 +614,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     el('p','Each percentage uses the marks earned divided by that exam’s maximum.'));
    const print=button('Preview marks slip / PDF',()=>{
     if(host.querySelector('[data-portal-dirty=true]'))throw Error('Save your mark changes before printing the slip.');
-    marksSlip(scope,rows,exam,data,{editableInstructions:!!approve});
+    marksSlip(scope,rows,exam,data,{editableInstructions:!!approve,teacherCopy:teacher});
    });
    print.disabled=!rows.some(row=>row.current);
    host.append(print);
