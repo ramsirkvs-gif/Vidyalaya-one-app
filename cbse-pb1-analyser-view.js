@@ -5,6 +5,11 @@ const pct=v=>v==null?'—':v.toFixed(1)+'%';
 const delta=(before,after)=>before==null||after==null?'—':(after-before>0?'+':'')+(after-before).toFixed(1)+' pp';
 const result=mark=>!mark?'Not entered':mark.absent?'AB (MM '+mark.maximum+')':mark.score+'/'+mark.maximum+' ('+pct(mark.percentage)+')';
 const choices=(items,label)=>[['',label],...items.map(value=>[value,value])];
+const defaultRemedialInstructions=[
+ '1. Carefully study the attached assessment report.',
+ '2. Review the attached list of students who did not meet the pass standard and the details provided for each student.',
+ '3. Give targeted remedial support the highest priority. Document the actions taken and each student’s progress, focusing on measurable improvement and quality results under Mission Perfect 100.',
+].join('\n');
 const gradingNote='Critical fail: 25% or below. Other fail: above 25% and below 33%. Borderline pass: 33% through 40%.';
 function maximumLabel(values){
  const maxima=[...new Set(values.filter(value=>Number.isFinite(value)&&value>0))].sort((a,b)=>a-b);
@@ -91,13 +96,14 @@ function marksSlip(scope,rows,exam,data,{editableInstructions=false}={}){
  if(editableInstructions){
   const field=el('textarea'),hint=el('small','These instructions apply to this printed copy.');
   field.setAttribute('aria-label','Principal’s instructions for remedial action');
-  field.maxLength=PAPER_COMMENT_LIMIT;field.rows=3;field.value=scope.discussionComment||'';
+  field.maxLength=PAPER_COMMENT_LIMIT;field.rows=5;field.value=scope.discussionComment||defaultRemedialInstructions;
   instructions.replaceWith(field,hint);
   const printed=printSlip.querySelector('.pb1-slip-feedback p');
   field.oninput=()=>{
    printed.textContent=field.value.trim();
    printed.className=printed.textContent?'pb1-discussion-comment':'pb1-slip-comment-lines';
   };
+  field.oninput();
  }
  if(marks.length>30&&marks.length<=72){
   const split=el('div',undefined,'pb1-print-marks-columns'),mid=Math.ceil(marks.length/2);
