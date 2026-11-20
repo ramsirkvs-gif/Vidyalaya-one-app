@@ -167,8 +167,8 @@ function teacherOptions(scopes){
  const teachers=new Map(scopes.flatMap(scopeTeachers).map(({key,name})=>[key,name]));
  return [['','All teachers'],...[...teachers].sort((a,b)=>a[1].localeCompare(b[1]))];
 }
-export const PB1_ANALYSER={title:'Pre-Samagam Wisdom Analyser · PB-1 X and XII',short:'PB-1',current:'Preboard 1',previous:'Latest monthly test',baseline:'Monthly',classes:'Classes X and XII',mission:true};
-export const HALF_YEARLY_ANALYSER={title:'Pre-Samagam Wisdom Analyser · XI Half-Yearly',short:'Half-Yearly',current:'Half-Yearly',previous:'Previous test',baseline:'Previous',classes:'Class XI'};
+export const PB1_ANALYSER={title:'Pre-Samagam Wisdom Analyser · Classes X & XII PB-1',short:'PB-1',current:'Preboard 1',previous:'Latest monthly test',baseline:'Monthly',classes:'Classes X and XII',mission:true};
+export const HALF_YEARLY_ANALYSER={title:'Pre-Samagam Wisdom Analyser · Class XI A–E Half-Yearly',short:'Half-Yearly',current:'Half-Yearly',previous:'Periodic Test 1 (PT-1)',baseline:'PT-1',classes:'Class XI A–E'};
 
 const cohortHeaders=exam=>['Group','Paired / enrolled','Previous pass',exam.short+' pass','Pass change','Previous average',exam.short+' average','Average change','Remark'];
 function cohortRow(label,rows){
@@ -293,7 +293,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
  });
  runAnalysis.classList.add('pb1-primary-action');
  toolbar.append(runAnalysis);
- if(exam.mission&&!entryOnly)toolbar.append(button('Class Teacher Analysis',async()=>{
+ if(!entryOnly)toolbar.append(button('Class Teacher Analysis',async()=>{
   if(content.querySelector('[data-portal-dirty=true]')&&!confirm('Discard unsaved marks?'))return;
   if(refresh)data=await refresh(!publicView);
   if(entering){entering=false;drawMode();}
@@ -416,11 +416,12 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
  }
  let selectedClass='',selectedSection='';
  function drawClassAnalysis(){
-  report.replaceChildren(el('h3','PB-1 Class Teacher Analysis'));
+  report.replaceChildren(el('h3',exam.short+' Class Teacher Analysis'));
   const classFilters=el('div',undefined,'pb1-filters'),results=el('div');
   report.append(classFilters,results);
   const standard=control(classFilters,'Class teacher analysis standard'),section=control(classFilters,'Class teacher analysis section');
-  const sections=data.classSections||data.scopes;
+  const sections=data.classSections||[...new Map([...data.scopes,...(data.roster||data.classRoster||[])].map(({classId,section})=>
+   [JSON.stringify([classId,section]),{classId,section}])).values()];
   options(standard,values(sections,'classId').map(value=>[value,value]),selectedClass||classSelect.value);
   function selectSections(){
    options(section,choices(values(sections.filter(row=>row.classId===standard.value),'section'),'All sections'),
@@ -428,7 +429,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   }
   function show(){
    selectedClass=standard.value;selectedSection=section.value;results.replaceChildren();
-   if(!selectedClass){results.append(el('p','No PB-1 classes are available.'));return;}
+   if(!selectedClass){results.append(el('p','No '+exam.short+' classes are available.'));return;}
    const classes=sections.filter(row=>row.classId===selectedClass&&(!selectedSection||row.section===selectedSection));
    results.append(el('p',classes.map(row=>selectedClass+' '+row.section+(row.teacher?' · '+row.teacher:'')).join(' | '),'pb1-scope-summary'),
     el('p','Attendance uses explicit AB entries. Pending marks are shown separately. A student who is absent and has a failing mark in another subject can appear in both counts.'));
@@ -440,7 +441,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     const stats=el('div',undefined,'pb1-stats');
     for(const [label,value] of [
      ['Enrolled',enrolled],['Appeared in all subjects',appearedAll],['Absent in one subject',absentOne],
-     ['Absent in more than one subject',absentMultiple],['Marks pending',pending],['No matching PB-1 papers',unmapped],
+     ['Absent in more than one subject',absentMultiple],['Marks pending',pending],['No matching '+exam.short+' papers',unmapped],
      ['Passed all subjects',passedAll],['Failed in at least one subject',failed],
      ['Pass percentage · appeared in all',rate(appearedAll)],['Pass percentage · enrolled',rate(enrolled)],
     ]){

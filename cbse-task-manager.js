@@ -572,7 +572,7 @@ function halfYearlyImportPanel(upload){
  const details=el('details'),editor=form(),template=el('a','Download CSV template');
  template.href='data:text/csv;charset=utf-8,'+encodeURIComponent(HALF_YEARLY_COLUMNS.join(',')+'\r\n');
  template.download='Class-XI-Half-Yearly-template.csv';
- const file=field(editor,'Class XI roster and previous marks CSV','xi-roster-csv','file');
+ const file=field(editor,'Class XI roster and PT-1 marks CSV','xi-roster-csv','file');
  file.accept='.csv,text/csv';file.required=true;
  editor.append(el('button','Import Class XI CSV'));
  editor.onsubmit=event=>{
@@ -585,7 +585,7 @@ function halfYearlyImportPanel(upload){
    await upload(await selected.text());
   });
  };
- details.append(el('summary','Import Class XI roster and previous marks'),el('p','Use one row per student and subject. Enter the previous and Half-Yearly maximum marks for each paper. Use AB for absence or leave previous marks blank if unavailable. Teacher accepts the exact portal name or staff ID. Leave it blank for Principal-only entry.'),template,editor);
+ details.append(el('summary','Import Class XI roster and PT-1 marks'),el('p','Use one row per student and subject. Enter the previous and Half-Yearly maximum marks for each paper. Use - for subjects the student is not enrolled in. Use AB for enrolled students who were absent from PT-1. Leave marks blank only if an enrolled student’s PT-1 result is unavailable. Teacher accepts the exact portal name or staff ID. Leave it blank for Principal-only entry.'),template,editor);
  return details;
 }
 
@@ -611,7 +611,7 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
   const setup=asPrincipal&&examId?revision=>halfYearlyImportPanel(async csv=>{
    await send('half-yearly-import',{csv,expectedRevision:revision()});
    await openExam();
-   message('Class XI roster and previous marks imported.');
+   message('Class XI roster and PT-1 marks imported.');
   }):undefined;
   renderPB1Analyser(host,data,{button,run,exam,setup,teacher:!asPrincipal,entryOnly,requestedPaper,
    back:()=>{if(discard())return asPrincipal?drawPrincipal():openExam();},

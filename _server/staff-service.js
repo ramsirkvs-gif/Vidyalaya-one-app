@@ -188,6 +188,14 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
       }
       papers[key]={...paper,students};
      }
+     for(const {paperId,studentId} of imported.excluded){
+      const paper=papers[paperId],prior=paper?.students?.[studentId];
+      if(!prior)continue;
+      if(paper.approvedAt||prior.current)throw Error('An unenrolled subject conflicts with saved Half-Yearly marks. Review the paper before importing.');
+      const students={...paper.students};delete students[studentId];
+      if(Object.keys(students).length)papers[paperId]={...paper,students};
+      else delete papers[paperId];
+     }
      for(const [key,student] of Object.entries(imported.roster)){
       if(roster[key]&&roster[key].name!==student.name)throw Error('An imported roll number already belongs to a different student.');
       roster[key]=student;
@@ -315,12 +323,12 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     };
     const publicRows=rows.map(({scope,key,name,roll,before,current})=>({
      scope,key:named?key:label(key),name:named?name:label(key),...(named?{roll}:{}),
-     before:before&&{...before,exam:halfYearly?'Previous test':'Monthly test · '+before.date.slice(0,7)},
+     before:before&&{...before,exam:halfYearly?'Periodic Test 1 (PT-1)':'Monthly test · '+before.date.slice(0,7)},
      current:current&&{...current,exam:halfYearly?'Half-Yearly':'Preboard 1'},
     }))
      .sort((a,b)=>a.scope-b.scope||a.name.localeCompare(b.name));
     return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum,approvedAt,additional})=>({classId,section,subject,teacher,teachers,maximum,approvedAt,additional})),rows:publicRows,...(named?{roster}:{}),
-     ...(!halfYearly?{classSections,...(!named?{classRoster:roster.map(({key,classId,section})=>({key:label(key),name:label(key),classId,section}))}:{})}:{})};
+     ...(classSections?{classSections}:{}),...(!named?{classRoster:roster.map(({key,classId,section})=>({key:label(key),name:label(key),classId,section}))}:{})};
    }
    if(!admin&&input.operation==='pb1-directory'){
     const [{draft,faculty,mission},source,access]=await Promise.all([

@@ -421,14 +421,16 @@ test('Class XI CSV import, PIN entry and approval keep Half-Yearly results separ
  await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');
  await f.admin({operation:'monitoring-publish',expectedRevision:0});
  const header='Section,RollNo,StudentName,Subject,PreviousMarks,PreviousMM,HalfYearlyMM,Teacher\n';
- const csv=header+'A,1,"Synthetic, First",English,15,40,80,X:one\nA,2,Synthetic Second,English,,,80,X:one\n';
+ const csv=header+'A,1,"Synthetic, First",English,15,40,80,X:one\nA,2,Synthetic Second,English,AB,40,80,X:one\nA,2,Synthetic Second,AI,—,,,\nE,1,Synthetic Unenrolled,English,-,,,\n';
  const upload={operation:'half-yearly-import',exam,expectedRevision:0,csv};
  await assert.rejects(f.service('task-principal',upload,'outsider'),/Principal access/);
  await assert.rejects(f.admin({...upload,csv:csv+'A,1,"Synthetic, First",English,15,40,80,X:one\n'}),/already has a row/);
  const imported=await f.admin(upload);
  assert.equal(imported.rows[0].before.percentage,37.5);
- assert.equal(imported.rows[1].before,null);
- assert.equal(imported.roster.length,2);
+ assert.equal(imported.rows[1].before.absent,true);
+ assert.equal(imported.rows[1].before.exam,'Periodic Test 1 (PT-1)');
+ assert.equal(imported.rows.length,2);
+ assert.equal(imported.roster.length,3);
  assert.equal(imported.scopes[0].maximum,80);
  const {classId,sectionId,subjectId}=imported.scopes[0],paper={exam,classId,sectionId,subjectId};
  const save={...paper,taskOperation:'pb1-save',expectedRevision:imported.revision,entries:imported.rows.map(({key},i)=>({key,mark:i?'AB':36}))};
@@ -450,6 +452,7 @@ test('Class XI CSV import, PIN entry and approval keep Half-Yearly results separ
 
  const publicReport=await f.service('task-read',{exam,operation:'pb1-public'});
  assert.equal(publicReport.roster,undefined);
+ assert.equal(publicReport.classRoster.length,3);
  assert.ok(!JSON.stringify(publicReport).includes('Synthetic, First'));
  const {viewerToken}=await f.service('remember-view',{},'principal');
  const named=await f.service('task-read',{exam,operation:'pb1-named'},'','test',{viewerToken});

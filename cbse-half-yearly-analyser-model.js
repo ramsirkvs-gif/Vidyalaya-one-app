@@ -1,4 +1,5 @@
 import {parseCSVRows} from './cbse-basic-import.js';
+import {rollNameKey} from './cbse-roll-call-roster.js';
 import {pb1ResultBand,paperDiscussionComment} from './cbse-pb1-analyser-model.js';
 
 export const HALF_YEARLY_COLUMNS=['Section','RollNo','StudentName','Subject','PreviousMarks','PreviousMM','HalfYearlyMM','Teacher'];
@@ -15,7 +16,7 @@ export function importHalfYearly(source,staff,identify){
  const rows=parseCSVRows(source.replace(/^\uFEFF/,'')),header=rows.shift();
  if(header?.join(',')!==HALF_YEARLY_COLUMNS.join(','))throw Error('Use the Class XI CSV template headers in the given order.');
  if(!rows.length||rows.length>2500)throw Error('Include 1 to 2,500 student-subject rows.');
- const papers={},roster={},teachers=Object.entries(staff).filter(([,person])=>person.status==='active');
+ const papers={},roster={},excluded=[],seen=new Set(),teachers=Object.entries(staff).filter(([,person])=>person.status==='active');
  const maximum=value=>/^\d+(?:\.\d+)?$/.test(value)&&Number(value)>0&&Number(value)<=1000;
  for(const [index,values] of rows.entries()){
   const fail=message=>{throw Error('CSV row '+(index+2)+' · '+message);};
@@ -24,33 +25,38 @@ export function importHalfYearly(source,staff,identify){
   const section=norm(sectionValue),roll=norm(rollValue),subject=norm(subjectValue);
   if(!/^[A-Z]$/.test(section)||!roll||roll.length>30||!name||name.length>120||!subject||subject.length>100)
    fail('Enter a section letter, roll number, student name and subject.');
+  const studentId=identify('student',section,roll);
+  if(roster[studentId]&&roster[studentId].name!==name)fail('This roll number has conflicting student names in the section.');
+  roster[studentId]={key:studentId,classId:'XI',section,roll,name};
+  const paperId=identify('paper',section,subject),rowKey=paperId+'|'+studentId;
+  if(seen.has(rowKey))fail('This student already has a row for this subject.');
+  seen.add(rowKey);
+  if(/^[-–—]$/.test(scoreValue)){excluded.push({paperId,studentId});continue;}
   if(!maximum(currentMM)||((scoreValue||previousMM)&&!maximum(previousMM)))
    fail('Enter a valid Half-Yearly maximum and include the previous maximum for any previous result.');
   const absent=/^ABS?$/i.test(scoreValue);
   if(scoreValue&&!absent&&(!/^\d+(?:\.\d+)?$/.test(scoreValue)||Number(scoreValue)>Number(previousMM)))
    fail('Previous marks must be within the previous maximum, AB, or blank.');
-  const matched=teacher?teachers.filter(([id,person])=>id===teacher||norm(person.name)===norm(teacher)):[];
+  const teacherName=rollNameKey(teacher);
+  const matched=teacher?teachers.filter(([id,person])=>id===teacher||norm(person.name)===norm(teacher)||
+   teacherName&&rollNameKey(person.name)===teacherName):[];
   const identities=new Set(matched.map(([id])=>identify('teacher',id)));
-  if(teacher&&identities.size!==1)fail('Enter one active teacher’s exact portal name or staff ID, or leave Teacher blank.');
+  if(teacher&&identities.size!==1)fail('Enter one unambiguous active teacher’s name or staff ID, or leave Teacher blank.');
   const [teacherId,person]=matched[0]||[];
-  const studentId=identify('student',section,roll),paperId=identify('paper',section,subject);
-  if(roster[studentId]&&roster[studentId].name!==name)fail('This roll number has conflicting student names in the section.');
-  roster[studentId]={key:studentId,classId:'XI',section,roll,name};
   const paper=papers[paperId]??={classId:'XI',sectionId:section,section,subjectId:paperId,subject,maximum:Number(currentMM),
    teacher:person?.name||'',teacherId:teacherId||'',students:{}};
   if(paper.maximum!==Number(currentMM)||paper.teacherId!==(teacherId||''))fail('Use the same Half-Yearly maximum and Teacher for every row of this paper.');
-  if(Object.hasOwn(paper.students,studentId))fail('This student already has a row for this subject.');
-  paper.students[studentId]={enrolled:true,...(scoreValue?{before:result(absent?'AB':Number(scoreValue),Number(previousMM),'Previous test')}:{})};
+  paper.students[studentId]={enrolled:true,...(scoreValue?{before:result(absent?'AB':Number(scoreValue),Number(previousMM),'Periodic Test 1 (PT-1)')}:{})};
  }
- return {papers,roster};
+ return {papers,roster,excluded};
 }
 
 export function halfYearlyReport(state,allowedIds){
- const scopes=[],rows=[],roster=new Map();
+ const scopes=[],rows=[],roster=new Map(allowedIds?[]:Object.entries(state?.roster||{}));
  for(const {students,teacherId,...paper} of Object.values(state?.papers||{})){
   if(allowedIds&&!allowedIds.has(teacherId))continue;
   const scope=scopes.length;
-  scopes.push({...paper,teachers:teacherId?[{key:teacherId,name:paper.teacher}]:[]});
+  scopes.push({...paper,additional:/^(AI|ARTIFICIAL INTELLIGENCE)(?:\s*\([^)]*\))?$|\bADDITIONAL\b/i.test(paper.subject),teachers:teacherId?[{key:teacherId,name:paper.teacher}]:[]});
   for(const [key,marks] of Object.entries(students)){
    const student=state.roster[key];
    roster.set(key,student);
