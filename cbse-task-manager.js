@@ -577,7 +577,7 @@ async function openNamedPB1Results(exam){
   document.body.append(dialog);dialog.showModal();
  });
 }
-function halfYearlyImportPanel(upload){
+function halfYearlyImportPanel(roster,upload){
  const details=el('details'),editor=form(),template=el('a','Download CSV template');
  template.href='data:text/csv;charset=utf-8,'+encodeURIComponent(HALF_YEARLY_COLUMNS.join(',')+'\r\n');
  template.download='Class-XI-Half-Yearly-template.csv';
@@ -595,7 +595,14 @@ function halfYearlyImportPanel(upload){
   });
  };
  details.append(el('summary','Import Class XI roster and PT-1 marks'),el('p','Use one row per student and subject. Enter the previous and Half-Yearly maximum marks for each paper. Use - for subjects the student is not enrolled in. Use AB for enrolled students who were absent from PT-1. Leave marks blank only if an enrolled student’s PT-1 result is unavailable. Teacher accepts the exact portal name or staff ID. Leave it blank for Principal-only entry.'),template,editor);
- return details;
+ const counts=new Map();
+ for(const {section} of roster)counts.set(section,(counts.get(section)||0)+1);
+ const sections=[...counts.keys()].sort();
+ const summary=sections.length?'Imported roster · '+sections.map(section=>'XI '+section+': '+counts.get(section)).join(' · '):
+  'No Class XI roster has been imported yet.';
+ const panel=el('div');
+ panel.append(el('p',summary),details);
+ return panel;
 }
 
 async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
@@ -617,7 +624,7 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
   const send=(operation,values={},secret='')=>request(asPrincipal?{action:'task-principal',operation,exam:examId,...values}:
    {action:'pin-submit',operation:'task-manager',taskOperation:operation,exam:examId,staffId,pin:secret,...values},asPrincipal);
   const data=await send('pb1-read',{},pin);
-  const setup=asPrincipal&&examId?revision=>halfYearlyImportPanel(async csv=>{
+  const setup=asPrincipal&&examId?revision=>halfYearlyImportPanel(data.roster,async csv=>{
    await send('half-yearly-import',{csv,expectedRevision:revision()});
    await openExam();
    message('Class XI roster and PT-1 marks imported.');
