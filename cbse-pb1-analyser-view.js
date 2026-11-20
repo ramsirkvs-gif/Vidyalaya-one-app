@@ -585,7 +585,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   const requestedIndex=requestedPaper?data.scopes.findIndex(scope=>['classId','section','subject'].every(key=>scope[key]===requestedPaper[key])):-1;
   if(requestedPaper&&requestedIndex<0)panel.prepend(el('p','The requested paper is outside your assigned scope. Choose one of your assigned papers.','task-monitoring-notice'));
   drawChoices(requestedIndex);
-  function drawMarks(){
+  function drawMarks(announceSaved=false){
    previousPaper=paper.value;
    const index=Number(paper.value),scope=data.scopes[index],rows=data.rows.filter(row=>row.scope===index);
    const monthlyMM=maximumLabel(rows.map(row=>row.before?.maximum)),pb1MM=maximumLabel([scope.maximum]);
@@ -633,9 +633,22 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    table(editor,['Roll','Student',exam.baseline+' marks ('+monthlyMM+')',exam.short+' marks ('+pb1MM+')'],inputs.map(({row,entry})=>[row.roll,row.name,result(row.before),entry]));
    const pin=teacher?control(editor,'Personal PIN to save','input'):null;
    if(pin){pin.type='password';pin.autocomplete='off';pin.inputMode='numeric';}
-   editor.append(el('button','Save '+exam.short+' marks'));host.append(editor);
+   const saveActions=el('div',undefined,'task-actions');
+   const saveStatus=el('span',undefined,'task-save-confirmation');
+   saveStatus.setAttribute('role','status');
+   saveActions.append(el('button','Save '+exam.short+' marks'),saveStatus);
+   editor.append(saveActions);host.append(editor);
+   if(announceSaved)requestAnimationFrame(()=>{
+    if(!saveStatus.isConnected)return;
+    saveStatus.textContent='Marks saved successfully.';
+    saveActions.scrollIntoView({block:'nearest'});
+   });
    const changedInputs=()=>inputs.filter(({input,original})=>input.value.trim()&&input.value.trim()!==original);
-   editor.oninput=()=>{editor.dataset.portalDirty=String(changedInputs().length>0);};
+   editor.oninput=()=>{
+    const changed=changedInputs().length>0;
+    editor.dataset.portalDirty=String(changed);
+    if(changed)saveStatus.textContent='';
+   };
    const saveMarks=()=>run(async()=>{
     const changed=changedInputs().map(({row,input})=>{
      const value=input.value.trim().toUpperCase();
@@ -650,7 +663,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     }
     const secret=pin?.value;if(pin)pin.value='';
     const next=await save(scope,data.revision,changed,secret);
-    editor.dataset.portalDirty='false';data=next;drawMarks();
+    editor.dataset.portalDirty='false';data=next;drawMarks(true);
    });
    editor.onsubmit=event=>{
     event.preventDefault();
