@@ -112,17 +112,20 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
  async function notificationRead(path,fresh){const parent=path.startsWith('cbse/mission/')?'cbse/mission':path.startsWith('cbse/mcq/')?'cbse/mcq':path.startsWith('cbse/teamNews/')?'cbse/teamNews':path.startsWith('cbse/rollCall/')?'cbse/rollCall':path.startsWith('cbse/contributionCredits/')?'cbse/contributionCredits':path.startsWith('cbse/chamber/movements/')?'cbse/chamber/movements':path==='cbse/chamber/podcasts'?'cbse/chamber/podcasts':'';return parent?readVersioned(path,parent+'/revision',{fresh,key:'notification:'+path}):read(path);}
  async function notificationStaffNames(fresh){const[faculty,support]=await Promise.all([readVersioned('cbse/facultyDraft','cbse/facultyDraft/revision',{fresh}),readVersioned('cbse/mission/staff','cbse/mission/revision',{fresh})]);return Object.fromEntries(entries(staffIndex(faculty,{staff:support||{}},{includeRollOnly:true})).map(([id,p])=>[id,p.name]));}
 
- async function directoryStaff(){const[faculty,support,draft]=await Promise.all([read('cbse/facultyDraft'),read('cbse/mission/staff'),read('cbse/draft')]);const staff=primaryDirectory(rollRoleDirectory(staffIndex(faculty,{staff:support||{}},{includeRollOnly:true}),faculty,draft?.classes));return Object.fromEntries(entries(staff).map(([id,p])=>{const owner=avinashBibekIdentityIds(id,faculty,{staff:support||{}})?.[0];return [id,owner?{...p,pinOwnerId:owner}:p];}));}
+ async function directoryStaff(){return rollDirectory(...await Promise.all([read('cbse/facultyDraft'),read('cbse/mission/staff'),read('cbse/draft')]));}
+ function rollDirectory(faculty,support,draft){const staff=primaryDirectory(rollRoleDirectory(staffIndex(faculty,{staff:support||{}},{includeRollOnly:true}),faculty,draft?.classes));return Object.fromEntries(entries(staff).map(([id,p])=>{const owner=avinashBibekIdentityIds(id,faculty,{staff:support||{}})?.[0];return [id,owner?{...p,pinOwnerId:owner}:p];}));}
  const pinPolicy=createPINPolicy({db,read,restTransaction,getStaff:async()=>primaryDirectory(await officeDirectoryStaff()),displayKey,verifyPIN,AccessError});
  const generateMissingPINs=createMissingStaffPINGenerator({db,read,restTransaction,displayKey,hashPIN,verifyPIN,now,identityIds:rollStaffIdentityIds,AccessError});
  // Fixed, Principal-approved roster migration; no request-supplied names, roles or PINs.
  // Staff may enter Roll Call without first visiting the Principal's Settings.
+ async function preparedPrimaryStaff(support,faculty){
+  if(!planPrimaryRosterProfiles({staff:support||{}},faculty||emptyFaculty(),now()).created.length)return support;
+  const result=await db.ref('cbse/mission').transaction(current=>planPrimaryRosterProfiles(current,faculty||emptyFaculty(),now()).next);
+  if(!result.committed||!result.snapshot.val())throw new AccessError('The Primary staff list could not be prepared. Refresh Roll Call to retry.',409);
+  return result.snapshot.val().staff;
+ }
  async function preparePrimaryRoster(){
-  const [mission,faculty]=await Promise.all([read('cbse/mission'),read('cbse/facultyDraft')]);
-  if(planPrimaryRosterProfiles(mission,faculty||emptyFaculty(),now()).created.length){
-   const result=await db.ref('cbse/mission').transaction(current=>planPrimaryRosterProfiles(current,faculty||emptyFaculty(),now()).next);
-   if(!result.committed||!result.snapshot.val())throw new AccessError('The Primary staff list could not be prepared. Refresh Roll Call to retry.',409);
-  }
+  await preparedPrimaryStaff(...await Promise.all([read('cbse/mission/staff'),read('cbse/facultyDraft')]));
  }
  async function principal(token){const decoded=await auth.verifyIdToken(token,true),uid=await read('cbse/adminUid');if(decoded.uid!==uid)throw new AccessError('Principal access required.');return decoded;}
  async function staffUser(token){const decoded=await auth.verifyIdToken(token,true);if(decoded.missionStaff!==true||typeof decoded.staffId!=='string')throw new AccessError('Staff access required.');const access=await read(`cbse/staffAccess/${decoded.staffId}`);if(!access?.enabled||decoded.pinVersion!==access.version)throw new AccessError('Staff access has been disabled or reset. Sign in again.');return {decoded,access};}
@@ -466,11 +469,17 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    await principal(token);const [draft,faculty,mission]=await Promise.all([read('cbse/draft'),read('cbse/facultyDraft'),read('cbse/mission')]);return {draft:{...draft,classes:Object.fromEntries(entries(draft?.classes).map(([cl,c])=>[cl,{...c,sections:Object.fromEntries(entries(c.sections).map(([sid,s])=>[sid,{...s,students:{}}]))}]))},faculty:faculty||emptyFaculty(),mission:Object.fromEntries(['revision','staff','staffEmails','staffContacts','staffPhotos','facultyProfiles','allocations','supportAssignments'].map(k=>[k,mission?.[k]??(k==='revision'?0:{})]))};
   }
   if(action==='roll-call-read'){
-   const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
-   const detailed=!access?.error;
-   if(!detailed&&input.requireViewing===true){const e=new AccessError(access.error,access.status);e.curtainRequired=access.curtainRequired;throw e;}
-   await preparePrimaryRoster();
-   const [staff,stored,reporting]=await Promise.all([directoryStaff(),read('cbse/rollCall'),read('cbse/chamber/reporting')]),value=stored||{},ids=input.staffId?rollStaffIdentityIds(staff,input.staffId):[];return {ok:true,reporting:publishedReporting(reporting),serverDate:rollToday(now()),serverTime:now(),staff:Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active'&&rollReportingStaff(p)).map(([id,p])=>[id,{name:rollDisplayName(p.name),designation:p.designation||'',wing:rollWing(p),classTeacher:!!p.classTeacher,coClassTeacher:!!p.coClassTeacher,classRoles:p.classRoles||[]}])),rollCall:rollBoardStatus(value,rollToday(now()),{detailed,ids,lookupId:input.staffId})};
+   const verifyViewing=()=>sharedView('view-version',{accessOnly:true},session.viewerToken||'');
+   const required=input.requireViewing===true?await verifyViewing():null;
+   if(required?.error){const e=new AccessError(required.error,required.status);e.curtainRequired=required.curtainRequired;throw e;}
+   const [faculty,support,draft,stored,reporting,access]=await Promise.all([
+    read('cbse/facultyDraft'),read('cbse/mission/staff'),read('cbse/draft'),read('cbse/rollCall'),read('cbse/chamber/reporting'),
+    session.viewerToken&&!required?verifyViewing():required,
+   ]);
+   const detailed=!!access&&!access.error;
+   const staff=rollDirectory(faculty,await preparedPrimaryStaff(support,faculty),draft);
+   const value=stored||{},ids=input.staffId?rollStaffIdentityIds(staff,input.staffId):[];
+   return {ok:true,reporting:publishedReporting(reporting),serverDate:rollToday(now()),serverTime:now(),staff:Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active'&&rollReportingStaff(p)).map(([id,p])=>[id,{name:rollDisplayName(p.name),designation:p.designation||'',wing:rollWing(p),classTeacher:!!p.classTeacher,coClassTeacher:!!p.coClassTeacher,classRoles:p.classRoles||[]}])),rollCall:rollBoardStatus(value,rollToday(now()),{detailed,ids,lookupId:input.staffId})};
   }
   if(action==='staff-meetings-read'){
    const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
