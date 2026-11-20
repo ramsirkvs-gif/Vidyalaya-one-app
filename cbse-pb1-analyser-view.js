@@ -413,7 +413,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
     return;
    }
    const missing=rows.filter(row=>!row.current).length;
-   host.append(el('p','Enter '+exam.short+' marks. If a student was absent, type ABS. A blank keeps any saved result.'));
+   host.append(el('p','Enter '+exam.short+' marks. If a student was absent, type ABS. Leave a mark blank to keep it pending or retain the saved result.'));
    if(approve){
     const ready=rows.length>0&&!missing;
     const action=button('Approve and freeze '+exam.short+' marks',async()=>{
@@ -425,7 +425,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
     action.disabled=!ready;
     host.append(el('p',ready?'All enrolled students have marks or AB recorded.':missing+' enrolled students still need a mark or AB.'),action);
    }
-   const editor=el('form');editor.dataset.portalTrackDirty='true';
+   const editor=el('form');
    const inputs=rows.map(row=>{
     const input=el('input');input.setAttribute('aria-label',exam.short+' marks for '+row.name);input.autocomplete='off';input.maxLength=12;
     const previousMaximumDiffers=row.current&&row.current.maximum!==scope.maximum;
@@ -436,39 +436,46 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    });
    table(editor,['Roll','Student',exam.baseline+' marks ('+monthlyMM+')',exam.short+' marks ('+pb1MM+')'],inputs.map(({row,entry})=>[row.roll,row.name,result(row.before),entry]));
    const pin=teacher?control(editor,'Personal PIN to save','input'):null;
-   if(pin){pin.type='password';pin.required=true;pin.autocomplete='off';pin.inputMode='numeric';}
+   if(pin){pin.type='password';pin.autocomplete='off';pin.inputMode='numeric';}
    editor.append(el('button','Save '+exam.short+' marks'));host.append(editor);
+   const changedInputs=()=>inputs.filter(({input,original})=>input.value.trim()&&input.value.trim()!==original);
+   editor.oninput=()=>{editor.dataset.portalDirty=String(changedInputs().length>0);};
    const saveMarks=()=>run(async()=>{
-    const changed=inputs.filter(({input,original})=>input.value.trim()&&input.value.trim()!==original).map(({row,input})=>{
+    const changed=changedInputs().map(({row,input})=>{
      const value=input.value.trim().toUpperCase();
      const absent=value==='ABS'||value==='AB';
      if(!absent&&(!/^\d+(?:\.\d+)?$/.test(value)||Number(value)>scope.maximum))throw Error('Enter ABS or marks from 0 to '+scope.maximum+' for '+row.name+'.');
      return {key:row.key,mark:absent?'AB':Number(value)};
     });
-    if(!changed.length)throw Error('No mark changes to save.');
+    if(!changed.length)return;
+    if(pin&&!pin.value){
+     pin.focus();
+     throw Error('Enter your personal PIN to save changed marks.');
+    }
     const secret=pin?.value;if(pin)pin.value='';
     const next=await save(scope,data.revision,changed,secret);
     editor.dataset.portalDirty='false';data=next;drawMarks();
    });
    editor.onsubmit=event=>{
     event.preventDefault();
-    const blanks=inputs.filter(({row,input})=>!row.current&&!input.value.trim());
+    const blanks=inputs.filter(({row,input})=>!row.current&&!input.value.trim()),changed=changedInputs().length>0;
     if(!blanks.length){saveMarks();return;}
     const dialog=el('dialog',undefined,'task-start-dialog pb1-student-dialog');
-    const title=el('h2',blanks.length===1?'1 student needs a result':blanks.length+' students need results');
+    const title=el('h2',blanks.length===1?'1 mark is still blank':blanks.length+' marks are still blank');
     title.id='pb1-missing-marks-title';dialog.setAttribute('aria-labelledby',title.id);
     const students=el('ul');
     for(const {row} of blanks)students.append(el('li',row.name));
-    const fill=el('button','Continue filling marks');fill.type='button';fill.onclick=()=>dialog.close();
-    dialog.append(title,el('p','Please fill in the marks. If a student was absent, type ABS.'),students,fill);
-    let savingPartial=false;
-    if(inputs.some(({input,original})=>input.value.trim()&&input.value.trim()!==original)){
-     const partial=el('button','Save entered marks only');partial.type='button';
-     partial.onclick=()=>{savingPartial=true;dialog.close();saveMarks();};
-     dialog.append(partial);
-    }
-    dialog.addEventListener('close',()=>{dialog.remove();if(!savingPartial)blanks[0].input.focus();},{once:true});
-    document.body.append(dialog);dialog.showModal();fill.focus();
+    const fill=el('button','Continue filling marks');fill.type='button';fill.onclick=()=>dialog.close('fill');
+    const proceed=el('button',changed?'Save entered marks only':'Leave pending and go back');proceed.type='button';
+    proceed.onclick=()=>dialog.close(changed?'save':'back');
+    dialog.append(title,el('p','Blank marks can stay pending. If a student was absent, enter ABS.'),students,proceed,fill);
+    dialog.addEventListener('close',()=>{
+     const action=dialog.returnValue;dialog.remove();
+     if(action==='save')saveMarks();
+     else if(action==='back')run(back);
+     else blanks[0].input.focus();
+    },{once:true});
+    document.body.append(dialog);dialog.showModal();proceed.focus();
    };
   }
  }
