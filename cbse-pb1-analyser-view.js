@@ -425,19 +425,42 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    if(openEntry)return openEntry(scope);
    marksSlip(scope,data.rows.filter(row=>row.scope===index),exam,data,{editableInstructions:!!approve});
   };
-  if(papers.length===1)return preview(papers[0]);
-  const dialog=el('dialog',undefined,'task-start-dialog'),title=el('h2','Subject teacher copy / PDF');
+  return choosePaper(papers,'Subject teacher copy / PDF',openEntry?'Continue to PIN':'Preview marks slip / PDF',preview);
+ }
+ function choosePaper(papers,titleText,actionText,next){
+  if(papers.length===1)return next(papers[0]);
+  const dialog=el('dialog',undefined,'task-start-dialog'),title=el('h2',titleText);
   title.id='paper-copy-title';dialog.setAttribute('aria-labelledby',title.id);dialog.append(title);
   const picker=control(dialog,'Select class, section and subject');
   options(picker,papers.map(index=>{
    const {classId,section,subject}=data.scopes[index];
    return [String(index),'Class '+classId+' '+section+' · '+subject];
   }));
-  const show=button(openEntry?'Continue to PIN':'Preview marks slip / PDF',()=>{
-   dialog.close();return preview(Number(picker.value));
+  const show=button(actionText,()=>{
+   dialog.close();return next(Number(picker.value));
   });
   dialog.append(show,button('Cancel',()=>dialog.close()));
   dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+  document.body.append(dialog);dialog.showModal();
+ }
+ function freezePaper(scope,redraw){
+  const dialog=el('dialog',undefined,'task-start-dialog pb1-student-dialog'),form=el('form');
+  const heading=el('h2','Freeze marks after Principal discussion');
+  heading.id='paper-freeze-title';dialog.setAttribute('aria-labelledby',heading.id);
+  const comment=control(form,'Remedial action instructions to teacher (optional)','textarea');
+  comment.maxLength=PAPER_COMMENT_LIMIT;comment.rows=4;
+  const confirmFreeze=el('button','Confirm and freeze marks'),cancel=el('button','Cancel');
+  cancel.type='button';cancel.onclick=()=>dialog.close();
+  const error=el('p',undefined,'task-error');error.setAttribute('role','alert');
+  form.append(confirmFreeze,cancel,error);
+  dialog.append(heading,el('p','Class '+scope.classId+' '+scope.section+' · '+scope.subject),el('p','Freezing locks the marks for this paper.'+(exam.mission?' Mission 100 will use the approved PB-1 result.':'')),form);
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+  form.onsubmit=event=>{event.preventDefault();run(async()=>{
+   error.textContent='';
+   try{data=await approve(scope,data.revision,comment.value);}
+   catch(failure){error.textContent=failure.message;return;}
+   dialog.close();redraw();
+  });};
   document.body.append(dialog);dialog.showModal();
  }
  function drawReport(){
@@ -471,7 +494,19 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
     'PB-1 categories reflect entered marks. Mission 100 uses them after the Principal approves and freezes each paper.';
    report.append(el('p',status,'task-monitoring-notice'));
   }
-  report.append(button('Subject teacher copy / PDF',()=>openTeacherCopy(entered)));
+  const paperActions=el('div',undefined,'task-actions');
+  if(approve){
+   const ready=[...groups(rows,row=>row.scope)].filter(([index,papers])=>{
+    const scope=data.scopes[index];
+    return !scope.approvedAt&&papers.every(row=>row.current?.maximum===scope.maximum);
+   }).map(([index])=>index);
+   const freeze=button('Freeze marks after Principal discussion',()=>choosePaper(ready,'Choose a paper to freeze','Continue to freeze',index=>freezePaper(data.scopes[index],drawReport)));
+   freeze.disabled=!ready.length;
+   paperActions.append(freeze);
+   if(!ready.length)report.append(el('p','Freezing is available when an unfrozen paper has a saved mark or AB for every student and all marks use the paper maximum.'));
+  }
+  paperActions.append(button('Subject teacher copy / PDF',()=>openTeacherCopy(entered)));
+  report.append(paperActions);
   renderSmartAnalysis(report,rows,(title,filter,paperFilter=()=>true)=>
    showMarks(pb1SmartStudents(rows).filter(filter).flatMap(student=>student.papers.filter(paperFilter)),{title}),exam);
   const trends=el('details',undefined,'pb1-comparison-details');
@@ -561,24 +596,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
     const ready=rows.length>0&&!missing&&!differentMaximum;
     const action=button('Freeze marks after Principal discussion',()=>{
      if(host.querySelector('[data-portal-dirty=true]'))throw Error('Save your mark changes before approval.');
-     const dialog=el('dialog',undefined,'task-start-dialog pb1-student-dialog'),form=el('form');
-     const heading=el('h2','Freeze marks after Principal discussion');
-     heading.id='paper-freeze-title';dialog.setAttribute('aria-labelledby',heading.id);
-     const comment=control(form,'Remedial action instructions to teacher (optional)','textarea');
-     comment.maxLength=PAPER_COMMENT_LIMIT;comment.rows=4;
-     const confirmFreeze=el('button','Confirm and freeze marks'),cancel=el('button','Cancel');
-     cancel.type='button';cancel.onclick=()=>dialog.close();
-     const error=el('p',undefined,'task-error');error.setAttribute('role','alert');
-     form.append(confirmFreeze,cancel,error);
-     dialog.append(heading,el('p','Freezing locks the marks for this paper.'+(exam.mission?' Mission 100 will use the approved PB-1 result.':'')),form);
-     dialog.addEventListener('close',()=>dialog.remove(),{once:true});
-     form.onsubmit=event=>{event.preventDefault();run(async()=>{
-      error.textContent='';
-      try{data=await approve(scope,data.revision,comment.value);}
-      catch(failure){error.textContent=failure.message;return;}
-      dialog.close();drawMarks();
-     });};
-     document.body.append(dialog);dialog.showModal();
+     freezePaper(scope,drawMarks);
     });
     action.disabled=!ready;
     host.append(el('p',ready?'All enrolled students have marks or AB recorded.':differentMaximum?'Correct marks saved with a different paper maximum before freezing.':missing+' enrolled students still need a mark or AB.'),action);
