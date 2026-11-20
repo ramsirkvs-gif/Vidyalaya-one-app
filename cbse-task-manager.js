@@ -7,7 +7,7 @@ import {renderPrincipalLogin} from './cbse-principal-login.js';
 import {HALF_YEARLY_COLUMNS,HALF_YEARLY_CSV_LIMIT} from './cbse-half-yearly-analyser-model.js';
 import {renderPB1Analyser,PB1_ANALYSER,HALF_YEARLY_ANALYSER} from './cbse-pb1-analyser-view.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
-import {MONITORING_ROLES,MONITORING_STEPS,monitoringAssignments,monitoringAdvance,monitoringStage,monitoringPeople} from './cbse-task-monitoring-workflow.js';
+import {MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES,monitoringAssignments,monitoringAdvance,monitoringStage,monitoringPeople} from './cbse-task-monitoring-workflow.js';
 const SAMAGAM_PDF_FOLDER='https://drive.google.com/drive/folders/1WujpMPvLZsS8rzRSf9ahfkhM9Jrjppfh?usp=sharing';
 function signedPdfUploadLink(){
  const link=el('a','Upload signed PDF','button');
@@ -115,9 +115,7 @@ function drawMonitoringSettings(record,index){
  if(Object.keys(record.published?.assignments||{}).length)card.append(button('Emergency assignment',()=>{
   if(discard())drawMonitoring(record,{emergencyPeople:people});
  }));
- const reviewers=['Exam IC','Exam Co-IC'].map((label,i)=>{
-  const select=field(editor,label,'exam-reviewer-'+i,'select');options(select,[['','No final-remark permission'],...people],record.reviewerIds?.[i]||'');return select;
- });
+ card.append(el('p','Final Exam IC report · '+FINAL_EXAM_IC_NAMES.join(' or ')));
  const entries=Object.entries(rows),rowPicker=field(editor,'Evaluation assignment','evaluation-row','select');
  card.append(el('p',entries.filter(([,row])=>MONITORING_ROLES.some(([role])=>!row.roles[role])).length+' rows need staff assignments in this saved draft.'));
  options(rowPicker,entries.map(([id,row])=>[id,id.slice(4)+' · '+row.subject+' · '+row.section+(MONITORING_ROLES.some(([role])=>!row.roles[role])?' · Assignment needed':'')]),entries[0]?.[0]||'');
@@ -132,10 +130,9 @@ function drawMonitoringSettings(record,index){
   }
  }
  rowPicker.onchange=showAssignments;showAssignments();
- reviewers.forEach(select=>{select.onchange=()=>{editor.dataset.portalDirty='true';};});
  editor.append(fields,el('button','Save workflow settings'));
  editor.onsubmit=event=>{event.preventDefault();run(async()=>{
-  const {monitoring}=await request({action:'task-principal',operation:'monitoring-settings',expectedRevision:record.revision,overrides,reviewerIds:reviewers.map(select=>select.value)},true);
+  const {monitoring}=await request({action:'task-principal',operation:'monitoring-settings',expectedRevision:record.revision,overrides},true);
   store.monitoringUpdatedAt=monitoring.updatedAt;editor.dataset.portalDirty='false';
   drawMonitoring(monitoring,{index});message('Workflow settings saved. Publish the plan to apply them to Staff View.');
  });};
@@ -452,7 +449,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
       practice[key]={stage,separateMatching:true,history:[...(progress?.history||[]),event]};
       redrawSheet();
      }:undefined;
-     if(emergencyPeople)addEmergencyControl(cell,key,position,entry,step);
+     if(emergencyPeople&&step.role!=='exam')addEmergencyControl(cell,key,position,entry,step);
      if(current&&staffView)cell.append(button(practice?'Practise status update':'Update status',()=>openMonitoringStep(viewRecord,key,true,true,practiceUpdate)));
      if(position===Math.min(stage,MONITORING_STEPS.length-1)&&progress?.history?.length)
       cell.append(button('View history',()=>openMonitoringStep(viewRecord,key,staffView,false,practiceUpdate)));

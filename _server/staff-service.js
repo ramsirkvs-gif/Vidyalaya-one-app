@@ -2,7 +2,7 @@ import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
 import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList,minuteLanguages} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {validateMonitoringSheets} from '../cbse-task-workbook.js';
-import {monitoringAssignments,monitoringAdvance,MONITORING_ROLES,MONITORING_STEPS} from '../cbse-task-monitoring-workflow.js';
+import {monitoringAssignments,monitoringAdvance,MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES} from '../cbse-task-monitoring-workflow.js';
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {evaluatorDirectory,withPublishedPB1Evaluators} from './pb1-evaluators.js';
 import {pb1Report,pb1Scopes,paperDiscussionComment} from '../cbse-pb1-analyser-model.js';
@@ -36,7 +36,7 @@ import {examCentrePaper,examCentreRoster,examCentreRecords,examCentreToday,apply
 import {publicAdvanceLeaves} from '../cbse-advance-leave-model.js';
 import {defaultReporting,publishedReporting,applyReporting} from '../cbse-reporting-model.js';
 import {applyPodcast,teacherPodcasts,acknowledgePodcast,podcastCatalogue} from '../cbse-podcast-model.js';
-import {rollStaffIdentityIds,secondaryStaffEntry} from '../cbse-roll-call-roster.js';
+import {rollStaffIdentityIds,secondaryStaffEntry,rollNameKey} from '../cbse-roll-call-roster.js';
 import {planRollRosterProfiles} from '../cbse-roll-call-setup.js';
 import {rollReportingStaff,rollDisplayName} from '../cbse-roll-call-roster.js';
 import {applyRollCall,rollWing,rollToday,rollNoAnswers,nocGroupKey} from '../cbse-roll-call-model.js';
@@ -124,6 +124,16 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   const result=await db.ref('cbse/mission').transaction(current=>planPrimaryRosterProfiles(current,faculty||emptyFaculty(),now()).next);
   if(!result.committed||!result.snapshot.val())throw new AccessError('The Primary staff list could not be prepared. Refresh Roll Call to retry.',409);
   return result.snapshot.val().staff;
+ }
+ async function finalExamReviewers(directory){
+  const staff=directory||await directoryStaff();
+  const access=await read('cbse/staffAccess')||{};
+  return FINAL_EXAM_IC_NAMES.flatMap(name=>{
+   const matches=entries(staff).filter(([id,person])=>person.status==='active'&&access[id]?.enabled&&rollNameKey(person.name)===rollNameKey(name));
+   const candidates=[...new Set(matches.map(([id,person])=>person.pinOwnerId||id))].sort();
+   const id=candidates[0];
+   return id&&candidates.every(candidate=>rollStaffIdentityIds(staff,id).includes(candidate))?[{id,name}]:[];
+  });
  }
  async function preparePrimaryRoster(){
   await preparedPrimaryStaff(...await Promise.all([read('cbse/mission/staff'),read('cbse/facultyDraft')]));
@@ -322,20 +332,26 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}
     const {published,progress}=await read(monitoringPath)||{};
     if(!published)throw new AccessError('The monitoring plan is no longer published.',404);
-    return {monitoring:{...published,progress:progress||{}}};
+    return {monitoring:{...published,examReviewers:await finalExamReviewers(),progress:progress||{}}};
    }
-   if(admin&&input.operation==='monitoring-read')return {monitoring:await read(monitoringPath)||{sheets:TASK_MONITORING_SEED,revision:0}};
+   if(admin&&input.operation==='monitoring-read'){
+    const monitoring=await read(monitoringPath)||{sheets:TASK_MONITORING_SEED,revision:0};
+    if(monitoring.published)monitoring.published={...monitoring.published,examReviewers:await finalExamReviewers()};
+    return {monitoring};
+   }
    if(admin&&['monitoring-save','monitoring-settings','monitoring-publish','monitoring-unpublish','monitoring-emergency'].includes(input.operation)){
     const saving=input.operation==='monitoring-save';
     const settings=input.operation==='monitoring-settings',publishing=input.operation==='monitoring-publish';
     const emergency=input.operation==='monitoring-emergency';
     const directory=settings||publishing||emergency?await directoryStaff():{};
-    let sheets,overrides,reviewerIds,substitute,reason;
+    const examReviewers=publishing||emergency?await finalExamReviewers(directory):[];
+    let sheets,overrides,substitute,reason;
     try{
      if(saving)sheets=validateMonitoringSheets(input.sheets);
      if(emergency){
       if(typeof input.rowKey!=='string'||!/^row_[1-9]\d{0,5}$/.test(input.rowKey)||!Number.isInteger(input.stage)||!MONITORING_STEPS[input.stage])
        throw Error('Choose a published row and workflow step.');
+      if(MONITORING_STEPS[input.stage].role==='exam')throw Error('Only the two named Exam IC reviewers can complete the final report.');
       if(input.staffId!==''){
        const person=typeof input.staffId==='string'&&Object.hasOwn(directory,input.staffId)?directory[input.staffId]:null;
        const id=person?.pinOwnerId||input.staffId;
@@ -355,8 +371,6 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
         return [[role,id]];
        }))];
       }));
-      if(!Array.isArray(input.reviewerIds)||input.reviewerIds.length>2||!input.reviewerIds.every(id=>id===''||active(id)))throw Error('Choose up to two active Exam IC / Co-IC reviewers.');
-      reviewerIds=input.reviewerIds;
      }
     }
     catch(error){throw new AccessError(error.message,400);}
@@ -378,9 +392,9 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
       if(Object.keys(substitutes).length)emergencyAssignments[input.rowKey]={subject,section,substitutes};
       else delete emergencyAssignments[input.rowKey];
       return {...current,updatedAt,revision,emergencyAssignments,
-       published:{...published,revision,assignments:{...published.assignments,[input.rowKey]:{...entry,substitutes}}}};
+       published:{...published,revision,examReviewers,assignments:{...published.assignments,[input.rowKey]:{...entry,substitutes}}}};
      }
-     if(settings)return {...current,sheets:draft,overrides,reviewerIds,revision,updatedAt};
+     if(settings)return {...current,sheets:draft,overrides,revision,updatedAt};
      let published=null;
      if(publishing)try{
       const assignments=monitoringAssignments(draft,directory,current?.overrides);
@@ -393,8 +407,6 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
        if(initial&&(!next||next.subject!==initial.subject||next.section!==initial.section))
         throw Error('Keep the SN, subject and class of rows with recorded progress.');
       }
-      const ids=(current?.reviewerIds||[]).map(id=>directory[id]?.pinOwnerId||id);
-      const examReviewers=[...new Set(ids)].filter(id=>directory[id]?.status==='active').map(id=>({id,name:directory[id].name}));
       published={sheets:draft,updatedAt,revision,assignments,examReviewers};
      }catch(error){reason=error.message;return;}
      return {...current,sheets:draft,published,revision,updatedAt};
@@ -622,11 +634,12 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     const curtain=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
     if(curtain?.error){const error=new AccessError(curtain.error,curtain.status);error.curtainRequired=true;throw error;}
     const path='cbse/taskMonitoring',actor={id,name:staff[id].name};
+    const examReviewers=await finalExamReviewers(staff);
     if(input.taskOperation==='monitoring-practice'){
      if(typeof input.rowKey!=='string'||!/^row_[1-9]\d{0,5}$/.test(input.rowKey)||!Number.isInteger(input.stage)||input.stage<0)
       throw new AccessError('Choose a valid practice step.',400);
      const published=await read(path+'/published');
-     const mock={published,progress:{[input.rowKey]:{stage:input.stage,separateMatching:true,revision:0,history:[]}}};
+     const mock={published:published&&{...published,examReviewers},progress:{[input.rowKey]:{stage:input.stage,separateMatching:true,revision:0,history:[]}}};
      try{
       const result=monitoringAdvance(mock,{...input,expectedRevision:0},actor,now()).progress[input.rowKey];
       return {ok:true,stage:result.stage,event:result.history[0]};
@@ -636,7 +649,10 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     let reason;
     const result=await mcqTransaction(db,path,current=>{
      if(current===null&&known)return null;
-     try{return monitoringAdvance(current||{},input,actor,now());}
+     try{
+      const state=current||{},published=state.published;
+      return monitoringAdvance({...state,published:published&&{...published,examReviewers}},input,actor,now());
+     }
      catch(error){reason=error.message;return;}
     },{restTransaction});
     if(!result.committed||!result.snapshot.val())throw new AccessError(reason||'The status could not be saved.',409);

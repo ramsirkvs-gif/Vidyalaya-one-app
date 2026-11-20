@@ -1,3 +1,4 @@
+export const FINAL_EXAM_IC_NAMES=['Mr. Paramveer Meena','Mr. Sunil Kumar'];
 export const MONITORING_ROLES=[['evaluator','Evaluator'],['checker','Checker'],['matching','Matching IC']];
 export const MONITORING_STEPS=[
  {role:'evaluator',label:'Evaluation',options:[['advance','Evaluated and submitted to Checker']]},
@@ -16,10 +17,10 @@ export function monitoringStage(progress){
 }
 
 export function monitoringPeople(published,entry,position){
- const substitute=entry?.substitutes?.['step_'+position];
- if(substitute)return [substitute];
  const role=MONITORING_STEPS[position]?.role;
- return role==='exam'?published?.examReviewers||[]:[entry?.roles?.[role]].filter(Boolean);
+ if(role==='exam')return published?.examReviewers||[];
+ const substitute=entry?.substitutes?.['step_'+position];
+ return [substitute||entry?.roles?.[role]].filter(Boolean);
 }
 
 export function monitoringAssignments(sheets,staff,overrides={}){

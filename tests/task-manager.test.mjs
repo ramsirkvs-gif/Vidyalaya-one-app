@@ -145,17 +145,21 @@ test('Task 2 workbook stays private and saves editable cells with revision check
 });
 test('Task 2 tracks PIN-gated handoffs, corrections and authorized Exam closure across republication',async()=>{
  const f=taskFixture();
+ f.data.cbse.facultyDraft.classes.X.teachers.one.name='MR. PARAMVEER MEENA';
+ f.data.cbse.facultyDraft.classes.X.teachers.two.name='MR. SUNIL KUMAR';
+ f.data.cbse.facultyDraft.classes.X.teachers.three={name:'Synthetic Other IC',status:'active',designation:'PGT-Commerce'};
  const sheets=MONITORING_SHEETS.map(({rows,columns})=>Array.from({length:rows},()=>Array(columns).fill('')));
- sheets[0][5].splice(0,7,'1','English','X A','','Synthetic Teacher one','Synthetic Teacher two','Synthetic Teacher two');
+ sheets[0][5].splice(0,7,'1','English','X A','','MR. PARAMVEER MEENA','MR. SUNIL KUMAR','MR. SUNIL KUMAR');
  await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
  await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');
+ await f.service('set-pin',{staffId:'X:three',pin:'789'},'principal');
  const {viewerToken}=await f.service('remember-view',{},'principal');
  const session={viewerToken};
  await f.admin({operation:'monitoring-save',expectedRevision:0,sheets});
- await f.admin({operation:'monitoring-settings',expectedRevision:1,overrides:{},reviewerIds:['X:one']});
+ await f.admin({operation:'monitoring-settings',expectedRevision:1,overrides:{}});
  await f.admin({operation:'monitoring-publish',expectedRevision:2});
  const submit=(staff,expectedRevision,outcome='advance',remark='',publicationRevision=3)=>f.service('pin-submit',{
-  operation:'task-manager',taskOperation:'monitoring-update',staffId:'X:'+staff,pin:staff==='one'?'123':'456',rowKey:'row_1',publicationRevision,expectedRevision,outcome,remark,
+  operation:'task-manager',taskOperation:'monitoring-update',staffId:'X:'+staff,pin:{one:'123',two:'456',three:'789'}[staff],rowKey:'row_1',publicationRevision,expectedRevision,outcome,remark,
  },'','test',session);
  const practice=(staff,pin)=>f.service('pin-submit',{
   operation:'task-manager',taskOperation:'monitoring-practice',staffId:'X:'+staff,pin,rowKey:'row_1',publicationRevision:3,stage:0,outcome:'advance',
@@ -176,22 +180,25 @@ test('Task 2 tracks PIN-gated handoffs, corrections and authorized Exam closure 
  await assert.rejects(submit('one',6),/another staff member/);
  await submit('two',6);
  await submit('two',7);
- await assert.rejects(submit('two',8,'advance','Received'),/another staff member/);
+ await assert.rejects(submit('three',8,'advance','Received'),/another staff member/);
  await assert.rejects(submit('one',8),/Enter a remark/);
  await f.admin({operation:'monitoring-publish',expectedRevision:3});
  await assert.rejects(submit('one',8,'advance','Received'),/changed/);
  const emergency={operation:'monitoring-emergency',rowKey:'row_1',stage:6,staffId:'X:two',expectedRevision:4};
  await assert.rejects(f.service('task-principal',emergency,'outsider'),/Principal/);
- await f.admin(emergency);
- await assert.rejects(submit('one',8,'advance','Received',5),/another staff member/);
- await f.admin({operation:'monitoring-publish',expectedRevision:5});
- await submit('two',8,'advance','Received',6);
+ await assert.rejects(f.admin(emergency),/Only the two named/);
+ const legacy=f.data.cbse.taskMonitoring.published;
+ legacy.examReviewers=[{id:'X:three',name:'Synthetic Other IC'}];
+ legacy.assignments.row_1.substitutes={step_6:{id:'X:three',name:'Synthetic Other IC'}};
+ const current=await f.service('task-read',{operation:'monitoring-read'},'','test',session);
+ assert.deepEqual(current.monitoring.examReviewers.map(({name})=>name),['Mr. Paramveer Meena','Mr. Sunil Kumar']);
+ await assert.rejects(submit('three',8,'advance','Received',4),/another staff member/);
+ await assert.rejects(submit('one',8),/changed/);
+ await submit('two',8,'advance','Received',4);
  const {monitoring}=await f.service('task-read',{operation:'monitoring-read'},'','test',session);
  assert.equal(monitoringStage(monitoring.progress.row_1),7);
  assert.equal(monitoring.progress.row_1.history.at(-1).remark,'Received');
- assert.equal(monitoring.progress.row_1.history.at(-1).name,'Synthetic Teacher two');
- await f.admin({...emergency,staffId:'',expectedRevision:6});
- assert.equal((await f.admin({operation:'monitoring-read'})).monitoring.published.assignments.row_1.substitutes.step_6,undefined);
+ assert.equal(monitoring.progress.row_1.history.at(-1).name,'MR. SUNIL KUMAR');
 });
 test('existing Task 2 progress treats the old combined upload and matching step as complete',()=>{
  assert.deepEqual([0,1,2,3,4,5,6].map(stage=>monitoringStage({stage})),[0,1,2,3,5,6,7]);
