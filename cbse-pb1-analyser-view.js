@@ -22,6 +22,7 @@ const originalRemedialInstructions=[
 const defaultRemedialInstructions=originalRemedialInstructions+
  '\n4. Conduct retests on time and update the results in Samagam within the timelines prescribed by KVS. Ensure no retest remains overdue in Samagam.';
 const gradingNote='Critical fail: 25% or below. Other fail: above 25% and below 33%. Borderline pass: 33% through 40%.';
+const failBreakdown=(total,critical)=>total+' ('+critical+' critical + '+(total-critical)+' other fail)';
 const compareRoll=(a,b)=>String(a.roll).localeCompare(String(b.roll),undefined,{numeric:true})||a.name.localeCompare(b.name);
 
 function maximumLabel(values){
@@ -90,7 +91,7 @@ function marksSlip(scope,rows,exam,data,canPrint){
  for(const [label,value] of [
   ['Enrolled',stats.students],['Appeared',stats.assessed+' / '+stats.students],
   ['Pass rate · appeared',pct(rate(stats.passed,stats.assessed))],['Pass rate · enrolled',pct(rate(stats.enrolledPassed,stats.students))],
-  ['Passed',stats.passed],['Failed',stats.failed],['Critical fail',stats.critical],['Borderline pass',stats.borderline],
+  ['Passed',stats.passed],['Total fail',failBreakdown(stats.failed,stats.critical)],['Borderline pass',stats.borderline],
   ['Scored 90%+',stats.score90],['Scored 75%+',stats.score75],['Scored 50%+',stats.score50],
   ['Absent · retest awaited',stats.absent],['Marks pending',stats.pending],['Incomplete coverage',stats.incomplete],
   [exam.baseline+' → '+exam.short+' pass rate',pct(before)+' → '+pct(after)],['Change · '+stats.paired+(stats.paired===1?' paired student':' paired students'),delta(before,after)],
@@ -204,7 +205,7 @@ function renderCategoryComparison(parent,previous,current,showList,exam){
  const rows=[
   ['Critical fail',previous.critical,current.critical,'critical',mark=>mark?.band==='critical'],
   ['Other fail',previous.red,current.red,'red',mark=>mark?.band==='red'],
-  ['Total fail',previous.failed,current.failed,'red',mark=>mark?.failed],
+  ['Total fail',failBreakdown(previous.failed,previous.critical),failBreakdown(current.failed,current.critical),'red',mark=>mark?.failed],
   ['Borderline',previous.yellow,current.yellow,'yellow',mark=>mark?.borderline],
   ['Pass above borderline (over 40%, below 75%)',previous.pass,current.pass,'green',mark=>mark?.band==='pass'],
   ['Secure pass',previous.green,current.green,'green',mark=>mark?.band==='green'],
@@ -218,7 +219,7 @@ function renderCategoryComparison(parent,previous,current,showList,exam){
   ['Average percentage',pct(previous.average),pct(current.average),''],
  ];
  const countCell=(value,period,label,filter)=>{
-  if(!filter||!value)return value;
+  if(!filter||!parseInt(value,10))return value;
   const cell=el('div',undefined,'pb1-count-with-link');
   const source=period==='before'?exam.baseline:exam.short;
   const title=label+' · '+source;
@@ -243,8 +244,7 @@ function renderSmartAnalysis(parent,rows,showList,exam){
   ['Pass percentage · appeared',pct(rate(stats.passed,stats.assessed)),'pass'],
   ['Pass percentage · enrolled',pct(rate(stats.enrolledPassed,stats.students)),'result'],
   ['Students passed',outOf(stats.passed),'pass',student=>student.current.length&&!student.failed],
-  ['Students failed',outOf(stats.failed),'decline',student=>student.failed,row=>row.current?.failed],
-  ['Critical fail',outOf(stats.critical),'decline',student=>student.critical,row=>row.current?.band==='critical'],
+  ['Total fail',failBreakdown(stats.failed,stats.critical),'decline',student=>student.failed,row=>row.current?.failed],
   ['Borderline pass',outOf(stats.borderline),'border',student=>student.borderline,row=>row.current?.borderline],
   ['Scored 90%+',outOf(stats.score90),'pass',student=>student.percentage>=90],
   ['Scored 75%+',outOf(stats.score75),'pass',student=>student.percentage>=75],
@@ -465,7 +465,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     for(const [label,value] of [
      ['Enrolled',enrolled],['Appeared in all subjects',appearedAll],['Absent in one subject',absentOne],
      ['Absent in more than one subject',absentMultiple],['Marks pending',pending],['No matching '+exam.short+' papers',unmapped],
-     ['Passed all subjects',passedAll],['Failed in at least one subject',failed],
+     ['Passed all subjects',passedAll],['Total fail',failBreakdown(failed,failures.filter(student=>student.failed.some(paper=>paper.mark.band==='critical')).length)],
      ['Pass percentage · appeared in all',rate(appearedAll)],['Pass percentage · enrolled',rate(enrolled)],
     ]){
      const tile=el('div');tile.append(el('span',label),el('strong',String(value)));stats.append(tile);
@@ -606,9 +606,10 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   showCohorts(trends,'Subject comparison',groups(rows,row=>info(row).classId+' · '+subjectGroup(info(row))));
   showCohorts(trends,'Teacher comparison · all selected sections',teacherGroups(rows));
   report.append(el('p',entered.length+' / '+rows.length+' paper results recorded'),button('View entered '+exam.short+' marks',()=>showMarks(entered)));
-  report.append(el('h3','Remedial target students'),el('p',gradingNote));
+  const {failed,critical}=pb1SmartSummary(rows);
+  report.append(el('h3','Remedial target students'),el('p','Total fail · '+failBreakdown(failed,critical)),el('p',gradingNote));
   const targets=el('div',undefined,'pb1-remedial-targets');
-  for(const [band,label] of [['critical','Critical fail'],['red','Fail'],['yellow','Borderline pass']]){
+  for(const [band,label] of [['critical','Critical fail'],['red','Other fail'],['yellow','Borderline pass']]){
    const matching=entered.filter(row=>row.current.band===band),section=el('section',undefined,'pb1-target-'+band);
    section.append(el('h4',label+' · '+new Set(matching.map(row=>row.key)).size));
    if(matching.length)marksList(section,matching);else section.append(el('p','No students in this category.'));
