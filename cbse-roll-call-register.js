@@ -19,7 +19,7 @@ export function renderDailyRollRegister(parent,data,wing,period,onOpen,onRelease
   cell('Roll Call / present in Vidyalaya').append(el('span',excused?'Leave / OD outside · exempt from Roll Call':present?'Present':r?'Roll Call submitted · Leave / OD outside':'No · not submitted',excused?'roll-rc-leave':present?'roll-rc-reported':r?'roll-rc-leave':'roll-rc-missing'));
   const status=cell('Status / submit');
   if(r)status.append(el('strong',period==='afternoon'?'✓ Submitted successfully':'Submitted successfully','roll-rc-reported'));
-  const entries=period==='afternoon'?(data.rollCall?.noc||[]).filter(o=>p.ids.includes(o.staffId)):[];
+  const entries=(data.rollCall?.noc||[]).filter(o=>p.ids.includes(o.staffId)&&(period==='afternoon'||o.principal));
   const open=entries.filter(o=>o.status==='open');
   if(open.length){
    for(const hold of open){

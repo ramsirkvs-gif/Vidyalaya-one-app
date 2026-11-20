@@ -10,6 +10,7 @@ import {ROLL_CHECKS,LEAVE_CHECKS} from './cbse-roll-call-defaults.js';
 export {ROLL_CHECKS,LEAVE_CHECKS} from './cbse-roll-call-defaults.js';
 import {publishedReporting,reportingQuestions,snapshotAnswers} from './cbse-reporting-model.js';
 export const rollToday=(now=Date.now())=>new Date(now+19800000).toISOString().slice(0,10);
+export const openPrincipalNOCs=objections=>Object.entries(objections||{}).filter(([,hold])=>hold.kind==='principal-hold'&&hold.status==='open');
 export function nocGroupKey(hold,date){
  if(!hold?.createdBy||!Number.isFinite(hold.createdAt)||rollToday(hold.createdAt)!==date||!hold.remark?.trim())return '';
  return JSON.stringify([hold.createdBy,hold.kind||'task',hold.department||'',hold.remark.trim()]);
@@ -91,13 +92,23 @@ export function applyRollCall(current,input,actor,staff,now=Date.now(),id='',rep
   for(const target of eligible.filter((target,index)=>!principalHold||!eligible.slice(0,index).some(previous=>rollStaffIdentityIds(staff,target).includes(previous)))){const key=id+'_'+target;next.objections[key]={id:key,staffId:target,name:staff[target].name,wing:rollWing(staff[target]),...(principalHold?{kind:'principal-hold',date:day}:{}),department:principalHold?'Principal hold':department.trim(),remark:input.remark.trim(),createdBy:actor.id,createdName:actor.name,createdAt:now,status:'open'};
    const linked=rollStaffIdentityIds(staff,target);for(const r of Object.values(next.reports)){if(r.date!==day||!linked.includes(r.staffId)||!(r.period==='afternoon'||r.period==='morning'&&r.workflowVersion>=4&&r.leaveType==='half'&&r.halfDay==='second'))continue;if(r.approvedAt)r.teacherEditLockedAt=r.teacherEditLockedAt||r.approvedAt;r.status='blocked';r.updatedAt=now;delete r.approvedAt;delete r.approvedBy;}
   }
- }else if(op==='clear'||op==='clear-group'){
-  const hold=Object.hasOwn(next.objections,input.objectionId)?next.objections[input.objectionId]:null;
-  if(!hold||hold.status!=='open'||actor.id!=='principal'&&(hold.kind==='principal-hold'||hold.createdBy!==actor.id))throw Error('Only the reporting IC or Principal can clear this objection.');
-  const key=op==='clear-group'?nocGroupKey(hold,day):'';
-  if(op==='clear-group'&&(!key||input.date!==day))throw Error('Group release is available for today’s holds only. Refresh and try again.');
+ }else if(op==='clear'||op==='clear-group'||op==='clear-principal-holds'){
   const holds=Object.values(next.objections);
-  const releasing=key?holds.filter(other=>other.status==='open'&&nocGroupKey(other,day)===key):[hold];
+  let releasing;
+  if(op==='clear-principal-holds'){
+   if(actor.id!=='principal')throw Error('Only the Principal can release all Principal holds.');
+   const pending=openPrincipalNOCs(next.objections),confirmed=new Set(Array.isArray(input.holdIds)?input.holdIds:[]);
+   if(input.date!==day||confirmed.size!==pending.length||pending.some(([id])=>!confirmed.has(id)))
+    throw Error('The NOC list changed. Refresh before releasing all holds.');
+   if(!pending.length)throw Error('There are no open Principal holds to release.');
+   releasing=pending.map(([,hold])=>hold);
+  }else{
+   const hold=Object.hasOwn(next.objections,input.objectionId)?next.objections[input.objectionId]:null;
+   if(!hold||hold.status!=='open'||actor.id!=='principal'&&(hold.kind==='principal-hold'||hold.createdBy!==actor.id))throw Error('Only the reporting IC or Principal can clear this objection.');
+   const key=op==='clear-group'?nocGroupKey(hold,day):'';
+   if(op==='clear-group'&&(!key||input.date!==day))throw Error('Group release is available for today’s holds only. Refresh and try again.');
+   releasing=key?holds.filter(other=>other.status==='open'&&nocGroupKey(other,day)===key):[hold];
+  }
   const staffIds=new Set(releasing.map(item=>item.staffId));
   for(const item of releasing){item.status='cleared';item.clearedBy=actor.id;item.clearedAt=now;}
   for(const r of Object.values(next.reports)){

@@ -10,7 +10,7 @@ import {renderRollPending} from './cbse-roll-call-pending.js';
 import {renderReportingEditor} from './cbse-reporting-editor.js';
 import {renderPodcastEditor} from './cbse-podcast-editor.js';
 import {el,options} from './cbse-ui.js';
-import {rollNeedsApproval,rollRecorded,rollWing,ROLL_CHECKS,LEAVE_CHECKS,rollNoAnswers} from './cbse-roll-call-model.js';
+import {openPrincipalNOCs,rollNeedsApproval,rollRecorded,rollWing,ROLL_CHECKS,LEAVE_CHECKS,rollNoAnswers} from './cbse-roll-call-model.js';
 import {rollSettingsRoster,rollReportingStaff,rollDisplayName,rollStaffIdentityIds,rollNameKey} from './cbse-roll-call-roster.js';
 import {rollTimestamp,rollDateText} from './cbse-roll-call-time.js';
 import {staffIndex} from './cbse-mission-model.js';
@@ -50,6 +50,17 @@ export function renderRollPrincipalDashboard(host,{data,state,api,run,refresh,cl
   const objections=data.rollCall.objections||{};
   if(!state.notification)renderPrincipalHolds(pane,{data,api,run,refresh,showOpen:false});
   pane.append(el('h3','Recorded afternoon NOCs'));
+  const held=openPrincipalNOCs(objections);
+  if(!state.notification&&held.length){
+   const label='Release all '+held.length+' Principal holds';
+   pane.append(button(label,()=>run(async()=>{
+    if(!confirm(label+' across both wings, including holds from earlier dates?'))return;
+    await api({action:'roll-call-principal',rollOperation:'clear-principal-holds',
+     date:data.serverDate,holdIds:held.map(([id])=>id)});
+    await refresh();
+   })));
+  }
+
   const status=field(pane,'Show NOCs','principal-ic-status','select');
   options(status,[['open','NOC held'],['cleared','NOC released'],['all','All NOCs']],state.icStatus||'open');
   const rows=el('div',undefined,'roll-principal-objections');pane.append(rows);

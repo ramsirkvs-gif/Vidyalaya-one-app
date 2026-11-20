@@ -66,3 +66,19 @@ test('Principal holds cover selected/all staff, retain attendance, and require P
  const primary=applyRollCall(s,{rollOperation:'principal-hold',targetMode:'all',wing:'primary',remark:'Meet Principal'},principal,directory,now+9,'primary');assert.ok(primary.objections.primary_b);assert.equal(primary.objections.primary_a,undefined);
  assert.throws(()=>applyRollCall(s,{...hold,remark:'x'.repeat(121)},principal,directory,now+10,'bad'),/120/);
 });
+
+test('Principal can release all open Principal holds across dates without a morning record',()=>{
+ const place=(state,target,stamp,id)=>applyRollCall(state,{rollOperation:'principal-hold',targetMode:'selected',targets:[target],remark:id},principal,staff,stamp,id);
+ let state=place({},'a',now-86400000,'earlier');
+ state=place(state,'b',now,'today');
+ state=applyRollCall(state,{rollOperation:'object',wing:'secondary',targets:['a'],remark:'IC duty'},ic,staff,now,'ic');
+ const clear={rollOperation:'clear-principal-holds',date:rollToday(now),holdIds:['earlier_a','today_b']};
+ assert.throws(()=>applyRollCall(state,clear,ic,staff,now),/Only the Principal/);
+ assert.throws(()=>applyRollCall(state,{...clear,holdIds:['today_b']},principal,staff,now),/list changed/);
+ const saved=applyRollCall(state,clear,principal,staff,now);
+ assert.equal(saved.objections.earlier_a.status,'cleared');
+ assert.equal(saved.objections.today_b.status,'cleared');
+ assert.equal(saved.objections.earlier_a.clearedBy,'principal');
+ assert.equal(saved.objections.ic_a.status,'open');
+ assert.deepEqual(saved.reports,{});
+});
