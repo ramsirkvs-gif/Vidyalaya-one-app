@@ -549,13 +549,17 @@ async function openPB1Analyser(entryOnly=false,examId){
  host.replaceChildren(button('Back to Wisdom Analyser',()=>{if(discard())return openExam();}),card);
 }
 function drawAnalyserCards(){
+ const cards=el('div',undefined,'task-analyser-cards');
  for(const [exam,examId] of [[PB1_ANALYSER,undefined],[HALF_YEARLY_ANALYSER,'half-yearly']]){
   const card=el('section',undefined,'task-card pb1-analyser');
   const label=examId?'Open XI Half-Yearly Analyser':'Open Wisdom Analyser';
-  card.append(el('h3',exam.title),button(label,()=>openPB1Analyser(false,examId)),
+  const actions=el('div',undefined,'task-actions');
+  actions.append(button(label,()=>openPB1Analyser(false,examId)),
    button('Update '+exam.short+' marks',()=>openPB1Analyser(true,examId)));
-  host.append(card);
+  card.append(el('h3',exam.title),actions);
+  cards.append(card);
  }
+ host.append(cards);
 }
 function drawStaff(){
  const tasks=Object.entries(store.tasks||{}).sort(([,a],[,b])=>TASK_PRIORITIES.indexOf(a.priority)-TASK_PRIORITIES.indexOf(b.priority));
@@ -563,7 +567,10 @@ function drawStaff(){
  if(store.monitoringPublishedAt){
   const plan=el('section',undefined,'task-card task-public-card');
   plan.append(teacherTaskHeading({title:MONITORING_TITLE,priority:TASK_PRIORITIES[0]},'h3'),button('Open published plan',()=>openPublishedMonitoring()));
-  host.append(plan);
+  const guidance=el('p',undefined,'task-marks-guidance'),arrow=el('span','↓','task-marks-arrow');
+  arrow.setAttribute('aria-hidden','true');
+  guidance.append(el('strong','First update the task status, then enter marks.'),arrow);
+  host.append(plan,guidance);
   drawAnalyserCards();
  }
  if(!store.monitoringPublishedAt&&!tasks.length)host.append(el('p','No tasks are currently published.'));
