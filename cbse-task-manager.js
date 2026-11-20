@@ -8,6 +8,12 @@ import {HALF_YEARLY_COLUMNS,HALF_YEARLY_CSV_LIMIT} from './cbse-half-yearly-anal
 import {renderPB1Analyser,PB1_ANALYSER,HALF_YEARLY_ANALYSER} from './cbse-pb1-analyser-view.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
 import {MONITORING_ROLES,MONITORING_STEPS,monitoringAssignments,monitoringAdvance,monitoringStage,monitoringPeople} from './cbse-task-monitoring-workflow.js';
+const SAMAGAM_PDF_FOLDER='https://drive.google.com/drive/folders/1WujpMPvLZsS8rzRSf9ahfkhM9Jrjppfh?usp=sharing';
+function signedPdfUploadLink(){
+ const link=el('a','Upload signed PDF','button');
+ link.href=SAMAGAM_PDF_FOLDER;link.target='_blank';link.rel='noopener noreferrer';
+ return link;
+}
 const SAMAGAM_REPORTING_NOTICE='Upload marks to Samagam only after both the Subject Teacher and the Class Teacher have completed their reporting to the Principal.';
 const host=document.getElementById('task-content'),nav=document.getElementById('task-nav'),status=document.getElementById('task-status');
 const OVERALL_COMMENT_LABEL='Overall situation — comments by CT / Prime mentor / Survey IC';
@@ -141,7 +147,9 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate
  const title=el('h2',entry.subject+' · '+entry.section);
  title.id='task-monitoring-step-title';dialog.setAttribute('aria-labelledby',title.id);dialog.append(title);
  if(practiceUpdate)dialog.append(el('p','Mock practice · no real status will change.','task-monitoring-notice'));
- if(staffView&&step?.label==='Samagam upload')dialog.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
+ if(staffView&&allowUpdate&&step?.uploadPdf&&!practiceUpdate)
+  dialog.append(el('p','Upload the signed marks slip to Google Drive, then save the upload status here.'),signedPdfUploadLink());
+ if(staffView&&step?.samagam)dialog.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
  if(progress?.history?.length){
   const history=el('details');history.open=!allowUpdate;
   history.append(el('summary','Workflow history'));
@@ -201,7 +209,7 @@ function openMonitoringPractice(record,index){
    options(outcome,[['','Choose status'],...step.options],'');outcome.required=true;
    const remark=field(editor,step.role==='exam'?'Final remark':'Remark','practice-remark','textarea');remark.maxLength=500;
    outcome.onchange=()=>{remark.required=step.role==='exam'||outcome.value==='return';};outcome.onchange();
-   if(step.label==='Samagam upload')card.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
+   if(step.samagam)card.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
    card.append(el('h3',actors[step.role].name),editor);
    editor.append(el('button','Save practice status'));
    editor.onsubmit=event=>{event.preventDefault();run(()=>{
@@ -405,11 +413,17 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
      const assigned=monitoringPeople(workflow,entry,position).map(({name})=>name).join(' / ');
      const current=position===stage,complete=position<stage;
      cell.classList.toggle('task-plan-current',position===Math.min(stage,MONITORING_STEPS.length-1));
-     const state=complete?'Completed':current?(assigned?'Action due':'Assignment needed'):'Waiting';
+     const pdfNotRecorded=step.uploadPdf&&complete&&!progress?.history?.some(item=>item.label===step.options[0][1]);
+     const state=pdfNotRecorded?'PDF status not recorded':complete?'Completed':current?(assigned?'Action due':'Assignment needed'):'Waiting';
      cell.append(el('strong',state,'task-workflow-state'+(current?' is-current':complete?' is-complete':'')));
      if(assigned)cell.append(el('span',assigned));
      if(entry.substitutes?.['step_'+position]&&!complete)cell.append(el('span','Emergency substitute'));
-     if(complete)cell.append(el('span',step.options[0][1]));
+     if(complete&&!pdfNotRecorded){
+      const label=step.options[0][1];
+      const previous=step.samagam&&progress?.history?.findLast(item=>[label,'Matched Samagam marks with the mark slip'].includes(item.label));
+      cell.append(el('span',previous?.label||label));
+     }
+     if(staffView&&step.uploadPdf&&!practice&&(current||pdfNotRecorded))cell.append(signedPdfUploadLink());
      const latest=progress?.history?.at(-1)?.label;
      if(current&&latest&&MONITORING_STEPS.some(stage=>stage.options.some(([value,label])=>value==='return'&&label===latest)))
       cell.append(el('span',latest));

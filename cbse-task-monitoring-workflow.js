@@ -3,10 +3,10 @@ export const MONITORING_STEPS=[
  {role:'evaluator',label:'Evaluation',options:[['advance','Evaluated and submitted to Checker']]},
  {role:'checker',label:'Cross-check',options:[['advance','Checked and returned to Evaluator'],['return','Corrections required']]},
  {role:'evaluator',label:'Principal discussion',review:true,options:[['advance','Discussed with Principal and updated']]},
- {role:'evaluator',label:'Samagam upload',options:[['advance','Uploaded on Samagam']]},
- {role:'matching',label:'Matching by Core Team member',options:[['advance','Matched Samagam marks with the mark slip']]},
- {role:'matching',label:'Slip handover',options:[['advance','Samagam slip submitted to Exam Department']]},
- {role:'exam',label:'Exam Department verification',options:[['advance','Received and verified'],['return','Returned for correction']]},
+ {role:'evaluator',label:'Upload signed PDF',uploadPdf:true,options:[['advance','Signed PDF uploaded']]},
+ {role:'matching',label:'Samagam upload with Matching IC',samagam:true,options:[['advance','Uploaded on Samagam and matched with the mark slip']]},
+ {role:'matching',label:'Hand over Samagam slip to Exam Department',options:[['advance','Samagam slip handed over to Exam Department']]},
+ {role:'exam',label:'Final report by Exam IC',options:[['advance','Final report completed by Exam IC'],['return','Returned for correction']]},
 ];
 
 export function monitoringStage(progress){
