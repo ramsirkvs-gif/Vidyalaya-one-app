@@ -501,9 +501,11 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   const sections=[...new Set(rows.map(sectionLabel))].sort();
   const selectedTeacher=teacherSelect.value?teacherSelect.selectedOptions[0]?.textContent:'';
   report.append(el('p',[selectedTeacher,subjectSelect.value||'All subjects',sections.join(', ')].filter(Boolean).join(' · '),'pb1-scope-summary'));
+  const papersByScope=[...groups(rows,row=>row.scope)];
+  const frozenPapers=papersByScope.filter(([index])=>data.scopes[index].approvedAt).map(([index])=>index);
   if(exam.mission){
-   const selectedPapers=[...new Set(rows.map(row=>row.scope))];
-   const frozen=selectedPapers.filter(scope=>data.scopes[scope].approvedAt).length;
+   const selectedPapers=papersByScope;
+   const frozen=frozenPapers.length;
    const status=frozen===selectedPapers.length?'All selected papers are frozen. Mission 100 uses their PB-1 results.':
     frozen?frozen+' of '+selectedPapers.length+' papers are frozen and in use on Mission 100. The remaining papers are awaiting approval.':
     'PB-1 categories reflect entered marks. Mission 100 uses them after the Principal approves and freezes each paper.';
@@ -511,16 +513,26 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   }
   const paperActions=el('div',undefined,'task-actions');
   if(approve){
-   const ready=[...groups(rows,row=>row.scope)].filter(([index,papers])=>{
-    const scope=data.scopes[index];
-    return !scope.approvedAt&&papers.every(row=>row.current?.maximum===scope.maximum);
-   }).map(([index])=>index);
+   const freezeStatus=papersByScope.map(([index,papers])=>{
+    const scope=data.scopes[index],missing=papers.filter(row=>!row.current).length;
+    const status=scope.approvedAt?'Frozen':missing?missing+' pending '+(missing===1?'mark':'marks'):
+     papers.some(row=>row.current.maximum!==scope.maximum)?'Paper maximum needs correction':'Ready to freeze';
+    return {index,scope,status};
+   });
+   const ready=freezeStatus.filter(paper=>paper.status==='Ready to freeze').map(paper=>paper.index);
+   report.append(el('p','Freeze one class section and subject at a time.'));
+   if(freezeStatus.length>1){
+    const details=el('details',undefined,'pb1-comparison-details');
+    details.append(el('summary','Freeze status by class section and subject'));
+    table(details,['Class / section','Subject','Freeze status'],freezeStatus.map(({scope,status})=>[scope.classId+' '+scope.section,scope.subject,status]));
+    report.append(details);
+   }else report.append(el('p','Freeze status · '+freezeStatus[0].status));
+
    const freeze=button('Freeze marks after Principal discussion',()=>choosePaper(ready,'Choose a paper to freeze','Continue to freeze',index=>freezePaper(data.scopes[index],drawReport)));
    freeze.disabled=!ready.length;
    paperActions.append(freeze);
-   if(!ready.length)report.append(el('p','Freezing is available when an unfrozen paper has a saved mark or AB for every student and all marks use the paper maximum.'));
+   if(!ready.length&&frozenPapers.length<papersByScope.length)report.append(el('p','Complete marks or AB for every student and correct any paper maximum mismatch before freezing.'));
   }
-  const frozenPapers=[...new Set(rows.map(row=>row.scope))].filter(index=>data.scopes[index].approvedAt);
   if(unfreeze&&frozenPapers.length)paperActions.append(button('Unfreeze for emergency correction',()=>
    choosePaper(frozenPapers,'Choose a paper to unfreeze','Continue to unfreeze',index=>reopenPaper(data.scopes[index],drawReport))));
   paperActions.append(button('Subject teacher copy / PDF',()=>openTeacherCopy(entered)));
