@@ -5,6 +5,7 @@ import {validateMonitoringSheets} from '../cbse-task-workbook.js';
 import {monitoringAssignments,monitoringAdvance,MONITORING_ROLES,MONITORING_STEPS} from '../cbse-task-monitoring-workflow.js';
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {pb1Report,pb1Scopes} from '../cbse-pb1-analyser-model.js';
+import {halfYearlyReport,importHalfYearly,updateHalfYearly} from '../cbse-half-yearly-analyser-model.js';
 import {pb1ApprovalKey} from '../cbse-academic-exam-kind.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
@@ -112,6 +113,60 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
  const sharedView=createSharedView({db,context,now,defaultSecret:viewSecret});
  async function officeDirectoryStaff(){const[faculty,support]=await Promise.all([readVersioned('cbse/facultyDraft','cbse/facultyDraft/revision',{fresh:true}),readVersioned('cbse/mission/staff','cbse/mission/revision',{fresh:true})]);const mission={staff:support||{}};return Object.fromEntries(entries(staffIndex(faculty,mission,{includeRollOnly:true})).map(([id,p])=>[id,{...p,officeIdentityIds:teacherIdentityIds(id,faculty,mission)}]));}
  const officeService=createOfficeService({db,read,principal,hashPIN,verifyPIN,pinPolicy,throttle,clearAttempt:ticket=>pinDatabase(()=>pinAttempts.clear(ticket)),displayKey,now,directoryStaff:officeDirectoryStaff,sharedView,AccessError});
+ const halfYearlyPath='cbse/taskHalfYearly';
+ async function halfYearlyWorkspace(input,actor){
+  const {faculty,mission}=await context();
+  const ids=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
+  const operation=input.operation==='task-manager'?input.taskOperation:input.operation;
+  if(operation==='pb1-read')return halfYearlyReport(await read(halfYearlyPath),ids);
+  let imported;
+  if(operation==='half-yearly-import'){
+   if(!actor.uid)throw new AccessError('Principal access required.',403);
+   const identify=(kind,...parts)=>kind==='teacher'?(teacherIdentityIds(parts[0],faculty,mission).sort()[0]||parts[0]):
+    createHash('sha256').update(JSON.stringify([kind,...parts])).digest('hex').slice(0,32);
+   try{imported=importHalfYearly(input.csv,staffIndex(faculty,mission),identify);}
+   catch(error){throw new AccessError(error.message,400);}
+  }
+  const stamp=now();let reason;
+  const transaction=await mcqTransaction(db,'cbse',current=>{
+   if(!current)return;
+   try{
+    if(actor.uid?current.adminUid!==actor.uid:!current.staffAccess?.[actor.id]?.enabled||current.staffAccess[actor.id].version!==actor.accessVersion)
+     throw Error('Your access changed. Sign in or verify your PIN again.');
+    const state=current.taskHalfYearly;
+    let next;
+    if(imported){
+     if((state?.revision||0)!==input.expectedRevision)throw Error('The Class XI roster changed. Reopen the analyser before importing.');
+     const papers={...state?.papers},roster={...state?.roster};
+     for(const [key,paper] of Object.entries(imported.papers)){
+      const prior=papers[key];
+      if(prior?.approvedAt)throw Error('An uploaded paper is already approved and frozen.');
+      const students={...prior?.students,...paper.students};
+      for(const [id,marks] of Object.entries(prior?.students||{})){
+       if(!marks.current)continue;
+       if(prior.maximum!==paper.maximum)throw Error('Cannot change the maximum of a paper with saved Half-Yearly marks.');
+       students[id]={...students[id],current:marks.current};
+      }
+      papers[key]={...paper,students};
+     }
+     for(const [key,student] of Object.entries(imported.roster)){
+      if(roster[key]&&roster[key].name!==student.name)throw Error('An imported roll number already belongs to a different student.');
+      roster[key]=student;
+     }
+     next={revision:(state?.revision||0)+1,papers,roster};
+    }else{
+     const {faculty,mission}=resolvedViewingData(current.draft,current.facultyDraft,current.mission||emptyMission());
+     const allowed=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
+     next=updateHalfYearly(structuredClone(state),{...input,operation},allowed,stamp);
+    }
+    return {...current,taskHalfYearly:next};
+   }catch(error){reason=error.message;return;}
+  },{restTransaction});
+  if(!transaction.committed)throw new AccessError(reason||'Class XI changes could not be saved. Refresh and retry.',409);
+  return halfYearlyReport(transaction.snapshot.val().taskHalfYearly,ids);
+ }
+ const pb1Roster=draft=>Object.values(studentIndex(draft)).filter(p=>['X','XII'].includes(p.classId))
+  .map(({key,name,roll,classId,section})=>({key,name,roll:roll??'',classId,section}));
  async function pb1Workspace(input,actor){
   function scoped(draft,faculty,mission){
    const staff=staffIndex(faculty,mission),ids=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
@@ -120,7 +175,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   }
   const initial=await context(),scope=scoped(initial.draft,initial.faculty,initial.mission);
   if(input.operation==='pb1-read'||input.taskOperation==='pb1-read')
-   return pb1Report(initial.draft,initial.mission,scope.staff,scope.ids,scope.identity);
+   return {...pb1Report(initial.draft,initial.mission,scope.staff,scope.ids,scope.identity),...(actor.uid?{roster:pb1Roster(initial.draft)}:{})};
   const approving=input.operation==='pb1-approve'&&!!actor.uid;
   if(!approving&&(!Array.isArray(input.entries)||!input.entries.length||input.entries.length>200))
    throw new AccessError('Enter at least one mark or AB.',400);
@@ -173,11 +228,13 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   if(!result.committed||!result.snapshot.val())throw new AccessError(reason||'The marks could not be confirmed. Reopen the analyser.',409);
   const saved=result.snapshot.val(),{faculty,mission}=resolvedViewingData(saved.draft,saved.facultyDraft,saved.mission);
   const access=scoped(saved.draft,faculty,mission);
-  return pb1Report(saved.draft,mission,access.staff,access.ids,access.identity);
+  return {...pb1Report(saved.draft,mission,access.staff,access.ids,access.identity),...(actor.uid?{roster:pb1Roster(saved.draft)}:{})};
  }
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
+   const halfYearly=input.exam==='half-yearly';
+   if(admin&&halfYearly&&['pb1-read','pb1-save','pb1-approve','half-yearly-import'].includes(input.operation))return halfYearlyWorkspace(input,{uid:adminIdentity.uid});
    if(admin&&['pb1-read','pb1-save','pb1-approve'].includes(input.operation))return pb1Workspace(input,{uid:adminIdentity.uid});
    if(!admin&&['pb1-read','pb1-save','pb1-approve'].includes(input.operation))throw new AccessError('Use a teacher PIN for marks entry or Principal sign-in for approval.',403);
    if(!admin&&['pb1-public','pb1-named'].includes(input.operation)){
@@ -187,25 +244,35 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
      if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}
     }
-    const {draft,faculty,mission}=await context();
-    const {scopes,rows}=pb1Report(draft,mission,staffIndex(faculty,mission),undefined,
-     id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id);
+    let report;
+    if(halfYearly)report=halfYearlyReport(await read(halfYearlyPath));
+    else{
+     const {draft,faculty,mission}=await context();
+     report=pb1Report(draft,mission,staffIndex(faculty,mission),undefined,id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id);
+     if(named)report.roster=pb1Roster(draft);
+    }
+    const {scopes,rows,roster}=report;
     const students=new Map();
     const label=key=>{
-     if(!students.has(key))students.set(key,'Student '+createHmac('sha256',displayKey).update('pb1-public:'+key).digest('hex').slice(0,10).toUpperCase());
+     if(!students.has(key))students.set(key,'Student '+createHmac('sha256',displayKey).update((halfYearly?'half-yearly-public:':'pb1-public:')+key).digest('hex').slice(0,10).toUpperCase());
      return students.get(key);
     };
     const publicRows=rows.map(({scope,key,name,roll,before,current})=>({
      scope,key:named?key:label(key),name:named?name:label(key),...(named?{roll}:{}),
-     before:before&&{...before,exam:'Monthly test · '+before.date.slice(0,7)},
-     current:current&&{...current,exam:'Preboard 1'},
+     before:before&&{...before,exam:halfYearly?'Previous test':'Monthly test · '+before.date.slice(0,7)},
+     current:current&&{...current,exam:halfYearly?'Half-Yearly':'Preboard 1'},
     }))
      .sort((a,b)=>a.scope-b.scope||a.name.localeCompare(b.name));
-    return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum,approvedAt})=>({classId,section,subject,teacher,teachers,maximum,approvedAt})),rows:publicRows};
+    return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum,approvedAt})=>({classId,section,subject,teacher,teachers,maximum,approvedAt})),rows:publicRows,...(named?{roster}:{})};
    }
    if(!admin&&input.operation==='pb1-directory'){
     const {draft,faculty,mission}=await context(),staff=staffIndex(faculty,mission);
-    const teachers=Object.entries(staff).filter(([id,person])=>person.status==='active'&&pb1Scopes(draft,mission,staff,new Set(teacherIdentityIds(id,faculty,mission))).length)
+    const xi=halfYearly?await read(halfYearlyPath):null;
+    const teachers=Object.entries(staff).filter(([id,person])=>{
+     if(person.status!=='active')return false;
+     const ids=new Set(teacherIdentityIds(id,faculty,mission));
+     return halfYearly?Object.values(xi?.papers||{}).some(p=>ids.has(p.teacherId)):pb1Scopes(draft,mission,staff,ids).length;
+    })
      .map(([id,{name}])=>({id,name})).sort((a,b)=>a.name.localeCompare(b.name));
     return {teachers};
    }
@@ -502,7 +569,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    if(!pinIdentity)throw new AccessError('Verify your existing personal PIN.',403);
    const id=pinIdentity.decoded.staffId,staff=await directoryStaff(),access=await read('cbse/staffAccess/'+id);
    if(!access?.enabled||access.version!==pinIdentity.access.version||staff[id]?.status!=='active')throw new AccessError('Staff access changed. Verify your PIN again.',403);
-   if(['pb1-read','pb1-save'].includes(input.taskOperation))return pb1Workspace(input,{id,accessVersion:access.version});
+   if(['pb1-read','pb1-save'].includes(input.taskOperation))return (input.exam==='half-yearly'?halfYearlyWorkspace:pb1Workspace)(input,{id,accessVersion:access.version});
    if(['monitoring-update','monitoring-practice'].includes(input.taskOperation)){
     const curtain=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
     if(curtain?.error){const error=new AccessError(curtain.error,curtain.status);error.curtainRequired=true;throw error;}

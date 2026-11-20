@@ -26,7 +26,10 @@ function groups(rows,key){
  const grouped=new Map();for(const row of rows){const id=key(row);if(!grouped.has(id))grouped.set(id,[]);grouped.get(id).push(row);}return grouped;
 }
 const scopeTeachers=scope=>scope.teachers||(scope.teacher?[{key:scope.teacher,name:scope.teacher}]:[]);
-const cohortHeaders=['Group','Paired / enrolled','Previous pass','PB-1 pass','Pass change','Previous average','PB-1 average','Average change','Remark'];
+export const PB1_ANALYSER={title:'Pre-Samagam Wisdom Analyser · PB-1 X and XII',short:'PB-1',current:'Preboard 1',previous:'Latest monthly test',baseline:'Monthly',classes:'Classes X and XII',mission:true};
+export const HALF_YEARLY_ANALYSER={title:'Pre-Samagam Wisdom Analyser · XI Half-Yearly',short:'Half-Yearly',current:'Half-Yearly',previous:'Previous test',baseline:'Previous',classes:'Class XI'};
+
+const cohortHeaders=exam=>['Group','Paired / enrolled','Previous pass',exam.short+' pass','Pass change','Previous average',exam.short+' average','Average change','Remark'];
 function cohortRow(label,rows){
  const m=pb1Metrics(rows),change=m.currentPass==null?null:m.currentPass-m.beforePass;
  return [label,m.paired+' / '+m.total,pct(m.beforePass),pct(m.currentPass),delta(m.beforePass,m.currentPass),
@@ -38,7 +41,7 @@ function studentListButton(label,title,open){
  action.setAttribute('aria-label',label+' · '+title);action.onclick=open;
  return action;
 }
-function renderCategoryComparison(parent,previous,current,showList){
+function renderCategoryComparison(parent,previous,current,showList,exam){
  parent.append(el('h3','Mission 100 result categories'),el('p',gradingNote));
  const rows=[
   ['Critical fail',previous.critical,current.critical,'critical',mark=>mark?.band==='critical'],
@@ -59,16 +62,16 @@ function renderCategoryComparison(parent,previous,current,showList){
  const countCell=(value,period,label,filter)=>{
   if(!filter||!value)return value;
   const cell=el('div',undefined,'pb1-count-with-link');
-  const title=label+' · '+(period==='before'?'Monthly':'PB-1');
+  const title=label+' · '+(period==='before'?exam.baseline:exam.short);
   cell.append(el('strong',String(value)),studentListButton('View students',title,()=>showList(title,period,filter)));
   return cell;
  };
- table(parent,['Category','Latest monthly test','Preboard 1'],rows.map(([label,a,b,band,filter])=>[
+ table(parent,['Category',exam.previous,exam.current],rows.map(([label,a,b,band,filter])=>[
   el('span',label,band?'band '+band:undefined),countCell(a,'before',label,filter),countCell(b,'current',label,filter),
  ]));
  parent.append(el('p','Counts are by student and subject. Total fail includes critical fails. The enrolled pass percentage includes AB and pending entries in the denominator. Pending entries remain provisional.'));
 }
-function renderSmartAnalysis(parent,rows,showList){
+function renderSmartAnalysis(parent,rows,showList,exam){
  const stats=pb1SmartSummary(rows);
  const rate=(count,total)=>total?100*count/total:null;
  const previous=rate(stats.previousPassed,stats.paired),current=rate(stats.pairedPassed,stats.paired);
@@ -86,8 +89,8 @@ function renderSmartAnalysis(parent,rows,showList){
   ['Scored 90%+',outOf(stats.score90),'pass',student=>student.percentage>=90],
   ['Scored 75%+',outOf(stats.score75),'pass',student=>student.percentage>=75],
   ['Scored 50%+',outOf(stats.score50),'result',student=>student.percentage>=50],
-  ['Monthly → PB-1 pass rate',pct(previous)+' → '+pct(current),'result'],
-  ['Change vs monthly',delta(previous,current),current==null?'result':current>=previous?'pass':'decline'],
+  [exam.baseline+' → '+exam.short+' pass rate',pct(previous)+' → '+pct(current),'result'],
+  ['Change vs '+exam.baseline.toLowerCase(),delta(previous,current),current==null?'result':current>=previous?'pass':'decline'],
   ['Absent · Retest awaited',stats.absent+' / '+stats.students,'border',student=>student.absent],
   ['Marks entry pending',stats.pending+' / '+stats.students,'border',student=>student.pending],
   ['Incomplete coverage',stats.incomplete+' / '+stats.students,'border',student=>student.incomplete],
@@ -98,15 +101,15 @@ function renderSmartAnalysis(parent,rows,showList){
   strip.append(tile);
  }
  parent.append(el('h3','Smart analysis · at a glance'),strip,
-  el('p','Counts are by student. The appeared result uses the PB-1 papers each student appeared for. The enrolled result counts a student as passed only after every selected enrolled paper has an appeared pass. AB counts as a non-pass there. Blank marks are pending, so the enrolled result is provisional until entry is complete. Retest awaited and pending can overlap across subjects.'),
-  el('p','Score bands overlap and use each student’s average paper percentage. The monthly comparison uses matching appeared papers for '+stats.paired+' students.'));
+  el('p','Counts are by student. The appeared result uses the '+exam.short+' papers each student appeared for. The enrolled result counts a student as passed only after every selected enrolled paper has an appeared pass. AB counts as a non-pass there. Blank marks are pending, so the enrolled result is provisional until entry is complete. Retest awaited and pending can overlap across subjects.'),
+  el('p','Score bands overlap and use each student’s average paper percentage. The previous-test comparison uses matching appeared papers for '+stats.paired+' students.'));
 }
-function renderMarksGraph(parent,grouped){
+function renderMarksGraph(parent,grouped,exam){
  const graph=el('div',undefined,'pb1-marks-graph');
  for(const [label,rows] of grouped){
   const article=el('section');article.append(el('h4',label));
   const paired=rows.filter(row=>row.before?.percentage!=null&&row.current?.percentage!=null);
-  for(const [key,title] of [['before','Latest monthly marks'],['current','Preboard 1']]){
+  for(const [key,title] of [['before',exam.previous],['current',exam.current]]){
    const scores=(paired.length?paired:rows).flatMap(row=>row[key]?.percentage==null?[]:[row[key].percentage]);
    const mean=scores.length?scores.reduce((sum,value)=>sum+value,0)/scores.length:null;
    const line=el('div',undefined,'pb1-graph-line');
@@ -122,21 +125,24 @@ function renderMarksGraph(parent,grouped){
  if(graph.childElementCount)parent.append(graph);else parent.append(el('p','No records match these filters.'));
 }
 
-export function renderPB1Analyser(host,data,{run,button,save,approve,back,teacher,publicView,entryOnly,openEntry,openNames,refresh}){
+export function renderPB1Analyser(host,data,{run,button,save,approve,back,teacher,publicView,entryOnly,openEntry,openNames,refresh,exam=PB1_ANALYSER,setup}){
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
  const filters=el('div',undefined,'pb1-filters'),report=el('div');
  let entering=entryOnly,entryAction;
- const description=el('p',teacher?'Your assigned Preboard 1 papers':publicView?'Classes X and XII · Public student labels are coded':'Classes X and XII · Preboard 1');
- card.append(el('h2',entryOnly?'Update PB-1 marks':'Pre-Samagam Wisdom Analyser'),description,content);
+ const description=el('p',teacher?'Your assigned '+exam.current+' papers':publicView?exam.classes+' · Public student labels are coded':exam.classes+' · '+exam.current);
+ card.append(el('h2',entryOnly?'Update '+exam.short+' marks':exam.title),description);
+ if(setup)card.append(setup(()=>data.revision));
+ card.append(content);
  host.replaceChildren(button(entryOnly?'Back to Wisdom Analyser':'Back to task list',back),card);
  const classSelect=control(filters,'Standard'),subjectSelect=control(filters,'Subject'),teacherSelect=control(filters,'Teacher'),sectionSelect=control(filters,'Class / section');
+ const classOptions=()=>[...data.scopes,...(data.roster||[])];
  const values=(scopes,key)=>[...new Set(scopes.map(info=>info[key]).filter(Boolean))].sort();
- options(classSelect,choices(values(data.scopes,'classId'),'All standards'),'');
+ options(classSelect,choices(values(classOptions(),'classId'),'All standards'),'');
  const runAnalysis=button('Get smart analysis',async()=>{
   if(content.querySelector('[data-portal-dirty=true]')&&!confirm('Discard unsaved marks?'))return;
   if(refresh){
    data=await refresh(!publicView);
-   options(classSelect,choices(values(data.scopes,'classId'),'All standards'),classSelect.value);
+   options(classSelect,choices(values(classOptions(),'classId'),'All standards'),classSelect.value);
    restrict();
   }
   if(entering){entering=false;drawMode();}
@@ -144,9 +150,9 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
  });
  runAnalysis.classList.add('pb1-primary-action');
  toolbar.append(runAnalysis);
- if(openEntry)toolbar.append(button('Update PB-1 marks',openEntry));
+ if(openEntry)toolbar.append(button('Update '+exam.short+' marks',openEntry));
  else if(save&&!entryOnly){
-  entryAction=button('Update PB-1 marks',()=>{entering=true;drawMode();});
+  entryAction=button('Update '+exam.short+' marks',()=>{entering=true;drawMode();});
   toolbar.append(entryAction);
  }
  function restrict(){
@@ -156,7 +162,8 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   const teachers=new Map(subjects.flatMap(info=>scopeTeachers(info)).map(({key,name})=>[key,name]));
   options(teacherSelect,[['','All teachers'],...[...teachers].sort((a,b)=>a[1].localeCompare(b[1]))],teacherSelect.value);
   const assigned=subjects.filter(info=>!teacherSelect.value||scopeTeachers(info).some(person=>person.key===teacherSelect.value));
-  options(sectionSelect,choices(values(assigned,'section'),'All sections'),sectionSelect.value);
+  const rosterSections=!subjectSelect.value&&!teacherSelect.value?(data.roster||[]).filter(row=>!classSelect.value||row.classId===classSelect.value):[];
+  options(sectionSelect,choices(values([...assigned,...rosterSections],'section'),'All sections'),sectionSelect.value);
  }
  restrict();
  classSelect.onchange=subjectSelect.onchange=teacherSelect.onchange=()=>{restrict();hasReport=false;report.replaceChildren();};
@@ -179,7 +186,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   }
   parent.append(list);
  }
- function showMarks(rows,{title='Entered PB-1 marks',period='current'}={}){
+ function showMarks(rows,{title='Entered '+exam.short+' marks',period='current'}={}){
   const dialog=el('dialog',undefined,'task-start-dialog pb1-student-dialog'),heading=el('h2',title),results=el('div');
   heading.id='pb1-entered-marks-title';dialog.setAttribute('aria-labelledby',heading.id);
   const close=el('button','Close');close.type='button';close.onclick=()=>dialog.close();
@@ -200,7 +207,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    const named=await openNames();
    if(!named)return;
    data=named;publicView=false;names.hidden=true;
-   description.textContent='Classes X and XII · Staff viewing';
+   description.textContent=exam.classes+' · Staff viewing';
    restrict();
    if(hasReport)drawReport();
   });
@@ -208,7 +215,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
  }
  function showCohorts(parent,title,grouped){
   parent.append(el('h3',title));
-  table(parent,cohortHeaders,[...grouped].map(([label,group])=>cohortRow(label,group)));
+  table(parent,cohortHeaders(exam),[...grouped].map(([label,group])=>cohortRow(label,group)));
  }
  function teacherGroups(rows){
   const byTeacher=groups(rows.flatMap(row=>{
@@ -234,8 +241,8 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
     for(const row of papers){
      const paper=el('div',undefined,'pb1-student-compare-paper'),marks=el('div',undefined,'pb1-student-compare-results');
      const previous=el('div'),current=el('div');
-     previous.append(el('small','Previous monthly test'),el('strong',result(row.before)));
-     current.append(el('small','PB-1'),el('strong',result(row.current)));
+     previous.append(el('small',exam.previous),el('strong',result(row.before)));
+     current.append(el('small',exam.short),el('strong',result(row.current)));
      marks.append(previous,current);
      paper.append(el('strong',info(row).subject),marks);
      if(row.before?.percentage!=null&&row.current?.percentage!=null){
@@ -254,28 +261,40 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
  function drawReport(){
   hasReport=true;report.replaceChildren();
   const rows=data.rows.filter(row=>scopeMatches(info(row))),entered=rows.filter(row=>row.current);
-  if(!rows.length){report.append(el('p','No students match this selection.'));return;}
+  const visibleStudents=new Set(rows.map(row=>row.key));
+  const roster=data.roster?.filter(student=>
+   (!classSelect.value||student.classId===classSelect.value)&&(!sectionSelect.value||student.section===sectionSelect.value)&&
+   (!subjectSelect.value&&!teacherSelect.value||visibleStudents.has(student.key)));
+  if(roster?.length){
+   const list=el('details',undefined,'pb1-comparison-details');
+   list.append(el('summary','Student roster · '+roster.length));
+   const sorted=[...roster].sort((a,b)=>a.classId.localeCompare(b.classId)||a.section.localeCompare(b.section)||String(a.roll).localeCompare(String(b.roll),undefined,{numeric:true})||a.name.localeCompare(b.name));
+   table(list,['Class','Roll','Student'],sorted.map(student=>[student.classId+' '+student.section,student.roll,student.name]));
+   report.append(list);
+  }
+  if(!rows.length){report.append(el('p','No paper results match this selection.'));return;}
   if(!entered.length){
-   report.append(el('p','PB-1 marks have not been uploaded for this selection. Please enter the marks to see the analysis.','task-monitoring-notice'));
+   report.append(el('p',exam.short+' marks have not been uploaded for this selection. Please enter the marks to see the analysis.','task-monitoring-notice'));
+   showStudentComparison(report,rows);
    return;
   }
   const sections=[...new Set(rows.map(sectionLabel))].sort();
   const selectedTeacher=teacherSelect.value?teacherSelect.selectedOptions[0]?.textContent:'';
   report.append(el('p',[selectedTeacher,subjectSelect.value||'All subjects',sections.join(', ')].filter(Boolean).join(' · '),'pb1-scope-summary'));
-  renderSmartAnalysis(report,rows,(title,filter)=>showMarks(pb1SmartStudents(rows).filter(filter).flatMap(student=>student.papers),{title}));
+  renderSmartAnalysis(report,rows,(title,filter)=>showMarks(pb1SmartStudents(rows).filter(filter).flatMap(student=>student.papers),{title}),exam);
   renderCategoryComparison(report,pb1CategoryCounts(rows,'before'),pb1CategoryCounts(rows,'current'),
-   (title,period,filter)=>showMarks(rows.filter(row=>filter(row[period])),{title,period}));
+   (title,period,filter)=>showMarks(rows.filter(row=>filter(row[period])),{title,period}),exam);
   const trends=el('details',undefined,'pb1-comparison-details');
   trends.append(el('summary','Section, subject and teacher comparisons'));
-  trends.append(el('h3','Monthly and PB-1 marks by section'));
-  renderMarksGraph(trends,groups(rows,sectionLabel));
+  trends.append(el('h3',exam.baseline+' and '+exam.short+' marks by section'));
+  renderMarksGraph(trends,groups(rows,sectionLabel),exam);
   showCohorts(trends,'Standard and section comparison',[
    ...groups(rows,row=>'Class '+info(row).classId+' · all selected sections'),...groups(rows,sectionLabel),
   ]);
   showCohorts(trends,'Subject comparison',groups(rows,row=>info(row).classId+' · '+info(row).subject));
   showCohorts(trends,'Teacher comparison · all selected sections',teacherGroups(rows));
   report.append(trends);
-  report.append(el('p',entered.length+' / '+rows.length+' paper results recorded'),button('View entered PB-1 marks',()=>showMarks(entered)));
+  report.append(el('p',entered.length+' / '+rows.length+' paper results recorded'),button('View entered '+exam.short+' marks',()=>showMarks(entered)));
   report.append(el('h3','Remedial target students'),el('p',gradingNote));
   const targets=el('div',undefined,'pb1-remedial-targets');
   for(const [band,label] of [['critical','Critical fail'],['red','Fail'],['yellow','Borderline pass']]){
@@ -286,6 +305,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   }
   report.append(targets);
   showStudentComparison(report,rows);
+  if(!exam.mission)return;
   const mission=el('a','Open Mission Perfect 100 for ongoing tracking');
   mission.href='cbse-mission.html';const link=el('p');link.append(mission);report.append(link);
  }
@@ -308,24 +328,24 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    const index=Number(paper.value),scope=data.scopes[index],rows=data.rows.filter(row=>row.scope===index);
    const monthlyMM=maximumLabel(rows.map(row=>row.before?.maximum)),pb1MM=maximumLabel([scope.maximum]);
    const maxima=el('div',undefined,'pb1-stats');
-   for(const [label,value] of [['Latest monthly test',monthlyMM],['Preboard 1',pb1MM]]){
+   for(const [label,value] of [[exam.previous,monthlyMM],[exam.current,pb1MM]]){
     const item=el('div');item.append(el('span',label),el('strong',value));maxima.append(item);
    }
    host.replaceChildren(el('h3','Class '+scope.classId+' '+scope.section+' · '+scope.subject),maxima,
     el('p','Each percentage uses the marks earned divided by that exam’s maximum.'));
    if(scope.approvedAt){
     host.append(el('p','Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),'task-monitoring-notice'));
-    table(host,['Roll','Student','Monthly marks ('+monthlyMM+')','Approved PB-1 marks ('+pb1MM+')'],
+    table(host,['Roll','Student',exam.baseline+' marks ('+monthlyMM+')','Approved '+exam.short+' marks ('+pb1MM+')'],
      rows.map(row=>[row.roll,row.name,result(row.before),result(row.current)]));
     return;
    }
    const missing=rows.filter(row=>!row.current).length;
-   host.append(el('p','Enter PB-1 marks. If a student was absent, type ABS. A blank keeps any saved result.'));
+   host.append(el('p','Enter '+exam.short+' marks. If a student was absent, type ABS. A blank keeps any saved result.'));
    if(approve){
     const ready=rows.length>0&&!missing;
-    const action=button('Approve and freeze PB-1 marks',async()=>{
+    const action=button('Approve and freeze '+exam.short+' marks',async()=>{
      if(host.querySelector('[data-portal-dirty=true]'))throw Error('Save your mark changes before approval.');
-     if(confirm('Approve and freeze this paper? Mission 100 will use these marks as the latest result.')){
+     if(confirm('Approve and freeze this paper?'+(exam.mission?' Mission 100 will use these marks as the latest result.':''))){
       data=await approve(scope,data.revision);drawMarks();
      }
     });
@@ -334,17 +354,17 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    }
    const editor=el('form');editor.dataset.portalTrackDirty='true';
    const inputs=rows.map(row=>{
-    const input=el('input');input.setAttribute('aria-label','PB-1 marks for '+row.name);input.autocomplete='off';input.maxLength=12;
+    const input=el('input');input.setAttribute('aria-label',exam.short+' marks for '+row.name);input.autocomplete='off';input.maxLength=12;
     const previousMaximumDiffers=row.current&&row.current.maximum!==scope.maximum;
     input.value=row.current&&!previousMaximumDiffers?(row.current.absent?'AB':String(row.current.score)):'';
     const entry=el('div');entry.append(input);
     if(previousMaximumDiffers)entry.append(el('small','Saved: '+result(row.current)));
     return {row,input,entry,original:input.value};
    });
-   table(editor,['Roll','Student','Monthly marks ('+monthlyMM+')','PB-1 marks ('+pb1MM+')'],inputs.map(({row,entry})=>[row.roll,row.name,result(row.before),entry]));
+   table(editor,['Roll','Student',exam.baseline+' marks ('+monthlyMM+')',exam.short+' marks ('+pb1MM+')'],inputs.map(({row,entry})=>[row.roll,row.name,result(row.before),entry]));
    const pin=teacher?control(editor,'Personal PIN to save','input'):null;
    if(pin){pin.type='password';pin.required=true;pin.autocomplete='off';pin.inputMode='numeric';}
-   editor.append(el('button','Save PB-1 marks'));host.append(editor);
+   editor.append(el('button','Save '+exam.short+' marks'));host.append(editor);
    const saveMarks=()=>run(async()=>{
     const changed=inputs.filter(({input,original})=>input.value.trim()&&input.value.trim()!==original).map(({row,input})=>{
      const value=input.value.trim().toUpperCase();
@@ -385,7 +405,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   if(entering){
    if(!entryOnly)content.append(toolbar);
    if(data.scopes.length)drawEntry();
-   else content.append(el('p','No Preboard 1 papers are available for this view.'));
+   else content.append(el('p','No '+exam.current+' papers are available for this view.'));
    return;
   }
   content.append(filters,toolbar,report);

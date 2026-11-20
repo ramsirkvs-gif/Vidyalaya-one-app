@@ -132,3 +132,5 @@
 .pb1-student-compare-paper{background:#f3f8f6;border-radius:.45rem;margin-top:.45rem;padding:.55rem}
 .pb1-student-compare-results{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.45rem;margin-top:.3rem}
 .pb1-student-compare-results>div{background:#fff;border-radius:.3rem;padding:.35rem .45rem}
+
+.task-app section.task-card.pb1-analyser{background:#eef8e9;border-color:#b9d8ad}

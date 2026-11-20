@@ -4,7 +4,8 @@ import {importTaskFiguresCSV,importTaskStrengthWorkbook,taskFiguresTemplate,deco
 import {TASK_CLASSES,TASK_AVAILABLE_CLASSES,TASK_PRIMARY_CLASSES,taskClasses,TASK_PRIORITIES,TASK_HEADERS,TASK_REPORT_COMMENTS,taskHeader,taskQuestions,taskQuestionLabels,taskCompatibleValues,taskSummary,taskQuestionIsWritten,taskQuestionWording,taskRemarkWordCount} from './cbse-task-manager-model.js';
 import {el,options} from './cbse-ui.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
-import {renderPB1Analyser} from './cbse-pb1-analyser-view.js';
+import {HALF_YEARLY_COLUMNS,HALF_YEARLY_CSV_LIMIT} from './cbse-half-yearly-analyser-model.js';
+import {renderPB1Analyser,PB1_ANALYSER,HALF_YEARLY_ANALYSER} from './cbse-pb1-analyser-view.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
 import {MONITORING_ROLES,MONITORING_STEPS,monitoringAssignments,monitoringAdvance,monitoringStage,monitoringPeople} from './cbse-task-monitoring-workflow.js';
 const SAMAGAM_REPORTING_NOTICE='Upload marks to Samagam only after both the Subject Teacher and the Class Teacher have completed their reporting to the Principal.';
@@ -394,7 +395,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
 }
 function drawPrincipal(){if(suppliedFigures&&Object.hasOwn(store.tasks||{},suppliedFigures.taskId)){const task=store.tasks[suppliedFigures.taskId];task.draft.headers={...task.draft.headers,...suppliedFigures.headers};task.summary=taskSummary(task);}host.replaceChildren(el('h2','Create and manage tasks'));host.append(el('p','1. Create task → 2. Select classes → 3. Assign teachers → 4. Prepare shared questions → 5. Save and publish → 6. Track submissions.','task-flow-guide'));
  if(suppliedFigures){const banner=el('p',Object.keys(suppliedFigures.headers).length+(Object.hasOwn(store.tasks||{},suppliedFigures.taskId)?' supplied class rows are loaded into the shared draft. Review the figures, assign teachers, then Save and publish task.':' supplied class rows are ready. Create the Task 1 draft to load them.'),'task-import-ready');host.append(banner);}if(suppliedFiguresError)host.append(el('p',suppliedFiguresError,'task-error'));
- const actions=el('div',undefined,'task-actions');actions.append(button('Create Task 1 unpublished draft',async()=>{if(!discard())return;await admin({operation:'create-task1'});openPrincipalTask('task1',store.tasks.task1);message('Task 1 is an unpublished draft unless it was previously published. Existing content is preserved.');}),button('Create another task',()=>{if(!discard())return;newTask();}),button('Refresh tasks',async()=>{if(!discard())return;await admin({operation:'read'});drawPrincipal();}));actions.firstElementChild.hidden=!!store.tasks?.task1;actions.append(button('Open Wisdom Analyser',openPB1Analyser));host.append(actions);catalogue(host);}
+ const actions=el('div',undefined,'task-actions');actions.append(button('Create Task 1 unpublished draft',async()=>{if(!discard())return;await admin({operation:'create-task1'});openPrincipalTask('task1',store.tasks.task1);message('Task 1 is an unpublished draft unless it was previously published. Existing content is preserved.');}),button('Create another task',()=>{if(!discard())return;newTask();}),button('Refresh tasks',async()=>{if(!discard())return;await admin({operation:'read'});drawPrincipal();}));actions.firstElementChild.hidden=!!store.tasks?.task1;host.append(actions);catalogue(host);drawAnalyserCards();}
 let excelLoading;
 async function taskExcel(){if(globalThis.ExcelJS&&globalThis.JSZip)return {ExcelJS:globalThis.ExcelJS,JSZip:globalThis.JSZip};excelLoading||=Promise.all([['ExcelJS','vendor/exceljs/exceljs.min.js'],['JSZip','vendor/mcq/jszip.min.js']].map(([name,src])=>globalThis[name]?Promise.resolve():new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.onload=resolve;script.onerror=()=>{excelLoading=null;reject(Error('Excel reader could not load. Retry the import.'));};document.head.append(script);}))).then(()=>({ExcelJS:globalThis.ExcelJS,JSZip:globalThis.JSZip}));return excelLoading;}
 function fixedClassQuestions(parent,headers={}){parent.replaceChildren();let number=0;for(const [key,label]of Object.entries(TASK_HEADERS)){const item=el('div',undefined,'task-fixed-question');item.dataset.fixedQuestion=key;item.append(el('small','Q'+(++number)+' · View only'),el('span',label),el('strong',String(headers[key]??'Unprovided'),headers[key]==null?'task-header-missing':undefined));parent.append(item);}}
@@ -454,8 +455,8 @@ function principalReportEditor(parent,card,id,t,c){
  const remarks=field(editor,OVERALL_COMMENT_LABEL+' (optional)','principal-teacher-remarks','textarea',old.values.remarks||'');remarks.maxLength=10000;editor.append(remarkWordLimit(remarks,old.values.remarks||''));const actions=el('div',undefined,'task-actions');actions.append(el('button','Save submitted answers'),button('Cancel answer edits',()=>{if(editor.dataset.portalDirty==='true'&&!confirm('Discard these unsaved answer edits?'))return;editor.remove();}));editor.append(actions);editor.onsubmit=event=>{event.preventDefault();if([...card.querySelectorAll('form[data-portal-dirty="true"]')].some(f=>f!==editor)){message('Save other task edits and comments before saving these answers.',true);return;}run(async()=>{const values={remarks:remarks.value,...Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,input.tagName==='TEXTAREA'?input.value:input.value===''?null:Number(input.value)]))};await admin({operation:'edit-report',taskId:id,classId:c,expectedRevision:t.revision,reportRevision:old.revision||0,report:values});editor.dataset.portalDirty='false';drawAdminTask(card,id,store.tasks[id]);const saved=card.querySelector('[data-report-class="'+c+'"]');saved.open=true;saved.scrollIntoView({block:'start',behavior:'smooth'});message(c+' submitted answers saved successfully by Principal.');});};parent.append(editor);editor.scrollIntoView({block:'start',behavior:'smooth'});editor.querySelector('input,textarea')?.focus();
 }
 function teacherTaskHeading(task,tag='h2'){const heading=el(tag,undefined,'task-title-heading');if(task.priority===TASK_PRIORITIES[0]){heading.classList.add('task-urgent-heading');const icon=el('span','🚨','task-alarm-icon');icon.setAttribute('aria-hidden','true');heading.append(icon,el('span','Most urgent task · Handle with care','task-importance-label'),el('span',task.title,'task-heading-title'));}else heading.textContent=task.title;return heading;}
-async function openNamedPB1Results(){
- const read=()=>request({action:'task-read',operation:'pb1-named'});
+async function openNamedPB1Results(exam){
+ const read=()=>request({action:'task-read',operation:'pb1-named',exam});
  try{return await read();}catch(error){if(!error.curtainRequired)throw error;}
  return new Promise(resolve=>{
   const dialog=el('dialog',undefined,'task-start-dialog'),heading=el('h2','Show student names');
@@ -477,38 +478,66 @@ async function openNamedPB1Results(){
   document.body.append(dialog);dialog.showModal();
  });
 }
-async function openPB1Analyser(entryOnly=false){
+function halfYearlyImportPanel(upload){
+ const details=el('details'),editor=form(),template=el('a','Download CSV template');
+ template.href='data:text/csv;charset=utf-8,'+encodeURIComponent(HALF_YEARLY_COLUMNS.join(',')+'\r\n');
+ template.download='Class-XI-Half-Yearly-template.csv';
+ const file=field(editor,'Class XI roster and previous marks CSV','xi-roster-csv','file');
+ file.accept='.csv,text/csv';file.required=true;
+ editor.append(el('button','Import Class XI CSV'));
+ editor.onsubmit=event=>{
+  event.preventDefault();
+  run(async()=>{
+   const selected=file.files[0];
+   if(!selected||selected.size>HALF_YEARLY_CSV_LIMIT)throw Error('Choose a CSV up to 256 KB.');
+   if([...host.querySelectorAll('form[data-portal-dirty="true"]')].some(active=>active!==editor))throw Error('Save your mark changes before importing a roster.');
+   if(!confirm('Import this Class XI roster and previous marks? Saved Half-Yearly marks are retained.'))return;
+   await upload(await selected.text());
+  });
+ };
+ details.append(el('summary','Import Class XI roster and previous marks'),el('p','Use one row per student and subject. Enter the previous and Half-Yearly maximum marks for each paper. Use AB for absence or leave previous marks blank if unavailable. Teacher accepts the exact portal name or staff ID. Leave it blank for Principal-only entry.'),template,editor);
+ return details;
+}
+
+async function openPB1Analyser(entryOnly=false,examId){
+ const exam=examId==='half-yearly'?HALF_YEARLY_ANALYSER:PB1_ANALYSER;
+ const openExam=(entry=false)=>openPB1Analyser(entry,examId);
  const asPrincipal=principal;
  if(!asPrincipal&&!entryOnly){
-  const read=named=>request({action:'task-read',operation:named?'pb1-named':'pb1-public'});
+  const read=named=>request({action:'task-read',operation:named?'pb1-named':'pb1-public',exam:examId});
   let data,publicView=false;
   try{data=await read(true);}catch(error){
    if(!error.curtainRequired)throw error;
    data=await read(false);publicView=true;
   }
-  renderPB1Analyser(host,data,{button,run,publicView,back:drawStaff,openEntry:()=>openPB1Analyser(true),
-   openNames:publicView?openNamedPB1Results:undefined,refresh:read});
+  renderPB1Analyser(host,data,{button,run,exam,publicView,back:drawStaff,openEntry:()=>openExam(true),
+   openNames:publicView?()=>openNamedPB1Results(examId):undefined,refresh:read});
   return;
  }
  const open=async(staffId='',pin='')=>{
-  const send=(operation,values={},secret='')=>request(asPrincipal?{action:'task-principal',operation,...values}:
-   {action:'pin-submit',operation:'task-manager',taskOperation:operation,staffId,pin:secret,...values},asPrincipal);
+  const send=(operation,values={},secret='')=>request(asPrincipal?{action:'task-principal',operation,exam:examId,...values}:
+   {action:'pin-submit',operation:'task-manager',taskOperation:operation,exam:examId,staffId,pin:secret,...values},asPrincipal);
   const data=await send('pb1-read',{},pin);
-  renderPB1Analyser(host,data,{button,run,teacher:!asPrincipal,entryOnly,
-   back:()=>{if(discard())return asPrincipal?drawPrincipal():openPB1Analyser();},
+  const setup=asPrincipal&&examId?revision=>halfYearlyImportPanel(async csv=>{
+   await send('half-yearly-import',{csv,expectedRevision:revision()});
+   await openExam();
+   message('Class XI roster and previous marks imported.');
+  }):undefined;
+  renderPB1Analyser(host,data,{button,run,exam,setup,teacher:!asPrincipal,entryOnly,
+   back:()=>{if(discard())return asPrincipal?drawPrincipal():openExam();},
    approve:asPrincipal?async({classId,sectionId,subjectId},expectedRevision)=>{
     const result=await send('pb1-approve',{classId,sectionId,subjectId,expectedRevision});
-    message('Preboard 1 marks approved and frozen. Mission 100 now uses them for this paper.');return result;
+    message(exam.current+' marks approved and frozen.'+(exam.mission?' Mission 100 now uses them for this paper.':''));return result;
    }:undefined,
    save:async({classId,sectionId,subjectId},expectedRevision,entries,secret)=>{
     const result=await send('pb1-save',{classId,sectionId,subjectId,expectedRevision,entries},secret);
-    message('Preboard 1 marks saved. Mission 100 uses them after Principal approval.');return result;
+    message(exam.current+' marks saved.'+(exam.mission?' Mission 100 uses them after Principal approval.':''));return result;
    }});
  };
  if(asPrincipal){await open();return;}
- const {teachers}=await request({action:'task-read',operation:'pb1-directory'});
+ const {teachers}=await request({action:'task-read',operation:'pb1-directory',exam:examId});
  const login=form(),card=el('section',undefined,'task-card');
- card.append(el('h2','Update PB-1 marks'));
+ card.append(el('h2','Update '+exam.short+' marks'));
  if(teachers.length){
   const person=field(login,'Subject teacher','pb1-teacher','select'),pin=field(login,'Personal PIN','pb1-pin','password');
   options(person,[['','Choose your name'],...teachers.map(({id,name})=>[id,name])],'');
@@ -516,8 +545,17 @@ async function openPB1Analyser(entryOnly=false){
   login.append(el('button','Open marks entry'));
   login.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(()=>open(person.value,secret));};
   card.append(login);
- }else card.append(el('p','No teachers match the current Preboard 1 subject assignments in Mission 100.'));
- host.replaceChildren(button('Back to Wisdom Analyser',()=>{if(discard())return openPB1Analyser();}),card);
+ }else card.append(el('p','No teachers are assigned to '+exam.current+' papers.'));
+ host.replaceChildren(button('Back to Wisdom Analyser',()=>{if(discard())return openExam();}),card);
+}
+function drawAnalyserCards(){
+ for(const [exam,examId] of [[PB1_ANALYSER,undefined],[HALF_YEARLY_ANALYSER,'half-yearly']]){
+  const card=el('section',undefined,'task-card pb1-analyser');
+  const label=examId?'Open XI Half-Yearly Analyser':'Open Wisdom Analyser';
+  card.append(el('h3',exam.title),button(label,()=>openPB1Analyser(false,examId)),
+   button('Update '+exam.short+' marks',()=>openPB1Analyser(true,examId)));
+  host.append(card);
+ }
 }
 function drawStaff(){
  const tasks=Object.entries(store.tasks||{}).sort(([,a],[,b])=>TASK_PRIORITIES.indexOf(a.priority)-TASK_PRIORITIES.indexOf(b.priority));
@@ -526,10 +564,7 @@ function drawStaff(){
   const plan=el('section',undefined,'task-card task-public-card');
   plan.append(teacherTaskHeading({title:MONITORING_TITLE,priority:TASK_PRIORITIES[0]},'h3'),button('Open published plan',()=>openPublishedMonitoring()));
   host.append(plan);
-  const analyser=el('section',undefined,'task-card pb1-analyser');
-  analyser.append(el('h3','Pre-Samagam Wisdom Analyser'),el('p','View Preboard 1 marks and remedial targets by class, section or subject.'),
-   button('Open Wisdom Analyser',()=>openPB1Analyser()),button('Update PB-1 marks',()=>openPB1Analyser(true)));
-  host.append(analyser);
+  drawAnalyserCards();
  }
  if(!store.monitoringPublishedAt&&!tasks.length)host.append(el('p','No tasks are currently published.'));
  for(const [id,t]of tasks){const card=el('section',undefined,'task-card task-public-card');card.append(teacherTaskHeading(t),el('p',t.priority+(t.deadline?' · Deadline: '+t.deadline:'')));const table=el('table',undefined,'task-public-list'),thead=el('thead'),heading=el('tr');for(const label of ['SN','Class','Prime mentor / Survey IC','Tech / analytical support','Status','Action'])heading.append(el('th',label));thead.append(heading);table.append(thead);const tbody=el('tbody');

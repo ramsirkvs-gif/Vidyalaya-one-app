@@ -391,3 +391,55 @@ test('Principal corrections edit retained reports after unpublication without ch
 });
 test('whole-report closing comments are Principal-only, revision checked and excluded from public and teacher views',async()=>{const f=await setup();let t=(await f.admin({operation:'read'})).tasks.task1;const input={operation:'report-comments',taskId:'task1',expectedRevision:t.revision,comments:{ro:'Synthetic RO support.',deputyCommissioner:'Synthetic DC guidance.',assistantCommissioner:'Synthetic AC review.',principalAction:'Synthetic Principal action.',higherOfficials:'Synthetic official visit.'}};await assert.rejects(f.service('task-principal',input,'outsider'),/Principal/);await f.admin(input);t=(await f.admin({operation:'read'})).tasks.task1;assert.deepEqual(t.reportComments,input.comments);assert.ok(t.reportCommentsUpdatedAt);await assert.rejects(f.admin(input),/Task changed/);await assert.rejects(f.admin({...input,expectedRevision:t.revision,comments:{unknown:'No'}}),/valid closing/);await assert.rejects(f.admin({...input,expectedRevision:t.revision,comments:{ro:'x'.repeat(4001)}}),/valid closing/);assert.ok(!JSON.stringify(await f.service('task-read')).includes('Synthetic RO support'));assert.ok(!JSON.stringify(await f.teacher()).includes('Synthetic RO support'));});
 test('Principal title correction applies to existing Task 1 views even after roster migration and preserves other titles and answers',()=>{const old='IX-XII : High-urgency survey for HQ meeting — regional inputs relevant to our Vidyalaya — Confidential student data for higher level submission',store={tasks:{task1:{revision:9,rosterAssignmentsApplied:true,draft:{title:old},published:{title:old},publishedRevision:3,reports:{'IX A':{values:{passed:12},revision:2}}},other:{draft:{title:old}}}};const before=structuredClone(store),updated=taskRosterStore(store,{});assert.equal(updated.tasks.task1.draft.title,TASK1.title);assert.equal(updated.tasks.task1.published.title,TASK1.title);assert.equal(updated.tasks.task1.reports['IX A'].values.passed,12);assert.equal(updated.tasks.task1.reports['IX A'].principalEditHistory.exam_policy_2.values.passed,12);assert.equal(updated.tasks.task1.revision,11);assert.equal(updated.tasks.task1.publishedRevision,5);assert.equal(updated.tasks.other.draft.title,old);assert.deepEqual(store,before);store.tasks.task1.draft.title='A different custom task title';assert.equal(taskRosterStore(store,{}).tasks.task1.draft.title,'A different custom task title');});
+
+test('named PB-1 roster includes all enrolled sections even without paper registrations or marks',async()=>{
+ const f=taskFixture();
+ for(const [classId,sections] of [['X','ABCD'],['XII','ABCDE']]){
+  f.data.cbse.draft.classes[classId].sections=Object.fromEntries([...sections].map(section=>[section,{
+   name:section,subjects:{},students:{one:{name:'Synthetic '+classId+' '+section,roll:1,subjects:{}}},
+  }]));
+ }
+ await f.admin({operation:'monitoring-publish',expectedRevision:0});
+ const anonymous=await f.service('task-read',{operation:'pb1-public'});
+ assert.equal(anonymous.roster,undefined);
+ const {viewerToken}=await f.service('remember-view',{},'principal');
+ const named=await f.service('task-read',{operation:'pb1-named'},'','test',{viewerToken});
+ assert.equal(named.roster.length,9);
+ assert.equal(named.roster.find(row=>row.classId==='XII'&&row.section==='E').name,'Synthetic XII E');
+});
+
+test('Class XI CSV import, PIN entry and approval keep Half-Yearly results separate from PB-1',async()=>{
+ const f=taskFixture(),exam='half-yearly';
+ await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');
+ await f.admin({operation:'monitoring-publish',expectedRevision:0});
+ const header='Section,RollNo,StudentName,Subject,PreviousMarks,PreviousMM,HalfYearlyMM,Teacher\n';
+ const csv=header+'A,1,"Synthetic, First",English,15,40,80,X:one\nA,2,Synthetic Second,English,,,80,X:one\n';
+ const upload={operation:'half-yearly-import',exam,expectedRevision:0,csv};
+ await assert.rejects(f.service('task-principal',upload,'outsider'),/Principal access/);
+ await assert.rejects(f.admin({...upload,csv:csv+'A,1,"Synthetic, First",English,15,40,80,X:one\n'}),/already has a row/);
+ const imported=await f.admin(upload);
+ assert.equal(imported.rows[0].before.percentage,37.5);
+ assert.equal(imported.rows[1].before,null);
+ assert.equal(imported.roster.length,2);
+ assert.equal(imported.scopes[0].maximum,80);
+ const {classId,sectionId,subjectId}=imported.scopes[0],paper={exam,classId,sectionId,subjectId};
+ const save={...paper,taskOperation:'pb1-save',expectedRevision:imported.revision,entries:imported.rows.map(({key},i)=>({key,mark:i?'AB':36}))};
+ await assert.rejects(f.teacher(save,'X:two','456'),/outside your assigned teaching scope/);
+ const saved=await f.teacher(save);
+ assert.equal(saved.rows[0].current.percentage,45);
+ assert.equal(saved.rows[1].current.absent,true);
+ const restored=await f.admin({...upload,expectedRevision:saved.revision});
+ assert.equal(restored.rows[0].current.score,36);
+ const approved=await f.admin({...paper,operation:'pb1-approve',expectedRevision:restored.revision});
+ assert.ok(approved.scopes[0].approvedAt);
+ await assert.rejects(f.teacher({...save,expectedRevision:approved.revision}),/approved and frozen/);
+ const publicReport=await f.service('task-read',{exam,operation:'pb1-public'});
+ assert.equal(publicReport.roster,undefined);
+ assert.ok(!JSON.stringify(publicReport).includes('Synthetic, First'));
+ const {viewerToken}=await f.service('remember-view',{},'principal');
+ const named=await f.service('task-read',{exam,operation:'pb1-named'},'','test',{viewerToken});
+ assert.equal(named.roster[0].name,'Synthetic, First');
+ assert.equal((await f.admin({operation:'pb1-read'})).rows.length,0);
+ assert.deepEqual(f.data.cbse.mission.marks,{});
+});
