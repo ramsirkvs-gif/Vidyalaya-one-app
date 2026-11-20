@@ -16,8 +16,15 @@ function table(parent,headers,rows){
  const scroll=el('div',undefined,'task-scroll pb1-table-wrap'),table=el('table',undefined,'pb1-table');
  scroll.tabIndex=0;scroll.setAttribute('role','region');scroll.setAttribute('aria-label','Analysis table');
  const head=table.createTHead().insertRow(),body=table.createTBody();
- for(const title of headers){const th=el('th',title);th.scope='col';head.append(th);}
- for(const values of rows){const row=body.insertRow();for(const value of values)row.insertCell().append(value instanceof Node?value:document.createTextNode(String(value??'')));}
+ table.setAttribute('role','table');head.setAttribute('role','row');body.setAttribute('role','rowgroup');
+ for(const title of headers){const th=el('th',title);th.scope='col';th.setAttribute('role','columnheader');head.append(th);}
+ for(const values of rows){
+  const row=body.insertRow();row.setAttribute('role','row');
+  values.forEach((value,index)=>{
+   const cell=row.insertCell();cell.setAttribute('role','cell');cell.dataset.columnLabel=headers[index];
+   cell.append(value instanceof Node?value:document.createTextNode(String(value??'')));
+  });
+ }
  scroll.append(table);parent.append(scroll);
 }
 function control(parent,label,tag='select'){
