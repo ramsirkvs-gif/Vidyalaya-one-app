@@ -96,7 +96,11 @@ function marksSlip(scope,rows,exam,data,{editableInstructions=false}={}){
  if(editableInstructions){
   const field=el('textarea'),hint=el('small','These instructions apply to this printed copy.');
   field.setAttribute('aria-label','Principal’s instructions for remedial action');
-  field.maxLength=PAPER_COMMENT_LIMIT;field.rows=5;field.value=scope.discussionComment||defaultRemedialInstructions;
+  const savedInstructions=scope.discussionComment?.trim()||'';
+  field.maxLength=PAPER_COMMENT_LIMIT+defaultRemedialInstructions.length+2;
+  field.rows=7;
+  field.value=savedInstructions.startsWith(defaultRemedialInstructions)?savedInstructions:
+   [defaultRemedialInstructions,savedInstructions].filter(Boolean).join('\n\n');
   instructions.replaceWith(field,hint);
   const printed=printSlip.querySelector('.pb1-slip-feedback p');
   field.oninput=()=>{
