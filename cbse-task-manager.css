@@ -192,6 +192,7 @@
 .pb1-slip-signatures{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin:3rem 0 .5rem;text-align:center}
 .pb1-slip-signatures>div{border-top:1px solid currentColor;padding-top:.35rem}
 
+.pb1-slip-verification{margin:.7rem 0 0;break-inside:avoid}
 .pb1-print-slip{display:none}
 @media print{
  @page pb1-slip{size:A4 portrait;margin:8mm}
@@ -216,4 +217,5 @@
  .pb1-print-slip .pb1-discussion-comment{margin:3pt 0}
  .pb1-print-slip .pb1-slip-comment-lines{min-height:18pt;margin:3pt 0}
  .pb1-print-slip .pb1-slip-signatures{margin:18pt 0 0}
+ .pb1-print-slip .pb1-slip-verification{margin:5pt 0 0}
 }
