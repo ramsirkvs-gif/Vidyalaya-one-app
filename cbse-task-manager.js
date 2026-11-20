@@ -1,3 +1,4 @@
+import {isAvinashGuestProfile} from './cbse-faculty-guest.js';
 import {buildTaskWorkbook} from './cbse-task-excel.js';
 import {openTaskPresentation,closeTaskPresentation} from './cbse-task-presentation.js';
 import {importTaskFiguresCSV,importTaskStrengthWorkbook,taskFiguresTemplate,decodePreparedTaskFigures,loadTaskWorkbook} from './cbse-task-manager-import.js';
@@ -90,11 +91,11 @@ async function openMonitoring(){
  const {monitoring}=await request({action:'task-principal',operation:'monitoring-read'},true);
  drawMonitoring(monitoring);
 }
-async function openPublishedMonitoring(passwordValue,focusRow){
+async function openPublishedMonitoring(passwordValue,focusRow,searchQuery=''){
  try{
   if(passwordValue!==undefined)await request({action:'view-login',password:passwordValue});
   const {monitoring}=await request({action:'task-read',operation:'monitoring-read'});
-  drawMonitoring(monitoring,{staffView:true,focusRow});
+  drawMonitoring(monitoring,{staffView:true,focusRow,searchQuery});
  }catch(error){
   if(!error.curtainRequired&&passwordValue===undefined)throw error;
   if(passwordValue!==undefined)throw error;
@@ -102,7 +103,7 @@ async function openPublishedMonitoring(passwordValue,focusRow){
   login.className='task-monitoring';
   password.required=true;
   login.append(el('button','Open published plan'));
-  login.onsubmit=event=>{event.preventDefault();const secret=password.value;password.value='';run(()=>openPublishedMonitoring(secret));};
+  login.onsubmit=event=>{event.preventDefault();const secret=password.value;password.value='';run(()=>openPublishedMonitoring(secret,focusRow,searchQuery));};
   host.replaceChildren(button('Back to task list',drawStaff),el('h2',MONITORING_TITLE),login);
  }
 }
@@ -138,7 +139,7 @@ function drawMonitoringSettings(record,index){
  });};
  card.append(editor);
 }
-function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate){
+function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate,searchQuery=''){
  const entry=(staffView?record:record.published).assignments[key],progress=record.progress?.[key];
  const stage=monitoringStage(progress),step=MONITORING_STEPS[stage],dialog=el('dialog',undefined,'task-start-dialog task-monitoring-dialog');
  const title=el('h2',entry.subject+' · '+entry.section);
@@ -173,7 +174,7 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate
     const result=await request({action:'pin-submit',operation:'task-manager',taskOperation:practiceUpdate?'monitoring-practice':'monitoring-update',staffId:person.value,pin:secret,rowKey:key,publicationRevision:record.revision,expectedRevision:progress?.revision||0,stage,outcome:outcome.value,remark:remark.value});
     dialog.close();
     if(practiceUpdate){practiceUpdate(result);message('Practice status saved.');}
-    else{await openPublishedMonitoring(undefined,key);message('Status saved.');}
+    else{await openPublishedMonitoring(undefined,key,searchQuery);message('Status saved.');}
    }catch(error){errorText.textContent=error.message;}
   });};
  }else if(staffView&&allowUpdate&&step)dialog.append(el('p','Awaiting a Principal assignment for '+step.label+'.'));
@@ -223,7 +224,7 @@ function openMonitoringPractice(record,index){
  }
  draw();
 }
-function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyPeople,focusRow}={}){
+function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyPeople,focusRow,searchQuery=''}={}){
  const sheets=structuredClone(emergencyPeople?record.published.sheets:record.sheets),editor=form(),scroll=el('div',undefined,'task-scroll task-monitoring-scroll');
  scroll.tabIndex=0;scroll.setAttribute('role','region');
  const scrollHint=el('p','Scroll sideways for more columns and down for more records.','task-monitoring-scroll-hint');
@@ -286,18 +287,20 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
   }));
  }
  const pendingSubstitutes=new Map(),expandedRows=new Set();
- const mobileSearch=el('div',undefined,'task-plan-search');
- const search=field(mobileSearch,'Find a subject, class or staff member','monitoring-search','search');
+ const searchPanel=el('div',undefined,'task-plan-search');
+ const search=field(searchPanel,'Find a teacher, evaluator, subject or class','monitoring-search','search',searchQuery);
+ const normalize=value=>String(value||'').normalize('NFKC').toLocaleLowerCase()
+  .replace(/\b(10|11|12|x|xi|xii)(?:\s*[-–—]\s*|\s+)([a-e])\b/g,(_,standard,section)=>({x:'10',xi:'11',xii:'12'}[standard]||standard)+section)
+  .replace(/\b(?:mr|mrs|ms|dr|shri|smt)\b/g,' ').replace(/[^\p{L}\p{N}]+/gu,' ').trim();
  const noMatch=el('p','No evaluation rows match your search.','task-plan-no-match');
  noMatch.hidden=true;
  function filterRows(){
-  const terms=search.value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const terms=normalize(search.value).split(/\s+/).filter(Boolean);
   const rows=[...scroll.querySelectorAll('[data-monitoring-row]')];
   for(const row of rows){
-   const text=row.textContent.toLocaleLowerCase();
-   row.classList.toggle('task-plan-filtered',!terms.every(term=>text.includes(term)));
+   row.hidden=!terms.every(term=>row.dataset.monitoringSearch.includes(term));
   }
-  noMatch.hidden=!rows.length||rows.some(row=>!row.classList.contains('task-plan-filtered'));
+  noMatch.hidden=!rows.length||rows.some(row=>!row.hidden);
  }
  search.oninput=filterRows;
  function addEmergencyControl(cell,key,position,entry,step){
@@ -334,7 +337,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
   if(readable){table.setAttribute('role','table');body.setAttribute('role','rowgroup');}
   scroll.classList.toggle('task-sheet-card-scroll',readable);
   scrollHint.classList.toggle('task-sheet-card-hint',readable);
-  mobileSearch.hidden=!readable||index!==0;
+  searchPanel.hidden=!readable||index!==0;
   const display=value=>value.startsWith('=')?monitoringFormula(value,sheets,index):value;
   const width=sheet[0].length;
   const columnOrder=Array.from({length:width},(_,column)=>column);
@@ -362,6 +365,12 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
     if(header)row.classList.add('task-sheet-heading');
     else if(index===0&&r>4){
      row.dataset.monitoringRow=key;
+     const people=[...Object.values(entry?.roles||{}),...Object.values(entry?.substitutes||{}),...(workflow?.examReviewers||[])];
+     const names=[...values,...people.map(person=>person.name)];
+     if(names.some(name=>isAvinashGuestProfile({name})))names.push('Avinash Singh','Avinash Bibek');
+     row.dataset.monitoringSearch=names.map(value=>{
+      const normalized=normalize(value);return normalized+' '+normalized.replaceAll(' ','');
+     }).join(' ');
      row.classList.toggle('task-plan-expanded',expandedRows.has(key));
     }
    }
@@ -450,7 +459,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
       redrawSheet();
      }:undefined;
      if(emergencyPeople&&step.role!=='exam')addEmergencyControl(cell,key,position,entry,step);
-     if(current&&staffView)cell.append(button(practice?'Practise status update':'Update status',()=>openMonitoringStep(viewRecord,key,true,true,practiceUpdate)));
+     if(current&&staffView)cell.append(button(practice?'Practise status update':'Update status',()=>openMonitoringStep(viewRecord,key,true,true,practiceUpdate,search.value)));
      if(position===Math.min(stage,MONITORING_STEPS.length-1)&&progress?.history?.length)
       cell.append(button('View history',()=>openMonitoringStep(viewRecord,key,staffView,false,practiceUpdate)));
     });
@@ -475,9 +484,9 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
   drawSheet(index);scroll.scrollTop=scrollTop;scroll.scrollLeft=scrollLeft;
  }
  drawSheet(index);
- editor.append(actions,mobileSearch,noMatch,scrollHint,scroll);
+ editor.append(actions,noMatch,scrollHint,scroll);
  editor.onsubmit=event=>{event.preventDefault();if(editing)run(()=>update('monitoring-save'));};
- card.append(editor);
+ card.append(searchPanel,editor);
  if(focusRow){
   const target=[...scroll.querySelectorAll('[data-monitoring-row]')].find(row=>row.dataset.monitoringRow===focusRow);
   target?.scrollIntoView({block:'nearest',inline:'nearest'});
@@ -667,7 +676,7 @@ function drawStaff(){
  host.replaceChildren(el('h2','Published tasks'));
  if(store.monitoringPublishedAt){
   const plan=el('section',undefined,'task-card task-public-card');
-  plan.append(teacherTaskHeading({title:MONITORING_TITLE,priority:TASK_PRIORITIES[0]},'h3'),button('Open published plan',()=>openPublishedMonitoring()));
+  plan.append(teacherTaskHeading({title:MONITORING_TITLE,priority:TASK_PRIORITIES[0]},'h3'),button('Click here to report before entering marks',()=>openPublishedMonitoring()));
   host.append(taskMarksGuidance('Update the task status'),plan,taskMarksGuidance('First update the task status, then enter marks.'));
   drawAnalyserCards();
   host.append(taskMarksGuidance('Discuss the results with the Principal again before entering marks in Samagam.',{arrowFirst:true}));
