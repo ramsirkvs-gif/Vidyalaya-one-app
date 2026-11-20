@@ -59,7 +59,7 @@ export function pb1Report(draft,mission,staff,teacherIds,teacherIdentity){
    const result=mark=>{
     if(!mark)return null;
     const percentage=mark.absent?null:mark.score*100/mark.maximum;
-    const band=pb1ResultBand(percentage);
+    const band=pb1ResultBand(percentage,mark.maximum);
     return {score:mark.absent?null:mark.score,maximum:mark.maximum,percentage,absent:mark.absent,
      band,
      failed:band==='critical'||band==='red',borderline:band==='yellow',exam:mark.exam.name,date:mark.exam.date};

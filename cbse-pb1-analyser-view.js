@@ -21,7 +21,7 @@ const originalRemedialInstructions=[
 ].join('\n');
 const defaultRemedialInstructions=originalRemedialInstructions+
  '\n4. Conduct retests on time and update the results in Samagam within the timelines prescribed by KVS. Ensure no retest remains overdue in Samagam.';
-const gradingNote='Critical fail: 25% or below. Other fail: above 25% and below 33%. Borderline pass: 33% through 40%.';
+const gradingNote='Papers out of 70 pass at 23 marks. Other papers pass at 33%. Critical fail is 25% or below. Borderline pass runs from the pass mark through 40%.';
 const failBreakdown=(total,critical)=>total+' ('+critical+' critical + '+(total-critical)+' other fail)';
 const compareRoll=(a,b)=>String(a.roll).localeCompare(String(b.roll),undefined,{numeric:true})||a.name.localeCompare(b.name);
 

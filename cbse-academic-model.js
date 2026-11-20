@@ -1,4 +1,4 @@
-import {isMonthlyResult,approvedPB1Mark,pb1ResultBand} from './cbse-academic-exam-kind.js';
+import {isMonthlyResult,approvedPB1Mark,examPassPercentage,pb1ResultBand} from './cbse-academic-exam-kind.js';
 import {effectiveStudentMarks} from './cbse-maths-carryover.js';
 import {clone,entries} from './cbse-model.js';
 const assert=(ok,message)=>{if(!ok)throw Error(message);};
@@ -6,9 +6,13 @@ const norm=v=>String(v||'').trim().replace(/\s+/g,' ').toUpperCase();
 export const validMonth=v=>typeof v==='string'&&/^\d{4}-(0[1-9]|1[0-2])$/.test(v);
 export function academicMarkBand(mark,red=33,green=75){
  if(!mark||mark.absent||!Number.isFinite(mark.score))return 'grey';
- if(mark.approvedPB1)return pb1ResultBand(mark.maximum>0?mark.score*100/mark.maximum:null);
- if(mark.importSource==='monthly_workbook_v1')return mark.score<mark.criticalBelow?'critical':mark.score<mark.passFrom?'red':mark.score<mark.secureFrom?'yellow':'green';
- const pct=mark.score/mark.maximum*100;return pct<red?'red':pct<green?'yellow':'green';
+ const pct=mark.score*100/mark.maximum;
+ if(mark.approvedPB1)return pb1ResultBand(mark.maximum>0?pct:null,mark.maximum);
+ if(mark.importSource==='monthly_workbook_v1'){
+  const fails=mark.maximum===70?pct<examPassPercentage(mark.maximum):mark.score<mark.passFrom;
+  return fails?(mark.score<mark.criticalBelow?'critical':'red'):mark.score<mark.secureFrom?'yellow':'green';
+ }
+ return pct<examPassPercentage(mark.maximum,red)?'red':pct<green?'yellow':'green';
 }
 export function overallAcademicBand(bands){for(const value of ['critical','red','grey','yellow','pass'])if(bands.includes(value))return value;return bands.length?'green':'grey';}
 export function importAcademicHistory(pkg,mission,draft,{replaceExisting=false}={}){

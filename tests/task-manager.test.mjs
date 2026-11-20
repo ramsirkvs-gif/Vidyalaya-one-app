@@ -1,3 +1,4 @@
+import {halfYearlyReport} from '../cbse-half-yearly-analyser-model.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -14,11 +15,26 @@ import {MONITORING_SHEETS,monitoringFormula} from '../cbse-task-workbook.js';
 import {monitoringStage} from '../cbse-task-monitoring-workflow.js';
 import {pb1CategoryCounts,pb1Metrics,pb1Risk,pb1SmartSummary,pb1ResultBand} from '../cbse-pb1-analyser-model.js';
 import {studentIndex,studentProgress} from '../cbse-mission-model.js';
-import {academicSnapshot,latestAcademicSnapshot} from '../cbse-academic-model.js';
+import {academicMarkBand,academicSnapshot,latestAcademicSnapshot} from '../cbse-academic-model.js';
 
 test('Wisdom Analyser includes 25 in critical fail and 33 through 40 in borderline pass',()=>{
- assert.deepEqual([null,0,25,25.01,32.99,33,40,40.01,74.99,75,90].map(pb1ResultBand),
+ assert.deepEqual([null,0,25,25.01,32.99,33,40,40.01,74.99,75,90].map(percentage=>pb1ResultBand(percentage)),
   ['grey','critical','critical','red','red','yellow','yellow','pass','pass','green','green']);
+});
+
+test('23 out of 70 passes in the analyser and Mission, including previously saved results',()=>{
+ const boundary={score:23,maximum:70,percentage:23*100/70,band:'red',failed:true,borderline:false};
+ assert.equal(pb1ResultBand(boundary.percentage,70),'yellow');
+ assert.equal(pb1ResultBand(22*100/70,70),'red');
+ assert.equal(academicMarkBand({...boundary,approvedPB1:true}),'yellow');
+ assert.equal(academicMarkBand({...boundary,importSource:'monthly_workbook_v1',passFrom:24,secureFrom:53,criticalBelow:18}),'yellow');
+ const report=halfYearlyReport({roster:{student:{key:'student'}},papers:{paper:{students:{student:{before:boundary,current:boundary}}}}});
+ for(const result of [report.rows[0].before,report.rows[0].current]){
+  assert.equal(result.score,23);
+  assert.equal(result.band,'yellow');
+  assert.equal(result.failed,false);
+  assert.equal(result.borderline,true);
+ }
 });
 
 test('smart PB-1 summary counts each student once and compares matching papers',()=>{

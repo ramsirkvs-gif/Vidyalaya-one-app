@@ -9,10 +9,12 @@ export function isMonthlyResult(exam,mark){
  return !!exam&&!isMCQResult(exam,mark)&&(exam.type==='monthly'||((!exam.type||exam.type==='test')&&NAMED_MONTHLY.test(exam.name||'')));
 }
 
-export function pb1ResultBand(percentage){
+export const examPassPercentage=(maximum,fallback=33)=>maximum===70?23*100/70:fallback;
+
+export function pb1ResultBand(percentage,maximum){
  if(!Number.isFinite(percentage))return 'grey';
  if(percentage<=25)return 'critical';
- if(percentage<33)return 'red';
+ if(percentage<examPassPercentage(maximum))return 'red';
  if(percentage<=40)return 'yellow';
  return percentage<75?'pass':'green';
 }

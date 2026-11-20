@@ -7,7 +7,7 @@ export const HALF_YEARLY_CSV_LIMIT=256*1024;
 const norm=value=>value.normalize('NFC').trim().replace(/\s+/g,' ').toUpperCase();
 
 function result(value,maximum,exam){
- const absent=value==='AB',percentage=absent?null:value*100/maximum,band=pb1ResultBand(percentage);
+ const absent=value==='AB',percentage=absent?null:value*100/maximum,band=pb1ResultBand(percentage,maximum);
  return {score:absent?null:value,maximum,percentage,absent,band,failed:band==='critical'||band==='red',borderline:band==='yellow',exam};
 }
 
@@ -51,6 +51,10 @@ export function importHalfYearly(source,staff,identify){
  return {papers,roster,excluded};
 }
 
+function savedResult(mark){
+ return mark?{...mark,...result(mark.absent?'AB':mark.score,mark.maximum,mark.exam)}:null;
+}
+
 export function halfYearlyReport(state,allowedIds){
  const scopes=[],rows=[],roster=new Map(allowedIds?[]:Object.entries(state?.roster||{}));
  for(const {students,teacherId,...paper} of Object.values(state?.papers||{})){
@@ -60,7 +64,7 @@ export function halfYearlyReport(state,allowedIds){
   for(const [key,marks] of Object.entries(students)){
    const student=state.roster[key];
    roster.set(key,student);
-   rows.push({...student,scope,before:marks.before||null,current:marks.current||null});
+   rows.push({...student,scope,before:savedResult(marks.before),current:savedResult(marks.current)});
   }
  }
  return {revision:state?.revision||0,scopes,rows,roster:[...roster.values()]};
