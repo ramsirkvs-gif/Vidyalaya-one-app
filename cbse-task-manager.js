@@ -557,7 +557,7 @@ function halfYearlyImportPanel(upload){
  return details;
 }
 
-async function openPB1Analyser(entryOnly=false,examId){
+async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
  const exam=examId==='half-yearly'?HALF_YEARLY_ANALYSER:PB1_ANALYSER;
  const openExam=(entry=false)=>openPB1Analyser(entry,examId);
  const asPrincipal=principal;
@@ -568,7 +568,7 @@ async function openPB1Analyser(entryOnly=false,examId){
    if(!error.curtainRequired)throw error;
    data=await read(false);publicView=true;
   }
-  renderPB1Analyser(host,data,{button,run,exam,publicView,back:drawStaff,openEntry:()=>openExam(true),
+  renderPB1Analyser(host,data,{button,run,exam,publicView,back:drawStaff,openEntry:paper=>openPB1Analyser(true,examId,paper),
    openNames:publicView?()=>openNamedPB1Results(examId):undefined,refresh:read});
   return;
  }
@@ -581,7 +581,7 @@ async function openPB1Analyser(entryOnly=false,examId){
    await openExam();
    message('Class XI roster and previous marks imported.');
   }):undefined;
-  renderPB1Analyser(host,data,{button,run,exam,setup,teacher:!asPrincipal,entryOnly,
+  renderPB1Analyser(host,data,{button,run,exam,setup,teacher:!asPrincipal,entryOnly,requestedPaper,
    back:()=>{if(discard())return asPrincipal?drawPrincipal():openExam();},
    approve:asPrincipal?async({classId,sectionId,subjectId},expectedRevision,discussionComment)=>{
     const result=await send('pb1-approve',{classId,sectionId,subjectId,expectedRevision,discussionComment});

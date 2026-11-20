@@ -207,7 +207,7 @@ function renderMarksGraph(parent,grouped,exam){
  if(graph.childElementCount)parent.append(graph);else parent.append(el('p','No records match these filters.'));
 }
 
-export function renderPB1Analyser(host,data,{run,button,save,approve,back,teacher,publicView,entryOnly,openEntry,openNames,refresh,exam=PB1_ANALYSER,setup}){
+export function renderPB1Analyser(host,data,{run,button,save,approve,back,teacher,publicView,entryOnly,openEntry,openNames,refresh,exam=PB1_ANALYSER,setup,requestedPaper}){
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
  const filters=el('div',undefined,'pb1-filters'),report=el('div');
  let entering=entryOnly,entryAction,classMode=false;
@@ -240,7 +240,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   classMode=true;filters.hidden=true;hasReport=true;
   drawClassAnalysis();report.scrollIntoView({block:'start'});
  }));
- if(openEntry)toolbar.append(button('Update '+exam.short+' marks',openEntry));
+ if(openEntry)toolbar.append(button('Update '+exam.short+' marks',()=>openEntry()));
  else if(save&&!entryOnly){
   entryAction=button('Update '+exam.short+' marks',()=>{entering=true;drawMode();});
   toolbar.append(entryAction);
@@ -400,6 +400,28 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   section.onchange=show;
   selectSections();show();
  }
+ function openTeacherCopy(entered){
+  const papers=[...new Set(entered.map(row=>row.scope))];
+  const preview=index=>{
+   const scope=data.scopes[index];
+   if(openEntry)return openEntry(scope);
+   marksSlip(scope,data.rows.filter(row=>row.scope===index),exam,data);
+  };
+  if(papers.length===1)return preview(papers[0]);
+  const dialog=el('dialog',undefined,'task-start-dialog'),title=el('h2','Subject teacher copy / PDF');
+  title.id='paper-copy-title';dialog.setAttribute('aria-labelledby',title.id);dialog.append(title);
+  const picker=control(dialog,'Select class, section and subject');
+  options(picker,papers.map(index=>{
+   const {classId,section,subject}=data.scopes[index];
+   return [String(index),'Class '+classId+' '+section+' · '+subject];
+  }));
+  const show=button(openEntry?'Continue to PIN':'Preview marks slip / PDF',()=>{
+   dialog.close();return preview(Number(picker.value));
+  });
+  dialog.append(show,button('Cancel',()=>dialog.close()));
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+  document.body.append(dialog);dialog.showModal();
+ }
  function drawReport(){
   hasReport=true;report.replaceChildren();
   const rows=data.rows.filter(row=>scopeMatches(info(row))),entered=rows.filter(row=>row.current);
@@ -431,6 +453,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
     'PB-1 categories reflect entered marks. Mission 100 uses them after the Principal approves and freezes each paper.';
    report.append(el('p',status,'task-monitoring-notice'));
   }
+  report.append(button('Subject teacher copy / PDF',()=>openTeacherCopy(entered)));
   renderSmartAnalysis(report,rows,(title,filter,paperFilter=()=>true)=>
    showMarks(pb1SmartStudents(rows).filter(filter).flatMap(student=>student.papers.filter(paperFilter)),{title}),exam);
   const trends=el('details',undefined,'pb1-comparison-details');
@@ -466,16 +489,18 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   const panel=el('section'),choicesBar=el('div',undefined,'pb1-filters'),host=el('div');
   content.append(panel);panel.append(choicesBar,host);
   const cls=control(choicesBar,'Standard'),paper=control(choicesBar,'Class / section and subject');
-  options(cls,values(data.scopes,'classId').map(value=>[value,value]));
-  function drawChoices(){
-   options(paper,data.scopes.flatMap((scope,index)=>scope.classId===cls.value?[[String(index),scope.section+' · '+scope.subject]]:[]));
+  options(cls,values(data.scopes,'classId').map(value=>[value,value]),requestedPaper?.classId);
+  function drawChoices(preferredIndex=-1){
+   options(paper,data.scopes.flatMap((scope,index)=>scope.classId===cls.value?[[String(index),scope.section+' · '+scope.subject]]:[]),String(preferredIndex));
    drawMarks();
   }
   const canSwitch=()=>!host.querySelector('[data-portal-dirty=true]')||confirm('Discard unsaved marks?');
   let previousClass=cls.value,previousPaper='';
   cls.onchange=()=>{if(canSwitch()){previousClass=cls.value;drawChoices();}else cls.value=previousClass;};
   paper.onchange=()=>{if(canSwitch())drawMarks();else paper.value=previousPaper;};
-  drawChoices();
+  const requestedIndex=requestedPaper?data.scopes.findIndex(scope=>['classId','section','subject'].every(key=>scope[key]===requestedPaper[key])):-1;
+  if(requestedPaper&&requestedIndex<0)panel.prepend(el('p','The requested paper is outside your assigned scope. Choose one of your assigned papers.','task-monitoring-notice'));
+  drawChoices(requestedIndex);
   function drawMarks(){
    previousPaper=paper.value;
    const index=Number(paper.value),scope=data.scopes[index],rows=data.rows.filter(row=>row.scope===index);
