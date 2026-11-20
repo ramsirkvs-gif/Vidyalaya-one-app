@@ -22,6 +22,8 @@ const originalRemedialInstructions=[
 const defaultRemedialInstructions=originalRemedialInstructions+
  '\n4. Conduct retests on time and update the results in Samagam within the timelines prescribed by KVS. Ensure no retest remains overdue in Samagam.';
 const gradingNote='Critical fail: 25% or below. Other fail: above 25% and below 33%. Borderline pass: 33% through 40%.';
+const compareRoll=(a,b)=>String(a.roll).localeCompare(String(b.roll),undefined,{numeric:true})||a.name.localeCompare(b.name);
+
 function maximumLabel(values){
  const maxima=[...new Set(values.filter(value=>Number.isFinite(value)&&value>0))].sort((a,b)=>a-b);
  return !maxima.length?'MM unavailable':maxima.length===1?'MM '+maxima[0]:'MM varies: '+maxima.join(' / ');
@@ -55,8 +57,7 @@ const mathsSection=(a,b)=>!!mathsOption(a)&&!!mathsOption(b)&&a.section===b.sect
 
 function paperSlip(scope,data,exam,options){
  const papers=data.scopes.filter(other=>other===scope||mathsSection(scope,other));
- const rows=data.rows.filter(row=>papers.includes(data.scopes[row.scope]));
- if(mathsOption(scope))rows.sort((a,b)=>String(a.roll).localeCompare(String(b.roll),undefined,{numeric:true})||a.name.localeCompare(b.name));
+ const rows=data.rows.filter(row=>papers.includes(data.scopes[row.scope])).sort(compareRoll);
  if(papers.length===1)return marksSlip(scope,rows,exam,data,options);
  const teachers=[...new Map(papers.flatMap(scopeTeachers).map(person=>[person.key,person])).values()];
  const notes=[...new Set(papers.map(paper=>paper.discussionComment).filter(Boolean))];
@@ -536,7 +537,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   if(roster?.length){
    const list=el('details',undefined,'pb1-comparison-details');
    list.append(el('summary','Student roster · '+roster.length));
-   const sorted=[...roster].sort((a,b)=>a.classId.localeCompare(b.classId)||a.section.localeCompare(b.section)||String(a.roll).localeCompare(String(b.roll),undefined,{numeric:true})||a.name.localeCompare(b.name));
+   const sorted=[...roster].sort((a,b)=>a.classId.localeCompare(b.classId)||a.section.localeCompare(b.section)||compareRoll(a,b));
    table(list,['Class','Roll','Student'],sorted.map(student=>[student.classId+' '+student.section,student.roll,student.name]));
    report.append(list);
   }
@@ -647,7 +648,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   drawChoices(requestedIndex);
   function drawMarks(announceSaved=false){
    previousPaper=paper.value;
-   const index=Number(paper.value),scope=data.scopes[index],rows=data.rows.filter(row=>row.scope===index);
+   const index=Number(paper.value),scope=data.scopes[index],rows=data.rows.filter(row=>row.scope===index).sort(compareRoll);
    const monthlyMM=maximumLabel(rows.map(row=>row.before?.maximum)),pb1MM=maximumLabel([scope.maximum]);
    const maxima=el('div',undefined,'pb1-stats');
    for(const [label,value] of [[exam.previous,monthlyMM],[exam.current,pb1MM]]){
