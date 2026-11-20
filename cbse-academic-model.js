@@ -1,4 +1,4 @@
-import {isMonthlyResult,approvedPB1Mark} from './cbse-academic-exam-kind.js';
+import {isMonthlyResult,approvedPB1Mark,pb1ResultBand} from './cbse-academic-exam-kind.js';
 import {effectiveStudentMarks} from './cbse-maths-carryover.js';
 import {clone,entries} from './cbse-model.js';
 const assert=(ok,message)=>{if(!ok)throw Error(message);};
@@ -6,10 +6,11 @@ const norm=v=>String(v||'').trim().replace(/\s+/g,' ').toUpperCase();
 export const validMonth=v=>typeof v==='string'&&/^\d{4}-(0[1-9]|1[0-2])$/.test(v);
 export function academicMarkBand(mark,red=33,green=75){
  if(!mark||mark.absent||!Number.isFinite(mark.score))return 'grey';
+ if(mark.approvedPB1)return pb1ResultBand(mark.maximum>0?mark.score*100/mark.maximum:null);
  if(mark.importSource==='monthly_workbook_v1')return mark.score<mark.criticalBelow?'critical':mark.score<mark.passFrom?'red':mark.score<mark.secureFrom?'yellow':'green';
  const pct=mark.score/mark.maximum*100;return pct<red?'red':pct<green?'yellow':'green';
 }
-export function overallAcademicBand(bands){for(const value of ['critical','red','grey','yellow'])if(bands.includes(value))return value;return bands.length?'green':'grey';}
+export function overallAcademicBand(bands){for(const value of ['critical','red','grey','yellow','pass'])if(bands.includes(value))return value;return bands.length?'green':'grey';}
 export function importAcademicHistory(pkg,mission,draft,{replaceExisting=false}={}){
  assert(pkg?.format==='mission-academic-history-v1'&&/^\d{4}-\d{2}$/.test(pkg.session),'Choose the prepared academic-history JSON package.');
  assert(Array.isArray(pkg.records)&&pkg.records.length>0&&pkg.records.length<=30000,'Academic package must contain 1–30000 results.');

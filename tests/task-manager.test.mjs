@@ -443,3 +443,28 @@ test('Class XI CSV import, PIN entry and approval keep Half-Yearly results separ
  assert.equal((await f.admin({operation:'pb1-read'})).rows.length,0);
  assert.deepEqual(f.data.cbse.mission.marks,{});
 });
+
+test('PB-1 reclassifies a monthly borderline student immediately and Mission follows after freeze',async()=>{
+ const f=taskFixture(),{draft,mission}=f.data.cbse,key='X:a:one';
+ draft.classes.X.sections={a:{name:'A',subjects:{english:{name:'English',code:'184'}},students:{
+  one:{name:'Synthetic Student',roll:1,subjects:{english:true}},
+ }}};
+ mission.exams={oct:{name:'October test',type:'monthly',classId:'X',date:'2026-10-15'}};
+ mission.marks={oct:{studentKey:key,subjectId:'english',examId:'oct',score:15,maximum:40,absent:false}};
+ const person=studentIndex(draft)[key],latest=()=>studentProgress(key,f.data.cbse.mission,draft);
+ const paper={classId:'X',sectionId:'a',subjectId:'english'};
+ const saved=await f.admin({operation:'pb1-save',...paper,expectedRevision:0,entries:[{key,mark:48}]});
+ assert.equal(saved.rows[0].before.band,'yellow');
+ assert.equal(saved.rows[0].current.band,'pass');
+ assert.equal(pb1CategoryCounts(saved.rows,'current').yellow,0);
+ assert.equal(latest().academic,'yellow');
+ assert.equal(latest().subjects[0].latest.score,15);
+ await f.admin({operation:'pb1-approve',...paper,expectedRevision:saved.revision});
+ assert.equal(latest().academic,'pass');
+ assert.equal(latest().subjects[0].latest.score,48);
+ assert.equal(latestAcademicSnapshot(person,f.data.cbse.mission).subjects[0].band,'pass');
+ assert.equal(academicSnapshot(person,f.data.cbse.mission,'2026-10').subjects[0].band,'yellow');
+ const {viewerToken}=await f.service('remember-view',{},'principal');
+ const {mission:staffView}=await f.service('view-data',{},'','test',{viewerToken});
+ assert.equal(latestAcademicSnapshot(person,staffView).subjects[0].band,'pass');
+});

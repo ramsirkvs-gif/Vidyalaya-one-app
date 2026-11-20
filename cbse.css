@@ -34,3 +34,5 @@
 .student-overview-grid>.panel{min-width:0}.attendance-details,.register-daily-details{min-width:0;max-width:100%}.attendance-details .table-scroll{width:100%;max-width:100%}
 
 .performance-legend .band.red{background:#f5a3a3;color:#790f16}
+
+.band.pass,.performance-counts .stat.pass{background:#e3f3e9;color:#24563d;border-color:#a7cbb4}

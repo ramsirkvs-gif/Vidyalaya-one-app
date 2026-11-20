@@ -42,7 +42,7 @@ function studentListButton(label,title,open){
  return action;
 }
 function renderCategoryComparison(parent,previous,current,showList,exam){
- parent.append(el('h3','Mission 100 result categories'),el('p',gradingNote));
+ parent.append(el('p',gradingNote));
  const rows=[
   ['Critical fail',previous.critical,current.critical,'critical',mark=>mark?.band==='critical'],
   ['Other fail',previous.red,current.red,'red',mark=>mark?.band==='red'],
@@ -62,12 +62,13 @@ function renderCategoryComparison(parent,previous,current,showList,exam){
  const countCell=(value,period,label,filter)=>{
   if(!filter||!value)return value;
   const cell=el('div',undefined,'pb1-count-with-link');
-  const title=label+' · '+(period==='before'?exam.baseline:exam.short);
-  cell.append(el('strong',String(value)),studentListButton('View students',title,()=>showList(title,period,filter)));
+  const source=period==='before'?exam.baseline:exam.short;
+  const title=label+' · '+source;
+  cell.append(el('strong',String(value)),studentListButton('View '+source+' students',title,()=>showList(title,period,filter)));
   return cell;
  };
- table(parent,['Category',exam.previous,exam.current],rows.map(([label,a,b,band,filter])=>[
-  el('span',label,band?'band '+band:undefined),countCell(a,'before',label,filter),countCell(b,'current',label,filter),
+ table(parent,['Category',exam.current,exam.previous],rows.map(([label,a,b,band,filter])=>[
+  el('span',label,band?'band '+band:undefined),countCell(b,'current',label,filter),countCell(a,'before',label,filter),
  ]));
  parent.append(el('p','Counts are by student and subject. Total fail includes critical fails. The enrolled pass percentage includes AB and pending entries in the denominator. Pending entries remain provisional.'));
 }
@@ -83,9 +84,9 @@ function renderSmartAnalysis(parent,rows,showList,exam){
   ['Pass percentage · appeared',pct(rate(stats.passed,stats.assessed)),'pass'],
   ['Pass percentage · enrolled',pct(rate(stats.enrolledPassed,stats.students)),'result'],
   ['Students passed',outOf(stats.passed),'pass',student=>student.current.length&&!student.failed],
-  ['Students failed',outOf(stats.failed),'decline',student=>student.failed],
-  ['Critical fail',outOf(stats.critical),'decline',student=>student.critical],
-  ['Borderline pass',outOf(stats.borderline),'border',student=>student.borderline],
+  ['Students failed',outOf(stats.failed),'decline',student=>student.failed,row=>row.current?.failed],
+  ['Critical fail',outOf(stats.critical),'decline',student=>student.critical,row=>row.current?.band==='critical'],
+  ['Borderline pass',outOf(stats.borderline),'border',student=>student.borderline,row=>row.current?.borderline],
   ['Scored 90%+',outOf(stats.score90),'pass',student=>student.percentage>=90],
   ['Scored 75%+',outOf(stats.score75),'pass',student=>student.percentage>=75],
   ['Scored 50%+',outOf(stats.score50),'result',student=>student.percentage>=50],
@@ -95,12 +96,12 @@ function renderSmartAnalysis(parent,rows,showList,exam){
   ['Marks entry pending',stats.pending+' / '+stats.students,'border',student=>student.pending],
   ['Incomplete coverage',stats.incomplete+' / '+stats.students,'border',student=>student.incomplete],
  ];
- for(const [label,value,style,filter] of items){
+ for(const [label,value,style,filter,paperFilter] of items){
   const tile=el('div',undefined,'pb1-stat-'+style);tile.append(el('span',label),el('strong',value));
-  if(filter&&parseInt(value,10)>0)tile.append(studentListButton('View students',label,()=>showList(label,filter)));
+  if(filter&&parseInt(value,10)>0)tile.append(studentListButton('View students',label+' · '+exam.short,()=>showList(label+' · '+exam.short,filter,paperFilter)));
   strip.append(tile);
  }
- parent.append(el('h3','Smart analysis · at a glance'),strip,
+ parent.append(el('h3',exam.short+' results · at a glance'),strip,
   el('p','Counts are by student. The appeared result uses the '+exam.short+' papers each student appeared for. The enrolled result counts a student as passed only after every selected enrolled paper has an appeared pass. AB counts as a non-pass there. Blank marks are pending, so the enrolled result is provisional until entry is complete. Retest awaited and pending can overlap across subjects.'),
   el('p','Score bands overlap and use each student’s average paper percentage. The previous-test comparison uses matching appeared papers for '+stats.paired+' students.'));
 }
@@ -281,9 +282,16 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   const sections=[...new Set(rows.map(sectionLabel))].sort();
   const selectedTeacher=teacherSelect.value?teacherSelect.selectedOptions[0]?.textContent:'';
   report.append(el('p',[selectedTeacher,subjectSelect.value||'All subjects',sections.join(', ')].filter(Boolean).join(' · '),'pb1-scope-summary'));
-  renderSmartAnalysis(report,rows,(title,filter)=>showMarks(pb1SmartStudents(rows).filter(filter).flatMap(student=>student.papers),{title}),exam);
-  renderCategoryComparison(report,pb1CategoryCounts(rows,'before'),pb1CategoryCounts(rows,'current'),
-   (title,period,filter)=>showMarks(rows.filter(row=>filter(row[period])),{title,period}),exam);
+  if(exam.mission){
+   const selectedPapers=[...new Set(rows.map(row=>row.scope))];
+   const frozen=selectedPapers.filter(scope=>data.scopes[scope].approvedAt).length;
+   const status=frozen===selectedPapers.length?'All selected papers are frozen. Mission 100 uses their PB-1 results.':
+    frozen?frozen+' of '+selectedPapers.length+' papers are frozen and in use on Mission 100. The remaining papers are awaiting approval.':
+    'PB-1 categories reflect entered marks. Mission 100 uses them after the Principal approves and freezes each paper.';
+   report.append(el('p',status,'task-monitoring-notice'));
+  }
+  renderSmartAnalysis(report,rows,(title,filter,paperFilter=()=>true)=>
+   showMarks(pb1SmartStudents(rows).filter(filter).flatMap(student=>student.papers.filter(paperFilter)),{title}),exam);
   const trends=el('details',undefined,'pb1-comparison-details');
   trends.append(el('summary','Section, subject and teacher comparisons'));
   trends.append(el('h3',exam.baseline+' and '+exam.short+' marks by section'));
@@ -293,7 +301,6 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   ]);
   showCohorts(trends,'Subject comparison',groups(rows,row=>info(row).classId+' · '+info(row).subject));
   showCohorts(trends,'Teacher comparison · all selected sections',teacherGroups(rows));
-  report.append(trends);
   report.append(el('p',entered.length+' / '+rows.length+' paper results recorded'),button('View entered '+exam.short+' marks',()=>showMarks(entered)));
   report.append(el('h3','Remedial target students'),el('p',gradingNote));
   const targets=el('div',undefined,'pb1-remedial-targets');
@@ -304,6 +311,11 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    targets.append(section);
   }
   report.append(targets);
+  const comparison=el('details',undefined,'pb1-comparison-details');
+  comparison.append(el('summary',exam.short+' vs '+exam.previous.toLowerCase()+' · category comparison'));
+  renderCategoryComparison(comparison,pb1CategoryCounts(rows,'before'),pb1CategoryCounts(rows,'current'),
+   (title,period,filter)=>showMarks(rows.filter(row=>filter(row[period])),{title,period}),exam);
+  report.append(comparison,trends);
   showStudentComparison(report,rows);
   if(!exam.mission)return;
   const mission=el('a','Open Mission Perfect 100 for ongoing tracking');

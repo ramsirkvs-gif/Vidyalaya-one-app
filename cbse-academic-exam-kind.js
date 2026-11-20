@@ -9,6 +9,14 @@ export function isMonthlyResult(exam,mark){
  return !!exam&&!isMCQResult(exam,mark)&&(exam.type==='monthly'||((!exam.type||exam.type==='test')&&NAMED_MONTHLY.test(exam.name||'')));
 }
 
+export function pb1ResultBand(percentage){
+ if(!Number.isFinite(percentage))return 'grey';
+ if(percentage<=25)return 'critical';
+ if(percentage<33)return 'red';
+ if(percentage<=40)return 'yellow';
+ return percentage<75?'pass':'green';
+}
+
 export const pb1ApprovalKey=(classId,sectionId,subjectId)=>encodeURIComponent(JSON.stringify([classId,sectionId,subjectId])).replaceAll('.','%2E');
 
 export function approvedPB1Mark(mission,person,subjectId){

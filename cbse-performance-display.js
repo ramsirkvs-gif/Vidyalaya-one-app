@@ -5,20 +5,32 @@ export const outOf=(count,total,unit='students')=>`${count} out of ${total} ${un
 const number=value=>Number(value.toFixed(2)).toString();
 export function renderPerformanceCriteria(parent,marks,mission,{classId=''}={}){
  const groups=new Map();for(const m of marks){if(!m||!Number.isFinite(m.maximum)||m.maximum<=0)continue;let critical=null,pass,secure;
+  if(m.approvedPB1){
+   groups.set('pb1|'+m.maximum,{maximum:m.maximum,pb1:true});
+   continue;
+  }
   if(m.importSource==='monthly_workbook_v1'){critical=m.criticalBelow/m.maximum*100;pass=m.passFrom/m.maximum*100;secure=m.secureFrom/m.maximum*100;}
   else{const cl=mission.exams?.[m.examId]?.classId||classId,rules=Object.values(mission.gradingRules||{}).filter(r=>r.classId===cl&&(!r.subjectId||r.subjectId===m.subjectId)&&(!r.examId||r.examId===m.examId)).sort((a,b)=>(b.subjectId?2:0)+(b.examId?1:0)-(a.subjectId?2:0)-(a.examId?1:0))[0]||mission.settings;pass=rules.redBelow;secure=rules.greenFrom;}
   const key=[m.maximum,critical,pass,secure].join('|');if(!groups.has(key))groups.set(key,{maximum:m.maximum,critical,pass,secure});
  }
  if(!groups.size)return;
  const box=el('section',undefined,'performance-criteria');box.append(el('h3','Colour criteria (%)'));
- for(const g of groups.values()){const row=el('div',undefined,'performance-legend');row.append(el('strong',`Papers out of ${g.maximum}: `));if(g.critical!==null)row.append(el('span',`Critical fail: below ${number(g.critical)}%`,'band critical'));row.append(el('span',`Fail${g.critical!==null?' (excluding critical): '+number(g.critical)+'% to below ':': below '}${number(g.pass)}%`,'band red'),el('span',`Borderline: ${number(Math.ceil(g.pass))}% and above to below ${number(g.secure)}%`,'band yellow'),el('span',`Secure pass: ${number(g.secure)}% and above`,'band green'));box.append(row);}
+ for(const g of groups.values())if(g.pb1){
+  const row=el('div',undefined,'performance-legend');
+  row.append(el('strong',`Approved PB-1 · out of ${g.maximum}`),
+   el('span','Critical fail: 25% or below','band critical'),el('span','Other fail: above 25% and below 33%','band red'),
+   el('span','Borderline: 33% through 40%','band yellow'),el('span','Pass: above 40% and below 75%','band pass'),
+   el('span','Secure pass: 75% and above','band green'));
+  box.append(row);
+ }
+ else{const row=el('div',undefined,'performance-legend');row.append(el('strong',`Papers out of ${g.maximum}: `));if(g.critical!==null)row.append(el('span',`Critical fail: below ${number(g.critical)}%`,'band critical'));row.append(el('span',`Fail${g.critical!==null?' (excluding critical): '+number(g.critical)+'% to below ':': below '}${number(g.pass)}%`,'band red'),el('span',`Borderline: ${number(Math.ceil(g.pass))}% and above to below ${number(g.secure)}%`,'band yellow'),el('span',`Secure pass: ${number(g.secure)}% and above`,'band green'));box.append(row);}
  const notes=el('div',undefined,'criteria-notes');if([...groups.values()].some(g=>g.maximum===40&&g.pass===32.5))notes.append(el('span','Pass: 13/40 = 32.5%'));for(const text of ['Total fail = Critical + Fail','AB = unassessed','Colour = weakest subject'])notes.append(el('span',text));box.append(notes);parent.append(box);return box;
 }
 
 export function renderCountStatistics(parent,counts,total,{onSelect,selected='all'}={}){
- const labels={critical:'Critical fail',red:'Fail (excluding critical)',fail:'Total fail · Critical + Fail',yellow:'Borderline',green:'Secure pass',grey:'AB / not assessed'};
+ const labels={critical:'Critical fail',red:'Fail (excluding critical)',fail:'Total fail · Critical + Fail',yellow:'Borderline',pass:'Pass above borderline',green:'Secure pass',grey:'AB / not assessed'};
  const box=el('div',undefined,'stats performance-counts large-statistics'),values={...counts,fail:(counts.critical||0)+(counts.red||0)};
- for(const key of ['critical','red','fail','yellow','green','grey']){const n=values[key]||0,tile=el(onSelect?'button':'div',undefined,`stat statistic-button ${key}`);if(onSelect){tile.type='button';tile.onclick=()=>onSelect(selected===key?'all':key);tile.setAttribute('aria-pressed',String(selected===key));}tile.setAttribute('aria-label',`${labels[key]}: ${outOf(n,total)}`);tile.append(el('strong',String(n)),el('span',labels[key]),el('small',`out of ${total} students · ${total?(n/total*100).toFixed(1):'0.0'}%`));box.append(tile);}parent.append(box);return box;
+ for(const key of ['critical','red','fail','yellow','pass','green','grey']){const n=values[key]||0;if(key==='pass'&&!n&&selected!==key)continue;const tile=el(onSelect?'button':'div',undefined,`stat statistic-button ${key}`);if(onSelect){tile.type='button';tile.onclick=()=>onSelect(selected===key?'all':key);tile.setAttribute('aria-pressed',String(selected===key));}tile.setAttribute('aria-label',`${labels[key]}: ${outOf(n,total)}`);tile.append(el('strong',String(n)),el('span',labels[key]),el('small',`out of ${total} students · ${total?(n/total*100).toFixed(1):'0.0'}%`));box.append(tile);}parent.append(box);return box;
 }
 
 export function subjectCareLines(progress){

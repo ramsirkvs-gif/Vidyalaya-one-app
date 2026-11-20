@@ -2,15 +2,9 @@ import {studentIndex} from './cbse-mission-model.js';
 import {effectiveStudentMarks} from './cbse-maths-carryover.js';
 import {schoolPreboard1DateSheet} from './cbse-preboard1-datesheet.js';
 
-import {isMCQResult,isMonthlyResult,pb1ApprovalKey} from './cbse-academic-exam-kind.js';
+import {isMCQResult,isMonthlyResult,pb1ApprovalKey,pb1ResultBand} from './cbse-academic-exam-kind.js';
 
-export function pb1ResultBand(percentage){
- if(!Number.isFinite(percentage))return 'grey';
- if(percentage<=25)return 'critical';
- if(percentage<33)return 'red';
- if(percentage<=40)return 'yellow';
- return percentage<75?'pass':'green';
-}
+export {pb1ResultBand};
 
 export function pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity=id=>id){
  const allocations=Object.values(mission.allocations||{}),scopes=[],seen=new Set();
