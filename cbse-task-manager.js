@@ -401,22 +401,43 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
     cell.append(input);
    });
    if(workflow&&r>=4){
+    const handover=MONITORING_STEPS.length-2;
+    const finalColumn='Samagam slip submitted and Exam IC final report';
     if(r===4){
-     for(const {label,review} of MONITORING_STEPS){const heading=el('th',label,'task-workflow-step');if(review)heading.classList.add('task-principal-review');heading.setAttribute('role','columnheader');heading.scope='col';row.append(heading);}
+     for(const {label,review} of [...MONITORING_STEPS.slice(0,handover),{label:finalColumn}]){
+      const heading=el('th',label,'task-workflow-step');
+      if(review)heading.classList.add('task-principal-review');
+      heading.setAttribute('role','columnheader');heading.scope='col';row.append(heading);
+     }
      return;
     }
     const stage=monitoringStage(progress);
+    let finalCell;
     MONITORING_STEPS.forEach((step,position)=>{
-     const cell=row.insertCell();cell.className='task-workflow-step';cell.setAttribute('role','cell');cell.dataset.columnLabel=step.label;
+     const combined=position>=handover;
+     if(position===handover){
+      finalCell=row.insertCell();finalCell.className='task-workflow-step task-workflow-final';finalCell.setAttribute('role','cell');
+      finalCell.dataset.columnLabel=finalColumn;
+     }
+     const cell=combined?el('div',undefined,'task-workflow-substep'):row.insertCell();
+     if(combined){
+      finalCell.append(cell);
+      cell.append(el('strong',step.label,'task-workflow-substep-label'));
+     }else{
+      cell.className='task-workflow-step';cell.setAttribute('role','cell');cell.dataset.columnLabel=step.label;
+     }
      if(step.review)cell.classList.add('task-principal-review');
-     if(!entry){cell.textContent='Awaiting workflow publication';return;}
+     if(!entry){cell.append(el('span','Awaiting workflow publication'));return;}
      const assigned=monitoringPeople(workflow,entry,position).map(({name})=>name).join(' / ');
+     const listedMatching=step.samagam&&!assigned?values[6]?.trim():'';
      const current=position===stage,complete=position<stage;
-     cell.classList.toggle('task-plan-current',position===Math.min(stage,MONITORING_STEPS.length-1));
+     if(position===Math.min(stage,MONITORING_STEPS.length-1))(combined?finalCell:cell).classList.add('task-plan-current');
      const pdfNotRecorded=step.uploadPdf&&complete&&!progress?.history?.some(item=>item.label===step.options[0][1]);
      const state=pdfNotRecorded?'PDF status not recorded':complete?'Completed':current?(assigned?'Action due':'Assignment needed'):'Waiting';
      cell.append(el('strong',state,'task-workflow-state'+(current?' is-current':complete?' is-complete':'')));
      if(assigned)cell.append(el('span',assigned));
+     else if(listedMatching)cell.append(el('span',listedMatching+' · PIN assignment pending'));
+     else if(step.samagam)cell.append(el('span','Matching IC assignment pending'));
      if(entry.substitutes?.['step_'+position]&&!complete)cell.append(el('span','Emergency substitute'));
      if(complete&&!pdfNotRecorded){
       const label=step.options[0][1];

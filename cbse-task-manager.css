@@ -224,3 +224,10 @@
  .pb1-print-slip .pb1-slip-verification{margin:5pt 0 0}
  .pb1-print-slip .pb1-slip-matching-signature>div{margin-top:15pt;padding-top:2pt}
 }
+
+.task-monitoring-workflow .task-workflow-final{min-width:12rem}
+.task-workflow-substep+.task-workflow-substep{margin-top:.55rem;padding-top:.55rem;border-top:1px solid #d7e3df}
+.task-workflow-substep-label{color:#24574e}
+@media(max-width:640px){
+ .task-sheet-cards tbody td.task-workflow-final{min-width:0}
+}
