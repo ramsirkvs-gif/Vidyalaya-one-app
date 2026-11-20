@@ -457,17 +457,16 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   const dialog=el('dialog',undefined,'task-start-dialog pb1-student-dialog'),form=el('form');
   const heading=el('h2','Freeze marks after Principal discussion');
   heading.id='paper-freeze-title';dialog.setAttribute('aria-labelledby',heading.id);
-  const comment=control(form,'Remedial action instructions to teacher (optional)','textarea');
-  comment.maxLength=PAPER_COMMENT_LIMIT;comment.rows=4;comment.value=scope.discussionComment||'';
   const confirmFreeze=el('button','Confirm and freeze marks'),cancel=el('button','Cancel');
   cancel.type='button';cancel.onclick=()=>dialog.close();
   const error=el('p',undefined,'task-error');error.setAttribute('role','alert');
-  form.append(confirmFreeze,cancel,error);
+  const actions=el('div',undefined,'task-actions');
+  actions.append(confirmFreeze,cancel);form.append(actions,error);
   dialog.append(heading,el('p','Class '+scope.classId+' '+scope.section+' · '+scope.subject),el('p','Freezing locks the marks for this paper.'+(exam.mission?' Mission 100 will use the approved PB-1 result.':'')),form);
   dialog.addEventListener('close',()=>dialog.remove(),{once:true});
   form.onsubmit=event=>{event.preventDefault();run(async()=>{
    error.textContent='';
-   try{data=await approve(scope,data.revision,comment.value);}
+   try{data=await approve(scope,data.revision,scope.discussionComment||'');}
    catch(failure){error.textContent=failure.message;return;}
    dialog.close();redraw();
   });};
