@@ -431,7 +431,8 @@ test('Class XI CSV import, PIN entry and approval keep Half-Yearly results separ
  assert.equal(saved.rows[1].current.absent,true);
  const restored=await f.admin({...upload,expectedRevision:saved.revision});
  assert.equal(restored.rows[0].current.score,36);
- const approved=await f.admin({...paper,operation:'pb1-approve',expectedRevision:restored.revision});
+ const approved=await f.admin({...paper,operation:'pb1-approve',expectedRevision:restored.revision,discussionComment:'XI discussion feedback'});
+ assert.equal(approved.scopes[0].discussionComment,'XI discussion feedback');
  assert.ok(approved.scopes[0].approvedAt);
  await assert.rejects(f.teacher({...save,expectedRevision:approved.revision}),/approved and frozen/);
  const publicReport=await f.service('task-read',{exam,operation:'pb1-public'});
@@ -459,7 +460,15 @@ test('PB-1 reclassifies a monthly borderline student immediately and Mission fol
  assert.equal(pb1CategoryCounts(saved.rows,'current').yellow,0);
  assert.equal(latest().academic,'yellow');
  assert.equal(latest().subjects[0].latest.score,15);
- await f.admin({operation:'pb1-approve',...paper,expectedRevision:saved.revision});
+ const approval={operation:'pb1-approve',...paper,expectedRevision:saved.revision};
+ const comment='Synthetic private discussion note';
+ await assert.rejects(f.admin({...approval,discussionComment:'x'.repeat(1001)}),/up to 1000/);
+ await f.admin({...approval,discussionComment:comment});
+ await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ f.data.cbse.mission.allocations={one:{classId:'X',sectionId:'a',subjectId:'english',staffId:'X:one'}};
+ assert.equal((await f.teacher({taskOperation:'pb1-read'})).scopes[0].discussionComment,comment);
+ await f.admin({operation:'monitoring-publish',expectedRevision:0});
+ assert.ok(!JSON.stringify(await f.service('task-read',{operation:'pb1-public'})).includes(comment));
  assert.equal(latest().academic,'pass');
  assert.equal(latest().subjects[0].latest.score,48);
  assert.equal(latestAcademicSnapshot(person,f.data.cbse.mission).subjects[0].band,'pass');
@@ -467,6 +476,7 @@ test('PB-1 reclassifies a monthly borderline student immediately and Mission fol
  const {viewerToken}=await f.service('remember-view',{},'principal');
  const {mission:staffView}=await f.service('view-data',{},'','test',{viewerToken});
  assert.equal(latestAcademicSnapshot(person,staffView).subjects[0].band,'pass');
+ assert.ok(!JSON.stringify(staffView).includes(comment));
 });
 
 test('class teacher analysis counts each enrolled student and separates AB, missing, failures and AI',async()=>{

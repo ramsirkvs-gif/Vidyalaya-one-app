@@ -1,5 +1,5 @@
 import {parseCSVRows} from './cbse-basic-import.js';
-import {pb1ResultBand} from './cbse-pb1-analyser-model.js';
+import {pb1ResultBand,paperDiscussionComment} from './cbse-pb1-analyser-model.js';
 
 export const HALF_YEARLY_COLUMNS=['Section','RollNo','StudentName','Subject','PreviousMarks','PreviousMM','HalfYearlyMM','Teacher'];
 export const HALF_YEARLY_CSV_LIMIT=256*1024;
@@ -67,6 +67,7 @@ export function updateHalfYearly(state,input,allowedIds,now){
  if(paper.approvedAt)throw Error('This Half-Yearly paper is approved and frozen.');
  if(input.operation==='pb1-approve'){
   if(allowedIds||!Object.values(paper.students).every(row=>row.current))throw Error('Enter marks or AB for every enrolled student before approval.');
+  paper.discussionComment=paperDiscussionComment(input.discussionComment);
   paper.approvedAt=now;
  }else{
   if(!Array.isArray(input.entries)||!input.entries.length||input.entries.length>200)throw Error('Enter at least one mark or AB.');

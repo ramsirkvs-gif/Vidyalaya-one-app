@@ -1,6 +1,6 @@
 import {el,options} from './cbse-ui.js';
 import {pb1ClassAnalysis} from './cbse-pb1-class-analysis.js';
-import {pb1Metrics,pb1CategoryCounts,pb1SmartSummary,pb1SmartStudents} from './cbse-pb1-analyser-model.js';
+import {pb1Metrics,pb1CategoryCounts,pb1SmartSummary,pb1SmartStudents,PAPER_COMMENT_LIMIT} from './cbse-pb1-analyser-model.js';
 const pct=v=>v==null?'—':v.toFixed(1)+'%';
 const delta=(before,after)=>before==null||after==null?'—':(after-before>0?'+':'')+(after-before).toFixed(1)+' pp';
 const result=mark=>!mark?'Not entered':mark.absent?'AB (MM '+mark.maximum+')':mark.score+'/'+mark.maximum+' ('+pct(mark.percentage)+')';
@@ -27,6 +27,77 @@ function table(parent,headers,rows){
  }
  scroll.append(table);parent.append(scroll);
 }
+function marksSlip(scope,rows,exam,data){
+ const dialog=el('dialog',undefined,'task-start-dialog pb1-marks-slip'),article=el('article');
+ const heading=el('header'),title=el('h2',exam.short+' Marks Slip');
+ title.id='paper-slip-title';dialog.setAttribute('aria-labelledby',title.id);
+ heading.append(el('p','PM SHRI Kendriya Vidyalaya No. 1 Itanagar'),title,
+  el('p','Class '+scope.classId+' '+scope.section+' · '+scope.subject+' · Maximum marks '+scope.maximum),
+  el('p','Final marks discussion with the Principal'),
+  el('p',scope.approvedAt?'Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}):'Discussion copy · approval pending'));
+ if(scope.teacher)heading.append(el('p','Assigned teacher(s) · '+scope.teacher));
+ article.append(heading);
+ const columns=['Roll','Student',exam.short+' marks'];
+ const marks=rows.map(row=>[row.roll,row.name,result(row.current)]);
+ table(article,columns,marks);
+ const stats=pb1SmartSummary(rows),summary=el('section',undefined,'pb1-slip-summary'),figures=el('dl');
+ const rate=(value,total)=>total?100*value/total:null;
+ const before=rate(stats.previousPassed,stats.paired),after=rate(stats.pairedPassed,stats.paired);
+ for(const [label,value] of [
+  ['Enrolled',stats.students],['Appeared',stats.assessed+' / '+stats.students],
+  ['Pass rate · appeared',pct(rate(stats.passed,stats.assessed))],['Pass rate · enrolled',pct(rate(stats.enrolledPassed,stats.students))],
+  ['Passed',stats.passed],['Failed',stats.failed],['Critical fail',stats.critical],['Borderline pass',stats.borderline],
+  ['Scored 90%+',stats.score90],['Scored 75%+',stats.score75],['Scored 50%+',stats.score50],
+  ['Absent · retest awaited',stats.absent],['Marks pending',stats.pending],['Incomplete coverage',stats.incomplete],
+  [exam.baseline+' → '+exam.short+' pass rate',pct(before)+' → '+pct(after)],['Change · '+stats.paired+(stats.paired===1?' paired student':' paired students'),delta(before,after)],
+ ]){
+  const figure=el('div');figure.append(el('dt',label),el('dd',String(value)));figures.append(figure);
+ }
+ summary.append(el('h3',exam.short+' results · at a glance'),figures);
+ const performance=el('section',undefined,'pb1-slip-performance');
+ performance.append(el('h3',exam.short+' teacher performance · at a glance'));
+ const performanceRows=[];
+ for(const teacher of scopeTeachers(scope).filter(person=>!data.teacherIds||data.teacherIds.includes(person.key))){
+  const assigned=new Set(data.scopes.flatMap((paper,index)=>paper.classId===scope.classId&&
+   (paper.paperName||paper.subject)===(scope.paperName||scope.subject)&&scopeTeachers(paper).some(person=>person.key===teacher.key)?[index]:[]));
+  const papers=data.rows.filter(row=>assigned.has(row.scope));
+  const bySection=groups(papers,row=>data.scopes[row.scope].section);
+  for(const [section,group] of [...bySection].sort(([a],[b])=>a.localeCompare(b))){
+   performanceRows.push(teacherPerformanceRow(teacher.name,section,group));
+  }
+  if(bySection.size)performanceRows.push(teacherPerformanceRow(teacher.name,'All assigned sections',papers));
+ }
+ if(performanceRows.length)table(performance,['Subject teacher','Section','Appeared / enrolled','Passed','Pass rate',exam.baseline+' → '+exam.short+' (paired)'],performanceRows);
+ else performance.append(el('p','No subject teacher assignment is recorded for this paper.'));
+ const feedback=el('section',undefined,'pb1-slip-feedback');
+ feedback.append(el('h3','Principal’s instructions for remedial action'),
+  el('p',scope.discussionComment||'',scope.discussionComment?'pb1-discussion-comment':'pb1-slip-comment-lines'));
+ article.append(summary,performance,feedback);
+ const signatures=el('div',undefined,'pb1-slip-signatures');
+ signatures.append(el('div','Subject teacher'),el('div','Class teacher'),el('div','Principal'));
+ article.append(signatures);
+ const actions=el('div',undefined,'task-actions pb1-slip-actions');
+ const print=el('button','Print / Save as PDF'),close=el('button','Close');
+ print.type=close.type='button';print.onclick=()=>window.print();close.onclick=()=>dialog.close();
+ actions.append(print,close);dialog.append(actions,article);
+ const printSlip=article.cloneNode(true);printSlip.classList.add('pb1-print-slip');
+ printSlip.querySelector('[id]')?.removeAttribute('id');
+ if(marks.length>30&&marks.length<=72){
+  const split=el('div',undefined,'pb1-print-marks-columns'),mid=Math.ceil(marks.length/2);
+  table(split,columns,marks.slice(0,mid));
+  table(split,columns,marks.slice(mid));
+  printSlip.querySelector(':scope > .pb1-table-wrap').replaceWith(split);
+ }
+ dialog.addEventListener('close',()=>{dialog.remove();printSlip.remove();},{once:true});
+ document.body.append(dialog,printSlip);dialog.showModal();
+}
+
+function teacherPerformanceRow(name,section,rows){
+ const result=pb1CategoryCounts(rows,'current'),paired=pb1Metrics(rows);
+ return [name,section,result.appeared+' / '+result.enrolled,result.passed,pct(result.passPercentage),
+  paired.paired?pct(paired.beforePass)+' → '+pct(paired.currentPass)+' ('+paired.paired+')':'—'];
+}
+
 function control(parent,label,tag='select'){
  const wrap=el('label',label),input=el(tag);input.setAttribute('aria-label',label);wrap.append(input);parent.append(wrap);return input;
 }
@@ -139,7 +210,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
  const filters=el('div',undefined,'pb1-filters'),report=el('div');
  let entering=entryOnly,entryAction,classMode=false;
  const description=el('p',teacher?'Your assigned '+exam.current+' papers':publicView?exam.classes+' · Public student labels are coded':exam.classes+' · '+exam.current);
- card.append(el('h2',entryOnly?'Update '+exam.short+' marks':exam.title),description);
+ card.append(el('h2',entryOnly?(approve?'Review and freeze ':'Update ')+exam.short+' marks':exam.title),description);
  if(setup)card.append(setup(()=>data.revision));
  card.append(content);
  host.replaceChildren(button(entryOnly?'Back to Wisdom Analyser':'Back to task list',back),card);
@@ -413,8 +484,15 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    }
    host.replaceChildren(el('h3','Class '+scope.classId+' '+scope.section+' · '+scope.subject),maxima,
     el('p','Each percentage uses the marks earned divided by that exam’s maximum.'));
+   const print=button('Preview marks slip / PDF',()=>{
+    if(host.querySelector('[data-portal-dirty=true]'))throw Error('Save your mark changes before printing the slip.');
+    marksSlip(scope,rows,exam,data);
+   });
+   print.disabled=!rows.some(row=>row.current);
+   host.append(print);
    if(scope.approvedAt){
     host.append(el('p','Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),'task-monitoring-notice'));
+    if(scope.discussionComment)host.append(el('h4','Principal’s comment to teacher'),el('p',scope.discussionComment,'pb1-discussion-comment'));
     table(host,['Roll','Student',exam.baseline+' marks ('+monthlyMM+')','Approved '+exam.short+' marks ('+pb1MM+')'],
      rows.map(row=>[row.roll,row.name,result(row.before),result(row.current)]));
     return;
@@ -422,15 +500,31 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    const missing=rows.filter(row=>!row.current).length;
    host.append(el('p','Enter '+exam.short+' marks. If a student was absent, type ABS. Leave a mark blank to keep it pending or retain the saved result.'));
    if(approve){
-    const ready=rows.length>0&&!missing;
-    const action=button('Approve and freeze '+exam.short+' marks',async()=>{
+    const differentMaximum=rows.some(row=>row.current&&row.current.maximum!==scope.maximum);
+    const ready=rows.length>0&&!missing&&!differentMaximum;
+    const action=button('Freeze marks after Principal discussion',()=>{
      if(host.querySelector('[data-portal-dirty=true]'))throw Error('Save your mark changes before approval.');
-     if(confirm('Approve and freeze this paper?'+(exam.mission?' Mission 100 will use these marks as the latest result.':''))){
-      data=await approve(scope,data.revision);drawMarks();
-     }
+     const dialog=el('dialog',undefined,'task-start-dialog pb1-student-dialog'),form=el('form');
+     const heading=el('h2','Freeze marks after Principal discussion');
+     heading.id='paper-freeze-title';dialog.setAttribute('aria-labelledby',heading.id);
+     const comment=control(form,'Remedial action instructions to teacher (optional)','textarea');
+     comment.maxLength=PAPER_COMMENT_LIMIT;comment.rows=4;
+     const confirmFreeze=el('button','Confirm and freeze marks'),cancel=el('button','Cancel');
+     cancel.type='button';cancel.onclick=()=>dialog.close();
+     const error=el('p',undefined,'task-error');error.setAttribute('role','alert');
+     form.append(confirmFreeze,cancel,error);
+     dialog.append(heading,el('p','Freezing locks the marks for this paper.'+(exam.mission?' Mission 100 will use the approved PB-1 result.':'')),form);
+     dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+     form.onsubmit=event=>{event.preventDefault();run(async()=>{
+      error.textContent='';
+      try{data=await approve(scope,data.revision,comment.value);}
+      catch(failure){error.textContent=failure.message;return;}
+      dialog.close();drawMarks();
+     });};
+     document.body.append(dialog);dialog.showModal();
     });
     action.disabled=!ready;
-    host.append(el('p',ready?'All enrolled students have marks or AB recorded.':missing+' enrolled students still need a mark or AB.'),action);
+    host.append(el('p',ready?'All enrolled students have marks or AB recorded.':differentMaximum?'Correct marks saved with a different paper maximum before freezing.':missing+' enrolled students still need a mark or AB.'),action);
    }
    const editor=el('form');
    const inputs=rows.map(row=>{

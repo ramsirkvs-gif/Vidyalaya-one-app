@@ -5,7 +5,7 @@ import {validateMonitoringSheets} from '../cbse-task-workbook.js';
 import {monitoringAssignments,monitoringAdvance,MONITORING_ROLES,MONITORING_STEPS} from '../cbse-task-monitoring-workflow.js';
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {evaluatorDirectory,withPublishedPB1Evaluators} from './pb1-evaluators.js';
-import {pb1Report,pb1Scopes} from '../cbse-pb1-analyser-model.js';
+import {pb1Report,pb1Scopes,paperDiscussionComment} from '../cbse-pb1-analyser-model.js';
 import {halfYearlyReport,importHalfYearly,updateHalfYearly} from '../cbse-half-yearly-analyser-model.js';
 import {pb1ApprovalKey} from '../cbse-academic-exam-kind.js';
 import {createPINPolicy} from './pin-policy.js';
@@ -147,7 +147,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   const {faculty,mission}=await context();
   const ids=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
   const operation=input.operation==='task-manager'?input.taskOperation:input.operation;
-  if(operation==='pb1-read')return halfYearlyReport(await read(halfYearlyPath),ids);
+  if(operation==='pb1-read')return {...halfYearlyReport(await read(halfYearlyPath),ids),...(ids?{teacherIds:[...ids]}:{})};
   let imported;
   if(operation==='half-yearly-import'){
    if(!actor.uid)throw new AccessError('Principal access required.',403);
@@ -192,7 +192,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    }catch(error){reason=error.message;return;}
   },{restTransaction});
   if(!transaction.committed)throw new AccessError(reason||'Class XI changes could not be saved. Refresh and retry.',409);
-  return halfYearlyReport(transaction.snapshot.val().taskHalfYearly,ids);
+  return {...halfYearlyReport(transaction.snapshot.val().taskHalfYearly,ids),...(ids?{teacherIds:[...ids]}:{})};
  }
  const pb1Sections=(draft,faculty)=>['X','XII'].flatMap(classId=>entries(draft?.classes?.[classId]?.sections).map(([id,section])=>{
   const group=faculty?.classes?.[classId];
@@ -211,7 +211,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   initial.mission=pb1Mission(initial.draft,initial.mission,published);
   const scope=scoped(initial.draft,initial.faculty,initial.mission);
   if(input.operation==='pb1-read'||input.taskOperation==='pb1-read')
-   return {...pb1Report(initial.draft,initial.mission,scope.staff,scope.ids,scope.identity),...(actor.uid?{roster:pb1Roster(initial.draft),classSections:pb1Sections(initial.draft,initial.faculty)}:{})};
+   return {...pb1Report(initial.draft,initial.mission,scope.staff,scope.ids,scope.identity),...(actor.uid?{roster:pb1Roster(initial.draft),classSections:pb1Sections(initial.draft,initial.faculty)}:{teacherIds:[...scope.ids]})};
   const approving=input.operation==='pb1-approve'&&!!actor.uid;
   if(!approving&&(!Array.isArray(input.entries)||!input.entries.length||input.entries.length>200))
    throw new AccessError('Enter at least one mark or AB.',400);
@@ -239,7 +239,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      const marks=Object.fromEntries([...roster].map(([key,row])=>[
       key,{...raw.marks[row.markId],id:row.markId,exam:raw.exams[row.examId]},
      ]));
-     const pb1Approvals={...raw.pb1Approvals,[approvalKey]:{approvedAt:stamp,marks}};
+     const pb1Approvals={...raw.pb1Approvals,[approvalKey]:{approvedAt:stamp,marks,discussionComment:paperDiscussionComment(input.discussionComment)}};
      return {...current,mission:{...raw,pb1Approvals,revision:(raw.revision||0)+1}};
     }
     const stable=parts=>createHash('sha256').update(JSON.stringify(parts)).digest('hex').slice(0,24);
@@ -266,7 +266,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   const saved=result.snapshot.val(),{faculty,mission}=resolvedViewingData(saved.draft,saved.facultyDraft,saved.mission);
   const assigned=pb1Mission(saved.draft,mission,saved.taskMonitoring?.published);
   const access=scoped(saved.draft,faculty,assigned);
-  return {...pb1Report(saved.draft,assigned,access.staff,access.ids,access.identity),...(actor.uid?{roster:pb1Roster(saved.draft),classSections:pb1Sections(saved.draft,faculty)}:{})};
+  return {...pb1Report(saved.draft,assigned,access.staff,access.ids,access.identity),...(actor.uid?{roster:pb1Roster(saved.draft),classSections:pb1Sections(saved.draft,faculty)}:{teacherIds:[...access.ids]})};
  }
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){

@@ -5,6 +5,11 @@ import {schoolPreboard1DateSheet} from './cbse-preboard1-datesheet.js';
 import {isMCQResult,isMonthlyResult,pb1ApprovalKey,pb1ResultBand} from './cbse-academic-exam-kind.js';
 
 export {pb1ResultBand};
+export const PAPER_COMMENT_LIMIT=1000;
+export function paperDiscussionComment(value=''){
+ if(typeof value!=='string'||value.length>PAPER_COMMENT_LIMIT)throw Error('Enter a comment of up to '+PAPER_COMMENT_LIMIT+' characters.');
+ return value.trim();
+}
 
 export function pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity=id=>id){
  const allocations=Object.values(mission.allocations||{}),scopes=[],seen=new Set();
@@ -24,8 +29,9 @@ export function pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity=id=>id)
      if(name)namedTeachers.set(identity,{key:identity,name});
     }
     const additional=paper.codes.some(code=>['417','843'].includes(code))||subject.additional===true||/\badditional\b/i.test(subject.name);
-    const approvedAt=mission.pb1Approvals?.[pb1ApprovalKey(classId,sectionId,subjectId)]?.approvedAt||0;
-    scopes.push({classId,sectionId,section:section.name,subjectId,subject:subject.name,paperName:paper.name,date:paper.date,maximum:paper.marks,approvedAt,additional,
+    const approval=mission.pb1Approvals?.[pb1ApprovalKey(classId,sectionId,subjectId)];
+    const approvedAt=approval?.approvedAt||0,discussionComment=approval?.discussionComment||'';
+    scopes.push({classId,sectionId,section:section.name,subjectId,subject:subject.name,paperName:paper.name,date:paper.date,maximum:paper.marks,approvedAt,discussionComment,additional,
      teachers:[...namedTeachers.values()],teacher:[...namedTeachers.values()].map(person=>person.name).join(' / ')});
    }
   }

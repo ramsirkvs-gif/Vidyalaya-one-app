@@ -583,8 +583,8 @@ async function openPB1Analyser(entryOnly=false,examId){
   }):undefined;
   renderPB1Analyser(host,data,{button,run,exam,setup,teacher:!asPrincipal,entryOnly,
    back:()=>{if(discard())return asPrincipal?drawPrincipal():openExam();},
-   approve:asPrincipal?async({classId,sectionId,subjectId},expectedRevision)=>{
-    const result=await send('pb1-approve',{classId,sectionId,subjectId,expectedRevision});
+   approve:asPrincipal?async({classId,sectionId,subjectId},expectedRevision,discussionComment)=>{
+    const result=await send('pb1-approve',{classId,sectionId,subjectId,expectedRevision,discussionComment});
     message(exam.current+' marks approved and frozen.'+(exam.mission?' Mission 100 now uses them for this paper.':''));return result;
    }:undefined,
    save:async({classId,sectionId,subjectId},expectedRevision,entries,secret)=>{
@@ -613,7 +613,7 @@ function drawAnalyserCards(){
   const label=examId?'Open XI Half-Yearly Analyser':'Open Wisdom Analyser';
   const actions=el('div',undefined,'task-actions');
   actions.append(button(label,()=>openPB1Analyser(false,examId)),
-   button('Update '+exam.short+' marks',()=>openPB1Analyser(true,examId)));
+   button(principal?'Review / freeze '+exam.short+' marks':'Update '+exam.short+' marks',()=>openPB1Analyser(true,examId)));
   card.append(el('h3',exam.title),actions);
   cards.append(card);
  }
