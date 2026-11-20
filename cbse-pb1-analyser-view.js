@@ -178,7 +178,7 @@ function teacherOptions(scopes){
  return [['','All teachers'],...[...teachers].sort((a,b)=>a[1].localeCompare(b[1]))];
 }
 export const PB1_ANALYSER={title:'Pre-Samagam Wisdom Analyser · Classes X & XII PB-1',short:'PB-1',current:'Preboard 1',previous:'Latest monthly test',baseline:'Monthly',classes:'Classes X and XII',mission:true};
-export const HALF_YEARLY_ANALYSER={title:'Pre-Samagam Wisdom Analyser · Class XI A–E Half-Yearly',short:'Half-Yearly',current:'Half-Yearly',previous:'Periodic Test 1 (PT-1)',baseline:'PT-1',classes:'Class XI A–E'};
+export const HALF_YEARLY_ANALYSER={title:'Pre-Samagam Wisdom Analyser · Class XI A–E Half-Yearly',short:'Half-Yearly',current:'Half-Yearly',previous:'Periodic Test 1 (PT-1)',baseline:'PT-1',classes:'Class XI A–E',classId:'XI'};
 
 const cohortHeaders=exam=>['Group','Paired / enrolled','Previous pass',exam.short+' pass','Pass change','Previous average',exam.short+' average','Average change','Remark'];
 function cohortRow(label,rows){
@@ -288,15 +288,16 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
  if(setup)card.append(setup(()=>data.revision));
  card.append(content);
  host.replaceChildren(button(entryOnly?'Back to Wisdom Analyser':'Back to task list',back),card);
- const classSelect=control(filters,'Standard'),subjectSelect=control(filters,'Subject'),teacherSelect=control(filters,'Teacher'),sectionSelect=control(filters,'Class / section');
+ const classSelect=exam.classId?null:control(filters,'Standard'),subjectSelect=control(filters,'Subject'),teacherSelect=control(filters,'Teacher'),sectionSelect=control(filters,'Class / section');
+ const filterClass=()=>exam.classId||classSelect.value;
  const classOptions=()=>[...data.scopes,...(data.roster||[])];
  const values=(scopes,key)=>[...new Set(scopes.map(info=>info[key]).filter(Boolean))].sort();
- options(classSelect,choices(values(classOptions(),'classId'),'All standards'),'');
+ if(classSelect)options(classSelect,choices(values(classOptions(),'classId'),'All standards'),'');
  const runAnalysis=button('Get smart analysis',async()=>{
   if(content.querySelector('[data-portal-dirty=true]')&&!confirm('Discard unsaved marks?'))return;
   if(refresh){
    data=await refresh(!publicView);
-   options(classSelect,choices(values(classOptions(),'classId'),'All standards'),classSelect.value);
+   if(classSelect)options(classSelect,choices(values(classOptions(),'classId'),'All standards'),classSelect.value);
    restrict();
   }
   if(entering){entering=false;drawMode();}
@@ -318,22 +319,24 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   toolbar.append(entryAction);
  }
  function restrict(){
-  const scopes=data.scopes.filter(info=>!classSelect.value||info.classId===classSelect.value);
+  const scopes=data.scopes.filter(info=>!filterClass()||info.classId===filterClass());
   options(subjectSelect,choices([...new Set(scopes.map(subjectGroup))].sort(),'All subjects'),subjectSelect.value);
   const subjects=scopes.filter(info=>!subjectSelect.value||subjectGroup(info)===subjectSelect.value);
   options(teacherSelect,teacherOptions(subjects),teacherSelect.value);
   const assigned=subjects.filter(info=>!teacherSelect.value||scopeTeachers(info).some(person=>person.key===teacherSelect.value));
-  const rosterSections=!subjectSelect.value&&!teacherSelect.value?(data.roster||[]).filter(row=>!classSelect.value||row.classId===classSelect.value):[];
+  const rosterSections=!subjectSelect.value&&!teacherSelect.value?(data.roster||[]).filter(row=>!filterClass()||row.classId===filterClass()):[];
   options(sectionSelect,choices(values([...assigned,...rosterSections],'section'),'All sections'),sectionSelect.value);
  }
  restrict();
- classSelect.onchange=subjectSelect.onchange=teacherSelect.onchange=()=>{restrict();hasReport=false;report.replaceChildren();};
+ const changeFilters=()=>{restrict();hasReport=false;report.replaceChildren();};
+ subjectSelect.onchange=teacherSelect.onchange=changeFilters;
+ if(classSelect)classSelect.onchange=changeFilters;
  sectionSelect.onchange=()=>{hasReport=false;report.replaceChildren();};
  function scopeMatches(info){
   const assigned=paper=>scopeTeachers(paper).some(person=>person.key===teacherSelect.value);
   const matchesTeacher=!teacherSelect.value||assigned(info)||
    subjectSelect.value==='Mathematics'&&data.scopes.some(paper=>mathsSection(info,paper)&&assigned(paper));
-  return (!classSelect.value||info.classId===classSelect.value)&&(!sectionSelect.value||info.section===sectionSelect.value)&&
+  return (!filterClass()||info.classId===filterClass())&&(!sectionSelect.value||info.section===sectionSelect.value)&&
    (!subjectSelect.value||subjectGroup(info)===subjectSelect.value)&&matchesTeacher;
  }
  const info=row=>data.scopes[row.scope];
@@ -431,17 +434,18 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   report.replaceChildren(el('h3',exam.short+' Class Teacher Analysis'));
   const classFilters=el('div',undefined,'pb1-filters'),results=el('div');
   report.append(classFilters,results);
-  const standard=control(classFilters,'Class teacher analysis standard'),section=control(classFilters,'Class teacher analysis section');
+  const standard=exam.classId?null:control(classFilters,'Class teacher analysis standard'),section=control(classFilters,'Class teacher analysis section');
   const sections=data.classSections||[...new Map([...data.scopes,...(data.roster||data.classRoster||[])].map(({classId,section})=>
    [JSON.stringify([classId,section]),{classId,section}])).values()];
-  options(standard,values(sections,'classId').map(value=>[value,value]),selectedClass||classSelect.value);
+  if(standard)options(standard,values(sections,'classId').map(value=>[value,value]),selectedClass||filterClass());
+  const analysisClass=()=>exam.classId||standard.value;
   function selectSections(){
-   options(section,choices(values(sections.filter(row=>row.classId===standard.value),'section'),'All sections'),
-    selectedClass===standard.value?selectedSection:sectionSelect.value);
+   options(section,choices(values(sections.filter(row=>row.classId===analysisClass()),'section'),'All sections'),
+    selectedClass===analysisClass()?selectedSection:sectionSelect.value);
   }
   function show(){
-   selectedClass=standard.value;selectedSection=section.value;results.replaceChildren();
-   if(!selectedClass){results.append(el('p','No '+exam.short+' classes are available.'));return;}
+   selectedClass=analysisClass();selectedSection=section.value;results.replaceChildren();
+   if(!sections.some(row=>row.classId===selectedClass)){results.append(el('p','No '+exam.short+' classes are available.'));return;}
    const classes=sections.filter(row=>row.classId===selectedClass&&(!selectedSection||row.section===selectedSection));
    results.append(el('p',classes.map(row=>selectedClass+' '+row.section+(row.teacher?' · '+row.teacher:'')).join(' | '),'pb1-scope-summary'),
     el('p','Attendance uses explicit AB entries. Pending marks are shown separately. A student who is absent and has a failing mark in another subject can appear in both counts.'));
@@ -472,7 +476,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     results.append(box);
    }
   }
-  standard.onchange=()=>{selectedClass=standard.value;selectedSection='';selectSections();show();};
+  if(standard)standard.onchange=()=>{selectedClass=analysisClass();selectedSection='';selectSections();show();};
   section.onchange=show;
   selectSections();show();
  }
@@ -532,7 +536,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   const rows=data.rows.filter(row=>scopeMatches(info(row))),entered=rows.filter(row=>row.current);
   const visibleStudents=new Set(rows.map(row=>row.key));
   const roster=data.roster?.filter(student=>
-   (!classSelect.value||student.classId===classSelect.value)&&(!sectionSelect.value||student.section===sectionSelect.value)&&
+   (!filterClass()||student.classId===filterClass())&&(!sectionSelect.value||student.section===sectionSelect.value)&&
    (!subjectSelect.value&&!teacherSelect.value||visibleStudents.has(student.key)));
   if(roster?.length){
    const list=el('details',undefined,'pb1-comparison-details');
@@ -623,25 +627,27 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   content.append(panel);panel.append(choicesBar,host);
   const assignedTeacher=approve?control(choicesBar,'Teacher'):null;
   if(assignedTeacher)options(assignedTeacher,teacherOptions(data.scopes));
-  const cls=control(choicesBar,'Standard'),paper=control(choicesBar,'Class / section and subject');
+  const cls=exam.classId?null:control(choicesBar,'Standard'),paper=control(choicesBar,'Class / section and subject');
   const teacherPapers=scope=>!assignedTeacher?.value||scopeTeachers(scope).some(person=>person.key===assignedTeacher.value);
+  const entryClass=()=>exam.classId||cls.value;
   function updateStandards(selected){
+   if(!cls)return;
    const standards=values(data.scopes.filter(teacherPapers),'classId');
    options(cls,approve?choices(standards,'All standards'):standards.map(value=>[value,value]),selected);
   }
   updateStandards(requestedPaper?.classId);
   function drawChoices(preferredIndex=-1){
-   options(paper,data.scopes.flatMap((scope,index)=>teacherPapers(scope)&&(!cls.value||scope.classId===cls.value)?
-    [[String(index),(cls.value?'':scope.classId+' ')+scope.section+' · '+scope.subject]]:[]),String(preferredIndex));
+   options(paper,data.scopes.flatMap((scope,index)=>teacherPapers(scope)&&(!entryClass()||scope.classId===entryClass())?
+    [[String(index),(entryClass()?'':scope.classId+' ')+scope.section+' · '+scope.subject]]:[]),String(preferredIndex));
    drawMarks();
   }
   const canSwitch=()=>!host.querySelector('[data-portal-dirty=true]')||confirm('Discard unsaved marks?');
-  let previousClass=cls.value,previousTeacher=assignedTeacher?.value,previousPaper='';
+  let previousClass=entryClass(),previousTeacher=assignedTeacher?.value,previousPaper='';
   if(assignedTeacher)assignedTeacher.onchange=()=>{
    if(!canSwitch()){assignedTeacher.value=previousTeacher;return;}
-   previousTeacher=assignedTeacher.value;updateStandards('');previousClass=cls.value;drawChoices(Number(previousPaper));
+   previousTeacher=assignedTeacher.value;updateStandards('');previousClass=entryClass();drawChoices(Number(previousPaper));
   };
-  cls.onchange=()=>{if(canSwitch()){previousClass=cls.value;drawChoices(Number(previousPaper));}else cls.value=previousClass;};
+  if(cls)cls.onchange=()=>{if(canSwitch()){previousClass=entryClass();drawChoices(Number(previousPaper));}else cls.value=previousClass;};
   paper.onchange=()=>{if(canSwitch())drawMarks();else paper.value=previousPaper;};
   const requestedIndex=requestedPaper?data.scopes.findIndex(scope=>mathsSection(scope,requestedPaper)||['classId','section','subject'].every(key=>scope[key]===requestedPaper[key])):-1;
   if(requestedPaper&&requestedIndex<0)panel.prepend(el('p','The requested paper is outside your assigned scope. Choose one of your assigned papers.','task-monitoring-notice'));
