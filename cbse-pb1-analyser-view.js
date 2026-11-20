@@ -27,7 +27,7 @@ function table(parent,headers,rows){
  }
  scroll.append(table);parent.append(scroll);
 }
-function marksSlip(scope,rows,exam,data){
+function marksSlip(scope,rows,exam,data,{editableInstructions=false}={}){
  const dialog=el('dialog',undefined,'task-start-dialog pb1-marks-slip'),article=el('article');
  const heading=el('header'),title=el('h2',exam.short+' Marks Slip');
  title.id='paper-slip-title';dialog.setAttribute('aria-labelledby',title.id);
@@ -70,20 +70,33 @@ function marksSlip(scope,rows,exam,data){
  if(performanceRows.length)table(performance,['Subject teacher','Section','Appeared / enrolled','Passed','Pass rate',exam.baseline+' → '+exam.short+' (paired)'],performanceRows);
  else performance.append(el('p','No subject teacher assignment is recorded for this paper.'));
  const feedback=el('section',undefined,'pb1-slip-feedback');
- feedback.append(el('h3','Principal’s instructions for remedial action'),
-  el('p',scope.discussionComment||'',scope.discussionComment?'pb1-discussion-comment':'pb1-slip-comment-lines'));
+ const instructions=el('p',scope.discussionComment||'',scope.discussionComment?'pb1-discussion-comment':'pb1-slip-comment-lines');
+ feedback.append(el('h3','Principal’s instructions for remedial action'),instructions);
  article.append(summary,performance,feedback);
  const signatures=el('div',undefined,'pb1-slip-signatures');
  signatures.append(el('div','Subject teacher'),el('div','Class teacher'),el('div','Principal'));
  const note=el('p',undefined,'pb1-slip-verification');
  note.append(el('strong','Exam IC / Samagam Matching IC'),document.createTextNode(' — During Samagam entry, carefully verify each student’s marks against the teacher’s list on this slip.'));
- article.append(signatures,note);
+ const matchingSignature=el('div',undefined,'pb1-slip-matching-signature');
+ matchingSignature.append(note,el('div',scope.classId==='X'?'Samagam Matching IC · Class X Exam Core Team':'Samagam Matching IC'));
+ article.append(signatures,matchingSignature);
  const actions=el('div',undefined,'task-actions pb1-slip-actions');
  const print=el('button','Print / Save as PDF'),close=el('button','Close');
  print.type=close.type='button';print.onclick=()=>window.print();close.onclick=()=>dialog.close();
  actions.append(print,close);dialog.append(actions,article);
  const printSlip=article.cloneNode(true);printSlip.classList.add('pb1-print-slip');
  printSlip.querySelector('[id]')?.removeAttribute('id');
+ if(editableInstructions){
+  const field=el('textarea'),hint=el('small','These instructions apply to this printed copy.');
+  field.setAttribute('aria-label','Principal’s instructions for remedial action');
+  field.maxLength=PAPER_COMMENT_LIMIT;field.rows=3;field.value=scope.discussionComment||'';
+  instructions.replaceWith(field,hint);
+  const printed=printSlip.querySelector('.pb1-slip-feedback p');
+  field.oninput=()=>{
+   printed.textContent=field.value.trim();
+   printed.className=printed.textContent?'pb1-discussion-comment':'pb1-slip-comment-lines';
+  };
+ }
  if(marks.length>30&&marks.length<=72){
   const split=el('div',undefined,'pb1-print-marks-columns'),mid=Math.ceil(marks.length/2);
   table(split,columns,marks.slice(0,mid));
@@ -405,7 +418,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   const preview=index=>{
    const scope=data.scopes[index];
    if(openEntry)return openEntry(scope);
-   marksSlip(scope,data.rows.filter(row=>row.scope===index),exam,data);
+   marksSlip(scope,data.rows.filter(row=>row.scope===index),exam,data,{editableInstructions:!!approve});
   };
   if(papers.length===1)return preview(papers[0]);
   const dialog=el('dialog',undefined,'task-start-dialog'),title=el('h2','Subject teacher copy / PDF');
@@ -513,7 +526,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
     el('p','Each percentage uses the marks earned divided by that exam’s maximum.'));
    const print=button('Preview marks slip / PDF',()=>{
     if(host.querySelector('[data-portal-dirty=true]'))throw Error('Save your mark changes before printing the slip.');
-    marksSlip(scope,rows,exam,data);
+    marksSlip(scope,rows,exam,data,{editableInstructions:!!approve});
    });
    print.disabled=!rows.some(row=>row.current);
    host.append(print);

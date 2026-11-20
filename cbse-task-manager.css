@@ -192,6 +192,10 @@
 .pb1-slip-signatures{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;margin:3rem 0 .5rem;text-align:center}
 .pb1-slip-signatures>div{border-top:1px solid currentColor;padding-top:.35rem}
 
+.pb1-slip-feedback textarea{display:block;width:100%;box-sizing:border-box;padding:.55rem;font:inherit;font-size:16px;resize:vertical}
+.pb1-slip-feedback small{display:block;margin-top:.3rem}
+.pb1-slip-matching-signature{break-inside:avoid}
+.pb1-slip-matching-signature>div{width:min(17rem,100%);margin:2rem 0 0 auto;border-top:1px solid currentColor;padding-top:.3rem;text-align:center}
 .pb1-slip-verification{margin:.7rem 0 0;break-inside:avoid}
 .pb1-print-slip{display:none}
 @media print{
@@ -199,7 +203,7 @@
  body:has(.pb1-print-slip)>main,body:has(.pb1-print-slip)>dialog{display:none!important}
  body:has(.pb1-print-slip){margin:0!important;padding:0!important}
  .pb1-print-slip{page:pb1-slip;display:block;color:#000;font:8pt/1.1 system-ui,sans-serif;overflow-wrap:anywhere}
- .pb1-print-slip header{display:block!important;text-align:center;margin-bottom:6pt}
+ .pb1-print-slip header{display:block!important;text-align:center;margin-bottom:6pt;padding:0;border:0}
  .pb1-print-slip header :is(h2,p){margin:2pt 0}
  .pb1-print-slip h2{font-size:15pt}
  .pb1-print-slip h3{font-size:10pt;margin:7pt 0 3pt;break-after:avoid}
@@ -218,4 +222,5 @@
  .pb1-print-slip .pb1-slip-comment-lines{min-height:18pt;margin:3pt 0}
  .pb1-print-slip .pb1-slip-signatures{margin:18pt 0 0}
  .pb1-print-slip .pb1-slip-verification{margin:5pt 0 0}
+ .pb1-print-slip .pb1-slip-matching-signature>div{margin-top:15pt;padding-top:2pt}
 }
