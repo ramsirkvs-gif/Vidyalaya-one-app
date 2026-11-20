@@ -43,7 +43,7 @@ function marksSlip(scope,rows,exam,data,{editableInstructions=false}={}){
  if(scope.teacher)heading.append(el('p','Assigned teacher(s) · '+scope.teacher));
  article.append(heading);
  const columns=['Roll','Student',exam.short+' marks'];
- const marks=rows.map(row=>[row.roll,row.name,result(row.current)]);
+ const marks=rows.map(({roll,name,current})=>[roll,name,current?.absent?'AB':current?.score??'Pending']);
  table(article,columns,marks);
  const stats=pb1SmartSummary(rows),summary=el('section',undefined,'pb1-slip-summary'),figures=el('dl');
  const rate=(value,total)=>total?100*value/total:null;
@@ -236,7 +236,7 @@ function renderMarksGraph(parent,grouped,exam){
  if(graph.childElementCount)parent.append(graph);else parent.append(el('p','No records match these filters.'));
 }
 
-export function renderPB1Analyser(host,data,{run,button,save,approve,back,teacher,publicView,entryOnly,openEntry,openNames,refresh,exam=PB1_ANALYSER,setup,requestedPaper}){
+export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,back,teacher,publicView,entryOnly,openEntry,openNames,refresh,exam=PB1_ANALYSER,setup,requestedPaper}){
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
  const filters=el('div',undefined,'pb1-filters'),report=el('div');
  let entering=entryOnly,entryAction,classMode=false;
@@ -458,7 +458,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   const heading=el('h2','Freeze marks after Principal discussion');
   heading.id='paper-freeze-title';dialog.setAttribute('aria-labelledby',heading.id);
   const comment=control(form,'Remedial action instructions to teacher (optional)','textarea');
-  comment.maxLength=PAPER_COMMENT_LIMIT;comment.rows=4;
+  comment.maxLength=PAPER_COMMENT_LIMIT;comment.rows=4;comment.value=scope.discussionComment||'';
   const confirmFreeze=el('button','Confirm and freeze marks'),cancel=el('button','Cancel');
   cancel.type='button';cancel.onclick=()=>dialog.close();
   const error=el('p',undefined,'task-error');error.setAttribute('role','alert');
@@ -472,6 +472,12 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    dialog.close();redraw();
   });};
   document.body.append(dialog);dialog.showModal();
+ }
+ async function reopenPaper(scope,redraw){
+  const instructions='Unfreeze Class '+scope.classId+' '+scope.section+' · '+scope.subject+'? The assigned teacher can edit the saved marks again.';
+  const missionNotice=exam.mission?' Mission 100 will use the monthly result until this paper is frozen again.':'';
+  if(!confirm(instructions+missionNotice))return;
+  data=await unfreeze(scope,data.revision);redraw();
  }
  function drawReport(){
   hasReport=true;report.replaceChildren();
@@ -515,6 +521,9 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    paperActions.append(freeze);
    if(!ready.length)report.append(el('p','Freezing is available when an unfrozen paper has a saved mark or AB for every student and all marks use the paper maximum.'));
   }
+  const frozenPapers=[...new Set(rows.map(row=>row.scope))].filter(index=>data.scopes[index].approvedAt);
+  if(unfreeze&&frozenPapers.length)paperActions.append(button('Unfreeze for emergency correction',()=>
+   choosePaper(frozenPapers,'Choose a paper to unfreeze','Continue to unfreeze',index=>reopenPaper(data.scopes[index],drawReport))));
   paperActions.append(button('Subject teacher copy / PDF',()=>openTeacherCopy(entered)));
   report.append(paperActions);
   renderSmartAnalysis(report,rows,(title,filter,paperFilter=()=>true)=>
@@ -594,6 +603,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    host.append(print);
    if(scope.approvedAt){
     host.append(el('p','Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),'task-monitoring-notice'));
+    if(unfreeze)host.append(button('Unfreeze for emergency correction',()=>reopenPaper(scope,drawMarks)));
     if(scope.discussionComment)host.append(el('h4','Principal’s comment to teacher'),el('p',scope.discussionComment,'pb1-discussion-comment'));
     table(host,['Roll','Student',exam.baseline+' marks ('+monthlyMM+')','Approved '+exam.short+' marks ('+pb1MM+')'],
      rows.map(row=>[row.roll,row.name,result(row.before),result(row.current)]));

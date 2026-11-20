@@ -223,7 +223,8 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   if(input.operation==='pb1-read'||input.taskOperation==='pb1-read')
    return {...pb1Report(initial.draft,initial.mission,scope.staff,scope.ids,scope.identity),...(actor.uid?{roster:pb1Roster(initial.draft),classSections:pb1Sections(initial.draft,initial.faculty)}:{teacherIds:[...scope.ids]})};
   const approving=input.operation==='pb1-approve'&&!!actor.uid;
-  if(!approving&&(!Array.isArray(input.entries)||!input.entries.length||input.entries.length>200))
+  const unfreezing=input.operation==='pb1-unfreeze'&&!!actor.uid;
+  if(!approving&&!unfreezing&&(!Array.isArray(input.entries)||!input.entries.length||input.entries.length>200))
    throw new AccessError('Enter at least one mark or AB.',400);
   const stamp=now();let reason;
   const result=await mcqTransaction(db,'cbse',current=>{
@@ -240,7 +241,13 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     if(index<0)throw Error('This Preboard 1 paper is outside your assigned teaching scope.');
     const paper=report.scopes[index],roster=new Map(report.rows.filter(row=>row.scope===index).map(row=>[row.key,row])),seen=new Set();
     const approvalKey=pb1ApprovalKey(paper.classId,paper.sectionId,paper.subjectId);
-    if(raw.pb1Approvals?.[approvalKey])throw Error('This Preboard 1 paper is approved and frozen.');
+    const existingApproval=raw.pb1Approvals?.[approvalKey];
+    if(unfreezing){
+     if(!existingApproval?.approvedAt)throw Error('This Preboard 1 paper is already open for marks entry.');
+     const pb1Approvals={...raw.pb1Approvals,[approvalKey]:{unfrozenAt:stamp,discussionComment:existingApproval.discussionComment||''}};
+     return {...current,mission:{...raw,pb1Approvals,revision:(raw.revision||0)+1}};
+    }
+    if(existingApproval?.approvedAt)throw Error('This Preboard 1 paper is approved and frozen.');
     if(approving){
      if(!roster.size||[...roster.values()].some(row=>!row.current||!row.markId))
       throw Error('Enter marks or AB for every enrolled student before approving this paper.');
@@ -282,9 +289,9 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
    const halfYearly=input.exam==='half-yearly';
-   if(admin&&halfYearly&&['pb1-read','pb1-save','pb1-approve','half-yearly-import'].includes(input.operation))return halfYearlyWorkspace(input,{uid:adminIdentity.uid});
-   if(admin&&['pb1-read','pb1-save','pb1-approve'].includes(input.operation))return pb1Workspace(input,{uid:adminIdentity.uid});
-   if(!admin&&['pb1-read','pb1-save','pb1-approve'].includes(input.operation))throw new AccessError('Use a teacher PIN for marks entry or Principal sign-in for approval.',403);
+   if(admin&&halfYearly&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze','half-yearly-import'].includes(input.operation))return halfYearlyWorkspace(input,{uid:adminIdentity.uid});
+   if(admin&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze'].includes(input.operation))return pb1Workspace(input,{uid:adminIdentity.uid});
+   if(!admin&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze'].includes(input.operation))throw new AccessError('Use a teacher PIN for marks entry or Principal sign-in for approval.',403);
    if(!admin&&['pb1-public','pb1-named'].includes(input.operation)){
     if(!await read('cbse/taskMonitoring/published/updatedAt'))throw new AccessError('The Pre-Samagam plan is not published.',404);
     const named=input.operation==='pb1-named';

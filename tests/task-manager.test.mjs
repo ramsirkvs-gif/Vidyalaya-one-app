@@ -442,6 +442,12 @@ test('Class XI CSV import, PIN entry and approval keep Half-Yearly results separ
  assert.equal(approved.scopes[0].discussionComment,'XI discussion feedback');
  assert.ok(approved.scopes[0].approvedAt);
  await assert.rejects(f.teacher({...save,expectedRevision:approved.revision}),/approved and frozen/);
+ const reopened=await f.admin({...paper,operation:'pb1-unfreeze',expectedRevision:approved.revision});
+ assert.ok(!reopened.scopes[0].approvedAt);
+ assert.equal(reopened.scopes[0].discussionComment,'XI discussion feedback');
+ const correction=await f.teacher({...save,expectedRevision:reopened.revision});
+ assert.equal(correction.rows[0].current.score,36);
+
  const publicReport=await f.service('task-read',{exam,operation:'pb1-public'});
  assert.equal(publicReport.roster,undefined);
  assert.ok(!JSON.stringify(publicReport).includes('Synthetic, First'));
@@ -484,6 +490,23 @@ test('PB-1 reclassifies a monthly borderline student immediately and Mission fol
  const {mission:staffView}=await f.service('view-data',{},'','test',{viewerToken});
  assert.equal(latestAcademicSnapshot(person,staffView).subjects[0].band,'pass');
  assert.ok(!JSON.stringify(staffView).includes(comment));
+ const unfreeze={operation:'pb1-unfreeze',...paper,expectedRevision:f.data.cbse.mission.revision};
+ const correction={taskOperation:'pb1-save',...paper,entries:[{key,mark:62}]};
+ await assert.rejects(f.teacher({...correction,expectedRevision:unfreeze.expectedRevision}),/frozen/);
+ await assert.rejects(f.teacher({...paper,taskOperation:'pb1-unfreeze',expectedRevision:unfreeze.expectedRevision}),/Teachers may only/);
+ await assert.rejects(f.service('task-principal',unfreeze,'outsider'),/Principal/);
+ await assert.rejects(f.admin({...unfreeze,expectedRevision:0}),/results changed/);
+ const reopened=await f.admin(unfreeze);
+ assert.equal(reopened.scopes[0].approvedAt,0);
+ assert.equal(reopened.scopes[0].discussionComment,comment);
+ assert.equal(reopened.rows[0].current.score,48);
+ assert.equal(latest().subjects[0].latest.score,15);
+ const corrected=await f.teacher({...correction,expectedRevision:reopened.revision});
+ assert.equal(corrected.rows[0].current.score,62);
+ assert.equal(latest().subjects[0].latest.score,15);
+ await f.admin({...approval,discussionComment:comment,expectedRevision:corrected.revision});
+ assert.equal(latest().subjects[0].latest.score,62);
+
 });
 
 test('class teacher analysis counts each enrolled student and separates AB, missing, failures and AI',async()=>{

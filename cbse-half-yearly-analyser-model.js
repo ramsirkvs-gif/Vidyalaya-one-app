@@ -64,6 +64,13 @@ export function updateHalfYearly(state,input,allowedIds,now){
  if(input.expectedRevision!==(state?.revision||0))throw Error('Class XI results changed. Reopen the analyser before saving.');
  const paper=Object.values(state?.papers||{}).find(p=>p.classId===input.classId&&p.sectionId===input.sectionId&&p.subjectId===input.subjectId);
  if(!paper||allowedIds&&!allowedIds.has(paper.teacherId))throw Error('This Class XI paper is outside your assigned teaching scope.');
+ if(input.operation==='pb1-unfreeze'){
+  if(allowedIds)throw Error('Principal access is required to unfreeze marks.');
+  if(!paper.approvedAt)throw Error('This Half-Yearly paper is already open for marks entry.');
+  delete paper.approvedAt;
+  paper.unfrozenAt=now;
+  return {...state,revision:state.revision+1};
+ }
  if(paper.approvedAt)throw Error('This Half-Yearly paper is approved and frozen.');
  if(input.operation==='pb1-approve'){
   if(allowedIds||!Object.values(paper.students).every(row=>row.current))throw Error('Enter marks or AB for every enrolled student before approval.');
