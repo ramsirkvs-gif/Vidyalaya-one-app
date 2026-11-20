@@ -34,6 +34,28 @@ function table(parent,headers,rows){
  }
  scroll.append(table);parent.append(scroll);
 }
+function mathsOption(scope){
+ if(scope.classId!=='X')return '';
+ const name=(scope.paperName||scope.subject).trim();
+ if(/^(?:mathematics|maths)\s+basic$/i.test(name))return 'Basic';
+ if(/^(?:mathematics|maths)\s+standard$/i.test(name))return 'Standard';
+ return '';
+}
+const subjectGroup=scope=>mathsOption(scope)?'Mathematics':scope.subject;
+const mathsSection=(a,b)=>!!mathsOption(a)&&!!mathsOption(b)&&a.section===b.section;
+
+function paperSlip(scope,data,exam,options){
+ const papers=data.scopes.filter(other=>other===scope||mathsSection(scope,other));
+ const rows=data.rows.filter(row=>papers.includes(data.scopes[row.scope]));
+ if(mathsOption(scope))rows.sort((a,b)=>String(a.roll).localeCompare(String(b.roll),undefined,{numeric:true})||a.name.localeCompare(b.name));
+ if(papers.length===1)return marksSlip(scope,rows,exam,data,options);
+ const teachers=[...new Map(papers.flatMap(scopeTeachers).map(person=>[person.key,person])).values()];
+ const notes=[...new Set(papers.map(paper=>paper.discussionComment).filter(Boolean))];
+ const approval=papers.every(paper=>paper.approvedAt)?Math.max(...papers.map(paper=>paper.approvedAt)):0;
+ marksSlip({...scope,subject:'Mathematics',approvedAt:approval,teachers,
+  teacher:teachers.map(person=>person.name).join(' / '),discussionComment:notes.join('\n\n')},rows,exam,data,options);
+}
+
 function marksSlip(scope,rows,exam,data,{editableInstructions=false,teacherCopy=false}={}){
  const dialog=el('dialog',undefined,'task-start-dialog pb1-marks-slip'),article=el('article');
  const heading=el('header'),title=el('h2',exam.short+' Marks Slip');
@@ -46,8 +68,11 @@ function marksSlip(scope,rows,exam,data,{editableInstructions=false,teacherCopy=
    teacherDraft?'Discussion with the Principal and freezing of marks by the Principal are pending.':'Discussion copy · approval pending'));
  if(scope.teacher)heading.append(el('p','Assigned teacher(s) · '+scope.teacher));
  article.append(heading);
- const columns=['Roll','Student',exam.short+' marks'];
- const marks=rows.map(({roll,name,current})=>[roll,name,current?.absent?'AB':current?.score??'Pending']);
+ const maths=rows.some(row=>mathsOption(data.scopes[row.scope]));
+ const columns=['Roll','Student',exam.short+' marks',...(maths?['Remark']:[])];
+ const marks=rows.map(({roll,name,current,scope:index})=>[roll,name,current?.absent?'AB':current?.score??'Pending',
+  ...(maths?[mathsOption(data.scopes[index])]:[])]);
+
  table(article,columns,marks);
  const stats=pb1SmartSummary(rows),summary=el('section',undefined,'pb1-slip-summary'),figures=el('dl');
  const rate=(value,total)=>total?100*value/total:null;
@@ -68,7 +93,7 @@ function marksSlip(scope,rows,exam,data,{editableInstructions=false,teacherCopy=
  const performanceRows=[];
  for(const teacher of scopeTeachers(scope).filter(person=>!data.teacherIds||data.teacherIds.includes(person.key))){
   const assigned=new Set(data.scopes.flatMap((paper,index)=>paper.classId===scope.classId&&
-   (paper.paperName||paper.subject)===(scope.paperName||scope.subject)&&scopeTeachers(paper).some(person=>person.key===teacher.key)?[index]:[]));
+   subjectGroup(paper)===subjectGroup(scope)&&scopeTeachers(paper).some(person=>person.key===teacher.key)?[index]:[]));
   const papers=data.rows.filter(row=>assigned.has(row.scope));
   const bySection=groups(papers,row=>data.scopes[row.scope].section);
   for(const [section,group] of [...bySection].sort(([a],[b])=>a.localeCompare(b))){
@@ -282,8 +307,8 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
  }
  function restrict(){
   const scopes=data.scopes.filter(info=>!classSelect.value||info.classId===classSelect.value);
-  options(subjectSelect,choices(values(scopes,'subject'),'All subjects'),subjectSelect.value);
-  const subjects=scopes.filter(info=>!subjectSelect.value||info.subject===subjectSelect.value);
+  options(subjectSelect,choices([...new Set(scopes.map(subjectGroup))].sort(),'All subjects'),subjectSelect.value);
+  const subjects=scopes.filter(info=>!subjectSelect.value||subjectGroup(info)===subjectSelect.value);
   options(teacherSelect,teacherOptions(subjects),teacherSelect.value);
   const assigned=subjects.filter(info=>!teacherSelect.value||scopeTeachers(info).some(person=>person.key===teacherSelect.value));
   const rosterSections=!subjectSelect.value&&!teacherSelect.value?(data.roster||[]).filter(row=>!classSelect.value||row.classId===classSelect.value):[];
@@ -293,7 +318,11 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
  classSelect.onchange=subjectSelect.onchange=teacherSelect.onchange=()=>{restrict();hasReport=false;report.replaceChildren();};
  sectionSelect.onchange=()=>{hasReport=false;report.replaceChildren();};
  function scopeMatches(info){
-  return (!classSelect.value||info.classId===classSelect.value)&&(!sectionSelect.value||info.section===sectionSelect.value)&&(!subjectSelect.value||info.subject===subjectSelect.value)&&(!teacherSelect.value||scopeTeachers(info).some(person=>person.key===teacherSelect.value));
+  const assigned=paper=>scopeTeachers(paper).some(person=>person.key===teacherSelect.value);
+  const matchesTeacher=!teacherSelect.value||assigned(info)||
+   subjectSelect.value==='Mathematics'&&data.scopes.some(paper=>mathsSection(info,paper)&&assigned(paper));
+  return (!classSelect.value||info.classId===classSelect.value)&&(!sectionSelect.value||info.section===sectionSelect.value)&&
+   (!subjectSelect.value||subjectGroup(info)===subjectSelect.value)&&matchesTeacher;
  }
  const info=row=>data.scopes[row.scope];
  const sectionLabel=row=>info(row).classId+' '+info(row).section;
@@ -351,7 +380,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   }),({person,row})=>JSON.stringify([person.key,info(row).classId,info(row).subject]));
   return [...byTeacher.values()].map(group=>{
    const {person,row}=group[0];
-   return [person.name+' · '+info(row).classId+' · '+info(row).subject,group.map(item=>item.row)];
+   return [person.name+' · '+info(row).classId+' · '+subjectGroup(info(row)),group.map(item=>item.row)];
   });
  }
  function showStudentComparison(parent,rows){
@@ -435,22 +464,23 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   selectSections();show();
  }
  function openTeacherCopy(entered){
-  const papers=[...new Set(entered.map(row=>row.scope))];
+  const papers=[...new Set(entered.map(row=>row.scope))].filter((index,position,items)=>
+   !items.slice(0,position).some(other=>mathsSection(data.scopes[index],data.scopes[other])));
   const preview=index=>{
    const scope=data.scopes[index];
    if(openEntry)return openEntry(scope);
-   marksSlip(scope,data.rows.filter(row=>row.scope===index),exam,data,{editableInstructions:!!approve});
+   paperSlip(scope,data,exam,{editableInstructions:!!approve});
   };
-  return choosePaper(papers,'Subject teacher copy / PDF',openEntry?'Continue to PIN':'Preview marks slip / PDF',preview);
+  return choosePaper(papers,'Subject teacher copy / PDF',openEntry?'Continue to PIN':'Preview marks slip / PDF',preview,subjectGroup);
  }
- function choosePaper(papers,titleText,actionText,next){
+ function choosePaper(papers,titleText,actionText,next,labelSubject=paper=>paper.subject){
   if(papers.length===1)return next(papers[0]);
   const dialog=el('dialog',undefined,'task-start-dialog'),title=el('h2',titleText);
   title.id='paper-copy-title';dialog.setAttribute('aria-labelledby',title.id);dialog.append(title);
   const picker=control(dialog,'Select class, section and subject');
   options(picker,papers.map(index=>{
-   const {classId,section,subject}=data.scopes[index];
-   return [String(index),'Class '+classId+' '+section+' · '+subject];
+   const paper=data.scopes[index];
+   return [String(index),'Class '+paper.classId+' '+paper.section+' · '+labelSubject(paper)];
   }));
   const show=button(actionText,()=>{
    dialog.close();return next(Number(picker.value));
@@ -507,6 +537,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   const sections=[...new Set(rows.map(sectionLabel))].sort();
   const selectedTeacher=teacherSelect.value?teacherSelect.selectedOptions[0]?.textContent:'';
   report.append(el('p',[selectedTeacher,subjectSelect.value||'All subjects',sections.join(', ')].filter(Boolean).join(' · '),'pb1-scope-summary'));
+  if(subjectSelect.value==='Mathematics'&&rows.some(row=>mathsOption(info(row))))report.append(el('p','Class X Mathematics includes Basic and Standard students in each selected section.'));
   const papersByScope=[...groups(rows,row=>row.scope)];
   const frozenPapers=papersByScope.filter(([index])=>data.scopes[index].approvedAt).map(([index])=>index);
   if(exam.mission){
@@ -552,7 +583,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   showCohorts(trends,'Standard and section comparison',[
    ...groups(rows,row=>'Class '+info(row).classId+' · all selected sections'),...groups(rows,sectionLabel),
   ]);
-  showCohorts(trends,'Subject comparison',groups(rows,row=>info(row).classId+' · '+info(row).subject));
+  showCohorts(trends,'Subject comparison',groups(rows,row=>info(row).classId+' · '+subjectGroup(info(row))));
   showCohorts(trends,'Teacher comparison · all selected sections',teacherGroups(rows));
   report.append(el('p',entered.length+' / '+rows.length+' paper results recorded'),button('View entered '+exam.short+' marks',()=>showMarks(entered)));
   report.append(el('h3','Remedial target students'),el('p',gradingNote));
@@ -599,7 +630,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   };
   cls.onchange=()=>{if(canSwitch()){previousClass=cls.value;drawChoices(Number(previousPaper));}else cls.value=previousClass;};
   paper.onchange=()=>{if(canSwitch())drawMarks();else paper.value=previousPaper;};
-  const requestedIndex=requestedPaper?data.scopes.findIndex(scope=>['classId','section','subject'].every(key=>scope[key]===requestedPaper[key])):-1;
+  const requestedIndex=requestedPaper?data.scopes.findIndex(scope=>mathsSection(scope,requestedPaper)||['classId','section','subject'].every(key=>scope[key]===requestedPaper[key])):-1;
   if(requestedPaper&&requestedIndex<0)panel.prepend(el('p','The requested paper is outside your assigned scope. Choose one of your assigned papers.','task-monitoring-notice'));
   drawChoices(requestedIndex);
   function drawMarks(announceSaved=false){
@@ -614,9 +645,9 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     el('p','Each percentage uses the marks earned divided by that exam’s maximum.'));
    const print=button('Preview marks slip / PDF',()=>{
     if(host.querySelector('[data-portal-dirty=true]'))throw Error('Save your mark changes before printing the slip.');
-    marksSlip(scope,rows,exam,data,{editableInstructions:!!approve,teacherCopy:teacher});
+    paperSlip(scope,data,exam,{editableInstructions:!!approve,teacherCopy:teacher});
    });
-   print.disabled=!rows.some(row=>row.current);
+   print.disabled=!data.rows.some(row=>row.current&&(row.scope===index||mathsSection(scope,data.scopes[row.scope])));
    host.append(print);
    if(scope.approvedAt){
     host.append(el('p','Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),'task-monitoring-notice'));
