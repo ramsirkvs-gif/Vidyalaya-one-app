@@ -417,6 +417,8 @@ test('named PB-1 roster includes all enrolled sections even without paper regist
 
 test('Class XI CSV import, PIN entry and approval keep Half-Yearly results separate from PB-1',async()=>{
  const f=taskFixture(),exam='half-yearly';
+ const directory=()=>f.service('task-read',{exam,operation:'pb1-directory'});
+ assert.deepEqual(await directory(),{teachers:[],paperCount:0});
  await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
  await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');
  await f.admin({operation:'monitoring-publish',expectedRevision:0});
@@ -426,6 +428,9 @@ test('Class XI CSV import, PIN entry and approval keep Half-Yearly results separ
  await assert.rejects(f.service('task-principal',upload,'outsider'),/Principal access/);
  await assert.rejects(f.admin({...upload,csv:csv+'A,1,"Synthetic, First",English,15,40,80,X:one\n'}),/already has a row/);
  const imported=await f.admin(upload);
+ const {teachers,paperCount}=await directory();
+ assert.equal(paperCount,1);
+ assert.deepEqual(teachers.map(({id})=>id),['X:one']);
  assert.equal(imported.rows[0].before.percentage,37.5);
  assert.equal(imported.rows[1].before.absent,true);
  assert.equal(imported.rows[1].before.exam,'Periodic Test 1 (PT-1)');

@@ -335,11 +335,12 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      context(),read(halfYearly?halfYearlyPath:'cbse/taskMonitoring/published'),read('cbse/staffAccess'),
     ]);
     const staff=staffIndex(faculty,mission,{includeRollOnly:true});
-    const assigned=halfYearly?Object.values(source?.papers||{}).map(p=>p.teacherId):
+    const halfYearlyPapers=halfYearly?Object.values(source?.papers||{}):[];
+    const assigned=halfYearly?halfYearlyPapers.map(p=>p.teacherId):
      pb1Scopes(draft,pb1Mission(draft,mission,source),staff).flatMap(p=>p.teachers.map(teacher=>teacher.key));
     const teachers=evaluatorDirectory(staff,access||{},id=>teacherIdentityIds(id,faculty,mission),new Set(assigned),
      id=>avinashBibekIdentityIds(id,faculty,mission)?.[0]||id);
-    return {teachers};
+    return {teachers,...(halfYearly?{paperCount:halfYearlyPapers.length}:{})};
    }
    const monitoringPath='cbse/taskMonitoring';
    if(!admin&&input.operation==='monitoring-read'){

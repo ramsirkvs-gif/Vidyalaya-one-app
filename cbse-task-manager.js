@@ -638,7 +638,7 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
    }});
  };
  if(asPrincipal){await open();return;}
- const {teachers}=await request({action:'task-read',operation:'pb1-directory',exam:examId});
+ const {teachers,paperCount}=await request({action:'task-read',operation:'pb1-directory',exam:examId});
  const login=form(),card=el('section',undefined,'task-card pb1-marks-login');
  card.append(el('h2','Update '+exam.short+' marks'));
  if(teachers.length){
@@ -648,6 +648,8 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
   login.append(el('button','Open marks entry'));
   login.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(()=>open(person.value,secret));};
   card.append(login);
+ }else if(paperCount===0){
+  card.append(el('p','Class XI marks entry opens after the Principal imports the roster and PT-1 marks in the XI Half-Yearly Analyser.'));
  }else card.append(el('p','No evaluators are assigned to '+exam.current+' papers.'));
  host.replaceChildren(button('Back to Wisdom Analyser',()=>{if(discard())return openExam();}),card);
 }
