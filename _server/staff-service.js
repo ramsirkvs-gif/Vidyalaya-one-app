@@ -74,6 +74,31 @@ const rollPublicNOC=(objections,date)=>{
   .map(([id,o])=>({id,staffId:o.staffId,createdBy:o.createdBy,createdName:o.createdName||'IC',principal:o.kind==='principal-hold'||o.createdBy==='principal',status:o.status,groupSize:counts.get(nocGroupKey(o,date))||0}));
 };
 const rollPublicReport=r=>({...Object.fromEntries(['staffId','name','wing','date','period','workflowVersion','morningMode','teacherEditLockedAt','reported','status','hasNoAnswers','requiresCommentReview','requiresReview','approvalRequired','reviewedAt','principalComments','leaveType','halfDay','from','to','updatedAt','submittedAt','approvedAt','rejectedAt'].filter(k=>r[k]!==undefined).map(k=>[k,r[k]])),hasNoAnswers:!!r.hasNoAnswers||rollNoAnswers(r).length>0});
+function rollBoardStatus(value,date,{detailed=false,actorId='',lookupId=actorId,ids=[]}={}){
+ const own=id=>!!actorId&&ids.includes(id);
+ const reports=entries(value.reports).filter(([,r])=>detailed||own(r.staffId)||r.date===date||r.leaveType==='long'&&r.to>=date);
+ const advanceLeaves=publicAdvanceLeaves(value.advanceLeaves);
+ return {
+  noc:rollPublicNOC(value.objections,date),
+  objectionAssignments:value.objectionAssignments||{},
+  advanceLeaves:Object.fromEntries(entries(advanceLeaves).filter(([,r])=>detailed||own(r.staffId)||r.dates?.some(day=>day>=date)).map(([id,r])=>{
+   if(detailed||own(r.staffId))return [id,r];
+   const {odDetails,reviewComment,...status}=r;
+   return [id,status];
+  })),
+  reports:Object.fromEntries(reports.map(([id,r])=>{
+   if(actorId&&r.staffId===actorId)return [id,r];
+   const status=rollPublicReport(r);
+   if(!detailed)delete status.principalComments;
+   return [id,status];
+  })),
+  objections:Object.fromEntries(entries(value.objections).filter(([,o])=>o.kind==='principal-hold'||ids.includes(o.staffId)||lookupId&&o.createdBy===lookupId&&!!(detailed||actorId)).map(([id,o])=>{
+   if(detailed||actorId&&(own(o.staffId)||o.createdBy===actorId))return [id,o];
+   const status=Object.fromEntries(['id','staffId','kind','status','period','date','createdAt','clearedAt','createdName'].filter(key=>o[key]!==undefined).map(key=>[key,o[key]]));
+   return [id,{...status,remark:'Clearance is required. Contact the concerned IC or Principal.'}];
+  })),
+ };
+}
 export function createStaffService({db,auth,restTransaction,readVemsAttendance=readPublishedVemsAttendance,now=Date.now,displayKey,viewSecret=defaultViewSecret}){
  const read=async path=>(await db.ref(path).get()).val();
  const readVersioned=createRevisionReadCache({read});
@@ -441,9 +466,11 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
    await principal(token);const [draft,faculty,mission]=await Promise.all([read('cbse/draft'),read('cbse/facultyDraft'),read('cbse/mission')]);return {draft:{...draft,classes:Object.fromEntries(entries(draft?.classes).map(([cl,c])=>[cl,{...c,sections:Object.fromEntries(entries(c.sections).map(([sid,s])=>[sid,{...s,students:{}}]))}]))},faculty:faculty||emptyFaculty(),mission:Object.fromEntries(['revision','staff','staffEmails','staffContacts','staffPhotos','facultyProfiles','allocations','supportAssignments'].map(k=>[k,mission?.[k]??(k==='revision'?0:{})]))};
   }
   if(action==='roll-call-read'){
-   const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');if(access?.error){const e=new AccessError(access.error,access.status);e.curtainRequired=access.curtainRequired;throw e;}
+   const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
+   const detailed=!access?.error;
+   if(!detailed&&input.requireViewing===true){const e=new AccessError(access.error,access.status);e.curtainRequired=access.curtainRequired;throw e;}
    await preparePrimaryRoster();
-   const [staff,stored,reporting]=await Promise.all([directoryStaff(),read('cbse/rollCall'),read('cbse/chamber/reporting')]),value=stored||{},ids=input.staffId?rollStaffIdentityIds(staff,input.staffId):[];return {ok:true,reporting:publishedReporting(reporting),serverDate:rollToday(now()),serverTime:now(),staff:Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active'&&rollReportingStaff(p)).map(([id,p])=>[id,{name:rollDisplayName(p.name),designation:p.designation||'',wing:rollWing(p),classTeacher:!!p.classTeacher,coClassTeacher:!!p.coClassTeacher,classRoles:p.classRoles||[]}])),rollCall:{noc:rollPublicNOC(value.objections,rollToday(now())),objectionAssignments:value.objectionAssignments||{},advanceLeaves:publicAdvanceLeaves(value.advanceLeaves),reports:Object.fromEntries(entries(value.reports).map(([id,r])=>[id,rollPublicReport(r)])),objections:Object.fromEntries(entries(value.objections).filter(([,o])=>o.kind==='principal-hold'||input.staffId&&(ids.includes(o.staffId)||o.createdBy===input.staffId)))}};
+   const [staff,stored,reporting]=await Promise.all([directoryStaff(),read('cbse/rollCall'),read('cbse/chamber/reporting')]),value=stored||{},ids=input.staffId?rollStaffIdentityIds(staff,input.staffId):[];return {ok:true,reporting:publishedReporting(reporting),serverDate:rollToday(now()),serverTime:now(),staff:Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active'&&rollReportingStaff(p)).map(([id,p])=>[id,{name:rollDisplayName(p.name),designation:p.designation||'',wing:rollWing(p),classTeacher:!!p.classTeacher,coClassTeacher:!!p.coClassTeacher,classRoles:p.classRoles||[]}])),rollCall:rollBoardStatus(value,rollToday(now()),{detailed,ids,lookupId:input.staffId})};
   }
   if(action==='staff-meetings-read'){
    const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
@@ -472,7 +499,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   let pinIdentity,mcqPrincipal,officeRollActor;
   if(action==='mcq-principal'){mcqPrincipal=await principal(token);action=String(input.operation||'');if(!['mcq-reset-all-preview','mcq-reset-all','mcq-clear-banks-preview','mcq-clear-banks','mcq-contribution-history','mcq-manage-preview','mcq-contribution-topic','mcq-contribution-credit','mcq-contribution-delete','mcq-contribute','mcq-import-csv','mcq-question-edit','mcq-question-delete','mcq-paper-delete','mcq-paper','mcq-evaluate','mcq-answer-key','mcq-report-publish'].includes(action))throw new AccessError('Unknown Principal MCQ operation.',400);}
   if(action==='pin-submit'){
-   if(['staff-meetings','roll-call','podcast-list','podcast-ack','exam-attendance-save'].includes(input.operation)){const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}
+   if(['staff-meetings','podcast-list','podcast-ack','exam-attendance-save'].includes(input.operation)){const access=await sharedView('view-version',{},session.viewerToken||'');if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}}
    if(input.operation==='roll-call'&&input.staffId===NOC_OFFICE_IC.staffId){
     if(!['object','clear','clear-group'].includes(input.rollOperation))throw new AccessError('This office PIN is for Afternoon NOC/Hold tasks.',403);
     officeRollActor=await officeService('office-roll-ic-pin',input,token,ip,session);
@@ -634,7 +661,9 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   if(action==='roll-call'||action==='roll-call-principal'){
    const admin=action==='roll-call-principal',adminIdentity=admin?await principal(token):null,actorUid=adminIdentity?.uid;if(!admin&&!pinIdentity&&!officeRollActor)throw new AccessError('Verify your personal PIN.',403);if(!admin&&!officeRollActor){const access=await read('cbse/staffAccess/'+pinIdentity.decoded.staffId);if(!access?.enabled||access.version!==pinIdentity.access.version)throw new AccessError('Staff access changed. Verify your PIN again.',403);}
    const staff=await directoryStaff(),actor=admin?{id:'principal',name:'Principal'}:officeRollActor||{id:pinIdentity.decoded.staffId,name:staff[pinIdentity.decoded.staffId]?.name||'Staff'};
-   const reporting=await read('cbse/chamber/reporting');const output=(value,form=reporting)=>({ok:true,reporting:publishedReporting(form),serverDate:rollToday(now()),serverTime:now(),principal:admin,actor,...(admin?{reportStaff:Object.fromEntries(entries(staff).map(([id,p])=>[id,{name:p.name,designation:p.designation||'',wing:rollWing(p)}]))}:{}),staff:Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active'&&rollReportingStaff(p)).map(([id,p])=>[id,{name:rollDisplayName(p.name),designation:p.designation||'',wing:rollWing(p),classTeacher:!!p.classTeacher,coClassTeacher:!!p.coClassTeacher,classRoles:p.classRoles||[]}])),rollCall:admin?value:{noc:rollPublicNOC(value.objections,rollToday(now())),revision:value.revision||0,objectionAssignments:value.objectionAssignments||{},advanceLeaves:publicAdvanceLeaves(value.advanceLeaves),reports:Object.fromEntries(entries(value.reports).map(([id,r])=>[id,r.staffId===actor.id?r:rollPublicReport(r)])),objections:Object.fromEntries(entries(value.objections).filter(([,o])=>o.kind==='principal-hold'||rollStaffIdentityIds(staff,actor.id).includes(o.staffId)||o.createdBy===actor.id))}});
+   const [reporting,viewAccess]=await Promise.all([read('cbse/chamber/reporting'),!admin&&session.viewerToken?sharedView('view-version',{accessOnly:true},session.viewerToken):null]);
+   const viewOptions={detailed:!!session.viewerToken&&!viewAccess?.error,actorId:actor.id,ids:rollStaffIdentityIds(staff,actor.id)};
+   const output=(value,form=reporting)=>({ok:true,reporting:publishedReporting(form),serverDate:rollToday(now()),serverTime:now(),principal:admin,actor,...(admin?{reportStaff:Object.fromEntries(entries(staff).map(([id,p])=>[id,{name:p.name,designation:p.designation||'',wing:rollWing(p)}]))}:{}),staff:Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active'&&rollReportingStaff(p)).map(([id,p])=>[id,{name:rollDisplayName(p.name),designation:p.designation||'',wing:rollWing(p),classTeacher:!!p.classTeacher,coClassTeacher:!!p.coClassTeacher,classRoles:p.classRoles||[]}])),rollCall:admin?value:{revision:value.revision||0,...rollBoardStatus(value,rollToday(now()),viewOptions)}});
    if(input.rollOperation==='read')return output(await read('cbse/rollCall')||{});
    if(input.rollOperation==='report'||['advance-leave-save','advance-leave-resubmit'].includes(input.rollOperation)){
     const requestId=input.requestId||randomUUID().replaceAll('-','');if(typeof requestId!=='string'||!/^[A-Za-z0-9_-]{8,80}$/.test(requestId))throw new AccessError('Reopen the reporting form and retry.',400);
