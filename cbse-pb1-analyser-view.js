@@ -1,4 +1,5 @@
 import {el,options} from './cbse-ui.js';
+import {pb1ClassAnalysis} from './cbse-pb1-class-analysis.js';
 import {pb1Metrics,pb1CategoryCounts,pb1SmartSummary,pb1SmartStudents} from './cbse-pb1-analyser-model.js';
 const pct=v=>v==null?'—':v.toFixed(1)+'%';
 const delta=(before,after)=>before==null||after==null?'—':(after-before>0?'+':'')+(after-before).toFixed(1)+' pp';
@@ -129,7 +130,7 @@ function renderMarksGraph(parent,grouped,exam){
 export function renderPB1Analyser(host,data,{run,button,save,approve,back,teacher,publicView,entryOnly,openEntry,openNames,refresh,exam=PB1_ANALYSER,setup}){
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
  const filters=el('div',undefined,'pb1-filters'),report=el('div');
- let entering=entryOnly,entryAction;
+ let entering=entryOnly,entryAction,classMode=false;
  const description=el('p',teacher?'Your assigned '+exam.current+' papers':publicView?exam.classes+' · Public student labels are coded':exam.classes+' · '+exam.current);
  card.append(el('h2',entryOnly?'Update '+exam.short+' marks':exam.title),description);
  if(setup)card.append(setup(()=>data.revision));
@@ -147,10 +148,18 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    restrict();
   }
   if(entering){entering=false;drawMode();}
+  classMode=false;filters.hidden=false;
   drawReport();report.scrollIntoView({block:'start'});
  });
  runAnalysis.classList.add('pb1-primary-action');
  toolbar.append(runAnalysis);
+ if(exam.mission&&!entryOnly)toolbar.append(button('Class Teacher Analysis',async()=>{
+  if(content.querySelector('[data-portal-dirty=true]')&&!confirm('Discard unsaved marks?'))return;
+  if(refresh)data=await refresh(!publicView);
+  if(entering){entering=false;drawMode();}
+  classMode=true;filters.hidden=true;hasReport=true;
+  drawClassAnalysis();report.scrollIntoView({block:'start'});
+ }));
  if(openEntry)toolbar.append(button('Update '+exam.short+' marks',openEntry));
  else if(save&&!entryOnly){
   entryAction=button('Update '+exam.short+' marks',()=>{entering=true;drawMode();});
@@ -210,7 +219,10 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
    data=named;publicView=false;names.hidden=true;
    description.textContent=exam.classes+' · Staff viewing';
    restrict();
-   if(hasReport)drawReport();
+   if(hasReport){
+    if(classMode)drawClassAnalysis();
+    else drawReport();
+   }
   });
   toolbar.append(names);
  }
@@ -258,6 +270,55 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,back,teache
   };
   const empty=el('p','No student results match this search.');
   parent.append(list,empty);search.oninput();
+ }
+ let selectedClass='',selectedSection='';
+ function drawClassAnalysis(){
+  report.replaceChildren(el('h3','PB-1 Class Teacher Analysis'));
+  const classFilters=el('div',undefined,'pb1-filters'),results=el('div');
+  report.append(classFilters,results);
+  const standard=control(classFilters,'Class teacher analysis standard'),section=control(classFilters,'Class teacher analysis section');
+  const sections=data.classSections||data.scopes;
+  options(standard,values(sections,'classId').map(value=>[value,value]),selectedClass||classSelect.value);
+  function selectSections(){
+   options(section,choices(values(sections.filter(row=>row.classId===standard.value),'section'),'All sections'),
+    selectedClass===standard.value?selectedSection:sectionSelect.value);
+  }
+  function show(){
+   selectedClass=standard.value;selectedSection=section.value;results.replaceChildren();
+   if(!selectedClass){results.append(el('p','No PB-1 classes are available.'));return;}
+   const classes=sections.filter(row=>row.classId===selectedClass&&(!selectedSection||row.section===selectedSection));
+   results.append(el('p',classes.map(row=>selectedClass+' '+row.section+(row.teacher?' · '+row.teacher:'')).join(' | '),'pb1-scope-summary'),
+    el('p','Attendance uses explicit AB entries. Pending marks are shown separately. A student who is absent and has a failing mark in another subject can appear in both counts.'));
+   for(const [includeAdditional,title] of [[false,'Core subjects only'],[true,'All subjects · including AI and additional subjects']]){
+    const box=el('section',undefined,'pb1-class-summary');
+    const dataSet=pb1ClassAnalysis(data,{classId:selectedClass,section:selectedSection,includeAdditional});
+    const {enrolled,appearedAll,absentOne,absentMultiple,pending,unmapped,passedAll,failed,failures}=dataSet;
+    const rate=total=>total?pct(passedAll*100/total):'—';
+    const stats=el('div',undefined,'pb1-stats');
+    for(const [label,value] of [
+     ['Enrolled',enrolled],['Appeared in all subjects',appearedAll],['Absent in one subject',absentOne],
+     ['Absent in more than one subject',absentMultiple],['Marks pending',pending],['No matching PB-1 papers',unmapped],
+     ['Passed all subjects',passedAll],['Failed in at least one subject',failed],
+     ['Pass percentage · appeared in all',rate(appearedAll)],['Pass percentage · enrolled',rate(enrolled)],
+    ]){
+     const tile=el('div');tile.append(el('span',label),el('strong',String(value)));stats.append(tile);
+    }
+    box.append(el('h4',title),stats,el('h5','Student-wise failed subjects'));
+    if(failures.length){
+     const count=Math.max(...failures.map(student=>student.failed.length));
+     const headers=['Student','Section','Roll',...Array.from({length:count},(_,i)=>'Subject '+(i+1))];
+     table(box,headers,failures.map(student=>[student.name,student.section,student.roll,
+      ...Array.from({length:count},(_,i)=>{
+       const paper=student.failed[i];
+       return paper?paper.subject+' · '+result(paper.mark):'';
+      })]));
+    }else box.append(el('p','No failing marks recorded for this selection.'));
+    results.append(box);
+   }
+  }
+  standard.onchange=()=>{selectedClass=standard.value;selectedSection='';selectSections();show();};
+  section.onchange=show;
+  selectSections();show();
  }
  function drawReport(){
   hasReport=true;report.replaceChildren();

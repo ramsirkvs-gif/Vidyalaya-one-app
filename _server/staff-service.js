@@ -165,6 +165,10 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   if(!transaction.committed)throw new AccessError(reason||'Class XI changes could not be saved. Refresh and retry.',409);
   return halfYearlyReport(transaction.snapshot.val().taskHalfYearly,ids);
  }
+ const pb1Sections=(draft,faculty)=>['X','XII'].flatMap(classId=>entries(draft?.classes?.[classId]?.sections).map(([id,section])=>{
+  const group=faculty?.classes?.[classId];
+  return {classId,section:section.name,teacher:group?.teachers?.[group.roles?.[id]?.classTeacher]?.name||''};
+ }));
  const pb1Roster=draft=>Object.values(studentIndex(draft)).filter(p=>['X','XII'].includes(p.classId))
   .map(({key,name,roll,classId,section})=>({key,name,roll:roll??'',classId,section}));
  async function pb1Workspace(input,actor){
@@ -175,7 +179,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   }
   const initial=await context(),scope=scoped(initial.draft,initial.faculty,initial.mission);
   if(input.operation==='pb1-read'||input.taskOperation==='pb1-read')
-   return {...pb1Report(initial.draft,initial.mission,scope.staff,scope.ids,scope.identity),...(actor.uid?{roster:pb1Roster(initial.draft)}:{})};
+   return {...pb1Report(initial.draft,initial.mission,scope.staff,scope.ids,scope.identity),...(actor.uid?{roster:pb1Roster(initial.draft),classSections:pb1Sections(initial.draft,initial.faculty)}:{})};
   const approving=input.operation==='pb1-approve'&&!!actor.uid;
   if(!approving&&(!Array.isArray(input.entries)||!input.entries.length||input.entries.length>200))
    throw new AccessError('Enter at least one mark or AB.',400);
@@ -228,7 +232,7 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
   if(!result.committed||!result.snapshot.val())throw new AccessError(reason||'The marks could not be confirmed. Reopen the analyser.',409);
   const saved=result.snapshot.val(),{faculty,mission}=resolvedViewingData(saved.draft,saved.facultyDraft,saved.mission);
   const access=scoped(saved.draft,faculty,mission);
-  return {...pb1Report(saved.draft,mission,access.staff,access.ids,access.identity),...(actor.uid?{roster:pb1Roster(saved.draft)}:{})};
+  return {...pb1Report(saved.draft,mission,access.staff,access.ids,access.identity),...(actor.uid?{roster:pb1Roster(saved.draft),classSections:pb1Sections(saved.draft,faculty)}:{})};
  }
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
@@ -249,9 +253,10 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
     else{
      const {draft,faculty,mission}=await context();
      report=pb1Report(draft,mission,staffIndex(faculty,mission),undefined,id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id);
-     if(named)report.roster=pb1Roster(draft);
+     report.roster=pb1Roster(draft);
+     report.classSections=pb1Sections(draft,faculty);
     }
-    const {scopes,rows,roster}=report;
+    const {scopes,rows,roster,classSections}=report;
     const students=new Map();
     const label=key=>{
      if(!students.has(key))students.set(key,'Student '+createHmac('sha256',displayKey).update((halfYearly?'half-yearly-public:':'pb1-public:')+key).digest('hex').slice(0,10).toUpperCase());
@@ -263,7 +268,8 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
      current:current&&{...current,exam:halfYearly?'Half-Yearly':'Preboard 1'},
     }))
      .sort((a,b)=>a.scope-b.scope||a.name.localeCompare(b.name));
-    return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum,approvedAt})=>({classId,section,subject,teacher,teachers,maximum,approvedAt})),rows:publicRows,...(named?{roster}:{})};
+    return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum,approvedAt,additional})=>({classId,section,subject,teacher,teachers,maximum,approvedAt,additional})),rows:publicRows,...(named?{roster}:{}),
+     ...(!halfYearly?{classSections,...(!named?{classRoster:roster.map(({key,classId,section})=>({key:label(key),name:label(key),classId,section}))}:{})}:{})};
    }
    if(!admin&&input.operation==='pb1-directory'){
     const {draft,faculty,mission}=await context(),staff=staffIndex(faculty,mission);

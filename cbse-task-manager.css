@@ -134,3 +134,6 @@
 .pb1-student-compare-results>div{background:#fff;border-radius:.3rem;padding:.35rem .45rem}
 
 .task-app section.task-card.pb1-analyser{background:#eef8e9;border-color:#b9d8ad}
+
+.pb1-class-summary{margin:1rem 0;padding:.8rem;border:1px solid #bfd8c6;border-radius:.6rem;background:#f6fbf6}
+.pb1-class-summary h4,.pb1-class-summary h5{margin:.3rem 0 .6rem}

@@ -23,8 +23,9 @@ export function pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity=id=>id)
      const identity=teacherIdentity(id),name=staff[identity]?.name||staff[id]?.name;
      if(name)namedTeachers.set(identity,{key:identity,name});
     }
+    const additional=paper.codes.some(code=>['417','843'].includes(code))||subject.additional===true||/\badditional\b/i.test(subject.name);
     const approvedAt=mission.pb1Approvals?.[pb1ApprovalKey(classId,sectionId,subjectId)]?.approvedAt||0;
-    scopes.push({classId,sectionId,section:section.name,subjectId,subject:subject.name,date:paper.date,maximum:paper.marks,approvedAt,
+    scopes.push({classId,sectionId,section:section.name,subjectId,subject:subject.name,date:paper.date,maximum:paper.marks,approvedAt,additional,
      teachers:[...namedTeachers.values()],teacher:[...namedTeachers.values()].map(person=>person.name).join(' / ')});
    }
   }

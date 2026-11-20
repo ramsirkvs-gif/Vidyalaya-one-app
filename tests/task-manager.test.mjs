@@ -468,3 +468,43 @@ test('PB-1 reclassifies a monthly borderline student immediately and Mission fol
  const {mission:staffView}=await f.service('view-data',{},'','test',{viewerToken});
  assert.equal(latestAcademicSnapshot(person,staffView).subjects[0].band,'pass');
 });
+
+test('class teacher analysis counts each enrolled student and separates AB, missing, failures and AI',async()=>{
+ const {pb1ClassAnalysis}=await import('../cbse-pb1-class-analysis.js');
+ const sections=[{classId:'X',section:'A'},{classId:'X',section:'B'}];
+ const scopes=[
+  {...sections[0],subject:'English'},{...sections[0],subject:'Science'},{...sections[0],subject:'AI',additional:true},
+  {...sections[1],subject:'English'},
+ ];
+ const roster=['a','b','c','d','g'].map(key=>({key,name:key,roll:key,...sections[0]}))
+  .concat([{key:'e',name:'e',roll:1,...sections[1]},{key:'f',name:'f',roll:2,...sections[1]}]);
+ const pass={percentage:75,failed:false},fail={percentage:22,failed:true},absent={absent:true};
+ const marks=[
+  ['a',[pass,pass,fail]],['b',[absent,fail,absent]],['c',[absent,absent,pass]],
+  ['d',[pass,null,pass]],['g',[fail,fail,pass]],
+ ];
+ const rows=marks.flatMap(([key,papers])=>papers.map((current,scope)=>({key,scope,current})))
+  .concat([{key:'e',scope:3,current:pass}]);
+ const core=pb1ClassAnalysis({roster,rows,scopes},{classId:'X'});
+ assert.deepEqual([core.enrolled,core.appearedAll,core.absentOne,core.absentMultiple,core.pending,core.unmapped,core.passedAll,core.failed],[7,3,1,1,1,1,2,2]);
+ const all=pb1ClassAnalysis({classRoster:roster,rows,scopes},{classId:'X',section:'A',includeAdditional:true});
+ assert.deepEqual([all.enrolled,all.appearedAll,all.absentOne,all.absentMultiple,all.pending,all.passedAll,all.failed],[5,2,0,2,1,0,3]);
+ assert.deepEqual(all.failures.map(row=>row.failed.map(paper=>paper.subject)),[['AI'],['Science'],['English','Science']]);
+});
+
+test('PB-1 class breakdown includes coded enrollment, class teacher and AI metadata',async()=>{
+ const f=taskFixture();
+ f.data.cbse.draft.classes.X.sections={a:{name:'A',subjects:{english:{name:'English',code:'184'},ai:{name:'Artificial Intelligence',code:'417'}},students:{
+  one:{name:'Synthetic Class Student',roll:1,subjects:{english:true,ai:true}},
+  two:{name:'Synthetic No Papers',roll:2,subjects:{}},
+ }}};
+ f.data.cbse.facultyDraft.classes.X.roles={a:{classTeacher:'one'}};
+ await f.admin({operation:'monitoring-publish',expectedRevision:0});
+ const report=await f.service('task-read',{operation:'pb1-public'});
+ assert.deepEqual(report.classSections.find(row=>row.classId==='X'),{classId:'X',section:'A',teacher:'Synthetic Teacher one'});
+ assert.equal(report.scopes.find(row=>/intelligence/i.test(row.subject)).additional,true);
+ assert.equal(report.classRoster.length,2);
+ assert.ok(report.classRoster.every(row=>/^Student [A-F0-9]{10}$/.test(row.name)));
+ assert.ok(report.rows.every(row=>report.classRoster.some(student=>student.key===row.key)));
+ assert.ok(!JSON.stringify(report).includes('Synthetic No Papers'));
+});
