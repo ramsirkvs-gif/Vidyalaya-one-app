@@ -11,7 +11,7 @@ export function paperDiscussionComment(value=''){
  return value.trim();
 }
 
-export function pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity=id=>id){
+export function pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity=id=>id,checkers=()=>[]){
  const allocations=Object.values(mission.allocations||{}),scopes=[],seen=new Set();
  for(const classId of ['X','XII']){
   if(!draft?.classes?.[classId])continue;
@@ -22,7 +22,7 @@ export function pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity=id=>id)
     if(seen.has(key))continue;
     seen.add(key);
     const teachers=[...new Set(allocations.filter(a=>a.classId===classId&&a.sectionId===sectionId&&a.subjectId===subjectId).map(a=>a.staffId))];
-    if(teacherIds&&!teachers.some(id=>teacherIds.has(id)))continue;
+    if(teacherIds&&![...teachers,...checkers({classId,section:section.name,subject:subject.name,paperName:paper.name})].some(id=>teacherIds.has(id)))continue;
     const namedTeachers=new Map();
     for(const id of teachers){
      const identity=teacherIdentity(id),name=staff[identity]?.name||staff[id]?.name;
@@ -38,8 +38,8 @@ export function pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity=id=>id)
  }
  return scopes;
 }
-export function pb1Report(draft,mission,staff,teacherIds,teacherIdentity){
- const scopes=pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity),people=studentIndex(draft),byStudent={},rows=[];
+export function pb1Report(draft,mission,staff,teacherIds,teacherIdentity,checkers){
+ const scopes=pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity,checkers),people=studentIndex(draft),byStudent={},rows=[];
  for(const [id,mark] of Object.entries(mission.marks||{}))(byStudent[mark.studentKey]??={})[id]=mark;
  for(const [scope,info] of scopes.entries()){
   const {classId,sectionId,subjectId,date}=info;

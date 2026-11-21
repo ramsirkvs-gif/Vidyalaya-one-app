@@ -738,7 +738,7 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
  const login=form(),card=el('section',undefined,'task-card pb1-marks-login');
  card.append(el('h2','Update '+exam.short+' marks'));
  if(teachers.length){
-  const person=field(login,'Subject teacher','pb1-teacher','select'),pin=field(login,'Personal PIN','pb1-pin','password');
+  const person=field(login,'Evaluator or cross-checker','pb1-teacher','select'),pin=field(login,'Personal PIN','pb1-pin','password');
   options(person,[['','Choose your name'],...teachers.map(({id,name})=>[id,name])],'');
   person.required=pin.required=true;pin.inputMode='numeric';pin.autocomplete='off';
   login.append(el('button','Open marks entry'));
@@ -746,7 +746,7 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
   card.append(login);
  }else if(paperCount===0){
   card.append(el('p','Class XI marks entry opens after the Principal imports the roster and PT-1 marks in the XI Half-Yearly Analyser.'));
- }else card.append(el('p','No evaluators are assigned to '+exam.current+' papers.'));
+ }else card.append(el('p','No evaluators or cross-checkers are assigned to '+exam.current+' papers.'));
  host.replaceChildren(button('Back to Wisdom Analyser',()=>{if(discard())return openExam();}),card);
 }
 function drawAnalyserCards(){

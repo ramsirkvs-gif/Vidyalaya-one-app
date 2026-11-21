@@ -678,3 +678,34 @@ test('published Task 2 recovers the verified Avinash alias without changing expl
  assert.equal((await submit('X:one','123')).ok,true);
  assert.equal((await read()).monitoring.progress.row_1.stage,1);
 });
+
+test('assigned cross-checkers can save PB-1 and XI marks with their PIN while frozen papers stay locked',async()=>{
+ const f=taskFixture(),{draft,facultyDraft}=f.data.cbse;
+ facultyDraft.classes.X.teachers.two.name='LAISHRAM GANGA DEVI';
+ draft.classes.XII.sections.a.subjects.chemistry={name:'Chemistry',code:'043'};
+ draft.classes.XII.sections.a.students.one={name:'Synthetic PB-1 student',roll:1,subjects:{chemistry:true}};
+ const sheets=MONITORING_SHEETS.map(({rows,columns})=>Array.from({length:rows},()=>Array(columns).fill('')));
+ sheets[0][5].splice(0,6,'1','CHEMISTRY','Class 12-A','','Vacant','MS. L. GANGA DEVI');
+ f.data.cbse.taskMonitoring={published:{revision:1,sheets,assignments:{
+  row_1:{subject:'CHEMISTRY',section:'Class 12-A',roles:{}},
+  row_2:{subject:'CHEMISTRY',section:'Class 11-A',roles:{checker:{id:'X:two',name:'LAISHRAM GANGA DEVI'}}},
+ }}};
+ await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');
+ const csv='Section,RollNo,StudentName,Subject,PreviousMarks,PreviousMM,HalfYearlyMM,Teacher\nA,1,Synthetic XI student,Chemistry,10,40,70,X:one\nB,1,Synthetic unassigned student,Chemistry,10,40,70,X:one\n';
+ await f.admin({operation:'half-yearly-import',exam:'half-yearly',csv,expectedRevision:0});
+ for(const exam of [undefined,'half-yearly']){
+  const {teachers}=await f.service('task-read',{operation:'pb1-directory',exam});
+  assert.ok(teachers.some(({id})=>id==='X:two'));
+  const data=await f.teacher({taskOperation:'pb1-read',exam},'X:two','456');
+  assert.equal(data.scopes.length,1);
+  const {classId,sectionId,subjectId,teachers:attributed}=data.scopes[0],paper={classId,sectionId,subjectId,exam};
+  assert.ok(!attributed.some(({key})=>key==='X:two'));
+  const save=(expectedRevision,mark)=>f.teacher({...paper,taskOperation:'pb1-save',expectedRevision,entries:[{key:data.rows[0].key,mark}]},'X:two','456');
+  const saved=await save(data.revision,30);
+  assert.equal(saved.rows[0].current.score,30);
+  const frozen=await f.admin({...paper,operation:'pb1-approve',expectedRevision:saved.revision});
+  await assert.rejects(save(frozen.revision,40),/frozen/);
+ }
+ f.data.cbse.taskMonitoring.overrides={row_1:{checker:''}};
+ assert.equal((await f.teacher({taskOperation:'pb1-read'},'X:two','456')).scopes.length,0);
+});

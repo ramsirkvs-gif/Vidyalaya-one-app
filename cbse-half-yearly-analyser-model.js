@@ -55,10 +55,10 @@ function savedResult(mark){
  return mark?{...mark,...result(mark.absent?'AB':mark.score,mark.maximum,mark.exam)}:null;
 }
 
-export function halfYearlyReport(state,allowedIds){
+export function halfYearlyReport(state,allowedIds,checkers=()=>[]){
  const scopes=[],rows=[],roster=new Map(allowedIds?[]:Object.entries(state?.roster||{}));
  for(const {students,teacherId,...paper} of Object.values(state?.papers||{})){
-  if(allowedIds&&!allowedIds.has(teacherId))continue;
+  if(allowedIds&&![teacherId,...checkers(paper)].some(id=>allowedIds.has(id)))continue;
   const scope=scopes.length;
   scopes.push({...paper,additional:/^(AI|ARTIFICIAL INTELLIGENCE)(?:\s*\([^)]*\))?$|\bADDITIONAL\b/i.test(paper.subject),teachers:teacherId?[{key:teacherId,name:paper.teacher}]:[]});
   for(const [key,marks] of Object.entries(students||{})){
@@ -70,7 +70,7 @@ export function halfYearlyReport(state,allowedIds){
  return {revision:state?.revision||0,scopes,rows,roster:[...roster.values()],...(!allowedIds?{transfers:Object.values(state?.transfers||{})}:{})};
 }
 
-export function updateHalfYearly(state,input,allowedIds,now){
+export function updateHalfYearly(state,input,allowedIds,now,checkers=()=>[]){
  if(input.expectedRevision!==(state?.revision||0))throw Error('Class XI results changed. Reopen the analyser before saving.');
  if(input.operation==='half-yearly-transfer'){
   if(allowedIds)throw Error('Principal access is required to transfer a subject.');
@@ -92,7 +92,7 @@ export function updateHalfYearly(state,input,allowedIds,now){
   return {...state,transfers,revision};
  }
  const paper=Object.values(state?.papers||{}).find(p=>p.classId===input.classId&&p.sectionId===input.sectionId&&p.subjectId===input.subjectId);
- if(!paper||allowedIds&&!allowedIds.has(paper.teacherId))throw Error('This Class XI paper is outside your assigned teaching scope.');
+ if(!paper||allowedIds&&![paper.teacherId,...checkers(paper)].some(id=>allowedIds.has(id)))throw Error('This Class XI paper is outside your assigned teaching scope.');
  if(input.operation==='pb1-unfreeze'){
   if(allowedIds)throw Error('Principal access is required to unfreeze marks.');
   if(!paper.approvedAt)throw Error('This Half-Yearly paper is already open for marks entry.');
