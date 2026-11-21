@@ -5,17 +5,24 @@ const uploadError=(message,status)=>Object.assign(Error(message),{status});
 export const signedSlipLimit=2_500_000;
 
 async function driveAuthorization(env,fetchImpl,signal){
- const {TASK_DRIVE_CLIENT_ID:client_id,TASK_DRIVE_CLIENT_SECRET:client_secret,TASK_DRIVE_REFRESH_TOKEN:refresh_token}=env;
+ const client_id=env.TASK_DRIVE_CLIENT_ID?.trim(),client_secret=env.TASK_DRIVE_CLIENT_SECRET?.trim();
+ const refresh_token=env.TASK_DRIVE_REFRESH_TOKEN?.trim();
  if(!client_id||!client_secret||!refresh_token)
   throw uploadError('Google Drive authorization is missing. Add the three Task Drive credentials in Vercel and redeploy.',503);
+ let response,body;
  try{
-  const response=await fetchImpl('https://oauth2.googleapis.com/token',{method:'POST',
+  response=await fetchImpl('https://oauth2.googleapis.com/token',{method:'POST',
    body:new URLSearchParams({client_id,client_secret,refresh_token,grant_type:'refresh_token'}),signal});
-  if(!response.ok)throw Error('Authorization failed');
-  const {access_token}=await response.json();
-  if(!access_token)throw Error('Authorization failed');
-  return {Authorization:'Bearer '+access_token};
- }catch{throw uploadError('Google Drive authorization could not be verified. Check the Vercel credentials.',502);}
+  body=await response.json();
+ }catch{throw uploadError('The portal could not reach Google’s authorization service. Try Check Drive connection again.',502);}
+ if(!response.ok||!body?.access_token){
+  if(body?.error==='invalid_client'||body?.error==='unauthorized_client')
+   throw uploadError('Google rejected the Client ID or Client secret. Check that both come from the same OAuth client and the secret is enabled. Update Vercel and redeploy.',502);
+  if(body?.error==='invalid_grant')
+   throw uploadError('Google rejected the Refresh token. Get a fresh Refresh token in OAuth Playground using the same Client ID and secret, then update Vercel and redeploy.',502);
+  throw uploadError('Google did not confirm authorization. Check the three Vercel credentials and try again.',502);
+ }
+ return {Authorization:'Bearer '+body.access_token};
 }
 
 export async function checkTaskSlipDrive({env=process.env,fetchImpl=fetch}={}){
