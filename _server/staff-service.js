@@ -144,10 +144,21 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
  const pinAttempts=createPINAttemptLimiter({db,restTransaction,now});
  async function pinDatabase(operation){try{return await operation();}catch(error){console.error('PIN_DATABASE_REQUEST_FAILED',String(error?.code||'database-request'));throw new AccessError('PIN verification could not reach the database. No save was attempted. Please retry in a moment.',503);}}
  async function throttle(staffId,ip){const ticket=await pinDatabase(()=>pinAttempts.reserve(staffId,ip));if(!ticket.allowed)throw new AccessError('Too many PIN attempts. Try again in 15 minutes.',429);return ticket;}
- async function verifySubmissionPIN(id,pin,access,ip,profile){
+ async function verifySubmissionPIN(id,pin,access,ip,profile,linkedIds=[]){
   const owner=(profile||(await directoryStaff())[id])?.pinOwnerId;if(owner&&owner!==id){id=owner;access=await read('cbse/staffAccess/'+owner);if(!access?.enabled)throw new AccessError('Staff PIN access is disabled.',403);}
   if(!pin)throw new AccessError('Enter your personal PIN for this submission on the student profile.',403);
-  const ticket=await throttle(id,'submit|'+ip);if(!await verifyPIN(pin,access))throw new AccessError('The PIN does not match this staff member.',401);await pinPolicy.assertSelected(pin,'staff:'+id);await pinDatabase(()=>pinAttempts.clear(ticket));
+  const ticket=await throttle(linkedIds[0]||id,'submit|'+ip);
+  if(!await verifyPIN(pin,access)){
+   const alternatives=await Promise.all(linkedIds.filter(key=>key!==id).map(async key=>[key,await read('cbse/staffAccess/'+key)]));
+   let match;
+   for(const [key,record] of alternatives){
+    if(record?.enabled&&await verifyPIN(pin,record)){match={id:key,access:record};break;}
+   }
+   if(!match)throw new AccessError('The PIN does not match this staff member.',401);
+   ({id,access}=match);
+  }
+  await pinPolicy.assertSelected(pin,'staff:'+id);await pinDatabase(()=>pinAttempts.clear(ticket));
+  return {id,access};
  }
  async function revoke(staffId){try{await auth.revokeRefreshTokens('mission_'+createHash('sha256').update(staffId).digest('hex').slice(0,40));}catch(e){if(e.code!=='auth/user-not-found')throw e;}}
  const sharedView=createSharedView({db,context,now,defaultSecret:viewSecret});
@@ -570,8 +581,11 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     action='roll-call';
    }else{
     const selectedId=String(input.staffId||'');if(!/^[a-zA-Z0-9_:-]{1,200}$/.test(selectedId))throw new AccessError('Choose your name and enter your PIN.',401);const directory=await directoryStaff(),id=directory[selectedId]?.pinOwnerId||selectedId,access=await read(`cbse/staffAccess/${id}`),person=directory[id];if(!access?.enabled||person?.status!=='active')throw new AccessError('Choose your name and enter the correct PIN.',401);
-    await verifySubmissionPIN(id,input.pin,access,ip,person);
-    action=String(input.operation||'comment');if(!['staff-meetings','task-manager','comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply','news-create','news-comment','credit-claim','mcq-contribute','mcq-import-csv','mcq-question-edit','mcq-question-delete','mcq-paper-delete','mcq-paper','mcq-evaluate','mcq-answer-key','remedial-plan','roll-call','movement','podcast-list','podcast-ack','exam-attendance-save'].includes(action))throw new AccessError('This operation requires Principal access.',403);if(!['staff-meetings','task-manager','roll-call','movement','podcast-list','podcast-ack'].includes(action)&&!missionMemberAllowed(person))throw new AccessError('This staff member is not part of the Mission team.',403);pinIdentity={decoded:{staffId:id},access};
+    const marksEntry=input.operation==='task-manager'&&['pb1-read','pb1-save'].includes(input.taskOperation);
+    const linkedIds=marksEntry&&isGangaDeviProfile(person)?rollStaffIdentityIds(directory,id)
+     .filter(key=>directory[key]?.status==='active'&&isGangaDeviProfile(directory[key])).sort():[];
+    const verified=await verifySubmissionPIN(id,input.pin,access,ip,person,linkedIds);
+    action=String(input.operation||'comment');if(!['staff-meetings','task-manager','comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply','news-create','news-comment','credit-claim','mcq-contribute','mcq-import-csv','mcq-question-edit','mcq-question-delete','mcq-paper-delete','mcq-paper','mcq-evaluate','mcq-answer-key','remedial-plan','roll-call','movement','podcast-list','podcast-ack','exam-attendance-save'].includes(action))throw new AccessError('This operation requires Principal access.',403);if(!['staff-meetings','task-manager','roll-call','movement','podcast-list','podcast-ack'].includes(action)&&!missionMemberAllowed(person))throw new AccessError('This staff member is not part of the Mission team.',403);pinIdentity={decoded:{staffId:verified.id},access:verified.access};
    }
   }
   if(action==='staff-meetings-principal'||action==='staff-meetings'){
