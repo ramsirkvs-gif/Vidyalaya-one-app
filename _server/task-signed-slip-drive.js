@@ -1,4 +1,5 @@
 import {createHash,randomUUID} from 'node:crypto';
+import {monitoringExamLabel} from '../cbse-task-monitoring-workflow.js';
 const uploadError=(message,status)=>Object.assign(Error(message),{status});
 
 const folder='1WujpMPvLZsS8rzRSf9ahfkhM9Jrjppfh';
@@ -13,8 +14,7 @@ export async function uploadTaskSignedSlip(encoded,{subject,section,uploadKey},{
  if(!client_id||!client_secret||!refresh_token)
   throw uploadError('Drive upload is awaiting Principal setup. The PDF has not been uploaded.',503);
  const title=value=>String(value).replace(/[\x00-\x1f\\/:*?"<>|]/g,' ').trim().slice(0,90);
- const exam=/\b(?:11|XI)\b/i.test(section)?'Half-Yearly':'PB-1';
- const name=exam+' - '+title(section)+' - '+title(subject)+' - Signed Marks Slip.pdf';
+ const name=monitoringExamLabel(section)+' - '+title(section)+' - '+title(subject)+' - Signed Marks Slip.pdf';
  const deadline=AbortSignal.timeout(25000);
  try{
   const auth=await fetchImpl('https://oauth2.googleapis.com/token',{method:'POST',body:new URLSearchParams({client_id,client_secret,refresh_token,grant_type:'refresh_token'}),signal:deadline});

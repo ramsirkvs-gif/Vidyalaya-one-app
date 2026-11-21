@@ -1,5 +1,7 @@
 import {isAvinashGuestProfile} from './cbse-faculty-guest.js';
 
+export const monitoringExamLabel=section=>/\b(?:11|XI)\b/i.test(section)?'XI Half-Yearly':'PB-1';
+
 export const FINAL_EXAM_IC_NAMES=['Mr. Paramveer Meena','Mr. Sunil Kumar'];
 export const MONITORING_ROLES=[['evaluator','Evaluator'],['checker','Checker'],['matching','Matching IC']];
 export const MONITORING_STEPS=[

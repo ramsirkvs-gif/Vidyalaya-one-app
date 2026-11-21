@@ -9,7 +9,7 @@ import {renderPrincipalLogin} from './cbse-principal-login.js';
 import {HALF_YEARLY_COLUMNS,HALF_YEARLY_CSV_LIMIT} from './cbse-half-yearly-analyser-model.js';
 import {renderPB1Analyser,PB1_ANALYSER,HALF_YEARLY_ANALYSER} from './cbse-pb1-analyser-view.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
-import {MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES,monitoringAssignments,monitoringAdvance,monitoringStage,monitoringPeople} from './cbse-task-monitoring-workflow.js';
+import {MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES,monitoringAssignments,monitoringAdvance,monitoringStage,monitoringPeople,monitoringExamLabel} from './cbse-task-monitoring-workflow.js';
 const SAMAGAM_PDF_FOLDER='https://drive.google.com/drive/folders/1WujpMPvLZsS8rzRSf9ahfkhM9Jrjppfh?usp=sharing';
 function signedPdfUploadLink(){
  const link=el('a','Upload signed PDF','button');
@@ -143,7 +143,7 @@ function drawMonitoringSettings(record,index){
 function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate,searchQuery=''){
  const entry=(staffView?record:record.published).assignments[key],progress=record.progress?.[key];
  const stage=monitoringStage(progress),step=MONITORING_STEPS[stage],dialog=el('dialog',undefined,'task-start-dialog task-monitoring-dialog');
- const title=el('h2',entry.subject+' · '+entry.section);
+ const title=el('h2',step?.uploadPdf?[monitoringExamLabel(entry.section),entry.section,entry.subject].join(' · '):entry.subject+' · '+entry.section);
  title.id='task-monitoring-step-title';dialog.setAttribute('aria-labelledby',title.id);dialog.append(title);
  if(practiceUpdate)dialog.append(el('p','Mock practice · no real status will change.','task-monitoring-notice'));
  if(staffView&&step?.samagam)dialog.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));

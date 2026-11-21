@@ -21,7 +21,7 @@ export function signedSlipScan(parent,run){
  const draw=()=>{
   pageOne.textContent=photos[0]?'Retake page 1':'Take photo';
   pageTwo.hidden=!photos[0];
-  pageTwo.textContent=photos[1]?'Retake page 2':'Add page 2 (optional)';
+  pageTwo.textContent=photos[1]?'Retake page 2':'Add page 2 (optional, only for this class)';
   preview.replaceChildren(...photos.map((photo,index)=>{
    const image=el('img');image.src=photo.url;image.alt='Scanned page '+(index+1);
    return image;
