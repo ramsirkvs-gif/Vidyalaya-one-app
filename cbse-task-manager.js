@@ -1,3 +1,5 @@
+import {rollStaffStatus} from './cbse-roll-call-status.js';
+import {rollDateText} from './cbse-roll-call-time.js';
 import {signedSlipScan} from './cbse-task-scan-view.js';
 import {isAvinashGuestProfile} from './cbse-faculty-guest.js';
 import {buildTaskWorkbook} from './cbse-task-excel.js';
@@ -512,9 +514,73 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
   target?.scrollIntoView({block:'nearest',inline:'nearest'});
  }
 }
+async function openDailyPending(){
+ const dashboard=el('section',undefined,'task-card'),actions=el('div',undefined,'task-actions'),date=el('p');
+ const driveStatus=el('div');driveStatus.setAttribute('role','status');
+ actions.append(button('Back to task list',drawPrincipal),button('Refresh pending list',openDailyPending),
+  button('Check Drive connection',async()=>{
+   driveStatus.textContent='Checking both Drive folders…';
+   try{
+    const {folders}=await request({action:'task-principal',operation:'monitoring-drive-check'},true);
+    driveStatus.replaceChildren(...folders.map(({exam,ready})=>el('p',exam+' · '+(ready?'Upload access confirmed':'Upload access unavailable. Check folder permissions.'))));
+   }catch(error){driveStatus.replaceChildren(el('p',error.message,'task-error'));}
+  }));
+ dashboard.append(el('h2','Principal’s daily pending list'),date,actions,driveStatus);
+ const results=el('div');dashboard.append(results);host.replaceChildren(dashboard);
+ const [roll,pb1,xi,workflow]=await Promise.allSettled([
+  request({action:'roll-call-principal',rollOperation:'read'},true),
+  request({action:'task-principal',operation:'pb1-read'},true),
+  request({action:'task-principal',operation:'pb1-read',exam:'half-yearly'},true),
+  request({action:'task-principal',operation:'monitoring-read'},true),
+ ]);
+ const list=(parent,label,items)=>{
+  if(!items.length){parent.append(el('p',label+' · 0'));return;}
+  const details=el('details'),entries=el('ul');
+  details.append(el('summary',label+' · '+items.length),entries);
+  for(const item of items){const row=el('li');row.append(item);entries.append(row);}
+  parent.append(details);
+ };
+ const section=title=>{const block=el('section',undefined,'task-card');block.append(el('h3',title));results.append(block);return block;};
+ const failure=(block,result)=>block.append(el('p',result.reason.message,'task-error'));
+ const attendance=section('Morning Roll Call');
+ const chamber=el('a','Open Principal Chamber','button');chamber.href='index.html#principal-chamber';attendance.append(chamber);
+ if(roll.status==='fulfilled'){
+  const data=roll.value;
+  date.textContent=rollDateText(data.serverDate)+' · IST';
+  for(const [wing,label] of [['primary','Primary wing'],['secondary','Secondary wing']]){
+   const staff=rollStaffStatus(data,wing);
+   list(attendance,label+' · not submitted',staff.filter(person=>person.id&&!person.morning&&!person.morningExcused).map(person=>person.name));
+   list(attendance,label+' · profile setup pending',staff.filter(person=>person.unlinked).map(person=>person.name));
+  }
+ }else failure(attendance,roll);
+ for(const [result,exam,examId] of [[pb1,PB1_ANALYSER,undefined],[xi,HALF_YEARLY_ANALYSER,'half-yearly']]){
+  const block=section(exam.short+' · '+exam.classes);
+  block.append(button('Open analyser',()=>openPB1Analyser(false,examId)));
+  if(result.status==='rejected'){failure(block,result);continue;}
+  const {scopes,rows}=result.value,counts=scopes.map(()=>({enrolled:0,pending:0}));
+  for(const row of rows){counts[row.scope].enrolled++;if(!row.current)counts[row.scope].pending++;}
+  if(!scopes.length){block.append(el('p','No papers are available.'));continue;}
+  const label=paper=>'Class '+paper.classId+' '+paper.section+' · '+paper.subject+(paper.teacher?' · '+paper.teacher:'');
+  const review=(paper,suffix='')=>button(label(paper)+suffix,()=>openPB1Analyser(true,examId,paper));
+  list(block,'Papers with marks pending',scopes.flatMap((paper,index)=>counts[index].pending?[review(paper,' · '+counts[index].pending+' pending')]:[]));
+  list(block,'Papers awaiting freeze',scopes.flatMap((paper,index)=>!paper.approvedAt&&counts[index].enrolled&&!counts[index].pending?[review(paper)]:[]));
+ }
+ const task=section('Task 2 · Pre-Samagam');
+ task.append(button('Open Task 2',openMonitoring));
+ if(workflow.status==='rejected'){failure(task,workflow);return;}
+ const {monitoring}=workflow.value,published=monitoring.published;
+ if(!published){task.append(el('p','Task 2 has no published workflow.'));return;}
+ const due=Object.entries(published.assignments||{}).map(([key,paper])=>({key,paper,stage:monitoringStage(monitoring.progress?.[key])}));
+ for(const step of MONITORING_STEPS.filter(item=>item.uploadPdf||item.samagam)){
+  list(task,step.uploadPdf?'Awaiting signed slip':'Awaiting Samagam upload and matching',due
+   .filter(({stage})=>MONITORING_STEPS[stage]===step)
+   .map(({key,paper,stage})=>button(paper.section+' · '+paper.subject+' · '+(monitoringPeople(published,paper,stage).map(person=>person.name).join(' / ')||'Assignment needed'),()=>drawMonitoring(monitoring,{focusRow:key}))));
+ }
+}
+
 function drawPrincipal(){if(suppliedFigures&&Object.hasOwn(store.tasks||{},suppliedFigures.taskId)){const task=store.tasks[suppliedFigures.taskId];task.draft.headers={...task.draft.headers,...suppliedFigures.headers};task.summary=taskSummary(task);}host.replaceChildren(el('h2','Create and manage tasks'));host.append(el('p','1. Create task → 2. Select classes → 3. Assign teachers → 4. Prepare shared questions → 5. Save and publish → 6. Track submissions.','task-flow-guide'));
  if(suppliedFigures){const banner=el('p',Object.keys(suppliedFigures.headers).length+(Object.hasOwn(store.tasks||{},suppliedFigures.taskId)?' supplied class rows are loaded into the shared draft. Review the figures, assign teachers, then Save and publish task.':' supplied class rows are ready. Create the Task 1 draft to load them.'),'task-import-ready');host.append(banner);}if(suppliedFiguresError)host.append(el('p',suppliedFiguresError,'task-error'));
- const actions=el('div',undefined,'task-actions');actions.append(button('Create Task 1 unpublished draft',async()=>{if(!discard())return;await admin({operation:'create-task1'});openPrincipalTask('task1',store.tasks.task1);message('Task 1 is an unpublished draft unless it was previously published. Existing content is preserved.');}),button('Create another task',()=>{if(!discard())return;newTask();}),button('Refresh tasks',async()=>{if(!discard())return;await admin({operation:'read'});drawPrincipal();}));actions.firstElementChild.hidden=!!store.tasks?.task1;host.append(actions);catalogue(host);drawAnalyserCards();}
+ const actions=el('div',undefined,'task-actions');actions.append(button('Create Task 1 unpublished draft',async()=>{if(!discard())return;await admin({operation:'create-task1'});openPrincipalTask('task1',store.tasks.task1);message('Task 1 is an unpublished draft unless it was previously published. Existing content is preserved.');}),button('Create another task',()=>{if(!discard())return;newTask();}),button('Refresh tasks',async()=>{if(!discard())return;await admin({operation:'read'});drawPrincipal();}));actions.firstElementChild.hidden=!!store.tasks?.task1;actions.prepend(button('Daily pending list',openDailyPending));host.append(actions);catalogue(host);drawAnalyserCards();}
 let excelLoading;
 async function taskExcel(){if(globalThis.ExcelJS&&globalThis.JSZip)return {ExcelJS:globalThis.ExcelJS,JSZip:globalThis.JSZip};excelLoading||=Promise.all([['ExcelJS','vendor/exceljs/exceljs.min.js'],['JSZip','vendor/mcq/jszip.min.js']].map(([name,src])=>globalThis[name]?Promise.resolve():new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.onload=resolve;script.onerror=()=>{excelLoading=null;reject(Error('Excel reader could not load. Retry the import.'));};document.head.append(script);}))).then(()=>({ExcelJS:globalThis.ExcelJS,JSZip:globalThis.JSZip}));return excelLoading;}
 function fixedClassQuestions(parent,headers={}){parent.replaceChildren();let number=0;for(const [key,label]of Object.entries(TASK_HEADERS)){const item=el('div',undefined,'task-fixed-question');item.dataset.fixedQuestion=key;item.append(el('small','Q'+(++number)+' · View only'),el('span',label),el('strong',String(headers[key]??'Unprovided'),headers[key]==null?'task-header-missing':undefined));parent.append(item);}}

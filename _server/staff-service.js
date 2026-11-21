@@ -1,4 +1,4 @@
-import {uploadTaskSignedSlip} from './task-signed-slip-drive.js';
+import {checkTaskSlipDrive,uploadTaskSignedSlip} from './task-signed-slip-drive.js';
 import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
 import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList,minuteLanguages} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
@@ -340,6 +340,10 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
+   if(admin&&input.operation==='monitoring-drive-check'){
+    try{return {folders:await checkTaskSlipDrive()};}
+    catch(error){throw new AccessError(error.message,error.status||502);}
+   }
    const halfYearly=input.exam==='half-yearly';
    if(admin&&halfYearly&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze','half-yearly-import','half-yearly-transfer'].includes(input.operation))return halfYearlyWorkspace(input,{uid:adminIdentity.uid});
    if(admin&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze'].includes(input.operation))return pb1Workspace(input,{uid:adminIdentity.uid});
