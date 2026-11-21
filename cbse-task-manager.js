@@ -724,8 +724,8 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
     const result=await send('pb1-unfreeze',{classId,sectionId,subjectId,expectedRevision});
     message(exam.current+' marks reopened for correction.');return result;
    }:undefined,
-   approve:asPrincipal?async({classId,sectionId,subjectId},expectedRevision,discussionComment)=>{
-    const result=await send('pb1-approve',{classId,sectionId,subjectId,expectedRevision,discussionComment});
+   approve:asPrincipal?async({classId,sectionId,subjectId,freezeToken},expectedRevision,discussionComment)=>{
+    const result=await send('pb1-approve',{classId,sectionId,subjectId,expectedRevision,discussionComment,freezeToken});
     message(exam.current+' marks approved and frozen.'+(exam.mission?' Mission 100 now uses them for this paper.':''));return result;
    }:undefined,
    save:async({classId,sectionId,subjectId,maximum},expectedRevision,entries,secret)=>{

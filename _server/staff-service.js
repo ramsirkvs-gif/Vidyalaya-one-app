@@ -240,6 +240,17 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
  const pb1Roster=draft=>Object.values(studentIndex(draft)).filter(p=>['X','XII'].includes(p.classId))
   .map(({key,name,roll,classId,section})=>({key,name,roll:roll??'',classId,section}));
  const pb1Mission=(draft,mission,published)=>withPublishedPB1Evaluators(mission,published,pb1Scopes(draft,mission,{}));
+ const pb1FreezeToken=(paper,rows)=>createHash('sha256').update(JSON.stringify([
+  paper.maximum,...rows.map(row=>[row.key,row.markId,row.current?.score,row.current?.maximum,!!row.current?.absent]).sort(([a],[b])=>a.localeCompare(b)),
+ ])).digest('hex');
+ function principalPB1Report(report){
+  const rowsByScope=new Map();
+  for(const row of report.rows){
+   const rows=rowsByScope.get(row.scope)||[];
+   rows.push(row);rowsByScope.set(row.scope,rows);
+  }
+  return {...report,scopes:report.scopes.map((paper,index)=>({...paper,freezeToken:pb1FreezeToken(paper,rowsByScope.get(index)||[])}))};
+ }
  async function pb1Workspace(input,actor){
   function scoped(draft,faculty,mission){
    const staff=staffIndex(faculty,mission,{includeRollOnly:true}),ids=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
@@ -249,8 +260,11 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   const [initial,published,overrides]=await Promise.all([context(),read('cbse/taskMonitoring/published'),read('cbse/taskMonitoring/overrides')]);
   initial.mission=pb1Mission(initial.draft,initial.mission,published);
   const scope=scoped(initial.draft,initial.faculty,initial.mission);
+  const entryReport=(draft,faculty,report,ids)=>actor.uid?{...principalPB1Report(report),roster:pb1Roster(draft),classSections:pb1Sections(draft,faculty)}:
+   {...report,teacherIds:[...ids]};
   if(input.operation==='pb1-read'||input.taskOperation==='pb1-read')
-   return {...pb1Report(initial.draft,initial.mission,scope.staff,scope.ids,scope.identity,marksCheckers(published,initial.faculty,initial.mission,overrides||{})),...(actor.uid?{roster:pb1Roster(initial.draft),classSections:pb1Sections(initial.draft,initial.faculty)}:{teacherIds:[...scope.ids]})};
+   return entryReport(initial.draft,initial.faculty,pb1Report(initial.draft,initial.mission,scope.staff,scope.ids,scope.identity,
+    marksCheckers(published,initial.faculty,initial.mission,overrides||{})),scope.ids);
   const approving=input.operation==='pb1-approve'&&!!actor.uid;
   const unfreezing=input.operation==='pb1-unfreeze'&&!!actor.uid;
   if(!approving&&!unfreezing&&(!Array.isArray(input.entries)||!input.entries.length||input.entries.length>200))
@@ -263,7 +277,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
      throw Error('Your access changed. Sign in or verify your PIN again.');
     const raw=current.mission||emptyMission(),draft=current.draft,{faculty,mission}=resolvedViewingData(draft,current.facultyDraft,raw);
     const stale=(raw.revision||0)!==input.expectedRevision;
-    if(stale&&(approving||unfreezing))throw Error('Mission 100 results changed. Reopen the analyser before saving.');
+    if(stale&&(unfreezing||approving&&input.freezeToken===undefined))throw Error('Mission 100 results changed. Reopen the analyser before saving.');
     const assigned=pb1Mission(draft,mission,current.taskMonitoring?.published);
     const {staff,ids,identity}=scoped(draft,faculty,assigned);
     const report=pb1Report(draft,assigned,staff,ids,identity,marksCheckers(current.taskMonitoring?.published,faculty,mission,current.taskMonitoring?.overrides));
@@ -279,6 +293,8 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     }
     if(existingApproval?.approvedAt)throw Error('This Preboard 1 paper is approved and frozen. Ask the Principal to unfreeze it for correction.');
     if(approving){
+     if(input.freezeToken!==undefined&&input.freezeToken!==pb1FreezeToken(paper,[...roster.values()]))
+      throw Error('This paper’s marks or roster changed. Refresh the analysis and review the paper before freezing.');
      if(!roster.size||[...roster.values()].some(row=>!row.current||!row.markId))
       throw Error('Enter marks or AB for every enrolled student before approving this paper.');
      if([...roster.values()].some(row=>row.current.maximum!==paper.maximum))
@@ -318,7 +334,8 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   const saved=result.snapshot.val(),{faculty,mission}=resolvedViewingData(saved.draft,saved.facultyDraft,saved.mission);
   const assigned=pb1Mission(saved.draft,mission,saved.taskMonitoring?.published);
   const access=scoped(saved.draft,faculty,assigned);
-  return {...pb1Report(saved.draft,assigned,access.staff,access.ids,access.identity,marksCheckers(saved.taskMonitoring?.published,faculty,mission,saved.taskMonitoring?.overrides)),...(actor.uid?{roster:pb1Roster(saved.draft),classSections:pb1Sections(saved.draft,faculty)}:{teacherIds:[...access.ids]})};
+  return entryReport(saved.draft,faculty,pb1Report(saved.draft,assigned,access.staff,access.ids,access.identity,
+   marksCheckers(saved.taskMonitoring?.published,faculty,mission,saved.taskMonitoring?.overrides)),access.ids);
  }
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){

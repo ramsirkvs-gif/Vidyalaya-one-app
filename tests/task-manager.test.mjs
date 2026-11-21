@@ -548,7 +548,9 @@ test('PB-1 reclassifies a monthly borderline student immediately and Mission fol
  const approval={operation:'pb1-approve',...paper,expectedRevision:saved.revision};
  const comment='Synthetic private discussion note';
  await assert.rejects(f.admin({...approval,discussionComment:'x'.repeat(1001)}),/up to 1000/);
- await f.admin({...approval,discussionComment:comment});
+ await assert.rejects(f.admin({...approval,freezeToken:'old-paper-contents',discussionComment:comment}),/paper’s marks or roster changed/);
+ f.data.cbse.mission.revision++;
+ await f.admin({...approval,freezeToken:saved.scopes[0].freezeToken,discussionComment:comment});
  await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
  f.data.cbse.mission.allocations={one:{classId:'X',sectionId:'a',subjectId:'english',staffId:'X:one'}};
  assert.equal((await f.teacher({taskOperation:'pb1-read'})).scopes[0].discussionComment,comment);
