@@ -7,10 +7,15 @@ test('Principal can prepare Gocham Yagom alone and keeps her existing unique PIN
  await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
  await f.service('office-pin-settings',{operation:'set-pin',memberId:'sumit-puri',pin:'456'},'principal');
  const input={rosterName:'Ms. Gocham Yagom'};
+ const {rollRoster}=await import('../cbse-roll-call-roster.js');
+ const roster=async()=>rollRoster((await f.service('roll-call-read')).staff,'secondary');
+ const row=async()=>(await roster()).find(person=>person.name==='MS. GOCHAM YAGOM');
+ assert.equal((await row()).id,'');
  await assert.rejects(f.service('roll-call-setup',input,'outsider'),/Principal/);
  assert.deepEqual(await f.service('roll-call-setup',input,'principal'),{ok:true,createdStaff:1,createdPins:1});
  const list=await f.service('list',{},'principal');
  const [id,person]=Object.entries(list.staff).find(([,p])=>p.name==='MS. GOCHAM YAGOM');
+ assert.equal((await row()).id,id);
  assert.equal(person.wing,'secondary');assert.equal(person.designation,'TGT-English');
  const pin=list.access[id].pin;
  assert.match(pin,/^\d{3}$/);assert.ok(!['123','456'].includes(pin));
