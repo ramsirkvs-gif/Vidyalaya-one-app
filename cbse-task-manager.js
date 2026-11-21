@@ -636,6 +636,52 @@ function halfYearlyImportPanel(roster,upload){
  return panel;
 }
 
+function halfYearlyTransferPanel(data,transfer){
+ if(!data.roster.length)return;
+ const details=el('details'),editor=form();
+ const student=field(editor,'Student','xi-transfer-student','select');
+ const from=field(editor,'Current subject','xi-transfer-from','select');
+ const to=field(editor,'New subject','xi-transfer-to','select');
+ const roster=[...data.roster].sort((a,b)=>a.section.localeCompare(b.section)||a.name.localeCompare(b.name));
+ options(student,[['','Choose a Class XI student'],...roster.map(person=>[person.key,'XI '+person.section+' · '+person.name+' · Roll '+person.roll])],'');
+ const action=el('button','Confirm subject transfer'),feedback=el('p');
+ feedback.setAttribute('role','status');
+ editor.append(action,feedback);details.append(el('summary','Transfer a student to another subject'),
+  el('p','Previous marks stay in the subject transfer history. The new subject opens with blank marks.'),editor);
+ function subjects(){
+  const person=roster.find(item=>item.key===student.value);
+  const enrolled=new Set(data.rows.filter(row=>row.key===student.value).map(row=>row.scope));
+  const choices=active=>data.scopes.flatMap((paper,index)=>paper.section===person?.section&&enrolled.has(index)===active?[[paper.subjectId,paper.subject]]:[]);
+  options(from,[['','Choose current subject'],...choices(true)],'');
+  options(to,[['','Choose new subject'],...choices(false)],'');
+ }
+ for(const input of [student,from,to])input.required=true;
+ student.onchange=subjects;subjects();
+ editor.onsubmit=event=>{event.preventDefault();run(async()=>{
+  if([...host.querySelectorAll('form[data-portal-dirty="true"]')].some(active=>active!==editor)){
+   feedback.textContent='Save your mark changes before transferring a subject.';
+   feedback.className='task-error';
+   return;
+  }
+  const person=roster.find(item=>item.key===student.value);
+  if(!confirm('Transfer '+person.name+' from '+from.selectedOptions[0].text+' to '+to.selectedOptions[0].text+'?'))return;
+  try{await transfer({studentKey:student.value,fromSubjectId:from.value,toSubjectId:to.value});}
+  catch(error){feedback.textContent=error.message;feedback.className='task-error';}
+ });};
+ if(data.transfers?.length){
+  const history=el('details');
+  const marks=mark=>mark?(mark.absent?'AB':mark.score+'/'+mark.maximum):'Pending';
+  history.append(el('summary','Subject transfer history'));
+  for(const item of [...data.transfers].sort((a,b)=>b.at-a.at)){
+   const person=roster.find(row=>row.key===item.studentKey);
+   history.append(el('p',(person?.name||'Student')+' · '+item.from+' → '+item.to+' · '+new Date(item.at).toLocaleDateString('en-IN',{timeZone:'Asia/Kolkata'})+
+    ' · Archived '+item.from+' PT-1 '+marks(item.before)+' · Half-Yearly '+marks(item.current)));
+  }
+  details.append(history);
+ }
+ return details;
+}
+
 async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
  const exam=examId==='half-yearly'?HALF_YEARLY_ANALYSER:PB1_ANALYSER;
  const openExam=(entry=false)=>openPB1Analyser(entry,examId);
@@ -655,11 +701,20 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
   const send=(operation,values={},secret='')=>request(asPrincipal?{action:'task-principal',operation,exam:examId,...values}:
    {action:'pin-submit',operation:'task-manager',taskOperation:operation,exam:examId,staffId,pin:secret,...values},asPrincipal);
   const data=savedReport||await send('pb1-read',{},pin);
-  const setup=asPrincipal&&examId?revision=>halfYearlyImportPanel(data.roster,async csv=>{
-   const imported=await send('half-yearly-import',{csv,expectedRevision:revision()});
-   await open('', '', imported);
-   message('Class XI roster and PT-1 marks imported.');
-  }):undefined;
+  const setup=asPrincipal&&examId?revision=>{
+   const panel=halfYearlyImportPanel(data.roster,async csv=>{
+    const imported=await send('half-yearly-import',{csv,expectedRevision:revision()});
+    await open('', '', imported);
+    message('Class XI roster and PT-1 marks imported.');
+   });
+   const transfer=halfYearlyTransferPanel(data,async values=>{
+    const updated=await send('half-yearly-transfer',{...values,expectedRevision:revision()});
+    await open('', '', updated);
+    message('Subject transferred. The previous marks were kept in transfer history.');
+   });
+   if(transfer)panel.append(transfer);
+   return panel;
+  }:undefined;
   renderPB1Analyser(host,data,{button,run,exam,setup,teacher:!asPrincipal,entryOnly,requestedPaper,
    back:()=>{if(discard())return asPrincipal?drawPrincipal():openExam();},
    unfreeze:asPrincipal?async({classId,sectionId,subjectId},expectedRevision)=>{

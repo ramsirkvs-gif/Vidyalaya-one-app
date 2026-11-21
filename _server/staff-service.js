@@ -203,7 +203,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
       if(roster[key]&&roster[key].name!==student.name)throw Error('An imported roll number already belongs to a different student.');
       roster[key]=student;
      }
-     next={revision:(state?.revision||0)+1,papers,roster};
+     next={...state,revision:(state?.revision||0)+1,papers,roster};
     }else{
      const {faculty,mission}=resolvedViewingData(current.draft,current.facultyDraft,current.mission||emptyMission());
      const allowed=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
@@ -307,7 +307,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
    const halfYearly=input.exam==='half-yearly';
-   if(admin&&halfYearly&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze','half-yearly-import'].includes(input.operation))return halfYearlyWorkspace(input,{uid:adminIdentity.uid});
+   if(admin&&halfYearly&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze','half-yearly-import','half-yearly-transfer'].includes(input.operation))return halfYearlyWorkspace(input,{uid:adminIdentity.uid});
    if(admin&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze'].includes(input.operation))return pb1Workspace(input,{uid:adminIdentity.uid});
    if(!admin&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze'].includes(input.operation))throw new AccessError('Use a teacher PIN for marks entry or Principal sign-in for approval.',403);
    if(!admin&&['pb1-public','pb1-named'].includes(input.operation)){

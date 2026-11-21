@@ -61,17 +61,36 @@ export function halfYearlyReport(state,allowedIds){
   if(allowedIds&&!allowedIds.has(teacherId))continue;
   const scope=scopes.length;
   scopes.push({...paper,additional:/^(AI|ARTIFICIAL INTELLIGENCE)(?:\s*\([^)]*\))?$|\bADDITIONAL\b/i.test(paper.subject),teachers:teacherId?[{key:teacherId,name:paper.teacher}]:[]});
-  for(const [key,marks] of Object.entries(students)){
+  for(const [key,marks] of Object.entries(students||{})){
    const student=state.roster[key];
    roster.set(key,student);
    rows.push({...student,scope,before:savedResult(marks.before),current:savedResult(marks.current)});
   }
  }
- return {revision:state?.revision||0,scopes,rows,roster:[...roster.values()]};
+ return {revision:state?.revision||0,scopes,rows,roster:[...roster.values()],...(!allowedIds?{transfers:Object.values(state?.transfers||{})}:{})};
 }
 
 export function updateHalfYearly(state,input,allowedIds,now){
  if(input.expectedRevision!==(state?.revision||0))throw Error('Class XI results changed. Reopen the analyser before saving.');
+ if(input.operation==='half-yearly-transfer'){
+  if(allowedIds)throw Error('Principal access is required to transfer a subject.');
+  const {studentKey,fromSubjectId,toSubjectId}=input;
+  const student=Object.hasOwn(state?.roster||{},studentKey)?state.roster[studentKey]:null;
+  const papers=state?.papers||{};
+  const from=Object.hasOwn(papers,fromSubjectId)?papers[fromSubjectId]:null;
+  const to=Object.hasOwn(papers,toSubjectId)?papers[toSubjectId]:null;
+  if(!student||!from||!to||from===to||[from,to].some(paper=>paper.section!==student.section||paper.classId!==student.classId))
+   throw Error('Choose two different subjects in the student’s section.');
+  if(!Object.hasOwn(from.students||{},studentKey)||Object.hasOwn(to.students||{},studentKey))
+   throw Error('The student’s enrollment changed. Reopen the analyser and check the subjects.');
+  if(from.approvedAt||to.approvedAt)throw Error('Unfreeze the frozen paper before changing its enrollment.');
+  const archived=from.students[studentKey],revision=state.revision+1;
+  const transfers={...state.transfers,['transfer_'+revision]:{studentKey,from:from.subject,to:to.subject,at:now,
+   ...(archived.before?{before:archived.before}:{}),...(archived.current?{current:archived.current}:{})}};
+  delete from.students[studentKey];
+  (to.students??={})[studentKey]={enrolled:true};
+  return {...state,transfers,revision};
+ }
  const paper=Object.values(state?.papers||{}).find(p=>p.classId===input.classId&&p.sectionId===input.sectionId&&p.subjectId===input.subjectId);
  if(!paper||allowedIds&&!allowedIds.has(paper.teacherId))throw Error('This Class XI paper is outside your assigned teaching scope.');
  if(input.operation==='pb1-unfreeze'){

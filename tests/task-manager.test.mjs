@@ -507,6 +507,28 @@ test('Class XI CSV import, PIN entry and approval keep Half-Yearly results separ
  assert.deepEqual(f.data.cbse.mission.marks,{});
 });
 
+test('Principal can transfer a Class XI subject while retaining the original marks in private history',async()=>{
+ const f=taskFixture(),exam='half-yearly';
+ const csv='Section,RollNo,StudentName,Subject,PreviousMarks,PreviousMM,HalfYearlyMM,Teacher\nD,31,Synthetic Transfer,Hindi,10,40,80,\nD,32,Synthetic IP,IP,12,40,70,X:one\n';
+ const imported=await f.admin({operation:'half-yearly-import',exam,csv,expectedRevision:0});
+ const [from,to]=imported.scopes,studentKey=imported.rows[0].key;
+ const paper={classId:from.classId,sectionId:from.sectionId,subjectId:from.subjectId};
+ const saved=await f.admin({operation:'pb1-save',exam,...paper,expectedRevision:imported.revision,entries:[{key:studentKey,mark:33}]});
+ const transfer={operation:'half-yearly-transfer',exam,studentKey,fromSubjectId:from.subjectId,toSubjectId:to.subjectId,expectedRevision:saved.revision};
+ await assert.rejects(f.service('task-principal',transfer,'outsider'),/Principal/);
+ const approved=await f.admin({operation:'pb1-approve',exam,...paper,expectedRevision:saved.revision});
+ await assert.rejects(f.admin({...transfer,expectedRevision:approved.revision}),/Unfreeze/);
+ const reopened=await f.admin({operation:'pb1-unfreeze',exam,...paper,expectedRevision:approved.revision});
+ const updated=await f.admin({...transfer,expectedRevision:reopened.revision});
+ assert.deepEqual(updated.rows.filter(row=>row.key===studentKey).map(row=>[updated.scopes[row.scope].subject,row.before,row.current]),[['IP',null,null]]);
+ assert.equal(updated.transfers[0].before.score,10);
+ assert.equal(updated.transfers[0].current.score,33);
+ await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ const teacher=await f.teacher({taskOperation:'pb1-read',exam});
+ assert.ok(teacher.rows.some(row=>row.key===studentKey));
+ assert.equal(teacher.transfers,undefined);
+});
+
 test('PB-1 reclassifies a monthly borderline student immediately and Mission follows after freeze',async()=>{
  const f=taskFixture(),{draft,mission}=f.data.cbse,key='X:a:one';
  draft.classes.X.sections={a:{name:'A',subjects:{english:{name:'English',code:'184'}},students:{
