@@ -314,3 +314,15 @@ Drive preview uses a fixed 1280×720 internal viewport, centered and scaled to f
 **CBSE Date Sheet 2027 & Student Attendance** provides Class X/XII and subject selection for the school's mapped subjects. Theory dates and exact times were visually checked against the supplied 06 November 2026 circular (PDF pages 4–12); source-page links are included. Principal-confirmed course codes are X English 184, X Hindi 002, XII English Core 301 and XII Hindi Core 302. Only subjects present in the live section catalogues are listed; conflicting names/codes and unmatched mappings are flagged instead of guessed. Enrollment counts use actual subject selections. Preboard 1 is awaiting its supplied date sheet, and Preboard 2 is marked awaiting RO issue. Each matched CBSE paper opens an exam-centre attendance workspace with only its enrolled students.
 
 **Exam-centre attendance:** choose Class X/XII, a subject paper, then **Exam-centre attendance**. The server rebuilds that paper’s enrolled roster from current section mappings and student subject choices. It returns only those students’ saved contact fields. Reported and pending-follow-up lists are separate; an untouched student is **Not yet confirmed**, never automatically absent. Pending cards offer saved Call/WhatsApp contacts, address and validated home Maps links (or an explicitly labelled address search). Existing staff PINs authorize exam-day updates; the shared Principal session saves directly and can correct past exams with a reason. Future attendance is blocked for everyone. Per-student revisions prevent silent overwrites, retry IDs avoid duplicate saves, and an audit trail retains prior values, actor and server timestamps. Reads and writes are scoped to one paper; attendance is stored separately from academic marks and ordinary school attendance. Explicit refresh updates saved statuses while preserving unsaved choices for review. Preboards remain unavailable until their date sheets are supplied/published.
+
+### Task 2 signed marks slips
+
+Task 2 mock practice assembles the scanned PDF locally. It does not contact Google Drive or update a live paper. The live upload step sends the signed PDF to the school folder and advances the paper only after Drive confirms the file.
+
+To enable live uploads, enable the Google Drive API for the OAuth client project and authorize an account that can upload to the existing school folder. Configure the following as server-side environment variables in Vercel, then redeploy.
+
+- `TASK_DRIVE_CLIENT_ID`
+- `TASK_DRIVE_CLIENT_SECRET`
+- `TASK_DRIVE_REFRESH_TOKEN` (offline Google OAuth authorization with Drive access to the destination folder)
+
+Keep credentials in Vercel. Manage who can open the uploaded slips through the folder’s Drive permissions. The portal does not change sharing permissions.

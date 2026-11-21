@@ -88,6 +88,6 @@ export function monitoringAdvance(record,input,actor,stamp){
  if(remark.length>500||((input.outcome==='return'||step.role==='exam')&&!remark))throw Error('Enter a remark of up to 500 characters.');
  const stage=input.outcome==='return'?(currentStage===1?0:3):currentStage+1;
  const {subject,section}=entry;
- const progress={stage,separateMatching:true,revision:previous.revision+1,identity:{subject,section},history:[...previous.history,{label:option[1],name:actor.name,remark,at:stamp}]};
+ const progress={stage,separateMatching:true,revision:previous.revision+1,identity:{subject,section},...(previous.signedSlip?{signedSlip:previous.signedSlip}:{}),history:[...previous.history,{label:option[1],name:actor.name,remark,at:stamp}]};
  return {...record,progress:{...record.progress,[input.rowKey]:progress}};
 }

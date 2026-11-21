@@ -160,7 +160,14 @@ test('Task 2 workbook stays private and saves editable cells with revision check
  await assert.rejects(staffRead(),/no longer published/);
 });
 test('Task 2 tracks PIN-gated handoffs, corrections and authorized Exam closure across republication',async()=>{
- const f=taskFixture();
+ let uploadCount=0;
+ const f=taskFixture({uploadSignedSlip:async(pdf,paper)=>{
+  uploadCount++;
+  assert.equal(paper.section,'X A');
+  if(pdf==='synthetic-failure')throw Error('Drive rejected test upload.');
+  assert.equal(pdf,'synthetic-pdf');
+  return {id:'synthetic-drive-id',name:'Signed slip.pdf'};
+ }});
  f.data.cbse.facultyDraft.classes.X.teachers.one.name='MR. PARAMVEER MEENA';
  f.data.cbse.facultyDraft.classes.X.teachers.two.name='MR. SUNIL KUMAR';
  f.data.cbse.facultyDraft.classes.X.teachers.three={name:'Synthetic Other IC',status:'active',designation:'PGT-Commerce'};
@@ -174,8 +181,8 @@ test('Task 2 tracks PIN-gated handoffs, corrections and authorized Exam closure 
  await f.admin({operation:'monitoring-save',expectedRevision:0,sheets});
  await f.admin({operation:'monitoring-settings',expectedRevision:1,overrides:{}});
  await f.admin({operation:'monitoring-publish',expectedRevision:2});
- const submit=(staff,expectedRevision,outcome='advance',remark='',publicationRevision=3)=>f.service('pin-submit',{
-  operation:'task-manager',taskOperation:'monitoring-update',staffId:'X:'+staff,pin:{one:'123',two:'456',three:'789'}[staff],rowKey:'row_1',publicationRevision,expectedRevision,outcome,remark,
+ const submit=(staff,expectedRevision,outcome='advance',remark='',publicationRevision=3,pdf)=>f.service('pin-submit',{
+  operation:'task-manager',taskOperation:'monitoring-update',pdf,staffId:'X:'+staff,pin:{one:'123',two:'456',three:'789'}[staff],rowKey:'row_1',publicationRevision,expectedRevision,outcome,remark,
  },'','test',session);
  const practice=(staff,pin)=>f.service('pin-submit',{
   operation:'task-manager',taskOperation:'monitoring-practice',staffId:'X:'+staff,pin,rowKey:'row_1',publicationRevision:3,stage:0,outcome:'advance',
@@ -191,8 +198,13 @@ test('Task 2 tracks PIN-gated handoffs, corrections and authorized Exam closure 
  await submit('one',2);
  await submit('two',3);
  await submit('one',4);
- await assert.rejects(submit('two',5),/another staff member/);
- await submit('one',5);
+ await assert.rejects(submit('two',5,'advance','',3,'synthetic-pdf'),/another staff member/);
+ assert.equal(uploadCount,0);
+ await assert.rejects(submit('one',5),/Scan or select/);
+ await assert.rejects(submit('one',5,'advance','',3,'synthetic-failure'),/Drive rejected/);
+ assert.equal(monitoringStage(f.data.cbse.taskMonitoring.progress.row_1),3);
+ await submit('one',5,'advance','',3,'synthetic-pdf');
+ assert.equal(uploadCount,2);
  await assert.rejects(submit('one',6),/another staff member/);
  await submit('two',6);
  await submit('two',7);
@@ -213,6 +225,7 @@ test('Task 2 tracks PIN-gated handoffs, corrections and authorized Exam closure 
  await submit('two',8,'advance','Received',4);
  const {monitoring}=await f.service('task-read',{operation:'monitoring-read'},'','test',session);
  assert.equal(monitoringStage(monitoring.progress.row_1),7);
+ assert.equal(monitoring.progress.row_1.signedSlip.id,'synthetic-drive-id');
  assert.equal(monitoring.progress.row_1.history.at(-1).remark,'Received');
  assert.equal(monitoring.progress.row_1.history.at(-1).name,'MR. SUNIL KUMAR');
 });

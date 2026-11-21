@@ -1,3 +1,4 @@
+import {signedSlipScan} from './cbse-task-scan-view.js';
 import {isAvinashGuestProfile} from './cbse-faculty-guest.js';
 import {buildTaskWorkbook} from './cbse-task-excel.js';
 import {openTaskPresentation,closeTaskPresentation} from './cbse-task-presentation.js';
@@ -145,8 +146,6 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate
  const title=el('h2',entry.subject+' · '+entry.section);
  title.id='task-monitoring-step-title';dialog.setAttribute('aria-labelledby',title.id);dialog.append(title);
  if(practiceUpdate)dialog.append(el('p','Mock practice · no real status will change.','task-monitoring-notice'));
- if(staffView&&allowUpdate&&step?.uploadPdf&&!practiceUpdate)
-  dialog.append(el('p','Upload the signed marks slip to Google Drive, then save the upload status here.'),signedPdfUploadLink());
  if(staffView&&step?.samagam)dialog.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
  if(progress?.history?.length){
   const history=el('details');history.open=!allowUpdate;
@@ -159,26 +158,31 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate
  }
  const close=button('Close',()=>dialog.close());dialog.append(close);
  const eligible=monitoringPeople(record,entry,stage);
+ let scan;
  if(staffView&&allowUpdate&&step&&eligible.length){
-  const editor=form(),person=field(editor,'Your name','monitoring-staff','select'),outcome=field(editor,'Status','monitoring-outcome','select');
+  const editor=form(),person=field(editor,'Your name','monitoring-staff','select');
   options(person,[['','Choose your name'],...eligible.map(({id,name})=>[id,name])],'');
-  options(outcome,[['','Choose status'],...step.options],'');
+  const outcome=step.uploadPdf?null:field(editor,'Status','monitoring-outcome','select');
+  if(outcome)options(outcome,[['','Choose status'],...step.options],'');
+  else scan=signedSlipScan(editor,run);
   const remark=field(editor,step.role==='exam'?'Final remark':'Remark','monitoring-remark','textarea');remark.maxLength=500;
   const pin=field(editor,'Personal PIN','monitoring-pin','password');pin.inputMode='numeric';pin.autocomplete='off';
-  for(const input of [person,outcome,pin])input.required=true;
-  outcome.onchange=()=>{remark.required=step.role==='exam'||outcome.value==='return';};outcome.onchange();
+  for(const input of [person,pin])input.required=true;
+  if(outcome){outcome.required=true;outcome.onchange=()=>{remark.required=step.role==='exam'||outcome.value==='return';};outcome.onchange();}
   const errorText=el('p',undefined,'task-error');errorText.setAttribute('role','status');
-  editor.append(el('button',practiceUpdate?'Save practice status':'Save status'),errorText);dialog.append(editor);
+  editor.append(el('button',step.uploadPdf?(practiceUpdate?'Test scan':'Upload signed PDF'):practiceUpdate?'Save practice status':'Save status'),errorText);dialog.append(editor);
   editor.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(async()=>{
    try{
-    const result=await request({action:'pin-submit',operation:'task-manager',taskOperation:practiceUpdate?'monitoring-practice':'monitoring-update',staffId:person.value,pin:secret,rowKey:key,publicationRevision:record.revision,expectedRevision:progress?.revision||0,stage,outcome:outcome.value,remark:remark.value});
+    const pdf=scan?await scan.payload():undefined;
+    if(pdf)errorText.textContent=practiceUpdate?'Checking practice PDF…':'Uploading to Google Drive…';
+    const result=await request({action:'pin-submit',operation:'task-manager',pdf:practiceUpdate?undefined:pdf,taskOperation:practiceUpdate?'monitoring-practice':'monitoring-update',staffId:person.value,pin:secret,rowKey:key,publicationRevision:record.revision,expectedRevision:progress?.revision||0,stage,outcome:outcome?.value||'advance',remark:remark.value});
     dialog.close();
     if(practiceUpdate){practiceUpdate(result);message('Practice status saved.');}
-    else{await openPublishedMonitoring(undefined,key,searchQuery);message('Status saved.');}
+    else{await openPublishedMonitoring(undefined,key,searchQuery);message(pdf?'Signed PDF uploaded.':'Status saved.');}
    }catch(error){errorText.textContent=error.message;}
   });};
  }else if(staffView&&allowUpdate&&step)dialog.append(el('p','Awaiting a Principal assignment for '+step.label+'.'));
- dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
+ dialog.addEventListener('close',()=>{scan?.clear();dialog.remove();},{once:true});document.body.append(dialog);dialog.showModal();
 }
 function openMonitoringPractice(record,index){
  const actors=Object.fromEntries([...MONITORING_ROLES,['exam','Exam IC / Co-IC']].map(([id,label])=>[id,{id,name:'Practice '+label}]));
@@ -202,7 +206,16 @@ function openMonitoringPractice(record,index){
    checklist.append(item);
   });
   card.append(checklist);
-  if(step){
+  if(step?.uploadPdf){
+   const editor=el('form'),scan=signedSlipScan(editor,run),receipt=el('p');
+   receipt.setAttribute('role','status');
+   editor.append(el('button','Test scan without uploading'),receipt);card.append(editor);
+   editor.onsubmit=event=>{event.preventDefault();run(async()=>{
+    try{await scan.payload();}catch(error){receipt.textContent=error.message;return;}
+    mock=monitoringAdvance(mock,{rowKey,publicationRevision:published.revision,expectedRevision:progress?.revision||0,outcome:'advance'},actors[step.role],Date.now());
+    scan.clear();draw();message('Mock PDF prepared. No file was sent to Drive.');
+   });};
+  }else if(step){
    const editor=el('form'),outcome=field(editor,'Status','practice-status','select');
    options(outcome,[['','Choose status'],...step.options],'');outcome.required=true;
    const remark=field(editor,step.role==='exam'?'Final remark':'Remark','practice-remark','textarea');remark.maxLength=500;
@@ -450,7 +463,11 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
       const previous=step.samagam&&progress?.history?.findLast(item=>[label,'Matched Samagam marks with the mark slip'].includes(item.label));
       cell.append(el('span',previous?.label||label));
      }
-     if(staffView&&step.uploadPdf&&!practice&&(current||pdfNotRecorded))cell.append(signedPdfUploadLink());
+     if(step.uploadPdf&&progress?.signedSlip?.id){
+      const link=el('a','View signed PDF','button');
+      link.href='https://drive.google.com/file/d/'+encodeURIComponent(progress.signedSlip.id)+'/view';link.target='_blank';link.rel='noopener noreferrer';cell.append(link);
+     }
+     if(staffView&&step.uploadPdf&&!practice&&pdfNotRecorded)cell.append(signedPdfUploadLink());
      const latest=progress?.history?.at(-1)?.label;
      if(current&&latest&&MONITORING_STEPS.some(stage=>stage.options.some(([value,label])=>value==='return'&&label===latest)))
       cell.append(el('span',latest));
@@ -459,7 +476,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
       redrawSheet();
      }:undefined;
      if(emergencyPeople&&step.role!=='exam')addEmergencyControl(cell,key,position,entry,step);
-     if(current&&staffView)cell.append(button(practice?'Practise status update':'Update status',()=>openMonitoringStep(viewRecord,key,true,true,practiceUpdate,search.value)));
+     if(current&&staffView)cell.append(button(step.uploadPdf?'Scan signed marks slip':practice?'Practise status update':'Update status',()=>openMonitoringStep(viewRecord,key,true,true,practiceUpdate,search.value)));
      if(position===Math.min(stage,MONITORING_STEPS.length-1)&&progress?.history?.length)
       cell.append(button('View history',()=>openMonitoringStep(viewRecord,key,staffView,false,practiceUpdate)));
     });

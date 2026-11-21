@@ -1,8 +1,9 @@
+import {uploadTaskSignedSlip} from './task-signed-slip-drive.js';
 import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
 import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList,minuteLanguages} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {validateMonitoringSheets} from '../cbse-task-workbook.js';
-import {monitoringAssignments,monitoringAdvance,resolvePublishedAvinashAssignments,MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES} from '../cbse-task-monitoring-workflow.js';
+import {monitoringAssignments,monitoringAdvance,monitoringStage,resolvePublishedAvinashAssignments,MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES} from '../cbse-task-monitoring-workflow.js';
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {evaluatorDirectory,withPublishedPB1Evaluators} from './pb1-evaluators.js';
 import {pb1Report,pb1Scopes,paperDiscussionComment} from '../cbse-pb1-analyser-model.js';
@@ -100,7 +101,7 @@ function rollBoardStatus(value,date,{detailed=false,actorId='',lookupId=actorId,
   })),
  };
 }
-export function createStaffService({db,auth,restTransaction,readVemsAttendance=readPublishedVemsAttendance,now=Date.now,displayKey,viewSecret=defaultViewSecret}){
+export function createStaffService({db,auth,restTransaction,uploadSignedSlip=uploadTaskSignedSlip,readVemsAttendance=readPublishedVemsAttendance,now=Date.now,displayKey,viewSecret=defaultViewSecret}){
  const read=async path=>(await db.ref(path).get()).val();
  const readVersioned=createRevisionReadCache({read});
  async function context(){const [draft,faculty,mission]=await Promise.all([read('cbse/draft'),read('cbse/facultyDraft'),read('cbse/mission')]);return {draft,...resolvedViewingData(draft,faculty,mission||emptyMission())};}
@@ -674,14 +675,32 @@ export function createStaffService({db,auth,restTransaction,readVemsAttendance=r
       return {ok:true,stage:result.stage,event:result.history[0]};
      }catch(error){throw new AccessError(error.message,409);}
     }
-    const known=await read(path+'/revision');
+    const stored=input.pdf===undefined?null:await read(path);
+    const known=stored?.revision??await read(path+'/revision'),stamp=now();
+    const advance=state=>{
+     const published=state.published,effective=resolvePublishedAvinashAssignments(published,staff,state.overrides);
+     return monitoringAdvance({...state,published:effective&&{...effective,examReviewers}},input,actor,stamp);
+    };
+    let signedSlip;
+    const needsPDF=state=>MONITORING_STEPS[monitoringStage(state?.progress?.[input.rowKey])]?.uploadPdf;
+    if(input.pdf!==undefined){
+     if(!stored||!needsPDF(stored))throw new AccessError('This row is no longer waiting for a signed PDF. Refresh its status.',409);
+     try{advance(stored);}catch(error){throw new AccessError(error.message,409);}
+     const entry=stored.published.assignments[input.rowKey];
+     const uploadKey=JSON.stringify([input.rowKey,input.publicationRevision,input.expectedRevision,entry.section,entry.subject]);
+     try{signedSlip=await uploadSignedSlip(input.pdf,{...entry,uploadKey});}
+     catch(error){throw new AccessError(error.message,error.status||502);}
+    }
     let reason;
     const result=await mcqTransaction(db,path,current=>{
      if(current===null&&known)return null;
      try{
       const state=current||{},published=state.published;
-      const effective=resolvePublishedAvinashAssignments(published,staff,state.overrides);
-      const next=monitoringAdvance({...state,published:effective&&{...effective,examReviewers}},input,actor,now());
+      const next=advance(state);
+      if(needsPDF(state)){
+       if(!signedSlip)throw Error('Scan or select the signed PDF before completing this step.');
+       next.progress[input.rowKey].signedSlip=signedSlip;
+      }
       return {...next,published:{...published,examReviewers}};
      }
      catch(error){reason=error.message;return;}
