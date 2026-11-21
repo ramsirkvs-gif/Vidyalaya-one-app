@@ -317,9 +317,9 @@ Drive preview uses a fixed 1280×720 internal viewport, centered and scaled to f
 
 ### Task 2 signed marks slips
 
-Task 2 mock practice assembles the scanned PDF locally. It does not contact Google Drive or update a live paper. The live upload step sends the signed PDF to the school folder and advances the paper only after Drive confirms the file.
+Task 2 mock practice assembles the scanned PDF locally. It does not contact Google Drive or update a live paper. The live upload step sends the signed PDF to the exam’s school folder (PB-1 X/XII or XI Half-Yearly) and advances the paper only after Drive confirms the file.
 
-To enable live uploads, enable the Google Drive API for the OAuth client project and authorize an account that can upload to the existing school folder. Configure the following as server-side environment variables in Vercel, then redeploy.
+To enable live uploads, enable the Google Drive API for the OAuth client project and authorize an account that can upload to both school folders. Configure the following as server-side environment variables in Vercel, then redeploy.
 
 - `TASK_DRIVE_CLIENT_ID`
 - `TASK_DRIVE_CLIENT_SECRET`

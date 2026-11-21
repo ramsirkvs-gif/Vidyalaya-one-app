@@ -1,6 +1,8 @@
 import {isAvinashGuestProfile} from './cbse-faculty-guest.js';
 
-export const monitoringExamLabel=section=>/\b(?:11|XI)\b/i.test(section)?'XI Half-Yearly':'PB-1';
+const isHalfYearlySection=section=>/\b(?:11|XI)\b/i.test(section);
+export const monitoringExamLabel=section=>isHalfYearlySection(section)?'XI Half-Yearly':'PB-1';
+export const monitoringSlipFolder=section=>isHalfYearlySection(section)?'19Bd5XLnNuizTYuStRYLOOdYi92wEe31x':'1WujpMPvLZsS8rzRSf9ahfkhM9Jrjppfh';
 
 export const FINAL_EXAM_IC_NAMES=['Mr. Paramveer Meena','Mr. Sunil Kumar'];
 export const MONITORING_ROLES=[['evaluator','Evaluator'],['checker','Checker'],['matching','Matching IC']];

@@ -1,8 +1,7 @@
 import {createHash,randomUUID} from 'node:crypto';
-import {monitoringExamLabel} from '../cbse-task-monitoring-workflow.js';
+import {monitoringExamLabel,monitoringSlipFolder} from '../cbse-task-monitoring-workflow.js';
 const uploadError=(message,status)=>Object.assign(Error(message),{status});
 
-const folder='1WujpMPvLZsS8rzRSf9ahfkhM9Jrjppfh';
 export const signedSlipLimit=2_500_000;
 
 export async function uploadTaskSignedSlip(encoded,{subject,section,uploadKey},{env=process.env,fetchImpl=fetch}={}){
@@ -13,6 +12,7 @@ export async function uploadTaskSignedSlip(encoded,{subject,section,uploadKey},{
  const {TASK_DRIVE_CLIENT_ID:client_id,TASK_DRIVE_CLIENT_SECRET:client_secret,TASK_DRIVE_REFRESH_TOKEN:refresh_token}=env;
  if(!client_id||!client_secret||!refresh_token)
   throw uploadError('Drive upload is awaiting Principal setup. The PDF has not been uploaded.',503);
+ const folder=monitoringSlipFolder(section);
  const title=value=>String(value).replace(/[\x00-\x1f\\/:*?"<>|]/g,' ').trim().slice(0,90);
  const name=monitoringExamLabel(section)+' - '+title(section)+' - '+title(subject)+' - Signed Marks Slip.pdf';
  const deadline=AbortSignal.timeout(25000);

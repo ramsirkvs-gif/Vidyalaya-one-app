@@ -9,11 +9,10 @@ import {renderPrincipalLogin} from './cbse-principal-login.js';
 import {HALF_YEARLY_COLUMNS,HALF_YEARLY_CSV_LIMIT} from './cbse-half-yearly-analyser-model.js';
 import {renderPB1Analyser,PB1_ANALYSER,HALF_YEARLY_ANALYSER} from './cbse-pb1-analyser-view.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
-import {MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES,monitoringAssignments,monitoringAdvance,monitoringStage,monitoringPeople,monitoringExamLabel} from './cbse-task-monitoring-workflow.js';
-const SAMAGAM_PDF_FOLDER='https://drive.google.com/drive/folders/1WujpMPvLZsS8rzRSf9ahfkhM9Jrjppfh?usp=sharing';
-function signedPdfUploadLink(){
+import {MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES,monitoringAssignments,monitoringAdvance,monitoringStage,monitoringPeople,monitoringExamLabel,monitoringSlipFolder} from './cbse-task-monitoring-workflow.js';
+function signedPdfUploadLink(section){
  const link=el('a','Upload signed PDF','button');
- link.href=SAMAGAM_PDF_FOLDER;link.target='_blank';link.rel='noopener noreferrer';
+ link.href='https://drive.google.com/drive/folders/'+monitoringSlipFolder(section);link.target='_blank';link.rel='noopener noreferrer';
  return link;
 }
 const SAMAGAM_REPORTING_NOTICE='Upload marks to Samagam only after both the Subject Teacher and the Class Teacher have completed their reporting to the Principal.';
@@ -471,7 +470,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
       const link=el('a','View signed PDF','button');
       link.href='https://drive.google.com/file/d/'+encodeURIComponent(progress.signedSlip.id)+'/view';link.target='_blank';link.rel='noopener noreferrer';cell.append(link);
      }
-     if(staffView&&step.uploadPdf&&!practice&&pdfNotRecorded)cell.append(signedPdfUploadLink());
+     if(staffView&&step.uploadPdf&&!practice&&pdfNotRecorded)cell.append(signedPdfUploadLink(entry.section));
      const latest=progress?.history?.at(-1)?.label;
      if(current&&latest&&MONITORING_STEPS.some(stage=>stage.options.some(([value,label])=>value==='return'&&label===latest)))
       cell.append(el('span',latest));
