@@ -246,7 +246,6 @@
 .pb1-trend-result{color:#405c6b}
 
 .task-slip-scan{min-width:0;margin:.75rem 0;padding:.8rem;border:1px solid #b9d9cd;border-radius:.65rem}
-.task-slip-scan input{width:100%;box-sizing:border-box}
-.task-slip-scan li{margin:.65rem 0}
+.task-slip-scan input[hidden]{display:none}
 .task-slip-scan img{display:block;max-width:100%;max-height:36vh;margin-bottom:.4rem;object-fit:contain}
 .task-slip-scan button{margin:.25rem;min-height:44px}

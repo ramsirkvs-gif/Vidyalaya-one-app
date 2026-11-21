@@ -160,22 +160,26 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate
  const eligible=monitoringPeople(record,entry,stage);
  let scan;
  if(staffView&&allowUpdate&&step&&eligible.length){
-  const editor=form(),person=field(editor,'Your name','monitoring-staff','select');
-  options(person,[['','Choose your name'],...eligible.map(({id,name})=>[id,name])],'');
+  const editor=form(),assigned=step.uploadPdf&&eligible.length===1?eligible[0]:null;
+  const person=assigned?null:field(editor,'Your name','monitoring-staff','select');
+  if(person){options(person,[['','Choose your name'],...eligible.map(({id,name})=>[id,name])],'');person.required=true;}
+  else editor.append(el('p',assigned.name));
   const outcome=step.uploadPdf?null:field(editor,'Status','monitoring-outcome','select');
   if(outcome)options(outcome,[['','Choose status'],...step.options],'');
   else scan=signedSlipScan(editor,run);
-  const remark=field(editor,step.role==='exam'?'Final remark':'Remark','monitoring-remark','textarea');remark.maxLength=500;
+  const remark=step.uploadPdf?null:field(editor,step.role==='exam'?'Final remark':'Remark','monitoring-remark','textarea');
+  if(remark)remark.maxLength=500;
   const pin=field(editor,'Personal PIN','monitoring-pin','password');pin.inputMode='numeric';pin.autocomplete='off';
-  for(const input of [person,pin])input.required=true;
+  pin.required=true;
   if(outcome){outcome.required=true;outcome.onchange=()=>{remark.required=step.role==='exam'||outcome.value==='return';};outcome.onchange();}
   const errorText=el('p',undefined,'task-error');errorText.setAttribute('role','status');
-  editor.append(el('button',step.uploadPdf?(practiceUpdate?'Test scan':'Upload signed PDF'):practiceUpdate?'Save practice status':'Save status'),errorText);dialog.append(editor);
-  editor.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(async()=>{
+  editor.append(el('button',step.uploadPdf?(practiceUpdate?'Test scan':'Submit'):practiceUpdate?'Save practice status':'Save status'),errorText);dialog.append(editor);
+  editor.onsubmit=event=>{event.preventDefault();run(async()=>{
    try{
     const pdf=scan?await scan.payload():undefined;
+    const secret=pin.value;pin.value='';
     if(pdf)errorText.textContent=practiceUpdate?'Checking practice PDF…':'Uploading to Google Drive…';
-    const result=await request({action:'pin-submit',operation:'task-manager',pdf:practiceUpdate?undefined:pdf,taskOperation:practiceUpdate?'monitoring-practice':'monitoring-update',staffId:person.value,pin:secret,rowKey:key,publicationRevision:record.revision,expectedRevision:progress?.revision||0,stage,outcome:outcome?.value||'advance',remark:remark.value});
+    const result=await request({action:'pin-submit',operation:'task-manager',pdf:practiceUpdate?undefined:pdf,taskOperation:practiceUpdate?'monitoring-practice':'monitoring-update',staffId:assigned?.id||person.value,pin:secret,rowKey:key,publicationRevision:record.revision,expectedRevision:progress?.revision||0,stage,outcome:outcome?.value||'advance',remark:remark?.value});
     dialog.close();
     if(practiceUpdate){practiceUpdate(result);message('Practice status saved.');}
     else{await openPublishedMonitoring(undefined,key,searchQuery);message(pdf?'Signed PDF uploaded.':'Status saved.');}
