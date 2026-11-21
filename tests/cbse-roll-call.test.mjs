@@ -67,18 +67,31 @@ test('Principal holds cover selected/all staff, retain attendance, and require P
  assert.throws(()=>applyRollCall(s,{...hold,remark:'x'.repeat(121)},principal,directory,now+10,'bad'),/120/);
 });
 
-test('Principal can release all open Principal holds across dates without a morning record',()=>{
+test('Principal can release all of today’s Principal holds without a morning record',()=>{
  const place=(state,target,stamp,id)=>applyRollCall(state,{rollOperation:'principal-hold',targetMode:'selected',targets:[target],remark:id},principal,staff,stamp,id);
  let state=place({},'a',now-86400000,'earlier');
  state=place(state,'b',now,'today');
  state=applyRollCall(state,{rollOperation:'object',wing:'secondary',targets:['a'],remark:'IC duty'},ic,staff,now,'ic');
- const clear={rollOperation:'clear-principal-holds',date:rollToday(now),holdIds:['earlier_a','today_b']};
+ const clear={rollOperation:'clear-principal-holds',date:rollToday(now),holdIds:['today_b']};
  assert.throws(()=>applyRollCall(state,clear,ic,staff,now),/Only the Principal/);
- assert.throws(()=>applyRollCall(state,{...clear,holdIds:['today_b']},principal,staff,now),/list changed/);
+ assert.throws(()=>applyRollCall(state,{...clear,holdIds:['earlier_a','today_b']},principal,staff,now),/list changed/);
  const saved=applyRollCall(state,clear,principal,staff,now);
- assert.equal(saved.objections.earlier_a.status,'cleared');
+ assert.equal(saved.objections.earlier_a.status,'open');
  assert.equal(saved.objections.today_b.status,'cleared');
- assert.equal(saved.objections.earlier_a.clearedBy,'principal');
+ assert.equal(saved.objections.today_b.clearedBy,'principal');
  assert.equal(saved.objections.ic_a.status,'open');
  assert.deepEqual(saved.reports,{});
+});
+
+test('yesterday’s NOC holds stay in history and do not block a new day in IST',()=>{
+ const beforeMidnight=Date.parse('2026-11-09T18:29:00Z'),today=Date.parse('2026-11-09T18:30:00Z');
+ let state=applyRollCall({}, {rollOperation:'principal-hold',targetMode:'selected',targets:['a'],remark:'Yesterday'},principal,staff,beforeMidnight,'prior');
+ state=applyRollCall(state,{rollOperation:'object',wing:'secondary',targets:['a'],remark:'Prior IC task'},ic,staff,beforeMidnight,'prior-ic');
+ delete state.objections['prior-ic_a'].date;
+ state=applyRollCall(state,morning,actor,staff,today);
+ state=applyRollCall(state,afternoon,actor,staff,today);
+ assert.equal(state.reports['2026-11-10_morning_a'].status,'recorded');
+ assert.equal(state.reports['2026-11-10_afternoon_a'].status,'recorded');
+ assert.equal(state.objections.prior_a.date,'2026-11-09');
+ assert.equal(state.objections['prior-ic_a'].status,'open');
 });

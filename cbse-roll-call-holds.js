@@ -1,6 +1,6 @@
-import {nocGroupKey} from './cbse-roll-call-model.js';
+import {activeNOCHold,nocGroupKey} from './cbse-roll-call-model.js';
 import {el} from './cbse-ui.js';
-export const principalRollHolds=(objections,ids)=>Object.values(objections||{}).filter(o=>o.kind==='principal-hold'&&o.status==='open'&&ids.includes(o.staffId));
+export const principalRollHolds=(objections,ids,date)=>Object.values(objections||{}).filter(o=>o.kind==='principal-hold'&&activeNOCHold(o,date)&&ids.includes(o.staffId));
 export function showPrincipalHoldPopup(items){
  return new Promise(resolve=>{const dialog=el('dialog',undefined,'roll-pin-dialog roll-principal-hold-alert');dialog.setAttribute('aria-label','Meet the Principal before leaving');dialog.append(el('h3','Meet the Principal before leaving'),el('p','Your Roll Call is saved. Meet the Principal and obtain NOC before leaving the Vidyalaya.'));
  for(const item of items)dialog.append(el('p',item.remark,'roll-warning'));

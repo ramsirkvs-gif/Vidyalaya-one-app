@@ -39,7 +39,7 @@ import {applyPodcast,teacherPodcasts,acknowledgePodcast,podcastCatalogue} from '
 import {rollStaffIdentityIds,secondaryStaffEntry,rollNameKey} from '../cbse-roll-call-roster.js';
 import {planRollRosterProfiles} from '../cbse-roll-call-setup.js';
 import {rollReportingStaff,rollDisplayName} from '../cbse-roll-call-roster.js';
-import {applyRollCall,rollWing,rollToday,rollNoAnswers,nocGroupKey} from '../cbse-roll-call-model.js';
+import {applyRollCall,rollWing,rollToday,rollNoAnswers,nocGroupKey,nocHoldDate} from '../cbse-roll-call-model.js';
 import {applyRemedialPlan} from '../cbse-remedial-model.js';
 import {publishMCQReport} from '../cbse-mcq-evaluation-reports.js';
 import {readMCQAnswerKey} from '../cbse-mcq-answer-key.js';
@@ -71,7 +71,7 @@ const rollPublicNOC=(objections,date)=>{
   const key=nocGroupKey(hold,date);
   if(key&&hold.status==='open')counts.set(key,(counts.get(key)||0)+1);
  }
- return holds.filter(([,o])=>o.status==='open'||o.status==='cleared'&&o.clearedAt&&rollToday(o.clearedAt)===date)
+ return holds.filter(([,o])=>nocHoldDate(o)===date&&['open','cleared'].includes(o.status))
   .map(([id,o])=>({id,staffId:o.staffId,createdBy:o.createdBy,createdName:o.createdName||'IC',principal:o.kind==='principal-hold'||o.createdBy==='principal',status:o.status,groupSize:counts.get(nocGroupKey(o,date))||0}));
 };
 const rollPublicReport=r=>({...Object.fromEntries(['staffId','name','wing','date','period','workflowVersion','morningMode','teacherEditLockedAt','reported','status','hasNoAnswers','requiresCommentReview','requiresReview','approvalRequired','reviewedAt','principalComments','leaveType','halfDay','from','to','updatedAt','submittedAt','approvedAt','rejectedAt'].filter(k=>r[k]!==undefined).map(k=>[k,r[k]])),hasNoAnswers:!!r.hasNoAnswers||rollNoAnswers(r).length>0});
@@ -93,7 +93,7 @@ function rollBoardStatus(value,date,{detailed=false,actorId='',lookupId=actorId,
    if(!detailed)delete status.principalComments;
    return [id,status];
   })),
-  objections:Object.fromEntries(entries(value.objections).filter(([,o])=>o.kind==='principal-hold'||ids.includes(o.staffId)||lookupId&&o.createdBy===lookupId&&!!(detailed||actorId)).map(([id,o])=>{
+  objections:Object.fromEntries(entries(value.objections).filter(([,o])=>nocHoldDate(o)===date&&(o.kind==='principal-hold'||ids.includes(o.staffId)||lookupId&&o.createdBy===lookupId&&!!(detailed||actorId))).map(([id,o])=>{
    if(detailed||actorId&&(own(o.staffId)||o.createdBy===actorId))return [id,o];
    const status=Object.fromEntries(['id','staffId','kind','status','period','date','createdAt','clearedAt','createdName'].filter(key=>o[key]!==undefined).map(key=>[key,o[key]]));
    return [id,{...status,remark:'Clearance is required. Contact the concerned IC or Principal.'}];
