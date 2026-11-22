@@ -764,3 +764,38 @@ test('Principal and assigned evaluators can reopen a signed slip while matching 
  assert.equal(monitoringStage(progress),3);
  assert.equal(progress.history.at(-1).name,'Synthetic Teacher one');
 });
+
+test('Class IX seating uses Jyoti’s PIN and marks and remedial notes stay scoped to the assigned teacher',async()=>{
+ const f=taskFixture();
+ f.data.cbse.facultyDraft.classes.X.teachers.one.name='MRS. JYOTI VERMA';
+ await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');
+ const exam='class-ix';
+ const seating=await f.service('task-read',{operation:'class-ix-seating-read'});
+ assert.equal(seating.icId,'X:one');
+ const rooms=Object.fromEntries(['A','B','C','D'].flatMap(section=>[1,21].map(start=>[section+start,'Room '+section+start])));
+ const seat={taskOperation:'class-ix-seating-save',rooms,expectedRevision:0};
+ await assert.rejects(f.teacher(seat,'X:two','456'),/Only Mrs/);
+ await f.teacher(seat);
+ assert.deepEqual((await f.service('task-read',{operation:'class-ix-seating-read'})).rooms,rooms);
+ await assert.rejects(f.teacher(seat),/changed/i);
+
+ const csv='Section,RollNo,StudentName,Subject,PreviousMarks,PreviousMM,PreAnnualMM,Teacher\nA,1,Synthetic IX student,Science,8,40,80,X:one\nB,1,Synthetic other student,Hindi,14,40,80,X:two\n';
+ const uploaded=await f.admin({operation:'half-yearly-import',exam,expectedRevision:0,csv});
+ assert.deepEqual(uploaded.scopes.map(p=>p.classId),['IX','IX']);
+ assert.equal((await f.admin({operation:'pb1-read',exam:'half-yearly'})).scopes.length,0);
+ await assert.rejects(f.service('task-read',{operation:'pb1-named',exam}),/teacher PIN/);
+ const own=await f.teacher({exam,taskOperation:'pb1-read'});
+ assert.equal(own.rows.length,1);
+ const {classId,sectionId,subjectId}=own.scopes[0],studentKey=own.rows[0].key;
+ const edit={classId,sectionId,subjectId,exam,taskOperation:'class-ix-remedial-save',studentKey,
+  expectedRevision:own.revision,comment:'Reteach key concepts and check next Friday.'};
+ await assert.rejects(f.teacher(edit,'X:two','456'),/outside your assigned/);
+ const noted=await f.teacher(edit);
+ assert.equal(Object.values(noted.rows[0].weeklyActions)[0].comment,edit.comment);
+ const saved=await f.teacher({classId,sectionId,subjectId,exam,taskOperation:'pb1-save',expectedRevision:noted.revision,
+  entries:[{key:studentKey,mark:30}]});
+ assert.equal(saved.rows[0].current.exam,'Pre-Annual Exam');
+ assert.equal(saved.rows[0].current.band,'yellow');
+ assert.equal(Object.values(saved.rows[0].weeklyActions)[0].comment,edit.comment);
+});

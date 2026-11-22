@@ -286,7 +286,7 @@ function renderMarksGraph(parent,grouped,exam){
  if(graph.childElementCount)parent.append(graph);else parent.append(el('p','No records match these filters.'));
 }
 
-export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,back,teacher,publicView,entryOnly,openEntry,openNames,refresh,exam=PB1_ANALYSER,setup,requestedPaper}){
+export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,back,teacher,publicView,entryOnly,openEntry,openNames,refresh,exam=PB1_ANALYSER,setup,requestedPaper,backLabel}){
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
  const filters=el('div',undefined,'pb1-filters'),report=el('div');
  let entering=entryOnly,entryAction,classMode=false;
@@ -294,7 +294,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
  card.append(el('h2',entryOnly?(approve?'Review and freeze ':'Update ')+exam.short+' marks':exam.title),description);
  if(setup)card.append(setup(()=>data.revision));
  card.append(content);
- host.replaceChildren(button(entryOnly?'Back to Wisdom Analyser':'Back to task list',back),card);
+ host.replaceChildren(button(backLabel||(entryOnly?'Back to Wisdom Analyser':'Back to task list'),back),card);
  const classSelect=exam.classId?null:control(filters,'Standard'),subjectSelect=control(filters,'Subject'),teacherSelect=control(filters,'Teacher'),sectionSelect=control(filters,'Class / section');
  const filterClass=()=>exam.classId||classSelect.value;
  const classOptions=()=>[...data.scopes,...(data.roster||[])];

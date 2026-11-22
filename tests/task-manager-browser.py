@@ -74,13 +74,44 @@ try:
         strips.last.wait_for()
         assert strips.count()==3
         assert strips.nth(0).inner_text().splitlines()==['Task 1','HQ Survey','✓','Done']
-        assert strips.nth(2).inner_text().splitlines()==['Task 3','Class IX Pre-Annual Exam','Upcoming']
+        assert strips.nth(2).inner_text().splitlines()[:2]==['Task 3','Class IX Pre-Annual Exam']
+        assert 'Running' in strips.nth(2).inner_text()
         assert teacher.locator('.task-public-list').count()==0
-        assert teacher.locator('button.task-stage-strip').count()==1
+        assert teacher.locator('button.task-stage-strip').count()==2
         for width in [320,390,768,1440]:
             teacher.set_viewport_size({'width':width,'height':900})
             assert teacher.evaluate('document.documentElement.scrollWidth<=innerWidth')
-        teacher.locator('button.task-stage-strip').click()
+        strips.nth(2).click()
+        teacher.get_by_text('07/12/2026 · Monday · Science',exact=True).wait_for()
+        teacher.get_by_text('IX D · 21–40',exact=True).wait_for()
+        assert teacher.get_by_text('Room to be assigned',exact=True).count()==8
+        teacher.get_by_role('button',name='Open marks entry and analyser',exact=True).click()
+        teacher.get_by_text('The list opens after the Principal imports',exact=False).wait_for()
+        teacher.get_by_role('button',name='Back to Task 3',exact=True).click()
+        api({'action':'task-principal','operation':'half-yearly-import','exam':'class-ix','expectedRevision':0,
+             'csv':'Section,RollNo,StudentName,Subject,PreviousMarks,PreviousMM,PreAnnualMM,Teacher\nA,1,Synthetic IX student,Science,8,40,80,X:one\n'})
+        teacher.get_by_role('button',name='Open marks entry and analyser',exact=True).click()
+        teacher.get_by_label('Evaluator or cross-checker',exact=True).select_option('X:one')
+        teacher.get_by_label('Personal PIN',exact=True).fill('123')
+        teacher.get_by_role('button',name='Open marks entry',exact=True).click()
+        teacher.get_by_role('button',name='Update Pre-Annual marks',exact=True).click()
+        teacher.get_by_label('Pre-Annual marks for Synthetic IX student',exact=True).fill('30')
+        teacher.get_by_label('Personal PIN to save',exact=True).fill('123')
+        teacher.get_by_role('button',name='Save Pre-Annual marks',exact=True).click()
+        teacher.get_by_text('Marks saved successfully.',exact=True).wait_for()
+        teacher.get_by_role('button',name='Back to Task 3',exact=True).click()
+        teacher.get_by_role('button',name='Open weekly remedial action',exact=True).click()
+        teacher.get_by_label('Evaluator or cross-checker',exact=True).select_option('X:one')
+        teacher.get_by_label('Personal PIN',exact=True).fill('123')
+        teacher.get_by_role('button',name='Open my remedial list',exact=True).click()
+        teacher.get_by_text('Borderline · 1',exact=True).click()
+        teacher.get_by_label('Weekly action taken for Synthetic IX student',exact=True).fill('Reteach one concept and reassess on Friday.')
+        teacher.get_by_label('Personal PIN',exact=True).fill('123')
+        teacher.get_by_role('button',name='Save weekly action',exact=True).click()
+        teacher.get_by_text('Weekly action saved.',exact=True).wait_for()
+        teacher.get_by_role('button',name='Back to Task 3',exact=True).click()
+        teacher.get_by_role('button',name='Back to task list',exact=True).click()
+        strips.nth(1).click()
         teacher.get_by_role('button',name='Open Wisdom Analyser',exact=True).wait_for()
         teacher.get_by_role('button',name='Open XI Half-Yearly Analyser',exact=True).wait_for()
         teacher.get_by_role('button',name='Open Pre-Samagam Evaluation Monitoring',exact=True).click()

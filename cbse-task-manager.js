@@ -9,7 +9,7 @@ import {importTaskFiguresCSV,importTaskStrengthWorkbook,taskFiguresTemplate,deco
 import {TASK_CLASSES,TASK_AVAILABLE_CLASSES,TASK_PRIMARY_CLASSES,taskClasses,TASK_PRIORITIES,TASK_HEADERS,TASK_REPORT_COMMENTS,taskHeader,taskQuestions,taskQuestionLabels,taskCompatibleValues,taskSummary,taskQuestionIsWritten,taskQuestionWording,taskRemarkWordCount} from './cbse-task-manager-model.js';
 import {el,options} from './cbse-ui.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
-import {HALF_YEARLY_COLUMNS,HALF_YEARLY_CSV_LIMIT} from './cbse-half-yearly-analyser-model.js';
+import {HALF_YEARLY_COLUMNS,HALF_YEARLY_CSV_LIMIT,CLASS_IX_EXAM,CLASS_IX_EXAM_IC,CLASS_IX_SEATING} from './cbse-half-yearly-analyser-model.js';
 import {renderPB1Analyser,PB1_ANALYSER,HALF_YEARLY_ANALYSER} from './cbse-pb1-analyser-view.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
 import {MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES,monitoringAssignments,monitoringAdvance,monitoringBundlesByExamDate,monitoringStage,monitoringPeople,monitoringExamDateKey,monitoringExamLabel,monitoringSlipFolder} from './cbse-task-monitoring-workflow.js';
@@ -65,7 +65,7 @@ function catalogue(parent){
   title:t.draft.title,updatedAt:Math.max(t.updatedAt||t.createdAt||0,...Object.values(t.reports||{}).map(report=>report.updatedAt||0)),state:t.published?'Published':'Draft',
   open:()=>openPrincipalTask(id,t),
  }));
- list.push({title:'Task 3 — Class IX Pre-Annual Exam',updatedAt:0,state:'Draft',open:drawClassIXExamDraft});
+ list.push({title:'Task 3 — Class IX Pre-Annual Exam',updatedAt:0,state:'Published',open:drawClassIXExam});
  list.push({title:MONITORING_TITLE,updatedAt:store.monitoringUpdatedAt||0,state:'Monitoring',open:openMonitoring});
  list.sort((a,b)=>b.updatedAt-a.updatedAt);
  const scroll=el('div',undefined,'task-scroll'),table=el('table',undefined,'task-totals task-register');
@@ -820,16 +820,18 @@ async function openNamedPB1Results(exam){
   document.body.append(dialog);dialog.showModal();
  });
 }
-function halfYearlyImportPanel(roster,upload){
+function halfYearlyImportPanel(roster,upload,exam){
+ const standard=exam?.classId||'XI',label='Class '+standard,examName=exam?.name||'Half-Yearly';
+ const columns=exam?HALF_YEARLY_COLUMNS.map(column=>column==='HalfYearlyMM'?exam.column:column):HALF_YEARLY_COLUMNS;
  const details=el('details'),editor=form(),template=el('a','Download CSV template');
- template.href='data:text/csv;charset=utf-8,'+encodeURIComponent(HALF_YEARLY_COLUMNS.join(',')+'\r\n');
- template.download='Class-XI-Half-Yearly-template.csv';
- const file=field(editor,'Class XI roster and PT-1 marks CSV','xi-roster-csv','file');
+ template.href='data:text/csv;charset=utf-8,'+encodeURIComponent(columns.join(',')+'\r\n');
+ template.download='Class-'+standard+'-'+examName.replaceAll(' ','-')+'-template.csv';
+ const file=field(editor,label+' roster and PT-1 marks CSV','xi-roster-csv','file');
  file.accept='.csv,text/csv';file.required=true;
  const feedback=el('p');
  feedback.setAttribute('role','status');
  feedback.hidden=true;
- editor.append(el('button','Import Class XI CSV'),feedback);
+ editor.append(el('button','Import '+label+' CSV'),feedback);
  editor.onsubmit=event=>{
   event.preventDefault();
   run(async()=>{
@@ -839,8 +841,8 @@ function halfYearlyImportPanel(roster,upload){
     const selected=file.files[0];
     if(!selected||selected.size>HALF_YEARLY_CSV_LIMIT)throw Error('Choose a CSV up to 256 KB.');
     if([...host.querySelectorAll('form[data-portal-dirty="true"]')].some(active=>active!==editor))throw Error('Save your mark changes before importing a roster.');
-    if(!confirm('Import this Class XI roster and previous marks? Saved Half-Yearly marks are retained.'))return;
-    feedback.textContent='Importing Class XI roster and PT-1 marks…';
+    if(!confirm('Import this '+label+' roster and previous marks? Saved '+examName+' marks are retained.'))return;
+    feedback.textContent='Importing '+label+' roster and PT-1 marks…';
     feedback.hidden=false;
     await upload(await selected.text());
    }catch(error){
@@ -851,12 +853,12 @@ function halfYearlyImportPanel(roster,upload){
    }
   });
  };
- details.append(el('summary','Import Class XI roster and PT-1 marks'),el('p','Use one row per student and subject. Enter the previous and Half-Yearly maximum marks for each paper. Use - for subjects the student is not enrolled in. Use AB for enrolled students who were absent from PT-1. Leave marks blank only if an enrolled student’s PT-1 result is unavailable. Teacher accepts the exact portal name or staff ID. Leave it blank for Principal-only entry.'),template,editor);
+ details.append(el('summary','Import '+label+' roster and PT-1 marks'),el('p','Use one row per student and subject. '+(exam?'Enter 80 as the Pre-Annual maximum. ':'Enter the previous and Half-Yearly maximum marks for each paper. ')+'Use - for subjects the student is not enrolled in. Use AB for enrolled students who were absent from PT-1. Leave marks blank only if an enrolled student’s PT-1 result is unavailable. Teacher accepts the exact portal name or staff ID. Leave it blank for Principal-only entry.'),template,editor);
  const counts=new Map();
  for(const {section} of roster)counts.set(section,(counts.get(section)||0)+1);
  const sections=[...counts.keys()].sort();
- const summary=sections.length?'Imported roster · '+sections.map(section=>'XI '+section+': '+counts.get(section)).join(' · '):
-  'No Class XI roster has been imported yet.';
+ const summary=sections.length?'Imported roster · '+sections.map(section=>standard+' '+section+': '+counts.get(section)).join(' · '):
+  'No '+label+' roster has been imported yet.';
  const panel=el('div');
  panel.append(el('p',summary),details);
  return panel;
@@ -908,11 +910,48 @@ function halfYearlyTransferPanel(data,transfer){
  return details;
 }
 
-async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
- const exam=examId==='half-yearly'?HALF_YEARLY_ANALYSER:PB1_ANALYSER;
+function drawClassIXRemedial(data,save,back){
+ const panel=el('section',undefined,'task-card');
+ panel.append(el('h2','Class IX weekly remedial action'),
+  el('p','Targets use Pre-Annual marks when entered and PT-1 marks until then. Record the support given and the next check. A new entry updates the comment for the current week.'));
+ const groups=[['critical','Critical fail'],['red','Fail'],['yellow','Borderline']];
+ const targetBands=new Set(groups.map(([band])=>band));
+ groups.push(['history','Previous targets with recorded actions']);
+ for(const [band,label] of groups){
+  const rows=data.rows.filter(row=>{
+   const current=(row.current||row.before)?.band;
+   return band==='history'?!targetBands.has(current)&&Object.keys(row.weeklyActions||{}).length:current===band;
+  });
+  const section=el('details');section.append(el('summary',label+' · '+rows.length));
+  for(const row of rows){
+   const paper=data.scopes[row.scope],mark=row.current||row.before,history=Object.entries(row.weeklyActions||{}).sort(([a],[b])=>b.localeCompare(a));
+   const card=el('div',undefined,'task-report');
+   card.append(el('h3','IX '+row.section+' · Roll '+row.roll+' · '+row.name),
+    el('p',paper.subject+' · '+(paper.teacher||'Teacher assignment pending')+' · '+ (mark?mark.exam+' '+(mark.absent?'AB':mark.score+'/'+mark.maximum):'Result pending')));
+   for(const [week,{comment}] of history)card.append(el('p','Week of '+rollDateText(week)+' · '+comment));
+   if(save&&band!=='history'){
+    const editor=form(),comment=field(editor,'Weekly action taken for '+row.name,'remedial-comment','textarea');
+    comment.required=true;comment.maxLength=1000;
+    const pin=field(editor,'Personal PIN','remedial-pin','password');pin.required=true;pin.inputMode='numeric';pin.autocomplete='off';
+    editor.append(el('button','Save weekly action'));
+    editor.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(async()=>{
+     await save({...paper,studentKey:row.key,comment:comment.value,expectedRevision:data.revision},secret);
+     message('Weekly action saved.');
+    });};
+    card.append(editor);
+   }
+   section.append(card);
+  }
+  panel.append(section);
+ }
+ host.replaceChildren(button('Back to Task 3',()=>{if(discard())return back();}),panel);
+}
+async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=false){
+ const classIX=examId==='class-ix';
+ const exam=classIX?{title:'Class IX Pre-Annual Wisdom Analyser',short:'Pre-Annual',current:'Pre-Annual Exam',previous:'Periodic Test 1',baseline:'PT-1',classId:'IX',classes:'Class IX'}:examId==='half-yearly'?HALF_YEARLY_ANALYSER:PB1_ANALYSER;
  const openExam=(entry=false)=>openPB1Analyser(entry,examId);
  const asPrincipal=principal;
- if(!asPrincipal&&!entryOnly){
+ if(!asPrincipal&&!entryOnly&&!classIX){
   const read=named=>request({action:'task-read',operation:named?'pb1-named':'pb1-public',exam:examId});
   let data,publicView=false;
   try{data=await read(true);}catch(error){
@@ -927,12 +966,21 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
   const send=(operation,values={},secret='')=>request(asPrincipal?{action:'task-principal',operation,exam:examId,...values}:
    {action:'pin-submit',operation:'task-manager',taskOperation:operation,exam:examId,staffId,pin:secret,...values},asPrincipal);
   const data=savedReport||await send('pb1-read',{},pin);
+  if(remedial){
+   drawClassIXRemedial(data,asPrincipal?null:async(values,secret)=>{
+    const {classId,sectionId,subjectId,studentKey,comment,expectedRevision}=values;
+    const result=await send('class-ix-remedial-save',{classId,sectionId,subjectId,studentKey,comment,expectedRevision},secret);
+    await open(staffId,'',result);
+   },drawClassIXExam);
+   return;
+  }
   const setup=asPrincipal&&examId?revision=>{
    const panel=halfYearlyImportPanel(data.roster,async csv=>{
     const imported=await send('half-yearly-import',{csv,expectedRevision:revision()});
     await open('', '', imported);
-    message('Class XI roster and PT-1 marks imported.');
-   });
+    message((classIX?'Class IX':'Class XI')+' roster and PT-1 marks imported.');
+   },classIX?CLASS_IX_EXAM:undefined);
+   if(classIX)return panel;
    const transfer=halfYearlyTransferPanel(data,async values=>{
     const updated=await send('half-yearly-transfer',{...values,expectedRevision:revision()});
     await open('', '', updated);
@@ -941,8 +989,8 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
    if(transfer)panel.append(transfer);
    return panel;
   }:undefined;
-  renderPB1Analyser(host,data,{button,run,exam,setup,teacher:!asPrincipal,entryOnly,requestedPaper,
-   back:()=>{if(discard())return asPrincipal?drawPrincipal():openExam();},
+  renderPB1Analyser(host,data,{button,run,exam,setup,teacher:!asPrincipal,entryOnly,requestedPaper,backLabel:classIX?'Back to Task 3':undefined,
+   back:()=>{if(discard())return classIX?drawClassIXExam():asPrincipal?drawPrincipal():openExam();},
    unfreeze:asPrincipal?async({classId,sectionId,subjectId},expectedRevision)=>{
     const result=await send('pb1-unfreeze',{classId,sectionId,subjectId,expectedRevision});
     message(exam.current+' marks reopened for correction.');return result;
@@ -959,18 +1007,18 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper){
  if(asPrincipal){await open();return;}
  const {teachers,paperCount}=await request({action:'task-read',operation:'pb1-directory',exam:examId});
  const login=form(),card=el('section',undefined,'task-card pb1-marks-login');
- card.append(el('h2','Update '+exam.short+' marks'));
+ card.append(el('h2',remedial?'Class IX weekly remedial action':'Update '+exam.short+' marks'));
  if(teachers.length){
   const person=field(login,'Evaluator or cross-checker','pb1-teacher','select'),pin=field(login,'Personal PIN','pb1-pin','password');
   options(person,[['','Choose your name'],...teachers.map(({id,name})=>[id,name])],'');
   person.required=pin.required=true;pin.inputMode='numeric';pin.autocomplete='off';
-  login.append(el('button','Open marks entry'));
+  login.append(el('button',remedial?'Open my remedial list':'Open marks entry'));
   login.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(()=>open(person.value,secret));};
   card.append(login);
  }else if(paperCount===0){
-  card.append(el('p','Class XI marks entry opens after the Principal imports the roster and PT-1 marks in the XI Half-Yearly Analyser.'));
+  card.append(el('p',classIX?'The list opens after the Principal imports the Class IX roster and PT-1 marks.':'Class XI marks entry opens after the Principal imports the roster and PT-1 marks in the XI Half-Yearly Analyser.'));
  }else card.append(el('p','No evaluators or cross-checkers are assigned to '+exam.current+' papers.'));
- host.replaceChildren(button('Back to Wisdom Analyser',()=>{if(discard())return openExam();}),card);
+ host.replaceChildren(button(classIX?'Back to Task 3':'Back to Wisdom Analyser',()=>{if(discard())return classIX?drawClassIXExam():openExam();}),card);
 }
 function drawAnalyserCards(){
  const cards=el('div',undefined,'task-analyser-cards');
@@ -985,7 +1033,7 @@ function drawAnalyserCards(){
  }
  host.append(cards);
 }
-function drawClassIXExamDraft(){
+async function drawClassIXExam(){
  const papers=[
   ['07/12/2026','Monday','Science','IX A/C · Vandana Umang | IX B/D · Jyoti Verma'],
   ['08/12/2026','Tuesday','Hindi','IX A · Suraj Dahal | IX B · Devendra Kumar Meena | IX C/D · Dipti Singh'],
@@ -994,6 +1042,8 @@ function drawClassIXExamDraft(){
   ['11/12/2026','Friday','Social Science','IX A/D · Ajay Pratap Singh C. | IX B/C · Nitish Raj Sharma'],
  ];
  const steps=el('ol',undefined,'task-exam-flow');
+ host.replaceChildren(button('Back to task list',principal?drawPrincipal:drawStaff),el('h2','Task 3 — Class IX Pre-Annual Exam'),steps);
+
  const addStep=(title,copy)=>{
   const item=el('li',undefined,'task-exam-step');
   item.append(el('h3',title),el('p',copy));steps.append(item);
@@ -1008,14 +1058,40 @@ function drawClassIXExamDraft(){
  reference.append(el('summary','Class IX teachers from the master timetable'),
   el('p','Saturday periods VII and VIII are tentative and are excluded from this list.'),teachers);
  for(const [,,subject,names] of papers)teachers.append(el('li',subject+' · '+names));
- submission.append(reference);
- addStep('Seating area','Check the room and roll-number ranges for each section once the Exam IC shares the seating plan.');
- addStep('Marks entry and Wisdom Analyser','Enter and verify marks for your assigned section. Use the Class IX Wisdom Analyser to identify students and topics that need support.');
- addStep('Remedial action plan','Record the learning gap, the activity or reteaching planned, and the date for a short reassessment.');
- host.replaceChildren(button('Back to task list',drawPrincipal),el('h2','Task 3 — Class IX Pre-Annual Exam'),
-  el('p','Draft for Principal review','task-import-ready'),steps);
+ reference.open=true;
+ submission.append(reference,el('p','Exam IC for updates · '+CLASS_IX_EXAM_IC),
+  el('p','Principal’s note · “Where more than one teacher is listed, I will assign the teacher responsible for submission.”'));
+ const seating=addStep('Seating area','Check the room assigned to your section and roll-number range.');
+ const marks=addStep('Marks entry and Wisdom Analyser','Enter marks out of 80 for your assigned subject. Compare results with PT-1 in the Wisdom Analyser.');
+ marks.append(button(principal?'Import roster / open analyser':'Open marks entry and analyser',()=>openPB1Analyser(false,'class-ix')));
+ const remedial=addStep('Remedial action plan','Review critical fail, fail and borderline students by subject. The assigned teacher records action taken each week with their PIN.');
+ remedial.append(button(principal?'Review remedial actions':'Open weekly remedial action',()=>openPB1Analyser(false,'class-ix',undefined,true)));
  host.scrollIntoView({block:'start'});
+ try{
+  const data=await request({action:'task-read',operation:'class-ix-seating-read'});
+  const editor=form(),rooms={};
+  const info=el('dl');
+  for(const {key,section,start,end} of CLASS_IX_SEATING){
+   const label='IX '+section+' · '+start+'–'+end;
+   info.append(el('dt',label),el('dd',data.rooms[key]||'Room to be assigned'));
+   if(data.icId)rooms[key]=field(editor,label,'room-'+key,'text',data.rooms[key]||'');
+  }
+  seating.append(info);
+  if(data.icId){
+   const edit=el('details');edit.append(el('summary',CLASS_IX_EXAM_IC+' · Update seating rooms'),editor);
+   for(const input of Object.values(rooms))input.maxLength=80;
+   const pin=field(editor,'Exam IC personal PIN','class-ix-seating-pin','password');pin.required=true;pin.inputMode='numeric';pin.autocomplete='off';
+   editor.append(el('button','Save seating rooms'));
+   editor.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(async()=>{
+    await request({action:'pin-submit',operation:'task-manager',taskOperation:'class-ix-seating-save',staffId:data.icId,pin:secret,
+     rooms:Object.fromEntries(Object.entries(rooms).map(([key,input])=>[key,input.value])),expectedRevision:data.revision});
+    await drawClassIXExam();message('Seating rooms saved.');
+   });};
+   seating.append(edit);
+  }else seating.append(el('p','Room updates open when the Exam IC’s PIN is enabled.'));
+ }catch(error){seating.append(el('p',error.message,'task-error'));}
 }
+
 function drawStaffTask2(){
  const plan=el('section',undefined,'task-card');
  plan.append(el('h3','Update workflow status'));
@@ -1036,13 +1112,13 @@ function drawStaff(){
  for(const [number,title,status,style,open] of [
   ['Task 1','HQ Survey','Done','done'],
   ['Task 2','Pre-Samagam Evaluation Monitoring','Running','running',drawStaffTask2],
-  ['Task 3','Class IX Pre-Annual Exam','Upcoming','upcoming'],
+  ['Task 3','Class IX Pre-Annual Exam','Running','upcoming',drawClassIXExam],
  ]){
   const item=el('li'),strip=open?button('',open):el('div');
   strip.className='task-stage-strip is-'+style;
   const info=el('span',undefined,'task-stage-info');
   info.append(el('span',number,'task-stage-number'),el('strong',title,'task-stage-title'));
-  if(open)info.append(el('span','Wisdom Analyser · PB-1 & Half-Yearly','task-stage-subtitle'));
+  if(open)info.append(el('span',number==='Task 2'?'Wisdom Analyser · PB-1 & Half-Yearly':'Date sheet, seating, marks and remedial action','task-stage-subtitle'));
   const state=el('span',undefined,'task-stage-state');
   if(style==='done'||open){
    const symbol=el('span',style==='done'?'✓':'→');
