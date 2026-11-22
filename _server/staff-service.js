@@ -7,7 +7,7 @@ import {monitoringAssignments,monitoringAdvance,monitoringReopenUpload,monitorin
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {advanceFrozenDiscussions,evaluatorDirectory,publishedMarksCheckers,withPublishedPB1Evaluators} from './pb1-evaluators.js';
 import {pb1Report,pb1Scopes,paperDiscussionComment} from '../cbse-pb1-analyser-model.js';
-import {halfYearlyReport,importHalfYearly,updateHalfYearly,CLASS_IX_EXAM,CLASS_IX_EXAM_IC,CLASS_IX_SEATING,CLASS_IX_SEATING_FIELDS} from '../cbse-half-yearly-analyser-model.js';
+import {halfYearlyReport,importHalfYearly,updateHalfYearly,CLASS_IX_EXAM,CLASS_IX_EXAM_IC,CLASS_IX_SEATING,CLASS_IX_SEATING_FIELDS,CLASS_IX_PAPERS} from '../cbse-half-yearly-analyser-model.js';
 import {pb1ApprovalKey} from '../cbse-academic-exam-kind.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
@@ -168,7 +168,25 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   const [record,staff,access]=await Promise.all([read('cbse/taskClassIXSeating'),directoryStaff(),read('cbse/staffAccess')]);
   const matches=entries(staff).filter(([id,person])=>person.status==='active'&&access?.[id]?.enabled&&rollNameKey(person.name)===rollNameKey(CLASS_IX_EXAM_IC));
   const eligible=[...new Set(matches.map(([id,person])=>person.pinOwnerId||id))];
-  return {revision:record?.revision||0,rooms:record?.rooms||{},duties:record?.duties||{},icId:eligible.length===1?eligible[0]:''};
+  return {revision:record?.revision||0,rooms:record?.rooms||{},duties:record?.duties||{},dateNotes:record?.dateNotes||{},qpAssignments:record?.qpAssignments||{},icId:eligible.length===1?eligible[0]:''};
+ }
+ async function saveClassIXComments(input,key,actor){
+  const fields=CLASS_IX_PAPERS.map(([, ,subject])=>subject);
+  if(!input.values||typeof input.values!=='object'||Object.keys(input.values).length!==fields.length||
+   fields.some(subject=>!Object.hasOwn(input.values,subject)||typeof input.values[subject]!=='string'||input.values[subject].trim().length>500))
+   throw new AccessError('Enter up to 500 characters per paper.',400);
+  if(actor.id&&(await classIXSeating()).icId!==actor.id)
+   throw new AccessError('Only Mrs. Jyoti Verma can update Class IX date-sheet instructions with her PIN.',403);
+  const values=Object.fromEntries(fields.map(subject=>[subject,input.values[subject].trim()]));
+  const result=await mcqTransaction(db,'cbse',current=>{
+   if(current===null)return null;
+   if(actor.uid?current.adminUid!==actor.uid:!current.staffAccess?.[actor.id]?.enabled||current.staffAccess[actor.id].version!==actor.version)return;
+   const plan=current.taskClassIXSeating||{},revision=plan[key]?.revision||0;
+   if(revision!==input.expectedRevision)return;
+   return {...current,taskClassIXSeating:{...plan,[key]:{values,revision:revision+1}}};
+  },{restTransaction});
+  if(!result.committed||!result.snapshot.val()?.taskClassIXSeating?.[key])throw new AccessError('These comments changed. Reopen Task 3 before saving.',409);
+  return result.snapshot.val().taskClassIXSeating[key];
  }
  async function saveClassIXSeating(input,id,access){
   const seating=await classIXSeating();
@@ -190,7 +208,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(current===null)return null;
    const revision=current.taskClassIXSeating?.revision||0;
    if(revision!==input.expectedRevision||!current.staffAccess?.[id]?.enabled||current.staffAccess[id].version!==access.version)return;
-   return {...current,taskClassIXSeating:{revision:revision+1,duties}};
+   return {...current,taskClassIXSeating:{...current.taskClassIXSeating,revision:revision+1,duties}};
   },{restTransaction});
   if(!result.committed||!result.snapshot.val()?.taskClassIXSeating)throw new AccessError('Seating changed. Reopen Task 3 before saving.',409);
   return {duties,revision:input.expectedRevision+1,icId:id};
@@ -431,6 +449,10 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    }
    const classIX=input.exam==='class-ix',halfYearly=input.exam==='half-yearly';
    if(input.operation==='class-ix-seating-read')return classIXSeating();
+   if(input.operation==='class-ix-qp-save'){
+    if(!admin)throw new AccessError('Principal access required.',403);
+    return saveClassIXComments(input,'qpAssignments',{uid:adminIdentity.uid});
+   }
    if(admin&&(halfYearly||classIX)&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze','half-yearly-import','half-yearly-transfer'].includes(input.operation))return halfYearlyWorkspace(input,{uid:adminIdentity.uid});
    if(admin&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze'].includes(input.operation))return pb1Workspace(input,{uid:adminIdentity.uid});
    if(!admin&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze'].includes(input.operation))throw new AccessError('Use a teacher PIN for marks entry or Principal sign-in for approval.',403);
@@ -790,6 +812,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(!pinIdentity)throw new AccessError('Verify your existing personal PIN.',403);
    const id=pinIdentity.decoded.staffId,staff=await directoryStaff(),access=await read('cbse/staffAccess/'+id);
    if(!access?.enabled||access.version!==pinIdentity.access.version||staff[id]?.status!=='active')throw new AccessError('Staff access changed. Verify your PIN again.',403);
+   if(input.taskOperation==='class-ix-date-notes-save')return saveClassIXComments(input,'dateNotes',{id,version:access.version});
    if(input.taskOperation==='class-ix-seating-save')return saveClassIXSeating(input,id,access);
    if(input.exam==='class-ix'&&input.taskOperation==='class-ix-remedial-save')return halfYearlyWorkspace(input,{id,accessVersion:access.version});
    if(['pb1-read','pb1-save'].includes(input.taskOperation))return (['half-yearly','class-ix'].includes(input.exam)?halfYearlyWorkspace:pb1Workspace)(input,{id,accessVersion:access.version});

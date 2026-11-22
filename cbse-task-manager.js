@@ -9,7 +9,7 @@ import {importTaskFiguresCSV,importTaskStrengthWorkbook,taskFiguresTemplate,deco
 import {TASK_CLASSES,TASK_AVAILABLE_CLASSES,TASK_PRIMARY_CLASSES,taskClasses,TASK_PRIORITIES,TASK_HEADERS,TASK_REPORT_COMMENTS,taskHeader,taskQuestions,taskQuestionLabels,taskCompatibleValues,taskSummary,taskQuestionIsWritten,taskQuestionWording,taskRemarkWordCount} from './cbse-task-manager-model.js';
 import {el,options} from './cbse-ui.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
-import {HALF_YEARLY_COLUMNS,HALF_YEARLY_CSV_LIMIT,CLASS_IX_EXAM,CLASS_IX_EXAM_IC,CLASS_IX_SEATING,CLASS_IX_SEATING_FIELDS} from './cbse-half-yearly-analyser-model.js';
+import {HALF_YEARLY_COLUMNS,HALF_YEARLY_CSV_LIMIT,CLASS_IX_EXAM,CLASS_IX_EXAM_IC,CLASS_IX_SEATING,CLASS_IX_SEATING_FIELDS,CLASS_IX_PAPERS} from './cbse-half-yearly-analyser-model.js';
 import {renderPB1Analyser,PB1_ANALYSER,HALF_YEARLY_ANALYSER} from './cbse-pb1-analyser-view.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
 import {MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES,monitoringAssignments,monitoringAdvance,monitoringBundlesByExamDate,monitoringStage,monitoringPeople,monitoringExamDateKey,monitoringExamLabel,monitoringSlipFolder} from './cbse-task-monitoring-workflow.js';
@@ -1033,71 +1033,113 @@ function drawAnalyserCards(){
  }
  host.append(cards);
 }
-async function drawClassIXExam(){
- const papers=[
-  ['07/12/2026','Monday','Science','IX A/C · Vandana Umang | IX B/D · Jyoti Verma'],
-  ['08/12/2026','Tuesday','Hindi','IX A · Suraj Dahal | IX B · Devendra Kumar Meena | IX C/D · Dipti Singh'],
-  ['09/12/2026','Wednesday','Mathematics','IX A/C · Priyanka Mehta | IX B/D · Ranjan Chetry | IX D · Bikash Jyoti Das'],
-  ['10/12/2026','Thursday','English','IX A · Abhishek Singh | IX B · M. T. Munya | IX C · Gocham Yagom | IX D · Sweta Kestwal'],
-  ['11/12/2026','Friday','Social Science','IX A/D · Ajay Pratap Singh C. | IX B/C · Nitish Raj Sharma'],
- ];
- const steps=el('ol',undefined,'task-exam-flow');
- host.replaceChildren(button('Back to task list',principal?drawPrincipal:drawStaff),el('h2','Task 3 — Class IX Pre-Annual Exam'),steps);
+function classIXTable(panel,{headers,columns,rows,editLabel,saveLabel,pinRequired,save}){
+ const editor=form(),scroll=el('div',undefined,'task-exam-table-scroll');
+ const grid=el('table',undefined,'task-exam-table'),head=grid.createTHead().insertRow(),body=grid.createTBody();
+ for(const label of [...headers,...columns.map(([,title])=>title)]){
+  const cell=el('th',label);cell.scope='col';head.append(cell);
+ }
+ scroll.append(grid);
+ editor.append(scroll);
+ const controls=el('div',undefined,'task-exam-table-actions');
+ editor.append(controls);
+ panel.append(editor);
+ function draw(editing=false){
+  body.replaceChildren();controls.replaceChildren();
+  const inputs=new Map();
+  for(const {key,label,cells,values} of rows){
+   const row=body.insertRow();
+   cells.forEach(value=>{
+    const cell=row.insertCell();
+    if(Array.isArray(value)){
+     const list=el('ul');
+     value.forEach(item=>list.append(el('li',item)));
+     cell.append(list);
+    }else cell.textContent=value;
+   });
+   const editable={};
+   for(const [name,title,type] of columns){
+    const cell=row.insertCell(),value=values[name]||'';
+    cell.className='task-exam-table-value';
+    if(!editing){cell.textContent=value||(name==='area'?'Room to be assigned':'—');continue;}
+    const input=el(type==='textarea'?'textarea':'input');
+    if(type!=='textarea')input.type=type;
+    input.setAttribute('aria-label',label+' · '+title);
+    input.value=value;
+    if(type==='textarea')input.maxLength=500;
+    if(type==='text')input.maxLength=80;
+    cell.append(input);editable[name]=input;
+   }
+   inputs.set(key,editable);
+  }
+  editor.onsubmit=null;
+  editor.dataset.portalDirty='false';
+  if(!save)return;
+  if(!editing){controls.append(button(editLabel,()=>draw(true)));return;}
+  const pin=pinRequired?field(controls,'Exam IC personal PIN','class-ix-pin','password'):null;
+  if(pin){pin.required=true;pin.inputMode='numeric';pin.autocomplete='off';}
+  controls.append(el('button',saveLabel),button('Cancel',()=>draw(false)));
+  editor.onsubmit=event=>{event.preventDefault();run(async()=>{
+   const values=Object.fromEntries([...inputs].map(([key,fields])=>[key,
+    Object.fromEntries(Object.entries(fields).map(([name,input])=>[name,input.value]))]));
+   const secret=pin?.value;
+   if(pin)pin.value='';
+   await save(values,secret);
+   for(const row of rows)row.values=values[row.key];
+   draw(false);message('Task 3 updated.');
+  });};
+ }
+ draw();
+}
 
+async function drawClassIXExam(){
+ const steps=el('ol',undefined,'task-exam-flow');
+ host.replaceChildren(button('Back to task list',()=>{if(discard())return principal?drawPrincipal():drawStaff();}),
+  el('h2','Task 3 — Class IX Pre-Annual Exam'),steps);
  const addStep=(title,copy)=>{
   const item=el('li',undefined,'task-exam-step');
-  item.append(el('h3',title),el('p',copy));steps.append(item);
-  return item;
+  item.append(el('h3',title));if(copy)item.append(el('p',copy));
+  steps.append(item);return item;
  };
- const dates=addStep('Date sheet','Students report by 7:45 AM. Writing time is 8:00–11:00 AM. Each paper carries 80 marks. Students wear school uniform and stay until 2:10 PM.');
- const schedule=el('ul');
- for(const [date,day,subject] of papers)schedule.append(el('li',date+' · '+day+' · '+subject));
- dates.append(schedule);
- const submission=addStep('Question paper submission','Check your subject team. The Exam IC will confirm who submits each paper, the deadline, and the submission channel.');
- const reference=el('details'),teachers=el('ul');
- reference.append(el('summary','Class IX teachers from the master timetable'),
-  el('p','Saturday periods VII and VIII are tentative and are excluded from this list.'),teachers);
- for(const [,,subject,names] of papers)teachers.append(el('li',subject+' · '+names));
- reference.open=true;
- submission.append(reference,el('p','Exam IC for updates · '+CLASS_IX_EXAM_IC),
-  el('p','Principal’s note · “Where more than one teacher is listed, I will assign the teacher responsible for submission.”'));
- const seating=addStep('Seating area','Check the room assigned to your section and roll-number range.');
+ const dates=addStep('Date sheet'),submission=addStep('Question paper submission'),seating=addStep('Seating and invigilation');
  const marks=addStep('Marks entry and Wisdom Analyser','Enter marks out of 80 for your assigned subject. Compare results with PT-2 in the Wisdom Analyser.');
- marks.append(button(principal?'Import roster / open analyser':'Open marks entry and analyser',()=>openPB1Analyser(false,'class-ix')));
+ marks.append(button(principal?'Import roster / open analyser':'Open marks entry and analyser',()=>{if(discard())return openPB1Analyser(false,'class-ix');}));
  const remedial=addStep('Remedial action plan','Review critical fail, fail and borderline students by subject. The assigned teacher records action taken each week with their PIN.');
- remedial.append(button(principal?'Review remedial actions':'Open weekly remedial action',()=>openPB1Analyser(false,'class-ix',undefined,true)));
+ remedial.append(button(principal?'Review remedial actions':'Open weekly remedial action',()=>{if(discard())return openPB1Analyser(false,'class-ix',undefined,true);}));
  host.scrollIntoView({block:'start'});
- try{
-  const data=await request({action:'task-read',operation:'class-ix-seating-read'});
-  const editor=form(),duties={};
-  const info=el('dl');
-  for(const {key,section,start,end} of CLASS_IX_SEATING){
-   const label='IX '+section+' · '+start+'–'+end;
-   const duty=data.duties?.[key]||{area:data.rooms?.[key]};
-   info.append(el('dt',label),el('dd',[duty.area||'Room to be assigned',duty.invigilator,
-    duty.from&&duty.to?duty.from+'–'+duty.to+' IST':''].filter(Boolean).join(' · ')));
-   if(data.icId){
-    const group=el('fieldset');group.append(el('legend',label));editor.append(group);
-    duties[key]=Object.fromEntries(CLASS_IX_SEATING_FIELDS.map(([name,title,type])=>{
-     const input=field(group,label+' · '+title,key+'-'+name,type,duty[name]||'');
-     if(type==='text')input.maxLength=80;
-     return [name,input];
-    }));
-   }
-  }
-  seating.append(info);
-  if(data.icId){
-   const edit=el('details');edit.append(el('summary',CLASS_IX_EXAM_IC+' · Update seating and invigilation'),editor);
-   const pin=field(editor,'Exam IC personal PIN','class-ix-seating-pin','password');pin.required=true;pin.inputMode='numeric';pin.autocomplete='off';
-   editor.append(el('button','Save seating and invigilation'));
-   editor.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(async()=>{
-    await request({action:'pin-submit',operation:'task-manager',taskOperation:'class-ix-seating-save',staffId:data.icId,pin:secret,
-     duties:Object.fromEntries(Object.entries(duties).map(([key,inputs])=>[key,Object.fromEntries(Object.entries(inputs).map(([name,input])=>[name,input.value]))])),expectedRevision:data.revision});
-    await drawClassIXExam();message('Seating and invigilation saved.');
-   });};
-   seating.append(edit);
-  }else seating.append(el('p','Room updates open when the Exam IC’s PIN is enabled.'));
- }catch(error){seating.append(el('p',error.message,'task-error'));}
+ let data={};
+ try{data=await request({action:'task-read',operation:'class-ix-seating-read'});}
+ catch(error){message(error.message,true);}
+ const pinSend=(taskOperation,values,pin)=>request({action:'pin-submit',operation:'task-manager',taskOperation,staffId:data.icId,pin,...values});
+ const commentSave=(record,send)=>async (rows,pin)=>{
+  const values=Object.fromEntries(Object.entries(rows).map(([key,{comment}])=>[key,comment]));
+  record.revision=(await send({values,expectedRevision:record.revision||0},pin)).revision;
+ };
+ const dateNotes=data.dateNotes||{},qpAssignments=data.qpAssignments||{};
+ classIXTable(dates,{
+  headers:['Date','Day','Subject'],columns:[['comment','Instructions from Mrs. Jyoti Verma','textarea']],
+  rows:CLASS_IX_PAPERS.map(([date,day,subject])=>({key:subject,label:subject,cells:[date,day,subject],values:{comment:dateNotes.values?.[subject]}})),
+  editLabel:'Edit date-sheet instructions',saveLabel:'Save instructions',pinRequired:true,
+  save:data.icId?commentSave(dateNotes,(values,pin)=>pinSend('class-ix-date-notes-save',values,pin)):undefined,
+ });
+ classIXTable(submission,{
+  headers:['Subject','Teachers from master timetable'],columns:[['comment','Principal’s QP assignment / comment','textarea']],
+  rows:CLASS_IX_PAPERS.map(([, ,subject,names])=>({key:subject,label:subject,cells:[subject,names.split(' | ')],values:{comment:qpAssignments.values?.[subject]}})),
+  editLabel:'Edit QP assignments',saveLabel:'Save QP assignments',
+  save:principal&&data.qpAssignments?commentSave(qpAssignments,values=>request({action:'task-principal',operation:'class-ix-qp-save',...values},true)):undefined,
+ });
+ submission.append(el('p','Exam IC for updates · '+CLASS_IX_EXAM_IC));
+ let seatingRevision=data.revision||0;
+ classIXTable(seating,{
+  headers:['Section','Roll numbers'],columns:CLASS_IX_SEATING_FIELDS,
+  rows:CLASS_IX_SEATING.map(({key,section,start,end})=>({key,label:'IX '+section+' · '+start+'–'+end,cells:['IX '+section,start+'–'+end],
+   values:data.duties?.[key]||{area:data.rooms?.[key]}})),
+  editLabel:'Edit seating and invigilation',saveLabel:'Save seating and invigilation',pinRequired:true,
+  save:data.icId?async (duties,pin)=>{
+   seatingRevision=(await pinSend('class-ix-seating-save',{duties,expectedRevision:seatingRevision},pin)).revision;
+  }:undefined,
+ });
+ if(!data.icId)seating.append(el('p','Seating edits open when the Exam IC’s PIN is enabled.'));
 }
 
 function drawStaffTask2(){

@@ -82,9 +82,19 @@ try:
             teacher.set_viewport_size({'width':width,'height':900})
             assert teacher.evaluate('document.documentElement.scrollWidth<=innerWidth')
         strips.nth(2).click()
-        teacher.get_by_text('07/12/2026 · Monday · Science',exact=True).wait_for()
-        teacher.get_by_text('IX C · 9321–9340',exact=True).wait_for()
+        teacher.get_by_role('cell',name='07/12/2026',exact=True).wait_for()
+        teacher.get_by_role('cell',name='9321–9340',exact=True).wait_for()
         assert teacher.get_by_text('Room to be assigned',exact=True).count()==10
+        assert teacher.locator('.task-exam-table').count()==3
+        assert teacher.get_by_role('button',name='Edit QP assignments',exact=True).count()==0
+        assignment_page=ctx.new_page()
+        assignment_page.goto(BASE+'cbse-task-manager.html#principal')
+        assignment_page.get_by_role('button',name='Open Task 3 — Class IX Pre-Annual Exam',exact=True).click()
+        assignment_page.get_by_role('button',name='Edit QP assignments',exact=True).click()
+        assignment_page.get_by_label('Science · Principal’s QP assignment / comment',exact=True).fill('Synthetic assignment')
+        assignment_page.get_by_role('button',name='Save QP assignments',exact=True).click()
+        assignment_page.get_by_role('cell',name='Synthetic assignment',exact=True).wait_for()
+        assignment_page.close()
         teacher.get_by_role('button',name='Open marks entry and analyser',exact=True).click()
         teacher.get_by_text('The list opens after the Principal imports',exact=False).wait_for()
         teacher.get_by_role('button',name='Back to Task 3',exact=True).click()

@@ -9,7 +9,14 @@ export const CLASS_IX_SEATING=Object.entries({
 }).flatMap(([section,ranges])=>ranges.map(([start,end],index)=>({key:section+[1,21,41][index],section,start,end})));
 export const CLASS_IX_SEATING_FIELDS=[['area','Exam area / room','text'],['invigilator','Invigilator name','text'],
  ['from','From time','time'],['to','To time','time']];
-const classIXSubjects=new Set(['ENGLISH','HINDI','MATHEMATICS','SCIENCE','SOCIAL SCIENCE']);
+export const CLASS_IX_PAPERS=[
+ ['07/12/2026','Monday','Science','IX A/C · Vandana Umang | IX B/D · Jyoti Verma'],
+ ['08/12/2026','Tuesday','Hindi','IX A · Suraj Dahal | IX B · Devendra Kumar Meena | IX C/D · Dipti Singh'],
+ ['09/12/2026','Wednesday','Mathematics','IX A/C · Priyanka Mehta | IX B/D · Ranjan Chetry | IX D · Bikash Jyoti Das'],
+ ['10/12/2026','Thursday','English','IX A · Abhishek Singh | IX B · M. T. Munya | IX C · Gocham Yagom | IX D · Sweta Kestwal'],
+ ['11/12/2026','Friday','Social Science','IX A/D · Ajay Pratap Singh C. | IX B/C · Nitish Raj Sharma'],
+];
+const classIXSubjects=new Set(CLASS_IX_PAPERS.map(([, ,subject])=>subject.toUpperCase()));
 export const CLASS_IX_EXAM_IC='Mrs. Jyoti Verma';
 export const HALF_YEARLY_CSV_LIMIT=256*1024;
 const norm=value=>value.normalize('NFC').trim().replace(/\s+/g,' ').toUpperCase();

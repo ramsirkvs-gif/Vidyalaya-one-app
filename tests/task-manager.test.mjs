@@ -781,6 +781,20 @@ test('Class IX seating uses Jyoti’s PIN and marks and remedial notes stay scop
  await f.teacher(seat);
  assert.deepEqual((await f.service('task-read',{operation:'class-ix-seating-read'})).duties,duties);
  await assert.rejects(f.teacher(seat),/changed/i);
+ const blank=Object.fromEntries(['Science','Hindi','Mathematics','English','Social Science'].map(subject=>[subject,'']));
+ const dateNotes={taskOperation:'class-ix-date-notes-save',expectedRevision:0,values:{...blank,Science:'Synthetic exam instruction'}};
+ const qp={operation:'class-ix-qp-save',expectedRevision:0,values:{...blank,Science:'Synthetic QP assignment'}};
+ await assert.rejects(f.teacher(dateNotes,'X:two','456'),/Only Mrs/);
+ await assert.rejects(f.service('task-read',qp),/Principal access/);
+ await Promise.all([f.teacher(dateNotes),f.admin(qp)]);
+ await assert.rejects(f.teacher(dateNotes),/comments changed/i);
+ await assert.rejects(f.admin(qp),/comments changed/i);
+ await f.teacher({...seat,expectedRevision:1});
+ const updated=await f.service('task-read',{operation:'class-ix-seating-read'});
+ assert.deepEqual(updated.dateNotes.values,dateNotes.values);
+ assert.deepEqual(updated.qpAssignments.values,qp.values);
+ assert.deepEqual(updated.duties,duties);
+
 
  const csv='Section,RollNo,StudentName,Subject,PreviousMarks,PreviousMM,PreAnnualMM,Teacher\nA,1,Synthetic IX student,Science,8,40,80,X:one\nB,1,Synthetic other student,Hindi,14,40,80,X:two\n';
  const uploaded=await f.admin({operation:'half-yearly-import',exam,expectedRevision:0,csv});
