@@ -428,12 +428,16 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    const resultCount=(label,students)=>{
     if(!students.length)return 0;
     const title=examLabel+' '+label+' · '+groupLabel;
-    return studentListButton(String(students.length),title,()=>showMarks(students,{title,period}));
+    const count=String(students.length);
+    const action=studentListButton(count,title,()=>showMarks(students,{title,period}));
+    action.replaceChildren(el('strong',count),el('span','Click to see list'));
+    action.classList.add('pb1-subject-count-button');
+    return action;
    };
    return [appeared.length,resultCount('Passed',passed),resultCount('Failed',failed),
     pct(appeared.length?passed.length*100/appeared.length:null)];
   };
-  parent.append(el('h3',title),el('p','Passed and Failed counts · Click to see list'));
+  parent.append(el('h3',title));
   table(parent,['Subject / group','Enrolled',...examColumns(exam.baseline),...examColumns(exam.short),exam.short+' marks pending'],
    [...grouped].map(([label,rows])=>[label,rows.length,...counts(rows,'before',exam.baseline,label),
     ...counts(rows,'current',exam.short,label),rows.filter(row=>!row.current).length]));

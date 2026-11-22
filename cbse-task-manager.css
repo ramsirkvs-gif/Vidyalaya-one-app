@@ -329,3 +329,6 @@
 .task-exam-table-actions{display:flex;flex-wrap:wrap;align-items:end;gap:.55rem;margin:.6rem 0}
 .task-app .task-exam-table-actions label{margin:0}
 .task-exam-step .task-exam-table-actions:empty{display:none}
+
+.task-app button.pb1-subject-count-button{display:grid;justify-items:center;gap:.15rem;margin:0;padding:.4rem .55rem;white-space:nowrap}
+.pb1-subject-count-button span{font-size:.75rem}
