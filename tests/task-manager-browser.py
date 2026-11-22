@@ -72,15 +72,34 @@ try:
         teacher.goto(BASE+'cbse-task-manager.html#staff')
         strips=teacher.locator('.task-stage-strip')
         strips.last.wait_for()
-        assert strips.count()==3
+        assert strips.count()==4
         assert strips.nth(0).inner_text().splitlines()==['Task 1','HQ Survey','✓','Done']
         assert strips.nth(2).inner_text().splitlines()[:2]==['Task 3','Class IX Pre-Annual Exam']
         assert 'Running' in strips.nth(2).inner_text()
         assert teacher.locator('.task-public-list').count()==0
-        assert teacher.locator('button.task-stage-strip').count()==2
+        assert teacher.locator('button.task-stage-strip').count()==3
         for width in [320,390,768,1440]:
             teacher.set_viewport_size({'width':width,'height':900})
             assert teacher.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        strips.nth(3).click()
+        teacher.get_by_text('The retest list is awaiting publication.',exact=True).wait_for()
+        teacher.get_by_role('button',name='Back to task list',exact=True).click()
+        retest=ctx.new_page()
+        retest.goto(BASE+'cbse-task-manager.html#principal')
+        retest.get_by_role('button',name='Open Task 4 — PB-1 / HE Absentees Retest on Medical Ground',exact=True).click()
+        retest_csv=('Name,Class with section,Roll number,Subject,Exam date\n'
+                    'Synthetic retest student,X D,10423,Maths Basic,2026-11-16\n')
+        retest.get_by_label('Task 4 absentee CSV',exact=True).set_input_files({
+            'name':'synthetic-retest.csv','mimeType':'text/csv','buffer':retest_csv.encode()})
+        retest.get_by_role('button',name='Import Task 4 CSV',exact=True).click()
+        retest.get_by_role('cell',name='Synthetic retest student',exact=True).wait_for()
+        retest.get_by_role('button',name='Edit retest details',exact=True).click()
+        retest.get_by_label('Synthetic retest student · Maths Basic · Retest date planned',exact=True).fill('2026-11-25')
+        retest.get_by_role('button',name='Save retest details',exact=True).click()
+        retest.get_by_role('cell',name='25/11/2026',exact=True).wait_for()
+        retest.get_by_role('button',name='Publish to staff',exact=True).click()
+        retest.get_by_text('Published to staff',exact=True).wait_for()
+        retest.close()
         strips.nth(2).click()
         teacher.get_by_role('cell',name='07/12/2026',exact=True).wait_for()
         teacher.get_by_role('cell',name='9321–9340',exact=True).wait_for()

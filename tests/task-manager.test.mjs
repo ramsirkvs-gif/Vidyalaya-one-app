@@ -895,3 +895,28 @@ test('the IX D Mathematics assignment applies to existing marks and only permits
  const analysis=await f.service('task-read',{exam,operation:'pb1-public'});
  assert.equal(analysis.scopes.find(scope=>scope.section==='D').teacher,'MR. BIKASH JYOTI DAS');
 });
+
+test('Task 4 imports, updates and publishes the retest register behind staff viewing access',async()=>{
+ const f=taskFixture();
+ const csv='Name,Class with section,Roll number,Subject,Exam date\nSynthetic Student,X D,10423,Maths Basic,2026-11-16\n';
+ const imported=await f.admin({operation:'retest-import',expectedRevision:0,csv});
+ const [key]=Object.keys(imported.rows);
+ assert.deepEqual(await f.service('task-read',{operation:'retest-read'}),{published:false});
+ await assert.rejects(f.service('task-read',{operation:'retest-publish'}),/Principal access/);
+ await assert.rejects(f.admin({operation:'retest-save',expectedRevision:1,changes:{[key]:{retestDate:'2026-11-31'}}}),/Retest date/);
+ const saved=await f.admin({operation:'retest-save',expectedRevision:1,changes:{[key]:{
+  subjectTeacher:'Synthetic Teacher',classTeacher:'Synthetic Class Teacher',medicalStatus:'Received',
+  retestDate:'2026-11-25',qpReady:'Ready',testDone:'Done',principalDiscussion:'Discussed',
+ }}});
+ assert.equal(saved.rows[key].medicalStatus,'Received');
+ await assert.rejects(f.admin({operation:'retest-publish',expectedRevision:1}),/changed/);
+ const refreshed=await f.admin({operation:'retest-import',expectedRevision:2,csv});
+ assert.deepEqual(refreshed.rows,saved.rows);
+ await f.admin({operation:'retest-publish',expectedRevision:3});
+ await assert.rejects(f.service('task-read',{operation:'retest-read'}),/viewing password/);
+ const {viewerToken}=await f.service('remember-view',{},'principal');
+ const read=()=>f.service('task-read',{operation:'retest-read'},'','test',{viewerToken});
+ assert.deepEqual((await read()).rows,saved.rows);
+ await f.admin({operation:'retest-unpublish',expectedRevision:4});
+ assert.deepEqual(await read(),{published:false});
+});

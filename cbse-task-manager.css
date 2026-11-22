@@ -332,3 +332,6 @@
 
 .task-app button.pb1-subject-count-button{display:grid;justify-items:center;gap:.15rem;margin:0;padding:.4rem .55rem;white-space:nowrap}
 .pb1-subject-count-button span{font-size:.75rem}
+
+.task-stage-strip.is-priority{--stage-bg:#fff1ef;--stage-border:#ebbdba;--stage-accent:#ad3536;--stage-text:#7c2628}
+.task-app button.task-stage-strip.is-priority:hover{background:#ffe4e0;border-color:#ad3536}

@@ -1,3 +1,4 @@
+import {RETEST_TITLE,RETEST_HEADERS,RETEST_FIELDS} from './cbse-task-retest-model.js';
 import {openTaskStatusReport} from './cbse-task-status-report.js';
 import {rollStaffStatus} from './cbse-roll-call-status.js';
 import {rollDateText,rollTimestamp} from './cbse-roll-call-time.js';
@@ -65,6 +66,7 @@ function catalogue(parent){
   title:t.draft.title,updatedAt:Math.max(t.updatedAt||t.createdAt||0,...Object.values(t.reports||{}).map(report=>report.updatedAt||0)),state:t.published?'Published':'Draft',
   open:()=>openPrincipalTask(id,t),
  }));
+ list.push({title:'Task 4 — '+RETEST_TITLE,updatedAt:0,state:store.retestPublished?'High priority · Published':'High priority · Draft',open:openRetest});
  list.push({title:'Task 3 — Class IX Pre-Annual Exam',updatedAt:0,state:'Published',open:drawClassIXExam});
  list.push({title:MONITORING_TITLE,updatedAt:store.monitoringUpdatedAt||0,state:'Monitoring',open:openMonitoring});
  list.sort((a,b)=>b.updatedAt-a.updatedAt);
@@ -1237,6 +1239,99 @@ function drawStaffTask2(){
  host.scrollIntoView({block:'start'});
 }
 
+async function openRetest(){
+ const asPrincipal=principal;
+ const send=(operation,values={})=>request({action:asPrincipal?'task-principal':'task-read',operation,...values},asPrincipal);
+ const back=button('Back to task list',()=>{if(discard())return asPrincipal?drawPrincipal():drawStaff();});
+ const panel=el('section',undefined,'task-card');
+ panel.append(el('h2','Task 4 — '+RETEST_TITLE),el('strong','High priority','task-importance-label'));
+ host.replaceChildren(back,panel);
+ let plan;
+ try{plan=await send('retest-read');}
+ catch(error){
+  if(!error.curtainRequired)throw error;
+  const login=form(),password=field(login,'Staff viewing password','retest-password','password');
+  password.required=true;password.autocomplete='off';
+  login.append(el('button','Open retest tracker'));
+  login.onsubmit=event=>{event.preventDefault();const value=password.value;password.value='';run(async()=>{
+   await request({action:'view-login',password:value});await openRetest();
+  });};
+  panel.append(login);return;
+ }
+ const content=el('div');panel.append(content);
+
+ function draw(editing=false){
+  content.replaceChildren();
+  const rows=Object.entries(plan.rows||{}).sort(([,a],[,b])=>a.classLabel.localeCompare(b.classLabel)||
+   a.examDate.localeCompare(b.examDate)||a.subject.localeCompare(b.subject)||Number(a.roll)-Number(b.roll));
+  const state=asPrincipal?(plan.published?'Published to staff':'Draft for Principal review'):(plan.published?'':'The retest list is awaiting publication.');
+  if(state)content.append(el('p',state));
+  if(!editing&&asPrincipal){
+   const importer=form(),file=field(importer,'Task 4 absentee CSV','retest-csv','file');
+   file.accept='.csv,text/csv';file.required=true;
+   importer.append(el('button','Import Task 4 CSV'));
+   importer.onsubmit=event=>{event.preventDefault();run(async()=>{
+    const upload=file.files[0];
+    if(!upload||upload.size>64000)throw Error('Choose a CSV up to 64 KB.');
+    plan=await send('retest-import',{csv:await upload.text(),expectedRevision:plan.revision});
+    draw();message('Task 4 absentee list imported.');
+   });};
+   const template=el('a','Download CSV template');
+   template.href='data:text/csv;charset=utf-8,'+encodeURIComponent(RETEST_HEADERS.join(',')+'\n');
+   template.download='Task-4-retest-template.csv';
+   importer.append(template);content.append(importer);
+   if(rows.length){
+    const actions=el('div',undefined,'task-actions');
+    actions.append(button('Edit retest details',()=>draw(true)),button(plan.published?'Stop publication':'Publish to staff',async()=>{
+     plan=await send(plan.published?'retest-unpublish':'retest-publish',{expectedRevision:plan.revision});
+     store.retestPublished=!!plan.published;draw();
+    }));
+    content.append(actions);
+   }
+  }
+  if(!rows.length)return;
+  content.append(el('p',rows.length+' missed papers · '+new Set(rows.map(([,row])=>row.classLabel+' '+row.roll)).size+' students'));
+  const editor=editing?form():el('div'),scroll=el('div',undefined,'task-exam-table-scroll');
+  const table=el('table',undefined,'task-exam-table'),head=table.createTHead().insertRow(),tbody=table.createTBody();
+  for(const label of [...RETEST_HEADERS,...RETEST_FIELDS.map(([,label])=>label)]){
+   const th=el('th',label);th.scope='col';head.append(th);
+  }
+  const inputs=new Map();
+  for(const [id,row] of rows){
+   const tr=tbody.insertRow(),identity=row.name+' · '+row.subject;
+   for(const value of [row.name,row.classLabel,row.roll,row.subject,rollDateText(row.examDate)])tr.insertCell().textContent=value;
+   const fields={};
+   for(const [key,label,type] of RETEST_FIELDS){
+    const td=tr.insertCell(),value=row[key]||'';
+    td.className='task-exam-table-value';
+    if(!editing){td.textContent=(type==='date'&&value?rollDateText(value):value)||'—';continue;}
+    const control=el(Array.isArray(type)?'select':'input');
+    control.setAttribute('aria-label',identity+' · '+label);
+    if(Array.isArray(type))options(control,[['','—'],...type.map(choice=>[choice,choice])],value);
+    else{control.type=type;control.value=value;if(type==='text')control.maxLength=120;}
+    td.append(control);fields[key]=control;
+   }
+   inputs.set(id,fields);
+  }
+  scroll.append(table);editor.append(scroll);content.append(editor);
+  if(!editing)return;
+  const actions=el('div',undefined,'task-actions');
+  actions.append(el('button','Save retest details'),button('Cancel',()=>{if(discard())draw();}));
+  editor.append(actions);
+  editor.onsubmit=event=>{event.preventDefault();run(async()=>{
+   const changes=Object.fromEntries([...inputs].flatMap(([id,fields])=>{
+    const updates=Object.entries(fields).filter(([key,control])=>(plan.rows[id][key]||'')!==control.value.trim())
+     .map(([key,control])=>[key,control.value.trim()]);
+    return updates.length?[[id,Object.fromEntries(updates)]]:[];
+   }));
+   if(!Object.keys(changes).length){draw();return;}
+   plan=await send('retest-save',{changes,expectedRevision:plan.revision});
+   draw();message('Retest details saved.');
+  });};
+ }
+ draw();
+}
+
 function drawStaff(){
  const tasks=Object.entries(store.tasks||{}).filter(([id])=>id!=='task1')
   .sort(([,a],[,b])=>TASK_PRIORITIES.indexOf(a.priority)-TASK_PRIORITIES.indexOf(b.priority));
@@ -1245,12 +1340,13 @@ function drawStaff(){
   ['Task 1','HQ Survey','Done','done'],
   ['Task 2','Pre-Samagam Evaluation Monitoring','Running','running',drawStaffTask2],
   ['Task 3','Class IX Pre-Annual Exam','Running','upcoming',drawClassIXExam],
+  ['Task 4',RETEST_TITLE,'High priority','priority',openRetest],
  ]){
   const item=el('li'),strip=open?button('',open):el('div');
   strip.className='task-stage-strip is-'+style;
   const info=el('span',undefined,'task-stage-info');
   info.append(el('span',number,'task-stage-number'),el('strong',title,'task-stage-title'));
-  if(open)info.append(el('span',number==='Task 2'?'Wisdom Analyser · PB-1 & Half-Yearly':'Date sheet, seating, marks and remedial action','task-stage-subtitle'));
+  if(number==='Task 2'||number==='Task 3')info.append(el('span',number==='Task 2'?'Wisdom Analyser · PB-1 & Half-Yearly':'Date sheet, seating, marks and remedial action','task-stage-subtitle'));
   const state=el('span',undefined,'task-stage-state');
   if(style==='done'||open){
    const symbol=el('span',style==='done'?'✓':'→');
