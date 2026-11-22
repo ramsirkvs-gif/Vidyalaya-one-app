@@ -910,13 +910,17 @@ function halfYearlyTransferPanel(data,transfer){
  return details;
 }
 
-function drawClassIXRemedial(data,save,back){
+function drawClassIXRemedial(data,save,back,openEditor){
  const panel=el('section',undefined,'task-card');
  panel.append(el('h2','Class IX weekly remedial action'),
-  el('p','Targets use Pre-Annual marks when entered and PT-2 marks until then. Record the support given and the next check. A new entry updates the comment for the current week.'));
+  el('p','Targets use Pre-Annual marks when entered and PT-2 marks until then.'));
+ if(save)panel.append(el('p','Record the support given and the next check. A new entry updates the comment for the current week.'));
+ if(openEditor){
+  panel.append(button('Add or update weekly action',openEditor));
+ }
  const groups=[['critical','Critical fail'],['red','Fail'],['yellow','Borderline']];
  const targetBands=new Set(groups.map(([band])=>band));
- groups.push(['history','Previous targets with recorded actions']);
+ if(!openEditor)groups.push(['history','Previous targets with recorded actions']);
  for(const [band,label] of groups){
   const rows=data.rows.filter(row=>{
    const current=(row.current||row.before)?.band;
@@ -926,7 +930,7 @@ function drawClassIXRemedial(data,save,back){
   for(const row of rows){
    const paper=data.scopes[row.scope],mark=row.current||row.before,history=Object.entries(row.weeklyActions||{}).sort(([a],[b])=>b.localeCompare(a));
    const card=el('div',undefined,'task-report');
-   card.append(el('h3','IX '+row.section+' · Roll '+row.roll+' · '+row.name),
+   card.append(el('h3',[paper.classId+' '+paper.section,row.roll?'Roll '+row.roll:'',row.name].filter(Boolean).join(' · ')),
     el('p',paper.subject+' · '+(paper.teacher||'Teacher assignment pending')+' · '+ (mark?mark.exam+' '+(mark.absent?'AB':mark.score+'/'+mark.maximum):'Result pending')));
    for(const [week,{comment}] of history)card.append(el('p','Week of '+rollDateText(week)+' · '+comment));
    if(save&&band!=='history'){
@@ -944,13 +948,19 @@ function drawClassIXRemedial(data,save,back){
   }
   panel.append(section);
  }
- host.replaceChildren(button('Back to Task 3',()=>{if(discard())return back();}),panel);
+ host.replaceChildren(button(save?'Back to remedial list':'Back to Task 3',()=>{if(discard())return back();}),panel);
 }
 async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=false){
  const classIX=examId==='class-ix';
  const exam=classIX?{title:'Class IX Pre-Annual Wisdom Analyser',short:'Pre-Annual',current:'Pre-Annual Exam',previous:CLASS_IX_EXAM.previous,baseline:CLASS_IX_EXAM.baseline,classId:'IX',classes:'Class IX'}:examId==='half-yearly'?HALF_YEARLY_ANALYSER:PB1_ANALYSER;
  const openExam=(entry=false)=>openPB1Analyser(entry,examId);
  const asPrincipal=principal;
+ const openRemedial=()=>openPB1Analyser(false,examId,undefined,true);
+ if(!asPrincipal&&remedial&&!entryOnly){
+  const data=await request({action:'task-read',operation:'pb1-public',exam:examId});
+  drawClassIXRemedial(data,null,drawClassIXExam,()=>openPB1Analyser(true,examId,undefined,true));
+  return;
+ }
  if(!asPrincipal&&!entryOnly&&!remedial){
   const read=named=>request({action:'task-read',operation:named?'pb1-named':'pb1-public',exam:examId});
   let data,publicView=classIX;
@@ -971,7 +981,7 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=fa
     const {classId,sectionId,subjectId,studentKey,comment,expectedRevision}=values;
     const result=await send('class-ix-remedial-save',{classId,sectionId,subjectId,studentKey,comment,expectedRevision},secret);
     await open(staffId,'',result);
-   },drawClassIXExam);
+   },asPrincipal?drawClassIXExam:openRemedial);
    return;
   }
   const setup=asPrincipal&&examId?revision=>{
@@ -1020,7 +1030,9 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=fa
  }else if(paperCount===0){
   card.append(el('p',classIX?'The list opens after the Principal imports the Class IX roster and PT-2 marks.':'Class XI marks entry opens after the Principal imports the roster and PT-1 marks in the XI Half-Yearly Analyser.'));
  }else card.append(el('p','No evaluators or cross-checkers are assigned to '+exam.current+' papers.'));
- host.replaceChildren(button(classIX?'Back to Task 3':'Back to Wisdom Analyser',()=>{if(discard())return classIX?drawClassIXExam():openExam();}),card);
+ host.replaceChildren(button(remedial?'Back to remedial list':classIX?'Back to Task 3':'Back to Wisdom Analyser',()=>{
+  if(discard())return remedial?openRemedial():classIX?drawClassIXExam():openExam();
+ }),card);
 }
 function drawAnalyserCards(){
  const cards=el('div',undefined,'task-analyser-cards');

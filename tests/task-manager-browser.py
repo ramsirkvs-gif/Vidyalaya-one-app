@@ -1,7 +1,7 @@
 """Generated-site UI against the real task/PIN service with synthetic database/auth.
 Run after npm run build. No real Firebase access or school records are used.
 """
-import json, subprocess, urllib.request, base64, zipfile
+import json, subprocess, urllib.request, base64, zipfile, re
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 ROOT=Path(__file__).resolve().parent.parent
@@ -146,6 +146,11 @@ try:
         teacher.get_by_text('Marks saved successfully.',exact=True).wait_for()
         teacher.get_by_role('button',name='Back to Task 3',exact=True).click()
         teacher.get_by_role('button',name='Open weekly remedial action',exact=True).click()
+        teacher.get_by_text('Borderline · 1',exact=True).click()
+        assert teacher.get_by_label('Personal PIN',exact=True).count()==0
+        assert teacher.get_by_text('Synthetic IX student',exact=True).count()==0
+        assert teacher.get_by_role('heading',name=re.compile(r'IX A · Student [0-9A-F]{10}')).is_visible()
+        teacher.get_by_role('button',name='Add or update weekly action',exact=True).click()
         teacher.get_by_label('Evaluator or cross-checker',exact=True).select_option('X:one')
         teacher.get_by_label('Personal PIN',exact=True).fill('123')
         teacher.get_by_role('button',name='Open my remedial list',exact=True).click()
@@ -154,6 +159,7 @@ try:
         teacher.get_by_label('Personal PIN',exact=True).fill('123')
         teacher.get_by_role('button',name='Save weekly action',exact=True).click()
         teacher.get_by_text('Weekly action saved.',exact=True).wait_for()
+        teacher.get_by_role('button',name='Back to remedial list',exact=True).click()
         teacher.get_by_role('button',name='Back to Task 3',exact=True).click()
         teacher.get_by_role('button',name='Back to task list',exact=True).click()
         strips.nth(1).click()
