@@ -797,8 +797,8 @@ function principalReportEditor(parent,card,id,t,c){
  const remarks=field(editor,OVERALL_COMMENT_LABEL+' (optional)','principal-teacher-remarks','textarea',old.values.remarks||'');remarks.maxLength=10000;editor.append(remarkWordLimit(remarks,old.values.remarks||''));const actions=el('div',undefined,'task-actions');actions.append(el('button','Save submitted answers'),button('Cancel answer edits',()=>{if(editor.dataset.portalDirty==='true'&&!confirm('Discard these unsaved answer edits?'))return;editor.remove();}));editor.append(actions);editor.onsubmit=event=>{event.preventDefault();if([...card.querySelectorAll('form[data-portal-dirty="true"]')].some(f=>f!==editor)){message('Save other task edits and comments before saving these answers.',true);return;}run(async()=>{const values={remarks:remarks.value,...Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,input.tagName==='TEXTAREA'?input.value:input.value===''?null:Number(input.value)]))};await admin({operation:'edit-report',taskId:id,classId:c,expectedRevision:t.revision,reportRevision:old.revision||0,report:values});editor.dataset.portalDirty='false';drawAdminTask(card,id,store.tasks[id]);const saved=card.querySelector('[data-report-class="'+c+'"]');saved.open=true;saved.scrollIntoView({block:'start',behavior:'smooth'});message(c+' submitted answers saved successfully by Principal.');});};parent.append(editor);editor.scrollIntoView({block:'start',behavior:'smooth'});editor.querySelector('input,textarea')?.focus();
 }
 function teacherTaskHeading(task,tag='h2',urgentText='Most urgent task · Handle with care'){const heading=el(tag,undefined,'task-title-heading');if(task.priority===TASK_PRIORITIES[0]){heading.classList.add('task-urgent-heading');const icon=el('span','🚨','task-alarm-icon');icon.setAttribute('aria-hidden','true');heading.append(icon,el('span',urgentText,'task-importance-label'),el('span',task.title,'task-heading-title'));}else heading.textContent=task.title;return heading;}
-async function openNamedPB1Results(exam){
- const read=()=>request({action:'task-read',operation:'pb1-named',exam});
+async function openNamedPB1Results(exam,remedial=false){
+ const read=()=>request({action:'task-read',operation:'pb1-named',exam,remedial});
  try{return await read();}catch(error){if(!error.curtainRequired)throw error;}
  return new Promise(resolve=>{
   const dialog=el('dialog',undefined,'task-start-dialog'),heading=el('h2','Show student names');
@@ -910,11 +910,12 @@ function halfYearlyTransferPanel(data,transfer){
  return details;
 }
 
-function drawClassIXRemedial(data,back,{teachers=[],save}={}){
+function drawClassIXRemedial(data,back,{teachers=[],save,openNames}={}){
  const panel=el('section',undefined,'task-card');
  panel.append(el('h2','Class IX weekly remedial action'),
   el('p','Critical fail, Fail, and Borderline are all remedial targets. Each subject uses PT-2 until its Pre-Annual mark is entered, then switches to the Pre-Annual result.'));
  if(save)panel.append(el('p','Record the support given and the next check. A new entry updates the comment for the current week.'));
+ if(openNames)panel.append(button('Show student names',()=>{if(discard())return openNames();}));
  const groups=[['critical','Critical fail'],['red','Fail'],['yellow','Borderline']];
  const bandLabels=new Map(groups);
  groups.push(['history','Previous targets with recorded actions']);
@@ -993,13 +994,19 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=fa
  const openExam=(entry=false)=>openPB1Analyser(entry,examId);
  const asPrincipal=principal;
  if(!asPrincipal&&remedial){
+  const read=operation=>request({action:'task-read',operation,exam:examId,remedial:true});
+  let coded=false;
   const [data,{teachers}]=await Promise.all([
-   request({action:'task-read',operation:'pb1-public',exam:examId,remedial:true}),
+   read('pb1-named').catch(error=>{if(!error.curtainRequired)throw error;coded=true;return read('pb1-public');}),
    request({action:'task-read',operation:'pb1-directory',exam:examId}),
   ]);
-  drawClassIXRemedial(data,drawClassIXExam,{teachers,save:(values,staffId,pin)=>request({
+  const save=(values,staffId,pin)=>request({
    action:'pin-submit',operation:'task-manager',taskOperation:'class-ix-remedial-save',exam:examId,staffId,pin,...values,
-  })});
+  });
+  drawClassIXRemedial(data,drawClassIXExam,{teachers,save,openNames:coded?async()=>{
+   const named=await openNamedPB1Results(examId,true);
+   if(named)drawClassIXRemedial(named,drawClassIXExam,{teachers,save});
+  }:undefined});
   return;
  }
  if(!asPrincipal&&!entryOnly&&!remedial){

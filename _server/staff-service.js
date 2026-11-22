@@ -474,7 +474,8 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(admin&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze'].includes(input.operation))return pb1Workspace(input,{uid:adminIdentity.uid});
    if(!admin&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze'].includes(input.operation))throw new AccessError('Use a teacher PIN for marks entry or Principal sign-in for approval.',403);
    if(!admin&&['pb1-public','pb1-named'].includes(input.operation)){
-    if(classIX&&input.operation==='pb1-named')throw new AccessError('Use your assigned teacher PIN for named Class IX results.',403);
+    const remedial=classIX&&input.remedial===true;
+    if(classIX&&!remedial&&input.operation==='pb1-named')throw new AccessError('Use your assigned teacher PIN for named Class IX results.',403);
     if(!classIX&&!await read('cbse/taskMonitoring/published/updatedAt'))throw new AccessError('The Pre-Samagam plan is not published.',404);
     const named=input.operation==='pb1-named';
     if(named){
@@ -493,13 +494,13 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
      report.classSections=pb1Sections(draft,faculty);
     }
     const {scopes,rows,roster,classSections}=report;
-    const remedial=classIX&&input.remedial===true,students=new Map();
+    const students=new Map();
     const label=key=>{
      if(!students.has(key))students.set(key,codedExamStudent(key,classIX?'class-ix-public:':halfYearly?'half-yearly-public:':'pb1-public:'));
      return students.get(key);
     };
     const publicRows=rows.map(({scope,key,name,roll,before,current,weeklyActions})=>({
-     scope,key:named?key:label(key),name:named?name:label(key),...(named?{roll}:{}),
+     scope,key:named&&!remedial?key:label(key),name:named?name:label(key),...(named?{roll}:{}),
      ...(remedial?{actionWeeks:Object.keys(weeklyActions||{})}:{}),
      before:before&&{...before,exam:classIX?CLASS_IX_EXAM.previous:halfYearly?'Periodic Test 1 (PT-1)':'Monthly test · '+before.date.slice(0,7)},
      current:current&&{...current,exam:classIX?CLASS_IX_EXAM.name:halfYearly?'Half-Yearly':'Preboard 1'},
@@ -507,7 +508,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
      .sort((a,b)=>a.scope-b.scope||a.name.localeCompare(b.name));
     return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum,approvedAt,additional,teacherAssignmentPending,sectionId,subjectId})=>
      ({classId,section,subject,teacher,teachers,maximum,approvedAt,additional,...(classIX?{teacherAssignmentPending}: {}),
-      ...(remedial?{sectionId,subjectId}:{})})),rows:publicRows,...(named?{roster}:{}),...(remedial?{revision:report.revision}:{}),
+      ...(remedial?{sectionId,subjectId}:{})})),rows:publicRows,...(named&&!remedial?{roster}:{}),...(remedial?{revision:report.revision}:{}),
      ...(classSections?{classSections}:{}),...(!named?{classRoster:roster.map(({key,classId,section})=>({key:label(key),name:label(key),classId,section}))}:{})};
    }
    if(!admin&&input.operation==='pb1-directory'){

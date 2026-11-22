@@ -830,6 +830,15 @@ test('Class IX seating uses Jyoti’s PIN and marks and remedial notes stay scop
  const openRemedial=()=>f.service('task-read',{operation:'pb1-public',exam,remedial:true});
  const remedial=await openRemedial();
  const codedStudent=remedial.rows.find(row=>remedial.scopes[row.scope].subjectId===subjectId).key;
+ const namedInput={operation:'pb1-named',exam,remedial:true};
+ await assert.rejects(f.service('task-read',namedInput),/viewing password/);
+ const viewing=await f.service('remember-view',{},'principal');
+ const namedRemedial=await f.service('task-read',namedInput,'','test',{viewerToken:viewing.viewerToken});
+ const namedStudent=namedRemedial.rows.find(row=>row.key===codedStudent);
+ assert.equal(namedStudent.name,'Synthetic IX student');
+ assert.equal(namedStudent.roll,'9101');
+ assert(!JSON.stringify(namedRemedial).includes(edit.comment));
+
  const codedEdit={...edit,studentKey:undefined,codedStudent,expectedRevision:remedial.revision,comment:'Synthetic coded remark'};
  await assert.rejects(f.teacher(codedEdit,'X:two','456'),/outside your assigned/);
  const codedSave=await f.teacher(codedEdit);
