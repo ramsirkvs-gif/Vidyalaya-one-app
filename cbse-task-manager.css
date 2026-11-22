@@ -269,3 +269,5 @@
 .task-bundle-workflow li.task-bundle-due{background:#fff1d2;color:#6b3f04;border:1px solid #eac87f}
 .task-bundle-workflow li.task-bundle-pending{background:#f8fafb;color:#42545c}
 .task-bundle-workflow li :is(button,a){justify-self:start;margin:.25rem 0}
+.task-bundle-complete{display:inline-block;background:#dff1e5;color:#185740;border-radius:.3rem;padding:.2rem .45rem}
+.task-bundle-list button .task-bundle-complete{display:block;width:fit-content;margin:.3rem auto 0}

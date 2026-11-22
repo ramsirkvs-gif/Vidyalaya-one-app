@@ -215,11 +215,15 @@ function drawStaffBundles(record,{focusRow,staffId=''}={}){
   practice=practice?null:{};
   practiceNotice.hidden=!practice;
   toggle.textContent=practice?'Exit mock practice':'Mock practice with PIN';
-  drawDetail();
+  drawBundles();
  });
  card.append(bundleList,detail,practiceNotice,toggle);
  host.replaceChildren(button('Back to task list',drawStaff),card);
  const currentProgress=key=>practice?practice[key]:record.progress?.[key];
+ const uploadLabel=MONITORING_STEPS.find(step=>step.uploadPdf).options[0][1];
+ const uploadRecorded=progress=>progress?.history?.some(event=>event.label===uploadLabel);
+ const completed=progress=>monitoringStage(progress)>=MONITORING_STEPS.length&&uploadRecorded(progress);
+ const doneBadge=()=>el('strong','✓ Bundle complete','task-bundle-complete');
  function drawBundles(){
   bundleList.replaceChildren();
   if(!teacher.value){detail.replaceChildren();return;}
@@ -235,6 +239,7 @@ function drawStaffBundles(record,{focusRow,staffId=''}={}){
     const choose=button(entry.section+' · '+entry.subject,()=>{
      selected=key;drawBundles();detail.scrollIntoView({block:'start'});
     });
+    if(completed(currentProgress(key)))choose.append(doneBadge());
     choose.setAttribute('aria-pressed',String(selected===key));section.append(choose);
    }
    bundleList.append(section);
@@ -247,18 +252,25 @@ function drawStaffBundles(record,{focusRow,staffId=''}={}){
   const key=selected,entry=record.assignments[key],progress=currentProgress(key),stage=monitoringStage(progress);
   const view=practice?{...record,progress:practice}:record;
   const updatePractice=practice?({stage,event})=>{
-   practice[key]={stage,separateMatching:true,history:[...(progress?.history||[]),event]};drawDetail();
+   practice[key]={stage,separateMatching:true,history:[...(progress?.history||[]),event]};drawBundles();
   }:undefined;
   const info=el('section',undefined,'task-bundle-details'),roles=el('dl');
   info.append(el('h3',entry.section+' · '+entry.subject),el('p',monitoringExamLabel(entry.section)),roles);
   for(const [role,label] of MONITORING_ROLES)roles.append(el('dt',label),el('dd',entry.roles?.[role]?.name||'Assignment pending'));
   detail.append(info);
   const steps=el('section',undefined,'task-bundle-workflow'),items=el('ol');
-  steps.append(el('h3','Workflow status'),items);
+  steps.append(el('h3','Workflow status'));
+  if(completed(progress)){
+   steps.append(doneBadge());
+   const finalLabel=MONITORING_STEPS.at(-1).options[0][1];
+   const final=progress.history.findLast(event=>event.label===finalLabel);
+   if(final)steps.append(el('p',[finalLabel,final.name,final.remark].filter(Boolean).join(' · ')));
+  }
+  steps.append(items);
   for(const [position,step] of MONITORING_STEPS.entries()){
    const due=position===stage,done=position<stage,assigned=monitoringPeople(record,entry,position);
    const item=el('li',undefined,due?'task-bundle-due':done?'task-bundle-done':'task-bundle-pending');
-   const pdfNotRecorded=step.uploadPdf&&done&&!progress?.history?.some(event=>event.label===step.options[0][1]);
+   const pdfNotRecorded=step.uploadPdf&&done&&!uploadRecorded(progress);
    item.append(el('strong','Step '+(position+1)+' · '+step.label),el('span',pdfNotRecorded?'PDF status not recorded':done?'Done':due?'Action due':'Pending'));
    if(due)item.setAttribute('aria-current','step');
    if(assigned.length)item.append(el('p',assigned.map(person=>person.name).join(' / ')));
