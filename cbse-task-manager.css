@@ -341,3 +341,8 @@
 .task-retest-alert{margin:1rem 0;padding:.8rem 1rem;border:1px solid #ebbdba;border-inline-start:5px solid #ad3536;border-radius:.55rem;background:#fff1ef;color:#7c2628}
 .task-retest-alert h3,.task-retest-alert p{margin:.3rem 0}
 .task-retest-alert p:first-of-type{font-weight:750}
+
+.task-exam-table.task-retest-teacher-table :is(th,td):first-child{position:sticky;inset-inline-start:0;z-index:1;min-width:9.5rem;max-width:12rem;white-space:normal;border-inline-end:2px solid #c6dcd5}
+.task-exam-table.task-retest-teacher-table tbody tr:nth-child(odd) td:first-child{background:#fff}
+.task-retest-teacher-table td:first-child button{margin-top:.35rem;padding:.35rem .55rem;white-space:normal}
+.task-retest-pin-status{display:block;margin-top:.3rem;color:#536a70;font-weight:500}

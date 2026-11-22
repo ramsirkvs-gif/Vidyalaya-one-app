@@ -107,7 +107,11 @@ try:
         retest_staff.get_by_role('button',name=re.compile(r'Task 4')).click()
         retest_staff.get_by_label('Staff viewing password',exact=True).fill('synthetic-view')
         retest_staff.get_by_role('button',name='Open retest tracker',exact=True).click()
-        retest_staff.get_by_role('button',name='Update progress for Synthetic retest student · Maths Basic',exact=True).click()
+        remark_button=retest_staff.get_by_role('button',name='Add remark / update for Synthetic retest student · Maths Basic',exact=True)
+        assert remark_button.inner_text()=='Add remark / update'
+        retest_staff.locator('.task-retest-teacher-table td').first.evaluate("(cell)=>{cell.closest('.task-exam-table-scroll').scrollLeft=400}")
+        assert retest_staff.locator('.task-retest-teacher-table td').first.evaluate("(cell)=>getComputedStyle(cell).position")=='sticky'
+        remark_button.click()
         progress=retest_staff.get_by_role('dialog',name='Update retest progress')
         progress.get_by_label('Retest step',exact=True).select_option('retestDate')
         progress.get_by_label('Select your name',exact=True).select_option('X:two')

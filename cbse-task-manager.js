@@ -1349,8 +1349,10 @@ async function openRetest(){
   if(!rows.length){if(all.length)content.append(el('p','No retests match the filters.'));return;}
   content.append(el('p',rows.length+' missed papers · '+new Set(rows.map(([,row])=>row.classLabel+' '+row.roll)).size+
    ' students · '+rows.filter(([,row])=>row.retestDate).length+' scheduled · '+rows.filter(([,row])=>row.testDone==='Done').length+' completed'));
+  if(!asPrincipal)content.append(el('p','Select Add remark / update beside the student’s name. Choose the retest step, enter your remark, and save with your personal PIN.'));
   const editor=editing?form():el('div'),scroll=el('div',undefined,'task-exam-table-scroll');
   const table=el('table',undefined,'task-exam-table'),head=table.createTHead().insertRow(),tbody=table.createTBody();
+  if(!asPrincipal)table.classList.add('task-retest-teacher-table');
   for(const label of [...RETEST_HEADERS,...RETEST_FIELDS.map(([,label])=>label)]){
    const th=el('th',label);th.scope='col';head.append(th);
   }
@@ -1360,9 +1362,9 @@ async function openRetest(){
    const student=tr.insertCell();
    student.append(el('strong',row.name));
    if(!asPrincipal&&plan.editors?.[id]?.length){
-    const edit=button('Update progress',()=>openProgress(id,row));edit.setAttribute('aria-label','Update progress for '+identity);
+    const edit=button('Add remark / update',()=>openProgress(id,row));edit.setAttribute('aria-label','Add remark / update for '+identity);
     const action=el('div');action.append(edit);student.append(action);
-   }
+   }else if(!asPrincipal)student.append(el('small','Assigned teacher PIN unavailable','task-retest-pin-status'));
    for(const value of [row.classLabel,row.roll,row.subject,rollDateText(row.examDate)])tr.insertCell().textContent=value;
    const fields={};
    for(const [key,label,type] of RETEST_FIELDS){
