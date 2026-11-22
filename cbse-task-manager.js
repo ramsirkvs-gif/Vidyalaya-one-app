@@ -1,3 +1,4 @@
+import {openTaskStatusReport} from './cbse-task-status-report.js';
 import {rollStaffStatus} from './cbse-roll-call-status.js';
 import {rollDateText} from './cbse-roll-call-time.js';
 import {signedSlipScan} from './cbse-task-scan-view.js';
@@ -228,8 +229,17 @@ function drawStaffBundles(record,{focusRow,staffId=''}={}){
   return [key,byRole];
  }));
  card.append(el('h2',MONITORING_TITLE));
+ const nameSearch=field(card,'Search by name','monitoring-name-search','search');
+ nameSearch.placeholder='Type any part of your name';
  const teacher=field(card,'Select your name','monitoring-teacher','select');
- options(teacher,[['','Choose your name'],...[...people].sort(([,a],[,b])=>a.localeCompare(b))],staffId);
+ const names=[...people].sort(([,a],[,b])=>a.localeCompare(b));
+ const searchKey=value=>value.normalize('NFKD').replace(/\p{M}/gu,'').toLocaleLowerCase();
+ function filterNames(selectedId){
+  const terms=searchKey(nameSearch.value).trim().split(/\s+/).filter(Boolean);
+  const matches=names.filter(([,name])=>terms.every(term=>searchKey(name).includes(term)));
+  options(teacher,[['',matches.length?'Choose your name':'No teachers match'],...matches],selectedId);
+ }
+ filterNames(staffId);
  const practiceNotice=el('p','Mock practice · use your PIN. These changes stay in this tab.','task-monitoring-notice');
  practiceNotice.hidden=true;
  let practice=null,selected=focusRow;
@@ -315,6 +325,11 @@ function drawStaffBundles(record,{focusRow,staffId=''}={}){
   detail.append(steps);
  }
  teacher.onchange=()=>{selected=undefined;drawBundles();};
+ nameSearch.oninput=()=>{
+  const previous=teacher.value;
+  filterNames(previous);
+  if(previous!==teacher.value)teacher.onchange();
+ };
  drawBundles();
 }
 function openMonitoringPractice(record,index){
@@ -415,6 +430,10 @@ function drawMonitoring(record,{index=0,editing=false,emergencyPeople,focusRow,s
    button(publication?'Update published plan':'Publish plan',async()=>{
     if(confirm('Publish this saved plan for staff with viewing access?'))await update('monitoring-publish');
    }));
+  if(publication)actions.append(button('Task status report / PDF',async()=>{
+   const {monitoring}=await request({action:'task-principal',operation:'monitoring-read'},true);
+   openTaskStatusReport(monitoring);
+  }));
   if(publication)actions.append(button('Stop publication',async()=>{
    if(confirm('Remove the published Task 2 plan from Staff View?'))await update('monitoring-unpublish');
   }));
