@@ -421,14 +421,22 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   }));
  }
  function showSubjectResults(parent,title,grouped){
-  const appeared=rows=>rows.filter(mark=>mark?.percentage!=null);
-  const score=marks=>marks.length?pct(marks.filter(mark=>!mark.failed).length*100/marks.length):'—';
+  const examColumns=label=>['appeared','passed','failed','pass %'].map(column=>label+' '+column);
+  const counts=(rows,period,examLabel,groupLabel)=>{
+   const appeared=rows.filter(row=>row[period]?.percentage!=null);
+   const passed=appeared.filter(row=>!row[period].failed),failed=appeared.filter(row=>row[period].failed);
+   const resultCount=(label,students)=>{
+    if(!students.length)return 0;
+    const title=examLabel+' '+label+' · '+groupLabel;
+    return studentListButton(String(students.length),title,()=>showMarks(students,{title,period}));
+   };
+   return [appeared.length,resultCount('Passed',passed),resultCount('Failed',failed),
+    pct(appeared.length?passed.length*100/appeared.length:null)];
+  };
   parent.append(el('h3',title));
-  table(parent,['Subject / group','Enrolled',exam.baseline+' appeared',exam.baseline+' pass %',
-   exam.short+' appeared',exam.short+' pass %',exam.short+' marks pending'],[...grouped].map(([label,rows])=>{
-   const previous=appeared(rows.map(row=>row.before)),current=appeared(rows.map(row=>row.current));
-   return [label,rows.length,previous.length,score(previous),current.length,score(current),rows.filter(row=>!row.current).length];
-  }));
+  table(parent,['Subject / group','Enrolled',...examColumns(exam.baseline),...examColumns(exam.short),exam.short+' marks pending'],
+   [...grouped].map(([label,rows])=>[label,rows.length,...counts(rows,'before',exam.baseline,label),
+    ...counts(rows,'current',exam.short,label),rows.filter(row=>!row.current).length]));
  }
  function showClassIXResults(parent,rows){
   showSubjectResults(parent,'Subject-wise results by class section',groups(rows,row=>sectionLabel(row)+' · '+subjectGroup(info(row))));

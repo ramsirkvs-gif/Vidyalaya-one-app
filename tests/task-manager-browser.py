@@ -107,6 +107,14 @@ try:
         assignment_page.get_by_role('button',name='Import Class IX CSV',exact=True).click()
         assignment_page.get_by_role('heading',name='Subject-wise results by class section',exact=True).wait_for()
         assert assignment_page.get_by_role('columnheader',name='PT-2 average',exact=True).count()==0
+        assignment_page.get_by_role('button',name='1 · PT-2 Failed · IX A · SCIENCE',exact=True).click()
+        failed=assignment_page.get_by_role('dialog',name='PT-2 Failed · IX A · SCIENCE')
+        failed.get_by_text('Synthetic IX student',exact=True).wait_for()
+        failed.get_by_role('button',name='Close',exact=True).click()
+        assignment_page.get_by_role('button',name='1 · PT-2 Passed · IX B · HINDI',exact=True).click()
+        passed=assignment_page.get_by_role('dialog',name='PT-2 Passed · IX B · HINDI')
+        passed.get_by_text('Synthetic pending student',exact=True).wait_for()
+        passed.get_by_role('button',name='Close',exact=True).click()
         assignment_page.get_by_text('Teacher-wise results by subject',exact=True).first.click()
         assignment_page.get_by_role('heading',name='Teacher-wise results by subject',exact=True).wait_for()
         assert assignment_page.get_by_label('Search student results',exact=True).is_hidden()
@@ -119,6 +127,12 @@ try:
         teacher.get_by_role('heading',name='Subject-wise results by class section',exact=True).wait_for()
         teacher.get_by_text('Pre-Annual marks pending.',exact=True).wait_for()
         assert teacher.get_by_text('Synthetic IX student',exact=True).count()==0
+        teacher.get_by_role('button',name='1 · PT-2 Failed · IX A · SCIENCE',exact=True).click()
+        coded=teacher.get_by_role('dialog',name='PT-2 Failed · IX A · SCIENCE')
+        coded.locator('.pb1-compact-marks li').first.wait_for()
+        assert coded.get_by_text('Synthetic IX student',exact=True).count()==0
+        assert 'Student ' in coded.locator('.pb1-compact-marks li').first.inner_text()
+        coded.get_by_role('button',name='Close',exact=True).click()
         assert teacher.get_by_label('Personal PIN',exact=True).count()==0
         teacher.get_by_role('button',name='Update Pre-Annual marks',exact=True).click()
         teacher.get_by_label('Evaluator or cross-checker',exact=True).select_option('X:one')
