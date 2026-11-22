@@ -1244,7 +1244,13 @@ async function openRetest(){
  const send=(operation,values={})=>request({action:asPrincipal?'task-principal':'task-read',operation,...values},asPrincipal);
  const back=button('Back to task list',()=>{if(discard())return asPrincipal?drawPrincipal():drawStaff();});
  const panel=el('section',undefined,'task-card');
- panel.append(el('h2','Task 4 — '+RETEST_TITLE),el('strong','High priority','task-importance-label'));
+ const alert=el('aside',undefined,'task-retest-alert');
+ alert.setAttribute('aria-label','High alert');
+ alert.append(el('h3','High alert'),
+  el('p','Do not upload exam dates or retest marks to Samagam before discussing them with the Principal.'),
+  el('p','Record all retest updates only in the Vidyalaya app.'),
+  el('p','We will ask the Regional Office (RO) for common retest dates and conduct our retests in advance while awaiting its response.'));
+ panel.append(el('h2','Task 4 — '+RETEST_TITLE),el('strong','High priority','task-importance-label'),alert);
  host.replaceChildren(back,panel);
  let plan;
  try{plan=await send('retest-read');}
