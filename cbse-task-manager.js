@@ -12,7 +12,7 @@ import {renderPrincipalLogin} from './cbse-principal-login.js';
 import {HALF_YEARLY_COLUMNS,HALF_YEARLY_CSV_LIMIT} from './cbse-half-yearly-analyser-model.js';
 import {renderPB1Analyser,PB1_ANALYSER,HALF_YEARLY_ANALYSER} from './cbse-pb1-analyser-view.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
-import {MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES,monitoringAssignments,monitoringAdvance,monitoringStage,monitoringPeople,monitoringExamLabel,monitoringSlipFolder} from './cbse-task-monitoring-workflow.js';
+import {MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES,monitoringAssignments,monitoringAdvance,monitoringBundlesByExamDate,monitoringStage,monitoringPeople,monitoringExamLabel,monitoringSlipFolder} from './cbse-task-monitoring-workflow.js';
 function signedPdfUploadLink(section){
  const link=el('a','Upload signed PDF','button');
  link.href='https://drive.google.com/drive/folders/'+monitoringSlipFolder(section);link.target='_blank';link.rel='noopener noreferrer';
@@ -148,6 +148,7 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate
  const title=el('h2',step?.uploadPdf?[monitoringExamLabel(entry.section),entry.section,entry.subject].join(' · '):entry.subject+' · '+entry.section);
  title.id='task-monitoring-step-title';dialog.setAttribute('aria-labelledby',title.id);dialog.append(title);
  if(practiceUpdate)dialog.append(el('p','Mock practice · no real status will change.','task-monitoring-notice'));
+ if(staffView&&step?.instruction)dialog.append(el('p',step.instruction,'task-monitoring-notice'));
  if(staffView&&step?.samagam)dialog.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
  if(progress?.history?.length){
   const history=el('details');history.open=!allowUpdate;
@@ -318,6 +319,7 @@ function drawStaffBundles(record,{focusRow,staffId=''}={}){
    if(due&&assigned.some(person=>person.id===teacher.value))
     item.append(button(step.uploadPdf?'Scan signed marks slip':practice?'Practise status update':'Update status',
      ()=>openMonitoringStep(view,key,true,true,updatePractice,teacher.value)));
+   if(due&&step.instruction)item.append(el('p',step.instruction));
    if(due&&step.samagam)item.append(el('p',SAMAGAM_REPORTING_NOTICE));
    items.append(item);
   }
@@ -586,6 +588,7 @@ function drawMonitoring(record,{index=0,editing=false,emergencyPeople,focusRow,s
       item.className='task-pending-current';
       const names=monitoringPeople(workflow,entry,position).map(person=>person.name).join(' / ');
       item.append(el('strong',names?'Action due · '+names:'Assignment needed'));
+      if(step.instruction)item.append(el('span',step.instruction));
      }
      pending.append(item);
     }
@@ -721,11 +724,11 @@ async function openDailyPending(){
  if(workflow.status==='rejected'){failure(task,workflow);return;}
  const {monitoring}=workflow.value,published=monitoring.published;
  if(!published){task.append(el('p','Task 2 has no published workflow.'));return;}
- const due=Object.entries(published.assignments||{}).map(([key,paper])=>({key,paper,stage:monitoringStage(monitoring.progress?.[key])}));
+ const due=monitoringBundlesByExamDate(published).map(bundle=>({...bundle,stage:monitoringStage(monitoring.progress?.[bundle.key])}));
  for(const step of MONITORING_STEPS.filter(item=>item.uploadPdf||item.samagam)){
   list(task,step.uploadPdf?'Awaiting signed slip':'Awaiting Samagam upload and matching',due
    .filter(({stage})=>MONITORING_STEPS[stage]===step)
-   .map(({key,paper,stage})=>button(paper.section+' · '+paper.subject+' · '+(monitoringPeople(published,paper,stage).map(person=>person.name).join(' / ')||'Assignment needed'),()=>drawMonitoring(monitoring,{focusRow:key}))));
+   .map(({key,paper,date,stage})=>button((date?date+' · ':'')+paper.section+' · '+paper.subject+' · '+(monitoringPeople(published,paper,stage).map(person=>person.name).join(' / ')||'Assignment needed'),()=>drawMonitoring(monitoring,{focusRow:key}))));
  }
 }
 

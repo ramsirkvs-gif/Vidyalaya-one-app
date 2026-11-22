@@ -294,6 +294,7 @@
 .task-status-report-content table{border-collapse:collapse;width:100%;table-layout:fixed}
 .task-status-report-content :is(td,th){padding:.45rem;border:1px solid #c7d9d1;text-align:start;vertical-align:top;overflow-wrap:anywhere}
 .task-status-report-content th{background:#eaf4ef}
+.task-status-report-content th:first-child{width:7em}
 .task-status-report-content td small{display:block;margin-top:.25rem}
 .task-status-print{display:none}
 @media print{

@@ -10,11 +10,20 @@ export const MONITORING_STEPS=[
  {role:'evaluator',label:'Evaluation',options:[['advance','Evaluated and submitted to Checker']]},
  {role:'checker',label:'Cross-check',options:[['advance','Checked and returned to Evaluator'],['return','Corrections required']]},
  {role:'evaluator',label:'Principal discussion',review:true,options:[['advance','Discussed with Principal and updated']]},
- {role:'evaluator',label:'Upload signed PDF',uploadPdf:true,options:[['advance','Signed PDF uploaded']]},
+ {role:'evaluator',label:'Upload signed PDF',instruction:'Get the required signatures on the mark slip, upload the signed PDF in this app, then proceed to Samagam with the Matching IC.',uploadPdf:true,options:[['advance','Signed PDF uploaded']]},
  {role:'matching',label:'Samagam upload with Matching IC (Exam Core Team)',samagam:true,options:[['advance','Uploaded on Samagam and matched with the mark slip']]},
  {role:'matching',label:'Hand over Samagam slip to Exam Department',options:[['advance','Samagam slip handed over to Exam Department']]},
  {role:'exam',label:'Final report by Exam IC',options:[['advance','Final report completed by Exam IC'],['return','Returned for correction']]},
 ];
+
+export function monitoringBundlesByExamDate(published){
+ const dates=new Map((published.sheets?.[0]||[]).slice(5).map(([serial,subject,section,date])=>{
+  const key='row_'+serial,paper=published.assignments?.[key];
+  return [key,paper&&paper.subject===subject&&paper.section===section?(date||'').trim():''];
+ }));
+ return Object.entries(published.assignments||{}).map(([key,paper])=>({key,paper,date:dates.get(key)||''}))
+  .sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));
+}
 
 export function monitoringStage(progress){
  const stage=progress?.stage||0;
