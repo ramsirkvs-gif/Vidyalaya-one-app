@@ -852,3 +852,26 @@ test('Class IX imports unmatched teacher labels for PT-2 analysis without granti
  assert.deepEqual((await f.teacher({exam,taskOperation:'pb1-read'})).rows,[]);
  assert.deepEqual((await f.service('task-read',{exam,operation:'pb1-directory'})).teachers,[]);
 });
+
+test('the IX D Mathematics assignment applies to existing marks and only permits Bikash Jyoti Das',async()=>{
+ const f=taskFixture(),exam='class-ix';
+ f.data.cbse.facultyDraft.classes.X.teachers.one.name='MR. BIKASH JYOTI DAS';
+ f.data.cbse.facultyDraft.classes.X.teachers.two.name='MR. RANJAN CHETRY';
+ await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');
+ const csv='Section,RollNo,StudentName,Subject,PreviousMarks,PreviousMM,PreAnnualMM,Teacher\nD,1,Synthetic student,Mathematics,8,40,80,X:two\nB,1,Other synthetic student,Mathematics,16,40,80,X:two\n';
+ const imported=await f.admin({operation:'half-yearly-import',exam,expectedRevision:0,csv});
+ const paper=Object.values(f.data.cbse.taskClassIX.papers).find(paper=>paper.section==='D');
+ paper.teacherId='X:two';paper.teacher='MR. RANJAN CHETRY';
+ const index=imported.scopes.findIndex(scope=>scope.section==='D');
+ const {classId,sectionId,subjectId}=imported.scopes[index];
+ const studentKey=imported.rows.find(row=>row.scope===index).key;
+ const marks={exam,classId,sectionId,subjectId,taskOperation:'pb1-save',expectedRevision:imported.revision,entries:[{key:studentKey,mark:25}]};
+ assert.deepEqual((await f.teacher({exam,taskOperation:'pb1-read'},'X:two','456')).scopes.map(scope=>scope.section),['B']);
+ await assert.rejects(f.teacher(marks,'X:two','456'),/outside your assigned/);
+ const saved=await f.teacher(marks);
+ assert.equal(saved.scopes[0].teacher,'MR. BIKASH JYOTI DAS');
+ assert.equal(saved.rows[0].current.score,25);
+ const analysis=await f.service('task-read',{exam,operation:'pb1-public'});
+ assert.equal(analysis.scopes.find(scope=>scope.section==='D').teacher,'MR. BIKASH JYOTI DAS');
+});

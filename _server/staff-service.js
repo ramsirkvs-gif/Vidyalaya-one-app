@@ -7,7 +7,7 @@ import {monitoringAssignments,monitoringAdvance,monitoringReopenUpload,monitorin
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {advanceFrozenDiscussions,evaluatorDirectory,publishedMarksCheckers,withPublishedPB1Evaluators} from './pb1-evaluators.js';
 import {pb1Report,pb1Scopes,paperDiscussionComment} from '../cbse-pb1-analyser-model.js';
-import {halfYearlyReport,importHalfYearly,updateHalfYearly,CLASS_IX_EXAM,CLASS_IX_EXAM_IC,CLASS_IX_SEATING,CLASS_IX_SEATING_FIELDS,CLASS_IX_PAPERS} from '../cbse-half-yearly-analyser-model.js';
+import {halfYearlyReport,importHalfYearly,updateHalfYearly,CLASS_IX_EXAM,CLASS_IX_EXAM_IC,CLASS_IX_SEATING,CLASS_IX_SEATING_FIELDS,CLASS_IX_PAPERS,assignClassIXMathsD} from '../cbse-half-yearly-analyser-model.js';
 import {pb1ApprovalKey} from '../cbse-academic-exam-kind.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
@@ -221,6 +221,8 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
  const halfYearlyPath='cbse/taskHalfYearly';
  const marksCheckers=(plan,faculty,mission,overrides)=>publishedMarksCheckers(plan,
   staffIndex(faculty,mission,{includeRollOnly:true}),id=>teacherIdentityIds(id,faculty,mission),overrides);
+ const classIXAssignments=(state,faculty,mission)=>assignClassIXMathsD(state,
+  staffIndex(faculty,mission,{includeRollOnly:true}),id=>teacherIdentityIds(id,faculty,mission));
  async function halfYearlyWorkspace(input,actor){
   const exam=input.exam==='class-ix'?CLASS_IX_EXAM:undefined;
   const stateKey=exam?'taskClassIX':'taskHalfYearly',statePath='cbse/'+stateKey;
@@ -230,7 +232,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   const operation=input.operation==='task-manager'?input.taskOperation:input.operation;
   if(operation==='pb1-read'){
    const [state,plan,overrides]=await Promise.all([read(statePath),ids&&!exam?read('cbse/taskMonitoring/published'):null,ids&&!exam?read('cbse/taskMonitoring/overrides'):null]);
-   return {...halfYearlyReport(state,ids,marksCheckers(plan,faculty,mission,overrides||{})),...(ids?{teacherIds:[...ids]}:{})};
+   return {...halfYearlyReport(exam?classIXAssignments(state,faculty,mission):state,ids,marksCheckers(plan,faculty,mission,overrides||{})),...(ids?{teacherIds:[...ids]}:{})};
   }
   let imported;
   if(operation==='half-yearly-import'){
@@ -281,9 +283,9 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     }else{
      const {faculty,mission}=resolvedViewingData(current.draft,current.facultyDraft,current.mission||emptyMission());
      const allowed=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
-     next=updateHalfYearly(structuredClone(state),{...input,operation},allowed,stamp,exam?()=>[]:marksCheckers(current.taskMonitoring?.published,faculty,mission,current.taskMonitoring?.overrides),exam);
+     next=updateHalfYearly(structuredClone(exam?classIXAssignments(state,faculty,mission):state),{...input,operation},allowed,stamp,exam?()=>[]:marksCheckers(current.taskMonitoring?.published,faculty,mission,current.taskMonitoring?.overrides),exam);
     }
-    const result={...current,[stateKey]:next};
+    const result={...current,[stateKey]:exam&&imported?classIXAssignments(next,faculty,mission):next};
     if(!exam&&operation==='pb1-approve'&&current.taskMonitoring){
      const paper=Object.values(next.papers).find(p=>p.classId===input.classId&&p.sectionId===input.sectionId&&p.subjectId===input.subjectId);
      result.taskMonitoring=advanceFrozenDiscussions(current.taskMonitoring,[paper]);
@@ -470,7 +472,10 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
      if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}
     }
     let report;
-    if(classIX||halfYearly)report=halfYearlyReport(await read(classIX?'cbse/taskClassIX':halfYearlyPath));
+    if(classIX){
+     const [state,{faculty,mission}]=await Promise.all([read('cbse/taskClassIX'),context()]);
+     report=halfYearlyReport(classIXAssignments(state,faculty,mission));
+    }else if(halfYearly)report=halfYearlyReport(await read(halfYearlyPath));
     else{
      const [{draft,faculty,mission},published]=await Promise.all([context(),read('cbse/taskMonitoring/published')]);
      report=pb1Report(draft,pb1Mission(draft,mission,published),staffIndex(faculty,mission,{includeRollOnly:true}),undefined,id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id);
@@ -497,7 +502,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
      context(),read('cbse/taskMonitoring/published'),read('cbse/staffAccess'),classIX?read('cbse/taskClassIX'):halfYearly?read(halfYearlyPath):null,read('cbse/taskMonitoring/overrides'),
     ]);
     const staff=staffIndex(faculty,mission,{includeRollOnly:true});
-    const halfYearlyPapers=Object.values(halfYearlyState?.papers||{});
+    const halfYearlyPapers=Object.values((classIX?classIXAssignments(halfYearlyState,faculty,mission):halfYearlyState)?.papers||{});
     const checkers=marksCheckers(plan,faculty,mission,overrides||{});
     const assigned=classIX?halfYearlyPapers.map(p=>p.teacherId):halfYearly?halfYearlyPapers.flatMap(p=>[p.teacherId,...checkers(p)]):
      pb1Scopes(draft,pb1Mission(draft,mission,plan),staff).flatMap(p=>[...p.teachers.map(teacher=>teacher.key),...checkers(p)]);
