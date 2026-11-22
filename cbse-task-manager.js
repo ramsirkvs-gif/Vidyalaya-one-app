@@ -910,82 +910,101 @@ function halfYearlyTransferPanel(data,transfer){
  return details;
 }
 
-function drawClassIXRemedial(data,back,{teachers=[],save,openNames}={}){
+function drawClassIXRemedial(data,back,{teachers=[],save,openNames,filters={}}={}){
  const panel=el('section',undefined,'task-card');
  panel.append(el('h2','Class IX weekly remedial action'),
   el('p','Critical fail, Fail, and Borderline are all remedial targets. Each subject uses PT-2 until its Pre-Annual mark is entered, then switches to the Pre-Annual result.'));
  if(save)panel.append(el('p','Record the support given and the next check. A new entry updates the comment for the current week.'));
- if(openNames)panel.append(button('Show student names',()=>{if(discard())return openNames();}));
+ if(openNames)panel.append(button('Show student names',()=>{if(discard())return openNames(filters);}));
  const groups=[['critical','Critical fail'],['red','Fail'],['yellow','Borderline']];
  const bandLabels=new Map(groups);
  groups.push(['history','Previous targets with recorded actions']);
  const bandFor=row=>(row.current||row.before)?.band;
- const targetStudents=new Map(),subjects=new Map();
- for(const row of data.rows){
-  const band=bandFor(row),paper=data.scopes[row.scope];
-  if(bandLabels.has(band)){
-   const records=targetStudents.get(row.key)||[];
-   records.push(row);targetStudents.set(row.key,records);
-  }else if(!(row.actionWeeks?.length||Object.keys(row.weeklyActions||{}).length))continue;
-  const records=subjects.get(paper.subject)||[];
-  records.push(row);subjects.set(paper.subject,records);
+ const filterBar=el('div',undefined,'pb1-filters'),results=el('div');
+ panel.append(filterBar,results);
+ const filterValue=(paper,key)=>key==='teacher'?(paper.teacher||'Teacher assignment pending'):paper[key];
+ for(const [key,label] of [['subject','Subject'],['section','Section'],['teacher','Teacher']]){
+  const select=field(filterBar,label,'remedial-filter-'+key,'select');
+  const values=[...new Set(data.scopes.map(paper=>filterValue(paper,key)))].sort((a,b)=>a.localeCompare(b));
+  options(select,[['','All '+label.toLowerCase()+'s'],...values.map(value=>[value,key==='section'?'IX '+value:value])],filters[key]||'');
+  filters[key]=select.value;
+  select.onchange=()=>{
+   if(!discard()){select.value=filters[key];return;}
+   filters[key]=select.value;drawResults();
+  };
  }
- const studentLabel=row=>{
-  const paper=data.scopes[row.scope];
-  return [paper.classId+' '+paper.section,row.roll?'Roll '+row.roll:'',row.name].filter(Boolean).join(' · ');
- };
- panel.append(el('p',targetStudents.size+(targetStudents.size===1?' student needs support.':' students need support.')+' A student can appear under more than one subject.'));
- if(targetStudents.size){
-  const overview=el('details'),students=el('ul');
-  overview.append(el('summary','View student-wise overview'),students);
-  for(const records of targetStudents.values()){
-   const item=el('li');item.append(el('strong',studentLabel(records[0])));
-   item.append(el('div',records.map(row=>data.scopes[row.scope].subject+' · '+bandLabels.get(bandFor(row))).join(' | ')));
-   students.append(item);
+ function drawResults(){
+  results.replaceChildren();
+  const targetStudents=new Map(),subjects=new Map();
+  for(const row of data.rows){
+   const band=bandFor(row),paper=data.scopes[row.scope];
+   if(Object.entries(filters).some(([key,value])=>value&&filterValue(paper,key)!==value))continue;
+   if(bandLabels.has(band)){
+    const records=targetStudents.get(row.key)||[];
+    records.push(row);targetStudents.set(row.key,records);
+   }else if(!(row.actionWeeks?.length||Object.keys(row.weeklyActions||{}).length))continue;
+   const records=subjects.get(paper.subject)||[];
+   records.push(row);subjects.set(paper.subject,records);
   }
-  panel.append(overview);
- }
- for(const [subject,records] of [...subjects].sort(([a],[b])=>a.localeCompare(b))){
-  const subjectBlock=el('section',undefined,'task-report');
-  subjectBlock.append(el('h3',subject));
-  for(const [band,label] of groups){
-   const rows=records.filter(row=>band==='history'?!bandLabels.has(bandFor(row)):bandFor(row)===band);
-   const section=el('details');section.append(el('summary',label+' · '+new Set(rows.map(row=>row.key)).size));
-   for(const row of rows){
-    const paper=data.scopes[row.scope],mark=row.current||row.before,history=Object.entries(row.weeklyActions||{}).sort(([a],[b])=>b.localeCompare(a));
-    const card=el('div',undefined,'task-report');
-    card.append(el('h4',studentLabel(row)),
-     el('p',paper.teacher||'Teacher assignment pending'),
-     el('p',mark?(row.current?'Pre-Annual':'PT-2 · Provisional')+' · '+(mark.absent?'AB':mark.score+'/'+mark.maximum):'Result pending'));
-    for(const [week,{comment}] of history)card.append(el('p','Week of '+rollDateText(week)+' · '+comment));
-    const actionStatus=el('p',row.actionWeeks?.length?'Action recorded · '+rollDateText([...row.actionWeeks].sort().at(-1)):'');
-    if(row.actionWeeks)card.append(actionStatus);
-    if(save&&band!=='history'&&paper.teachers?.length){
-     const action=el('details'),editor=form();
-     action.append(el('summary','Action taken report'),editor);
-     const person=field(editor,'Select your name','remedial-teacher','select');
-     options(person,[['','Choose your name'],...teachers.map(({id,name})=>[id,name])],'');
-     person.required=true;
-     const comment=field(editor,'Weekly action taken for '+row.name+' · '+subject,'remedial-comment','textarea');
-     comment.required=true;comment.maxLength=1000;
-     const pin=field(editor,'Personal PIN','remedial-pin','password');pin.required=true;pin.inputMode='numeric';pin.autocomplete='off';
-     editor.append(el('button','Save weekly action'));
-     editor.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(async()=>{
-      const {revision}=await save({classId:paper.classId,sectionId:paper.sectionId,subjectId:paper.subjectId,
-       codedStudent:row.key,comment:comment.value,expectedRevision:data.revision},person.value,secret);
-      data.revision=revision;
-      editor.reset();editor.dataset.portalDirty='false';action.open=false;
-      actionStatus.textContent='Action recorded for this week';
-      message('Weekly action saved.');
-     });};
-     card.append(action);
-    }
-    section.append(card);
+  const studentLabel=row=>{
+   const paper=data.scopes[row.scope];
+   return [paper.classId+' '+paper.section,row.roll?'Roll '+row.roll:'',row.name].filter(Boolean).join(' · ');
+  };
+  results.append(el('p',targetStudents.size+(targetStudents.size===1?' student needs support.':' students need support.')+' A student can appear under more than one subject.'));
+  if(targetStudents.size){
+   const overview=el('details'),students=el('ul');
+   overview.append(el('summary','View student-wise overview'),students);
+   for(const records of targetStudents.values()){
+    const item=el('li');item.append(el('strong',studentLabel(records[0])));
+    item.append(el('div',records.map(row=>data.scopes[row.scope].subject+' · '+bandLabels.get(bandFor(row))).join(' | ')));
+    students.append(item);
    }
-   subjectBlock.append(section);
+   results.append(overview);
   }
-  panel.append(subjectBlock);
+  for(const [subject,records] of [...subjects].sort(([a],[b])=>a.localeCompare(b))){
+   const subjectBlock=el('section',undefined,'task-report');
+   subjectBlock.append(el('h3',subject));
+   for(const [band,label] of groups){
+    const rows=records.filter(row=>band==='history'?!bandLabels.has(bandFor(row)):bandFor(row)===band);
+    const section=el('details');section.append(el('summary',label+' · '+new Set(rows.map(row=>row.key)).size));
+    for(const row of rows){
+     const paper=data.scopes[row.scope],mark=row.current||row.before,history=Object.entries(row.weeklyActions||{}).sort(([a],[b])=>b.localeCompare(a));
+     const card=el('div',undefined,'task-report');
+     card.append(el('h4',studentLabel(row)),
+      el('p',paper.teacher||'Teacher assignment pending'),
+      el('p',mark?(row.current?'Pre-Annual':'PT-2 · Provisional')+' · '+(mark.absent?'AB':mark.score+'/'+mark.maximum):'Result pending'));
+     for(const [week,{comment}] of history)card.append(el('p','Week of '+rollDateText(week)+' · '+comment));
+     const actionStatus=el('p',row.actionSaved?'Action recorded for this week':row.actionWeeks?.length?
+      'Action recorded · '+rollDateText([...row.actionWeeks].sort().at(-1)):'');
+     if(row.actionWeeks)card.append(actionStatus);
+     if(save&&band!=='history'&&paper.teachers?.length){
+      const action=el('details'),editor=form();
+      action.append(el('summary','Action taken report'),editor);
+      const person=field(editor,'Select your name','remedial-teacher','select');
+      options(person,[['','Choose your name'],...teachers.map(({id,name})=>[id,name])],'');
+      person.required=true;
+      const comment=field(editor,'Weekly action taken for '+row.name+' · '+subject,'remedial-comment','textarea');
+      comment.required=true;comment.maxLength=1000;
+      const pin=field(editor,'Personal PIN','remedial-pin','password');pin.required=true;pin.inputMode='numeric';pin.autocomplete='off';
+      editor.append(el('button','Save weekly action'));
+      editor.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(async()=>{
+       const {revision}=await save({classId:paper.classId,sectionId:paper.sectionId,subjectId:paper.subjectId,
+        codedStudent:row.key,comment:comment.value,expectedRevision:data.revision},person.value,secret);
+       data.revision=revision;row.actionSaved=true;
+       editor.reset();editor.dataset.portalDirty='false';action.open=false;
+       actionStatus.textContent='Action recorded for this week';
+       message('Weekly action saved.');
+      });};
+      card.append(action);
+     }
+     section.append(card);
+    }
+    subjectBlock.append(section);
+   }
+   results.append(subjectBlock);
+  }
  }
+ drawResults();
  host.replaceChildren(button('Back to Task 3',()=>{if(discard())return back();}),panel);
 }
 async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=false){
@@ -1003,9 +1022,9 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=fa
   const save=(values,staffId,pin)=>request({
    action:'pin-submit',operation:'task-manager',taskOperation:'class-ix-remedial-save',exam:examId,staffId,pin,...values,
   });
-  drawClassIXRemedial(data,drawClassIXExam,{teachers,save,openNames:coded?async()=>{
+  drawClassIXRemedial(data,drawClassIXExam,{teachers,save,openNames:coded?async filters=>{
    const named=await openNamedPB1Results(examId,true);
-   if(named)drawClassIXRemedial(named,drawClassIXExam,{teachers,save});
+   if(named)drawClassIXRemedial(named,drawClassIXExam,{teachers,save,filters});
   }:undefined});
   return;
  }

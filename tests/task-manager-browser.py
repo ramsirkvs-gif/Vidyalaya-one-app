@@ -158,6 +158,14 @@ try:
         english=teacher.locator('section.task-report').filter(has=teacher.get_by_role('heading',name='ENGLISH',exact=True))
         english.get_by_text('Borderline · 1',exact=True).click()
         english.get_by_text('PT-2 · Provisional · 14/40',exact=True).wait_for()
+        teacher.get_by_label('Subject',exact=True).select_option('SCIENCE')
+        teacher.get_by_label('Section',exact=True).select_option('B')
+        teacher.get_by_text('0 students need support.',exact=False).wait_for()
+        teacher.get_by_label('Section',exact=True).select_option('A')
+        teacher.get_by_label('Teacher',exact=True).select_option(label='Synthetic Teacher one')
+        teacher.get_by_text('1 student needs support.',exact=False).wait_for()
+        assert english.count()==0
+        science.get_by_text('Borderline · 1',exact=True).click()
         assert science.get_by_label('Personal PIN',exact=True).is_hidden()
         assert teacher.get_by_text('Synthetic IX student',exact=True).count()==0
         assert science.get_by_role('heading',name=re.compile(r'IX A · Student [0-9A-F]{10}')).is_visible()
@@ -167,6 +175,7 @@ try:
         named.get_by_role('button',name='Show names',exact=True).click()
         science.get_by_text('Borderline · 1',exact=True).click()
         science.get_by_role('heading',name='IX A · Roll 9101 · Synthetic IX student',exact=True).wait_for()
+        assert teacher.get_by_label('Subject',exact=True).input_value()=='SCIENCE'
         science.get_by_text('Action taken report',exact=True).click()
         science.get_by_label('Select your name',exact=True).select_option('X:one')
         science.get_by_label('Weekly action taken for Synthetic IX student · SCIENCE',exact=True).fill('Reteach one concept and reassess on Friday.')
