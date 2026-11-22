@@ -1,4 +1,4 @@
-import {RETEST_TITLE,RETEST_HEADERS,RETEST_FIELDS} from './cbse-task-retest-model.js';
+import {RETEST_TITLE,RETEST_HEADERS,RETEST_CSV_HEADERS,RETEST_FIELDS} from './cbse-task-retest-model.js';
 import {openTaskStatusReport} from './cbse-task-status-report.js';
 import {rollStaffStatus} from './cbse-roll-call-status.js';
 import {rollDateText,rollTimestamp} from './cbse-roll-call-time.js';
@@ -1277,7 +1277,7 @@ async function openRetest(){
     draw();message('Task 4 absentee list imported.');
    });};
    const template=el('a','Download CSV template');
-   template.href='data:text/csv;charset=utf-8,'+encodeURIComponent(RETEST_HEADERS.join(',')+'\n');
+   template.href='data:text/csv;charset=utf-8,'+encodeURIComponent(RETEST_CSV_HEADERS.join(',')+'\n');
    template.download='Task-4-retest-template.csv';
    importer.append(template);content.append(importer);
    if(rows.length){

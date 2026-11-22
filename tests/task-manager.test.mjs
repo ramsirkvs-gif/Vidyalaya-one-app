@@ -912,11 +912,17 @@ test('Task 4 imports, updates and publishes the retest register behind staff vie
  await assert.rejects(f.admin({operation:'retest-publish',expectedRevision:1}),/changed/);
  const refreshed=await f.admin({operation:'retest-import',expectedRevision:2,csv});
  assert.deepEqual(refreshed.rows,saved.rows);
- await f.admin({operation:'retest-publish',expectedRevision:3});
+ const withTeachers=await f.admin({operation:'retest-import',expectedRevision:3,
+  csv:csv.replace('Exam date\n','Exam date,Subject teacher,Class teacher\n')
+   .replace('2026-11-16\n','2026-11-16,AI instructor (Vacant),Supplied Class Teacher\n')});
+ assert.equal(withTeachers.rows[key].subjectTeacher,'AI instructor (Vacant)');
+ assert.equal(withTeachers.rows[key].classTeacher,'Supplied Class Teacher');
+ assert.equal(withTeachers.rows[key].medicalStatus,'Received');
+ await f.admin({operation:'retest-publish',expectedRevision:4});
  await assert.rejects(f.service('task-read',{operation:'retest-read'}),/viewing password/);
  const {viewerToken}=await f.service('remember-view',{},'principal');
  const read=()=>f.service('task-read',{operation:'retest-read'},'','test',{viewerToken});
- assert.deepEqual((await read()).rows,saved.rows);
- await f.admin({operation:'retest-unpublish',expectedRevision:4});
+ assert.deepEqual((await read()).rows,withTeachers.rows);
+ await f.admin({operation:'retest-unpublish',expectedRevision:5});
  assert.deepEqual(await read(),{published:false});
 });

@@ -2,6 +2,7 @@ import {parseCSVRows} from './cbse-basic-import.js';
 
 export const RETEST_TITLE='PB-1 / HE Absentees Retest on Medical Ground';
 export const RETEST_HEADERS=['Name','Class with section','Roll number','Subject','Exam date'];
+export const RETEST_CSV_HEADERS=[...RETEST_HEADERS,'Subject teacher','Class teacher'];
 export const RETEST_FIELDS=[
  ['subjectTeacher','Subject teacher','text'],['classTeacher','Class teacher','text'],
  ['medicalStatus','Medical application status',['Pending','Received','Verified']],
@@ -16,17 +17,19 @@ const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&
 export function parseRetestCSV(csv){
  if(typeof csv!=='string'||csv.length>64000)throw Error('Choose a CSV up to 64 KB.');
  const rows=parseCSVRows(csv.replace(/^\uFEFF/,'')),header=rows.shift();
- if(header?.join(',')!==RETEST_HEADERS.join(',')||!rows.length||rows.length>250)
+ const validHeader=[RETEST_HEADERS,RETEST_CSV_HEADERS].some(columns=>header?.join(',')===columns.join(','));
+ if(!validHeader||!rows.length||rows.length>250)
   throw Error('Use the Task 4 CSV template with 1 to 250 rows.');
  const records={};
  for(const [index,values] of rows.entries()){
-  const [name,classLabel,roll,subject,examDate]=values;
-  if(values.length!==5||!name||name.length>120||!/^(X|XI|XII) [A-E]$/.test(classLabel)||
+  const [name,classLabel,roll,subject,examDate,subjectTeacher='',classTeacher='']=values;
+  if(values.length!==header.length||!name||name.length>120||!/^(X|XI|XII) [A-E]$/.test(classLabel)||
    !/^\d{1,10}$/.test(roll)||!subject||subject.length>80||!validDate(examDate))
    throw Error('Check the name, class, roll, subject and exam date on CSV row '+(index+2)+'.');
   const id=[classLabel,roll,subject,examDate].map(value=>value.toUpperCase().replace(/[^A-Z0-9-]+/g,'_')).join('-');
   if(Object.hasOwn(records,id))throw Error('Duplicate student and exam on CSV row '+(index+2)+'.');
-  records[id]={name,classLabel,roll,subject,examDate};
+  if(subjectTeacher.length>120||classTeacher.length>120)throw Error('Check the teacher names on CSV row '+(index+2)+'.');
+  records[id]={name,classLabel,roll,subject,examDate,...(subjectTeacher?{subjectTeacher}:{}),...(classTeacher?{classTeacher}:{})};
  }
  return records;
 }
