@@ -976,19 +976,22 @@ function drawStaff(){
   button('Enter Half-Yearly marks · Class XI',()=>openPB1Analyser(true,'half-yearly')),
  );
  entry.append(el('h2','Direct marks entry'),actions);
- host.replaceChildren(entry,el('h2','Published tasks'));
+ host.replaceChildren(el('h2','Published tasks'));
  if(store.monitoringPublishedAt){
   const plan=el('section',undefined,'task-card task-public-card');
   const strip=teacherTaskHeading({title:MONITORING_TITLE,priority:TASK_PRIORITIES[0]},'button','Most urgent task · Report promptly');
   strip.type='button';strip.classList.add('task-monitoring-entry');
   strip.onclick=()=>run(()=>openPublishedMonitoring());
   plan.append(strip);
-  host.append(taskMarksGuidance('Update the task status'),plan,taskMarksGuidance('First update the task status, then enter marks.'));
+  host.append(taskMarksGuidance('Update the task status'),plan,taskMarksGuidance('First update the task status, then enter marks.'),entry);
   drawAnalyserCards();
   host.append(taskMarksGuidance('Discuss the results with the Principal before entering marks in Samagam.',{arrowFirst:true}));
   host.append(taskMarksGuidance('Get the Principal’s signature and upload the slip on our app and marks on Samagam with the Matching IC.',{arrowFirst:true}));
  }
- if(!store.monitoringPublishedAt&&!tasks.length)host.append(el('p','No tasks are currently published.'));
+ if(!store.monitoringPublishedAt){
+  host.append(entry);
+  if(!tasks.length)host.append(el('p','No tasks are currently published.'));
+ }
  for(const [id,t]of tasks){const card=el('section',undefined,'task-card task-public-card');card.append(teacherTaskHeading(t),el('p',t.priority+(t.deadline?' · Deadline: '+t.deadline:'')));const table=el('table',undefined,'task-public-list'),thead=el('thead'),heading=el('tr');for(const label of ['SN','Class','Prime mentor / Survey IC','Tech / analytical support','Status','Action'])heading.append(el('th',label));thead.append(heading);table.append(thead);const tbody=el('tbody');
   for(const row of t.rows||[]){const tr=el('tr');tr.dataset.taskClass=row.classId;for(const [label,value]of [['SN',row.number],['Class',row.classId],['Prime mentor / Survey IC',row.mentor],['Tech / analytical support',row.support||'—'],['Status',row.status]]){const td=el('td',label==='Status'&&value==='Submitted'?'✓ Submitted':String(value));td.dataset.label=label;if(label==='Status')td.className=row.status==='Submitted'?'task-row-submitted':'task-row-pending';tr.append(td);}const action=el('td'),start=button('Start & Submit Now',()=>startSurvey(id,row));action.dataset.label='Action';if(!row.staffId){start.disabled=true;action.append(el('small','Principal assignment needed'));}action.append(start);tr.append(action);tbody.append(tr);}table.append(tbody);card.append(table);host.append(card);
  }
