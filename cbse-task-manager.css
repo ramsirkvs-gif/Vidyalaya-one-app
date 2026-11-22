@@ -276,3 +276,14 @@
 .task-bundle-workflow li :is(button,a){justify-self:start;margin:.25rem 0}
 .task-bundle-complete{display:inline-block;background:#dff1e5;color:#185740;border-radius:.3rem;padding:.2rem .45rem}
 .task-bundle-list button .task-bundle-complete{display:block;width:fit-content;margin:.3rem auto 0}
+
+.task-app button.task-monitoring-entry{background:#ffd4cf;border-color:#dc8b82;border-left:7px solid #a52222;color:#781b1b}
+.task-app button.task-monitoring-entry:hover{background:#ffc1ba}
+.task-monitoring-entry :is(.task-heading-title,.task-importance-label){font-weight:900}
+.task-monitoring-compact .task-pending-status{background:#f5f8f4}
+.task-monitoring-compact .task-pending-status ul{margin:0 0 .4rem;padding:0;list-style:none}
+.task-monitoring-compact .task-pending-status li{margin:0 0 .2rem;padding:.2rem .35rem}
+.task-monitoring-compact .task-pending-status .task-pending-current{background:#ffe6aa;color:#603700;border-radius:.3rem;font-weight:800}
+.task-monitoring-compact .task-pending-current strong{display:block}
+.task-monitoring-compact .task-pending-status :is(button,a){margin:.2rem .3rem .1rem 0}
+@media(max-width:640px){.task-sheet-cards td.task-pending-status{display:block}.task-sheet-cards td.task-pending-status::before{display:block;margin-bottom:.4rem}}

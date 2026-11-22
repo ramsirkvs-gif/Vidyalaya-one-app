@@ -434,6 +434,18 @@ function drawMonitoring(record,{index=0,editing=false,emergencyPeople,focusRow,s
   };
   cell.append(select,save);
  }
+ function addSlipActions(cell,key,entry,progress,stage,workflow){
+  if(!progress?.signedSlip?.id)return;
+  const link=el('a','View signed PDF','button');
+  link.href='https://drive.google.com/file/d/'+encodeURIComponent(progress.signedSlip.id)+'/view';link.target='_blank';link.rel='noopener noreferrer';cell.append(link);
+  if(MONITORING_STEPS[stage-1]?.uploadPdf)cell.append(button('Reopen signed PDF upload',async()=>{
+   if(!confirm('Reopen the signed PDF upload for '+entry.section+' · '+entry.subject+'? The current file will stay in Drive.'))return;
+   const {monitoring}=await request({action:'task-principal',operation:'monitoring-reopen-upload',
+    rowKey:key,publicationRevision:workflow.revision,expectedRevision:progress.revision},true);
+   drawMonitoring(monitoring,{index,focusRow:key,searchQuery:search.value});
+   message('Signed PDF upload is Action due again.');
+  }));
+ }
  function drawSheet(position){
   index=position;
   tabs.forEach((tab,i)=>tab.setAttribute('aria-pressed',String(i===index)));
@@ -450,8 +462,10 @@ function drawMonitoring(record,{index=0,editing=false,emergencyPeople,focusRow,s
   const display=value=>value.startsWith('=')?monitoringFormula(value,sheets,index):value;
   const width=sheet[0].length;
   const columnOrder=Array.from({length:width},(_,column)=>column);
-  if(index===0&&!editing)columnOrder.splice(6,2,7,6);
   const workflow=!editing&&index===0&&record.published;
+  const compact=workflow&&!emergencyPeople;
+  if(compact){columnOrder.splice(7);table.classList.add('task-monitoring-compact');}
+  else if(index===0&&!editing)columnOrder.splice(6,2,7,6);
   if(workflow)table.classList.add('task-monitoring-workflow');
   if(editing){
    const heading=table.createTHead().insertRow();heading.append(el('th','#'));
@@ -513,6 +527,31 @@ function drawMonitoring(record,{index=0,editing=false,emergencyPeople,focusRow,s
     restore.push(()=>{if(document.activeElement!==input)input.textContent=display(values[c]);});
     cell.append(input);
    });
+   if(compact&&r>=4){
+    const label='Pending steps / status';
+    if(header){
+     const cell=el('th',label);cell.scope='col';row.append(cell);return;
+    }
+    const cell=row.insertCell();cell.className='task-pending-status';cell.dataset.columnLabel=label;
+    if(!entry){cell.append(el('span','Awaiting workflow publication'));return;}
+    const stage=monitoringStage(progress),pending=el('ul');
+    for(const [position,step] of MONITORING_STEPS.entries()){
+     const missingPdf=step.uploadPdf&&position<stage&&!progress?.history?.some(item=>item.label===step.options[0][1]);
+     if(position<stage&&!missingPdf)continue;
+     const item=el('li','Step '+(position+1)+' · '+step.label+(missingPdf?' · PDF status not recorded':''));
+     if(position===stage){
+      item.className='task-pending-current';
+      const names=monitoringPeople(workflow,entry,position).map(person=>person.name).join(' / ');
+      item.append(el('strong',names?'Action due · '+names:'Assignment needed'));
+     }
+     pending.append(item);
+    }
+    if(pending.childElementCount)cell.append(pending);
+    else cell.append(el('strong','✓ Done','task-bundle-complete'));
+    addSlipActions(cell,key,entry,progress,stage,workflow);
+    if(progress?.history?.length)cell.append(button('View history',()=>openMonitoringStep(record,key,false,false)));
+    return;
+   }
    if(workflow&&r>=4){
     const handover=MONITORING_STEPS.length-2;
     const finalColumn='Samagam slip submitted and Exam IC final report';
@@ -557,17 +596,7 @@ function drawMonitoring(record,{index=0,editing=false,emergencyPeople,focusRow,s
       const previous=step.samagam&&progress?.history?.findLast(item=>[label,'Matched Samagam marks with the mark slip'].includes(item.label));
       cell.append(el('span',previous?.label||label));
      }
-     if(step.uploadPdf&&progress?.signedSlip?.id){
-      const link=el('a','View signed PDF','button');
-      link.href='https://drive.google.com/file/d/'+encodeURIComponent(progress.signedSlip.id)+'/view';link.target='_blank';link.rel='noopener noreferrer';cell.append(link);
-      if(stage===position+1)cell.append(button('Reopen signed PDF upload',async()=>{
-       if(!confirm('Reopen the signed PDF upload for '+entry.section+' · '+entry.subject+'? The current file will stay in Drive.'))return;
-       const {monitoring}=await request({action:'task-principal',operation:'monitoring-reopen-upload',
-        rowKey:key,publicationRevision:workflow.revision,expectedRevision:progress.revision},true);
-       drawMonitoring(monitoring,{index,focusRow:key,searchQuery:search.value});
-       message('Signed PDF upload is Action due again.');
-      }));
-     }
+     if(step.uploadPdf)addSlipActions(cell,key,entry,progress,stage,workflow);
      const latest=progress?.history?.at(-1)?.label;
      if(current&&latest&&MONITORING_STEPS.some(stage=>stage.options.some(([value,label])=>value==='return'&&label===latest)))
       cell.append(el('span',latest));
