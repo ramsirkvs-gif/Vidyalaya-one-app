@@ -116,7 +116,7 @@ try:
         progress.get_by_label('Personal PIN',exact=True).fill('456')
         progress.get_by_role('button',name='Save progress',exact=True).click()
         retest_staff.get_by_text('Synthetic room confirmation',exact=True).wait_for()
-        retest_staff.get_by_role('cell',name=re.compile('26/11/2026')).wait_for()
+        retest_staff.locator('td').filter(has_text='26/11/2026').wait_for()
         retest_ctx.close()
         strips.nth(2).click()
         teacher.get_by_role('cell',name='07/12/2026',exact=True).wait_for()
