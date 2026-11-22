@@ -786,13 +786,16 @@ test('Class IX seating uses Jyoti’s PIN and marks and remedial notes stay scop
  const qp={operation:'class-ix-qp-save',expectedRevision:0,values:{...blank,Science:'Synthetic QP assignment'}};
  await assert.rejects(f.teacher(dateNotes,'X:two','456'),/Only Mrs/);
  await assert.rejects(f.service('task-read',qp),/Principal access/);
- await Promise.all([f.teacher(dateNotes),f.admin(qp)]);
+ const qpNotes={taskOperation:'class-ix-qp-notes-save',expectedRevision:0,values:{...blank,Science:'Synthetic QP instructions'}};
+ await assert.rejects(f.teacher(qpNotes,'X:two','456'),/Only Mrs/);
+ await Promise.all([f.teacher(dateNotes),f.admin(qp),f.teacher(qpNotes)]);
  await assert.rejects(f.teacher(dateNotes),/comments changed/i);
  await assert.rejects(f.admin(qp),/comments changed/i);
  await f.teacher({...seat,expectedRevision:1});
  const updated=await f.service('task-read',{operation:'class-ix-seating-read'});
  assert.deepEqual(updated.dateNotes.values,dateNotes.values);
  assert.deepEqual(updated.qpAssignments.values,qp.values);
+ assert.deepEqual(updated.qpNotes.values,qpNotes.values);
  assert.deepEqual(updated.duties,duties);
 
 

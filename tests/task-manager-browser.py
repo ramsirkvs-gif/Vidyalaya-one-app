@@ -86,11 +86,13 @@ try:
         teacher.get_by_role('cell',name='9321–9340',exact=True).wait_for()
         assert teacher.get_by_text('Room to be assigned',exact=True).count()==10
         assert teacher.locator('.task-exam-table').count()==3
+        assert teacher.get_by_role('columnheader',name='Instructions from Exam Department',exact=True).count()==2
         assert teacher.get_by_role('button',name='Edit QP assignments',exact=True).count()==0
         assignment_page=ctx.new_page()
         assignment_page.goto(BASE+'cbse-task-manager.html#principal')
         assignment_page.get_by_role('button',name='Open Task 3 — Class IX Pre-Annual Exam',exact=True).click()
         assignment_page.get_by_role('button',name='Edit QP assignments',exact=True).click()
+        assert assignment_page.get_by_label('Science · Instructions from Exam Department',exact=True).count()==0
         assignment_page.get_by_label('Science · Principal’s QP assignment / comment',exact=True).fill('Synthetic assignment')
         assignment_page.get_by_role('button',name='Save QP assignments',exact=True).click()
         assignment_page.get_by_role('cell',name='Synthetic assignment',exact=True).wait_for()

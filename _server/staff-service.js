@@ -168,7 +168,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   const [record,staff,access]=await Promise.all([read('cbse/taskClassIXSeating'),directoryStaff(),read('cbse/staffAccess')]);
   const matches=entries(staff).filter(([id,person])=>person.status==='active'&&access?.[id]?.enabled&&rollNameKey(person.name)===rollNameKey(CLASS_IX_EXAM_IC));
   const eligible=[...new Set(matches.map(([id,person])=>person.pinOwnerId||id))];
-  return {revision:record?.revision||0,rooms:record?.rooms||{},duties:record?.duties||{},dateNotes:record?.dateNotes||{},qpAssignments:record?.qpAssignments||{},icId:eligible.length===1?eligible[0]:''};
+  return {revision:record?.revision||0,rooms:record?.rooms||{},duties:record?.duties||{},dateNotes:record?.dateNotes||{},qpAssignments:record?.qpAssignments||{},qpNotes:record?.qpNotes||{},icId:eligible.length===1?eligible[0]:''};
  }
  async function saveClassIXComments(input,key,actor){
   const fields=CLASS_IX_PAPERS.map(([, ,subject])=>subject);
@@ -176,7 +176,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    fields.some(subject=>!Object.hasOwn(input.values,subject)||typeof input.values[subject]!=='string'||input.values[subject].trim().length>500))
    throw new AccessError('Enter up to 500 characters per paper.',400);
   if(actor.id&&(await classIXSeating()).icId!==actor.id)
-   throw new AccessError('Only Mrs. Jyoti Verma can update Class IX date-sheet instructions with her PIN.',403);
+   throw new AccessError('Only Mrs. Jyoti Verma can update Class IX Exam Department instructions with her PIN.',403);
   const values=Object.fromEntries(fields.map(subject=>[subject,input.values[subject].trim()]));
   const result=await mcqTransaction(db,'cbse',current=>{
    if(current===null)return null;
@@ -812,7 +812,8 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(!pinIdentity)throw new AccessError('Verify your existing personal PIN.',403);
    const id=pinIdentity.decoded.staffId,staff=await directoryStaff(),access=await read('cbse/staffAccess/'+id);
    if(!access?.enabled||access.version!==pinIdentity.access.version||staff[id]?.status!=='active')throw new AccessError('Staff access changed. Verify your PIN again.',403);
-   if(input.taskOperation==='class-ix-date-notes-save')return saveClassIXComments(input,'dateNotes',{id,version:access.version});
+   if(input.taskOperation==='class-ix-date-notes-save'||input.taskOperation==='class-ix-qp-notes-save')
+    return saveClassIXComments(input,input.taskOperation==='class-ix-date-notes-save'?'dateNotes':'qpNotes',{id,version:access.version});
    if(input.taskOperation==='class-ix-seating-save')return saveClassIXSeating(input,id,access);
    if(input.exam==='class-ix'&&input.taskOperation==='class-ix-remedial-save')return halfYearlyWorkspace(input,{id,accessVersion:access.version});
    if(['pb1-read','pb1-save'].includes(input.taskOperation))return (['half-yearly','class-ix'].includes(input.exam)?halfYearlyWorkspace:pb1Workspace)(input,{id,accessVersion:access.version});
