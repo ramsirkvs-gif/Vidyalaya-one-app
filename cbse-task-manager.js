@@ -718,7 +718,7 @@ function principalReportEditor(parent,card,id,t,c){
  let n=3;for(const q of taskQuestions(old)){const written=q.kind==='text',input=field(editor,'Q'+(++n)+'. '+taskQuestionWording(q.label),q.id,written?'textarea':'number',old.values[q.id]??'');if(written){input.maxLength=10000;editor.append(remarkWordLimit(input,old.values[q.id]||''));}else{input.min='0';input.step='1';input.inputMode='numeric';if(q.kind==='students'&&headers.total!=null)input.max=String(q.id==='passed'&&Number.isSafeInteger(participation?.appeared)?Math.min(headers.total,participation.appeared):headers.total);}inputs[q.id]=input;}
  const remarks=field(editor,OVERALL_COMMENT_LABEL+' (optional)','principal-teacher-remarks','textarea',old.values.remarks||'');remarks.maxLength=10000;editor.append(remarkWordLimit(remarks,old.values.remarks||''));const actions=el('div',undefined,'task-actions');actions.append(el('button','Save submitted answers'),button('Cancel answer edits',()=>{if(editor.dataset.portalDirty==='true'&&!confirm('Discard these unsaved answer edits?'))return;editor.remove();}));editor.append(actions);editor.onsubmit=event=>{event.preventDefault();if([...card.querySelectorAll('form[data-portal-dirty="true"]')].some(f=>f!==editor)){message('Save other task edits and comments before saving these answers.',true);return;}run(async()=>{const values={remarks:remarks.value,...Object.fromEntries(Object.entries(inputs).map(([key,input])=>[key,input.tagName==='TEXTAREA'?input.value:input.value===''?null:Number(input.value)]))};await admin({operation:'edit-report',taskId:id,classId:c,expectedRevision:t.revision,reportRevision:old.revision||0,report:values});editor.dataset.portalDirty='false';drawAdminTask(card,id,store.tasks[id]);const saved=card.querySelector('[data-report-class="'+c+'"]');saved.open=true;saved.scrollIntoView({block:'start',behavior:'smooth'});message(c+' submitted answers saved successfully by Principal.');});};parent.append(editor);editor.scrollIntoView({block:'start',behavior:'smooth'});editor.querySelector('input,textarea')?.focus();
 }
-function teacherTaskHeading(task,tag='h2'){const heading=el(tag,undefined,'task-title-heading');if(task.priority===TASK_PRIORITIES[0]){heading.classList.add('task-urgent-heading');const icon=el('span','🚨','task-alarm-icon');icon.setAttribute('aria-hidden','true');heading.append(icon,el('span','Most urgent task · Handle with care','task-importance-label'),el('span',task.title,'task-heading-title'));}else heading.textContent=task.title;return heading;}
+function teacherTaskHeading(task,tag='h2',urgentText='Most urgent task · Handle with care'){const heading=el(tag,undefined,'task-title-heading');if(task.priority===TASK_PRIORITIES[0]){heading.classList.add('task-urgent-heading');const icon=el('span','🚨','task-alarm-icon');icon.setAttribute('aria-hidden','true');heading.append(icon,el('span',urgentText,'task-importance-label'),el('span',task.title,'task-heading-title'));}else heading.textContent=task.title;return heading;}
 async function openNamedPB1Results(exam){
  const read=()=>request({action:'task-read',operation:'pb1-named',exam});
  try{return await read();}catch(error){if(!error.curtainRequired)throw error;}
@@ -926,11 +926,14 @@ function drawStaff(){
  host.replaceChildren(entry,el('h2','Published tasks'));
  if(store.monitoringPublishedAt){
   const plan=el('section',undefined,'task-card task-public-card');
-  plan.append(teacherTaskHeading({title:MONITORING_TITLE,priority:TASK_PRIORITIES[0]},'h3'),button('Click here to report before entering marks',()=>openPublishedMonitoring()));
+  const strip=teacherTaskHeading({title:MONITORING_TITLE,priority:TASK_PRIORITIES[0]},'button','Most urgent task · Report promptly');
+  strip.type='button';strip.classList.add('task-monitoring-entry');
+  strip.onclick=()=>run(()=>openPublishedMonitoring());
+  plan.append(strip);
   host.append(taskMarksGuidance('Update the task status'),plan,taskMarksGuidance('First update the task status, then enter marks.'));
   drawAnalyserCards();
-  host.append(taskMarksGuidance('Discuss the results with the Principal again before entering marks in Samagam.',{arrowFirst:true}));
-  host.append(taskMarksGuidance('Get the Principal’s signature and upload the marks on Samagam with the Matching IC.',{arrowFirst:true}));
+  host.append(taskMarksGuidance('Discuss the results with the Principal before entering marks in Samagam.',{arrowFirst:true}));
+  host.append(taskMarksGuidance('Get the Principal’s signature and upload the slip on our app and marks on Samagam with the Matching IC.',{arrowFirst:true}));
  }
  if(!store.monitoringPublishedAt&&!tasks.length)host.append(el('p','No tasks are currently published.'));
  for(const [id,t]of tasks){const card=el('section',undefined,'task-card task-public-card');card.append(teacherTaskHeading(t),el('p',t.priority+(t.deadline?' · Deadline: '+t.deadline:'')));const table=el('table',undefined,'task-public-list'),thead=el('thead'),heading=el('tr');for(const label of ['SN','Class','Prime mentor / Survey IC','Tech / analytical support','Status','Action'])heading.append(el('th',label));thead.append(heading);table.append(thead);const tbody=el('tbody');

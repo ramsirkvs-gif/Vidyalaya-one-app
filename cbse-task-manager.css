@@ -138,8 +138,13 @@
 .pb1-class-summary{margin:1rem 0;padding:.8rem;border:1px solid #bfd8c6;border-radius:.6rem;background:#f6fbf6}
 .pb1-class-summary h4,.pb1-class-summary h5{margin:.3rem 0 .6rem}
 
+.task-app button.task-monitoring-entry{width:100%;text-align:start;white-space:normal;background:#fff1f0;color:#8a2424;border:1px solid #edb6b3;border-left:5px solid #c33030;padding:clamp(.9rem,2vw,1.35rem)}
+.task-app button.task-monitoring-entry:hover{background:#ffe5e2}
+.task-monitoring-entry .task-importance-label{font-size:clamp(.88rem,2.2vw,1.12rem)}
+.task-monitoring-entry .task-heading-title{font-size:clamp(1.1rem,2.8vw,1.5rem);font-weight:750}
+.task-app .task-direct-marks h2{font-size:clamp(1.25rem,2.5vw,1.6rem)}
 .task-direct-marks .task-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:0}
-.task-app .task-direct-marks button{min-height:44px;background:#176651;color:#fff;border-color:#176651;font-weight:700;white-space:normal}
+.task-app .task-direct-marks button{min-height:44px;background:#176651;color:#fff;border-color:#176651;font-size:clamp(.9rem,1.8vw,1.05rem);font-weight:700;white-space:normal}
 .task-app .task-direct-marks button:hover{background:#10503f}
 @media(max-width:640px){.task-direct-marks .task-actions{grid-template-columns:minmax(0,1fr)}}
 .task-analyser-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin:0 0 1.25rem}
