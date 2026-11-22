@@ -308,3 +308,10 @@
 .task-stage-title{font-size:clamp(1.03rem,2.5vw,1.45rem);line-height:1.24}
 .task-stage-subtitle{font-size:.9rem;font-weight:550}
 .task-stage-state{display:flex;align-items:center;gap:.35rem;padding:.35rem .65rem;border-radius:2rem;background:#ffffffba;font-size:.82rem;font-weight:750}
+
+.task-exam-flow{list-style:none;counter-reset:exam-step;display:grid;gap:12px;margin:1rem 0;padding:0}
+.task-exam-step{counter-increment:exam-step;position:relative;padding:1rem 1rem 1rem 3.6rem;border:1px solid #c6dcd5;border-radius:12px;background:#fff;overflow-wrap:anywhere}
+.task-exam-step::before{content:counter(exam-step);position:absolute;inset-block-start:1rem;inset-inline-start:1rem;display:grid;place-items:center;width:1.9rem;height:1.9rem;border-radius:50%;background:#175849;color:white;font-weight:750}
+.task-exam-step h3,.task-exam-step p{margin:0 0 .45rem}
+.task-exam-step ul{padding-inline-start:1.25rem;margin:.5rem 0 0}
+.task-exam-step li+li{margin-top:.35rem}

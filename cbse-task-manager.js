@@ -65,6 +65,7 @@ function catalogue(parent){
   title:t.draft.title,updatedAt:Math.max(t.updatedAt||t.createdAt||0,...Object.values(t.reports||{}).map(report=>report.updatedAt||0)),state:t.published?'Published':'Draft',
   open:()=>openPrincipalTask(id,t),
  }));
+ list.push({title:'Task 3 — Class IX Pre-Annual Exam',updatedAt:0,state:'Draft',open:drawClassIXExamDraft});
  list.push({title:MONITORING_TITLE,updatedAt:store.monitoringUpdatedAt||0,state:'Monitoring',open:openMonitoring});
  list.sort((a,b)=>b.updatedAt-a.updatedAt);
  const scroll=el('div',undefined,'task-scroll'),table=el('table',undefined,'task-totals task-register');
@@ -983,6 +984,36 @@ function drawAnalyserCards(){
   cards.append(card);
  }
  host.append(cards);
+}
+function drawClassIXExamDraft(){
+ const papers=[
+  ['07/12/2026','Monday','Science','IX A/C · Vandana Umang | IX B/D · Jyoti Verma | IX D · Michi Loder'],
+  ['08/12/2026','Tuesday','Hindi','IX A · Suraj Dahal | IX B · Devendra Kumar Meena | IX C/D · Dipti Singh'],
+  ['09/12/2026','Wednesday','Mathematics','IX A/C · Priyanka Mehta | IX A · Rajen Kumar | IX B/D · Ranjan Chetry | IX D · Bikash Jyoti Das'],
+  ['10/12/2026','Thursday','English','IX A · Abhishek Singh | IX B · M. T. Munya | IX C · Gocham Yagom | IX D · Sweta Kestwal'],
+  ['11/12/2026','Friday','Social Science','IX A/D · Ajay Pratap Singh C. | IX B/C · Nitish Raj Sharma'],
+ ];
+ const steps=el('ol',undefined,'task-exam-flow');
+ const addStep=(title,copy)=>{
+  const item=el('li',undefined,'task-exam-step');
+  item.append(el('h3',title),el('p',copy));steps.append(item);
+  return item;
+ };
+ const dates=addStep('Date sheet','Students report by 7:45 AM. Writing time is 8:00–11:00 AM. Each paper carries 80 marks. Students wear school uniform and stay until 2:10 PM.');
+ const schedule=el('ul');
+ for(const [date,day,subject] of papers)schedule.append(el('li',date+' · '+day+' · '+subject));
+ dates.append(schedule);
+ const submission=addStep('Question paper submission','Check your subject team. The Exam IC will confirm who submits each paper, the deadline, and the submission channel.');
+ const reference=el('details'),teachers=el('ul');
+ reference.append(el('summary','Class IX teachers from the master timetable'),teachers);
+ for(const [,,subject,names] of papers)teachers.append(el('li',subject+' · '+names));
+ submission.append(reference);
+ addStep('Seating area','Check the room and roll-number ranges for each section once the Exam IC shares the seating plan.');
+ addStep('Marks entry and Wisdom Analyser','Enter and verify marks for your assigned section. Use the Class IX Wisdom Analyser to identify students and topics that need support.');
+ addStep('Remedial action plan','Record the learning gap, the activity or reteaching planned, and the date for a short reassessment.');
+ host.replaceChildren(button('Back to task list',drawPrincipal),el('h2','Task 3 — Class IX Pre-Annual Exam'),
+  el('p','Draft for Principal review','task-import-ready'),steps);
+ host.scrollIntoView({block:'start'});
 }
 function drawStaffTask2(){
  const plan=el('section',undefined,'task-card');
