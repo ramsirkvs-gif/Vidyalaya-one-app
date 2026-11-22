@@ -292,6 +292,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
  const filters=el('div',undefined,'pb1-filters'),report=el('div');
  let entering=entryOnly,entryAction,classMode=false;
+ const subjectOnly=exam.classId==='IX';
 
  const description=el('p',teacher?'Your assigned '+exam.current+' papers':publicView?exam.classes+' · Public student labels are coded':exam.classes+' · '+exam.current);
  card.append(el('h2',entryOnly?(approve?'Review and freeze ':'Update ')+exam.short+' marks':exam.title),description);
@@ -419,8 +420,30 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     pending?pending+' pending'+(recorded?' · '+recorded+' recorded':''):'All recorded'];
   }));
  }
+ function showSubjectResults(parent,title,grouped){
+  const appeared=rows=>rows.filter(mark=>mark?.percentage!=null);
+  const score=marks=>marks.length?pct(marks.filter(mark=>!mark.failed).length*100/marks.length):'—';
+  parent.append(el('h3',title));
+  table(parent,['Subject / group','Enrolled',exam.baseline+' appeared',exam.baseline+' pass %',
+   exam.short+' appeared',exam.short+' pass %',exam.short+' marks pending'],[...grouped].map(([label,rows])=>{
+   const previous=appeared(rows.map(row=>row.before)),current=appeared(rows.map(row=>row.current));
+   return [label,rows.length,previous.length,score(previous),current.length,score(current),rows.filter(row=>!row.current).length];
+  }));
+ }
+ function showClassIXResults(parent,rows){
+  showSubjectResults(parent,'Subject-wise results by class section',groups(rows,row=>sectionLabel(row)+' · '+subjectGroup(info(row))));
+  const teachers=el('details',undefined,'pb1-comparison-details');
+  teachers.append(el('summary','Teacher-wise results by subject'));
+  showSubjectResults(teachers,'Teacher-wise results by subject',teacherGroups(rows));
+  parent.append(teachers);
+ }
  function showStudentComparison(parent,rows){
-  parent.append(el('h3','Student-by-student comparison'));
+  if(subjectOnly){
+   const details=el('details',undefined,'pb1-comparison-details');
+   details.append(el('summary','View student-by-student results'));
+   parent.append(details);
+   parent=details;
+  }else parent.append(el('h3','Student-by-student comparison'));
   const search=control(parent,'Search student results','input'),list=el('ul',undefined,'pb1-compact-marks');
   search.type='search';
   search.oninput=()=>{
@@ -448,7 +471,9 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    empty.hidden=Boolean(matching.length);
   };
   const empty=el('p','No student results match this search.');
-  parent.append(list,empty);search.oninput();
+  parent.append(list,empty);
+  if(subjectOnly)parent.addEventListener('toggle',()=>{if(parent.open)search.oninput();});
+  else search.oninput();
  }
  let selectedClass='',selectedSection='';
  function drawClassAnalysis(){
@@ -468,6 +493,12 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    selectedClass=analysisClass();selectedSection=section.value;results.replaceChildren();
    if(!sections.some(row=>row.classId===selectedClass)){results.append(el('p','No '+exam.short+' classes are available.'));return;}
    const classes=sections.filter(row=>row.classId===selectedClass&&(!selectedSection||row.section===selectedSection));
+   if(subjectOnly){
+    const rows=data.rows.filter(row=>info(row).classId===selectedClass&&(!selectedSection||info(row).section===selectedSection));
+    showClassIXResults(results,rows);
+    showStudentComparison(results,rows);
+    return;
+   }
    results.append(el('p',classes.map(row=>selectedClass+' '+row.section+(row.teacher?' · '+row.teacher:'')).join(' | '),'pb1-scope-summary'),
     el('p','Attendance uses explicit AB entries. Pending marks are shown separately. A student who is absent and has a failing mark in another subject can appear in both counts.'));
    for(const [includeAdditional,title] of [[false,'Core subjects only'],[true,'All subjects · including AI and additional subjects']]){
@@ -563,8 +594,11 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    report.append(list);
   }
   if(!rows.length){report.append(el('p','No paper results match this selection.'));return;}
-  showBaselineResults(report,exam.baseline+' class-wise analysis',groups(rows,sectionLabel));
-  showBaselineResults(report,exam.baseline+' teacher-wise analysis',teacherGroups(rows));
+  if(subjectOnly)showClassIXResults(report,rows);
+  else{
+   showBaselineResults(report,exam.baseline+' class-wise analysis',groups(rows,sectionLabel));
+   showBaselineResults(report,exam.baseline+' teacher-wise analysis',teacherGroups(rows));
+  }
   if(!entered.length){
    report.append(el('p',exam.short+' marks pending.','task-monitoring-notice'));
    showStudentComparison(report,rows);
@@ -610,6 +644,10 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    choosePaper(frozenPapers,'Choose a paper to unfreeze','Continue to unfreeze',index=>reopenPaper(data.scopes[index],drawReport))));
   paperActions.append(button(approve?'Subject teacher copy / PDF':'Preview marks slip',()=>openTeacherCopy(entered)));
   if(paperActions.childElementCount)report.append(paperActions);
+  if(subjectOnly){
+   showStudentComparison(report,rows);
+   return;
+  }
   renderSmartAnalysis(report,rows,(title,filter,paperFilter=()=>true)=>
    showMarks(pb1SmartStudents(rows).filter(filter).flatMap(student=>student.papers.filter(paperFilter)),{title}),exam);
   const trends=el('details',undefined,'pb1-comparison-details');

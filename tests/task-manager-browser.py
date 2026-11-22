@@ -105,13 +105,18 @@ try:
             'name':'synthetic-class-ix.csv','mimeType':'text/csv','buffer':csv.encode()})
         assignment_page.once('dialog',lambda dialog:dialog.accept())
         assignment_page.get_by_role('button',name='Import Class IX CSV',exact=True).click()
-        assignment_page.get_by_role('heading',name='PT-2 class-wise analysis',exact=True).wait_for()
-        assignment_page.get_by_role('heading',name='PT-2 teacher-wise analysis',exact=True).wait_for()
+        assignment_page.get_by_role('heading',name='Subject-wise results by class section',exact=True).wait_for()
+        assert assignment_page.get_by_role('columnheader',name='PT-2 average',exact=True).count()==0
+        assignment_page.get_by_text('Teacher-wise results by subject',exact=True).first.click()
+        assignment_page.get_by_role('heading',name='Teacher-wise results by subject',exact=True).wait_for()
+        assert assignment_page.get_by_label('Search student results',exact=True).is_hidden()
+        assignment_page.get_by_text('View student-by-student results',exact=True).click()
+        assignment_page.get_by_label('Search student results',exact=True).wait_for()
         assignment_page.get_by_text('Synthetic Unmatched Teacher (PIN assignment pending) · IX · HINDI',exact=True).wait_for()
         assignment_page.get_by_text('Pre-Annual marks pending.',exact=True).wait_for()
         assignment_page.close()
         teacher.get_by_role('button',name='Open Wisdom Analyser',exact=True).click()
-        teacher.get_by_role('heading',name='PT-2 class-wise analysis',exact=True).wait_for()
+        teacher.get_by_role('heading',name='Subject-wise results by class section',exact=True).wait_for()
         teacher.get_by_text('Pre-Annual marks pending.',exact=True).wait_for()
         assert teacher.get_by_text('Synthetic IX student',exact=True).count()==0
         assert teacher.get_by_label('Personal PIN',exact=True).count()==0
