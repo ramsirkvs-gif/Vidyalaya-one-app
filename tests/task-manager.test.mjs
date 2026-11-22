@@ -718,3 +718,23 @@ test('assigned cross-checkers can save PB-1 and XI marks with their PIN while fr
  f.data.cbse.taskMonitoring.overrides={row_1:{checker:''}};
  assert.equal((await f.teacher({taskOperation:'pb1-read'},'X:two','456')).scopes.length,0);
 });
+
+test('Principal can reopen a test signed slip while matching is pending',async()=>{
+ const f=taskFixture();
+ const paper={section:'Class 10-B',subject:'ENGLISH',roles:{evaluator:{id:'X:one',name:'Synthetic Teacher one'}}};
+ const signedSlip={id:'sample-pdf',name:'Sample signed slip.pdf'};
+ f.data.cbse.taskMonitoring={published:{revision:1,assignments:{row_1:paper,row_2:paper}},progress:{
+  row_1:{stage:4,separateMatching:true,revision:4,history:[{label:'Signed PDF uploaded'}],signedSlip},
+  row_2:{stage:5,separateMatching:true,revision:5,history:[],signedSlip},
+ }};
+ const request={operation:'monitoring-reopen-upload',rowKey:'row_1',publicationRevision:1,expectedRevision:4};
+ await assert.rejects(f.service('task-principal',request,'outsider'),/Principal/);
+ await assert.rejects(f.admin({...request,rowKey:'row_2',expectedRevision:5}),/matching is still pending/);
+ const {monitoring}=await f.admin(request);
+ assert.equal(monitoringStage(monitoring.progress.row_1),3);
+ assert.equal(monitoring.progress.row_1.signedSlip,undefined);
+ assert.equal(monitoring.progress.row_1.history.at(-1).name,'Principal');
+ assert.equal(monitoring.archivedSignedSlips.row_1_4.id,'sample-pdf');
+ assert.equal(monitoring.progress.row_2.stage,5);
+ await assert.rejects(f.admin(request),/row changed/);
+});

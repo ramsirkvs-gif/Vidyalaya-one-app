@@ -3,7 +3,7 @@ import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
 import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList,minuteLanguages} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {validateMonitoringSheets} from '../cbse-task-workbook.js';
-import {monitoringAssignments,monitoringAdvance,monitoringStage,resolvePublishedAvinashAssignments,MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES} from '../cbse-task-monitoring-workflow.js';
+import {monitoringAssignments,monitoringAdvance,monitoringReopenUpload,monitoringStage,resolvePublishedAvinashAssignments,MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES} from '../cbse-task-monitoring-workflow.js';
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {evaluatorDirectory,publishedMarksCheckers,withPublishedPB1Evaluators} from './pb1-evaluators.js';
 import {pb1Report,pb1Scopes,paperDiscussionComment} from '../cbse-pb1-analyser-model.js';
@@ -406,6 +406,18 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
      const staff=await directoryStaff();
      monitoring.published={...resolvePublishedAvinashAssignments(monitoring.published,staff,monitoring.overrides),examReviewers:await finalExamReviewers(staff)};
     }
+    return {monitoring};
+   }
+   if(admin&&input.operation==='monitoring-reopen-upload'){
+    let reason;
+    const stamp=now();
+    const result=await mcqTransaction(db,monitoringPath,current=>{
+     if(current===null)return null;
+     try{return monitoringReopenUpload(current,input,stamp);}
+     catch(error){reason=error.message;return;}
+    },{restTransaction});
+    const monitoring=result.committed&&result.snapshot?.val();
+    if(!monitoring)throw new AccessError(reason||'The signed PDF step could not be reopened.',409);
     return {monitoring};
    }
    if(admin&&['monitoring-save','monitoring-settings','monitoring-publish','monitoring-unpublish','monitoring-emergency'].includes(input.operation)){

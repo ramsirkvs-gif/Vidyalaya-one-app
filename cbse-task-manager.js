@@ -170,7 +170,8 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate
   else scan=signedSlipScan(editor,run);
   const remark=step.uploadPdf?null:field(editor,step.role==='exam'?'Final remark':'Remark','monitoring-remark','textarea');
   if(remark)remark.maxLength=500;
-  const pin=field(editor,'Personal PIN','monitoring-pin','password');pin.inputMode='numeric';pin.autocomplete='off';
+  const pin=field(editor,'Personal PIN','monitoring-pin','password');pin.inputMode='numeric';pin.autocomplete='new-password';
+  pin.addEventListener('focus',()=>{pin.value='';},{once:true});
   pin.required=true;
   if(outcome){outcome.required=true;outcome.onchange=()=>{remark.required=step.role==='exam'||outcome.value==='return';};outcome.onchange();}
   const errorText=el('p',undefined,'task-error');errorText.setAttribute('role','status');
@@ -304,7 +305,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
    if(confirm('Remove the published Task 2 plan from Staff View?'))await update('monitoring-unpublish');
   }));
  }
- const pendingSubstitutes=new Map(),expandedRows=new Set();
+ const pendingSubstitutes=new Map();
  const searchPanel=el('div',undefined,'task-plan-search');
  const search=field(searchPanel,'Find a teacher, evaluator, subject or class','monitoring-search','search',searchQuery);
  const normalize=value=>String(value||'').normalize('NFKC').toLocaleLowerCase()
@@ -389,7 +390,6 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
      row.dataset.monitoringSearch=names.map(value=>{
       const normalized=normalize(value);return normalized+' '+normalized.replaceAll(' ','');
      }).join(' ');
-     row.classList.toggle('task-plan-expanded',expandedRows.has(key));
     }
    }
    if(editing)row.append(el('th',String(r+1)));
@@ -428,8 +428,8 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
     const handover=MONITORING_STEPS.length-2;
     const finalColumn='Samagam slip submitted and Exam IC final report';
     if(r===4){
-     for(const {label,review} of [...MONITORING_STEPS.slice(0,handover),{label:finalColumn}]){
-      const heading=el('th',label,'task-workflow-step');
+     for(const [position,{label,review}] of [...MONITORING_STEPS.slice(0,handover),{label:finalColumn}].entries()){
+      const heading=el('th',position<handover?'Step '+(position+1)+' · '+label:label,'task-workflow-step');
       if(review)heading.classList.add('task-principal-review');
       heading.setAttribute('role','columnheader');heading.scope='col';row.append(heading);
      }
@@ -446,9 +446,9 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
      const cell=combined?el('div',undefined,'task-workflow-substep'):row.insertCell();
      if(combined){
       finalCell.append(cell);
-      cell.append(el('strong',step.label,'task-workflow-substep-label'));
+      cell.append(el('strong','Step '+(position+1)+' · '+step.label,'task-workflow-substep-label'));
      }else{
-      cell.className='task-workflow-step';cell.setAttribute('role','cell');cell.dataset.columnLabel=step.label;
+      cell.className='task-workflow-step';cell.setAttribute('role','cell');cell.dataset.columnLabel='Step '+(position+1)+' · '+step.label;
      }
      if(step.review)cell.classList.add('task-principal-review');
      if(!entry){cell.append(el('span','Awaiting workflow publication'));return;}
@@ -457,7 +457,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
      const current=position===stage,complete=position<stage;
      if(position===Math.min(stage,MONITORING_STEPS.length-1))(combined?finalCell:cell).classList.add('task-plan-current');
      const pdfNotRecorded=step.uploadPdf&&complete&&!progress?.history?.some(item=>item.label===step.options[0][1]);
-     const state=pdfNotRecorded?'PDF status not recorded':complete?'Completed':current?(assigned?'Action due':'Assignment needed'):'Waiting';
+     const state=pdfNotRecorded?'PDF status not recorded':complete?'Done':current?(assigned?'Action due':'Assignment needed'):'Pending';
      cell.append(el('strong',state,'task-workflow-state'+(current?' is-current':complete?' is-complete':'')));
      if(assigned)cell.append(el('span',assigned));
      else if(listedMatching)cell.append(el('span',listedMatching+' · PIN assignment pending'));
@@ -471,6 +471,13 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
      if(step.uploadPdf&&progress?.signedSlip?.id){
       const link=el('a','View signed PDF','button');
       link.href='https://drive.google.com/file/d/'+encodeURIComponent(progress.signedSlip.id)+'/view';link.target='_blank';link.rel='noopener noreferrer';cell.append(link);
+      if(!staffView&&stage===position+1)cell.append(button('Reopen signed PDF upload',async()=>{
+       if(!confirm('Reopen the signed PDF upload for '+entry.section+' · '+entry.subject+'? The current file will stay in Drive.'))return;
+       const {monitoring}=await request({action:'task-principal',operation:'monitoring-reopen-upload',
+        rowKey:key,publicationRevision:workflow.revision,expectedRevision:progress.revision},true);
+       drawMonitoring(monitoring,{index,focusRow:key,searchQuery:search.value});
+       message('Signed PDF upload is Action due again.');
+      }));
      }
      if(staffView&&step.uploadPdf&&!practice&&pdfNotRecorded)cell.append(signedPdfUploadLink(entry.section));
      const latest=progress?.history?.at(-1)?.label;
@@ -486,18 +493,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
       cell.append(button('View history',()=>openMonitoringStep(viewRecord,key,staffView,false,practiceUpdate)));
     });
    }
-   if(readable&&index===0&&r>4){
-    const toggleCell=row.insertCell();toggleCell.className='task-plan-toggle';toggleCell.setAttribute('role','cell');
-    toggleCell.colSpan=row.cells.length-1;
-    const toggle=el('button',undefined);toggle.type='button';
-    const sync=()=>{
-     const expanded=expandedRows.has(key);
-     toggle.textContent=expanded?'Hide full workflow':'View full workflow';
-     toggle.setAttribute('aria-expanded',String(expanded));row.classList.toggle('task-plan-expanded',expanded);
-    };
-    toggle.onclick=()=>{if(expandedRows.has(key))expandedRows.delete(key);else expandedRows.add(key);sync();};
-    sync();toggleCell.append(toggle);
-   }
+
   });
   scroll.replaceChildren(table);filterRows();
  }

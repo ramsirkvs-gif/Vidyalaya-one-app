@@ -95,3 +95,21 @@ export function monitoringAdvance(record,input,actor,stamp){
  const progress={stage,separateMatching:true,revision:previous.revision+1,identity:{subject,section},...(previous.signedSlip?{signedSlip:previous.signedSlip}:{}),history:[...previous.history,{label:option[1],name:actor.name,remark,at:stamp}]};
  return {...record,progress:{...record.progress,[input.rowKey]:progress}};
 }
+
+export function monitoringReopenUpload(record,input,stamp){
+ const {rowKey,publicationRevision,expectedRevision}=input;
+ const entry=Object.hasOwn(record.published?.assignments||{},rowKey)?record.published.assignments[rowKey]:null;
+ const progress=Object.hasOwn(record.progress||{},rowKey)?record.progress[rowKey]:null;
+ if(!entry||!progress||record.published.revision!==publicationRevision||progress.revision!==expectedRevision)
+  throw Error('The row changed. Refresh Task 2 before reopening the upload.');
+ const uploadStage=MONITORING_STEPS.findIndex(step=>step.uploadPdf);
+ if(monitoringStage(progress)!==uploadStage+1||!progress.signedSlip?.id)
+  throw Error('The signed upload can be reopened while Samagam upload and matching is still pending.');
+ const {signedSlip,...rest}=progress;
+ const updated={...rest,stage:uploadStage,separateMatching:true,revision:progress.revision+1,history:[
+  ...(progress.history||[]),{label:'Signed PDF upload reopened',name:'Principal',remark:'Previous upload removed from the active workflow.',at:stamp},
+ ]};
+ const archiveKey=rowKey+'_'+progress.revision;
+ return {...record,progress:{...record.progress,[rowKey]:updated},
+  archivedSignedSlips:{...record.archivedSignedSlips,[archiveKey]:{...signedSlip,rowKey,archivedAt:stamp}}};
+}
