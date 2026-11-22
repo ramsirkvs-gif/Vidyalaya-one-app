@@ -18,10 +18,11 @@ export const CLASS_IX_SEATING=Object.entries({A:43,B:48,C:40,D:38}).flatMap(([se
  }));
 export const CLASS_IX_SEATING_FIELDS=[['area','Exam area / room','text'],['invigilator','Invigilator name','text'],
  ['from','From time','time'],['to','To time','time']];
+const classIXMathsDTeacher='Mr. Bikash Jyoti Das';
 export const CLASS_IX_PAPERS=[
  ['07/12/2026','Monday','Science','IX A/C · Vandana Umang | IX B/D · Jyoti Verma'],
  ['08/12/2026','Tuesday','Hindi','IX A · Suraj Dahal | IX B · Devendra Kumar Meena | IX C/D · Dipti Singh'],
- ['09/12/2026','Wednesday','Mathematics','IX A/C · Priyanka Mehta | IX B · Ranjan Chetry | IX D · Bikash Jyoti Das'],
+ ['09/12/2026','Wednesday','Mathematics','IX A/C · Priyanka Mehta | IX B · Ranjan Chetry | IX D · '+classIXMathsDTeacher],
  ['10/12/2026','Thursday','English','IX A · Abhishek Singh | IX B · M. T. Munya | IX C · Gocham Yagom | IX D · Sweta Kestwal'],
  ['11/12/2026','Friday','Social Science','IX A/D · Ajay Pratap Singh C. | IX B/C · Nitish Raj Sharma'],
 ];
@@ -36,7 +37,7 @@ export function assignClassIXMathsD(state,staff,identityIds){
   return paper.classId==='IX'&&paper.section==='D'&&paper.subject==='MATHEMATICS';
  });
  if(!key)return state;
- const teacher='Mr. Bikash Jyoti Das',nameKey=rollNameKey(teacher);
+ const teacher=classIXMathsDTeacher,nameKey=rollNameKey(teacher);
  const matches=Object.entries(staff).filter(([,person])=>person.status==='active'&&rollNameKey(person.name)===nameKey);
  const id=matches[0]?.[0],resolved=id&&matches.every(([candidate])=>identityIds(id).includes(candidate));
  const paper={...state.papers[key],teacher:resolved?staff[id].name:teacher,teacherId:resolved?id:'',teacherAssignmentPending:!resolved};

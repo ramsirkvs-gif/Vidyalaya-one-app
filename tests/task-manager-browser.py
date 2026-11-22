@@ -86,6 +86,8 @@ try:
         teacher.get_by_role('cell',name='9321–9340',exact=True).wait_for()
         assert teacher.get_by_text('Room to be assigned',exact=True).count()==10
         assert teacher.locator('.task-exam-table').count()==3
+        qp_math=teacher.locator('.task-exam-step').filter(has=teacher.get_by_role('heading',name='Question paper submission',exact=True)).get_by_role('row').filter(has_text='Mathematics')
+        assert qp_math.locator('li').all_text_contents()==['IX A/C · Priyanka Mehta','IX B · Ranjan Chetry','IX D · Mr. Bikash Jyoti Das']
         assert teacher.get_by_role('columnheader',name='Instructions from Exam Department',exact=True).count()==1
         assert teacher.get_by_role('button',name='Edit QP assignments',exact=True).count()==0
         assignment_page=ctx.new_page()
