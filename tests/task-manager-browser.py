@@ -121,6 +121,18 @@ try:
         progress.get_by_role('button',name='Save progress',exact=True).click()
         retest_staff.get_by_text('Synthetic room confirmation',exact=True).wait_for()
         retest_staff.locator('td').filter(has_text='26/11/2026').wait_for()
+        retest_staff.evaluate('window.print = () => { window.task4PrintRequested = true }')
+        retest_staff.get_by_role('button',name='Print / Save as PDF',exact=True).click()
+        assert retest_staff.evaluate('window.task4PrintRequested')
+        printable=retest_staff.locator('.task-retest-print')
+        assert printable.get_by_text('Synthetic room confirmation',exact=True).count()==1
+        assert printable.get_by_text('High alert',exact=True).count()==1
+        assert printable.locator('button').count()==0
+        retest_staff.emulate_media(media='print')
+        assert printable.is_visible()
+        retest_staff.evaluate("window.dispatchEvent(new Event('afterprint'))")
+        assert printable.count()==0
+        retest_staff.emulate_media(media='screen')
         retest_ctx.close()
         strips.nth(2).click()
         teacher.get_by_role('cell',name='07/12/2026',exact=True).wait_for()

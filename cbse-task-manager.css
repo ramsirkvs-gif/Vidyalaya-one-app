@@ -346,3 +346,18 @@
 .task-exam-table.task-retest-teacher-table tbody tr:nth-child(odd) td:first-child{background:#fff}
 .task-retest-teacher-table td:first-child button{margin-top:.35rem;padding:.35rem .55rem;white-space:normal}
 .task-retest-pin-status{display:block;margin-top:.3rem;color:#536a70;font-weight:500}
+
+.task-retest-print{display:none}
+@media print{
+ @page task-retest-register{size:A4 landscape;margin:9mm}
+ body:has(>.task-retest-print)>:not(.task-retest-print){display:none!important}
+ html:has(.task-retest-print),body:has(.task-retest-print){page:task-retest-register;margin:0!important;padding:0!important}
+ .task-retest-print{display:block;color:#173738;font:8pt/1.25 system-ui,sans-serif}
+ .task-retest-print h2{margin:0 0 5pt;font-size:15pt}
+ .task-retest-print .task-retest-alert{margin:5pt 0;padding:5pt 8pt;break-inside:avoid}
+ .task-retest-print table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:8pt}
+ .task-retest-print thead{display:table-header-group}
+ .task-retest-print tr{break-inside:avoid}
+ .task-retest-print :is(th,td){padding:4pt;border:1px solid #b8ceca;text-align:left;vertical-align:top;overflow-wrap:anywhere}
+ .task-retest-print td:first-child{white-space:normal}
+}

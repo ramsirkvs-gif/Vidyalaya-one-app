@@ -1347,8 +1347,9 @@ async function openRetest(){
    }
   }
   if(!rows.length){if(all.length)content.append(el('p','No retests match the filters.'));return;}
-  content.append(el('p',rows.length+' missed papers · '+new Set(rows.map(([,row])=>row.classLabel+' '+row.roll)).size+
-   ' students · '+rows.filter(([,row])=>row.retestDate).length+' scheduled · '+rows.filter(([,row])=>row.testDone==='Done').length+' completed'));
+  const summary=el('p',rows.length+' missed papers · '+new Set(rows.map(([,row])=>row.classLabel+' '+row.roll)).size+
+   ' students · '+rows.filter(([,row])=>row.retestDate).length+' scheduled · '+rows.filter(([,row])=>row.testDone==='Done').length+' completed');
+  content.append(summary);
   if(!asPrincipal)content.append(el('p','Select Add remark / update beside the student’s name. Choose the retest step, enter your remark, and save with your personal PIN.'));
   const editor=editing?form():el('div'),scroll=el('div',undefined,'task-exam-table-scroll');
   const table=el('table',undefined,'task-exam-table'),head=table.createTHead().insertRow(),tbody=table.createTBody();
@@ -1389,7 +1390,19 @@ async function openRetest(){
    }
    inputs.set(id,fields);
   }
-  scroll.append(table);editor.append(scroll);content.append(editor);
+  scroll.append(table);editor.append(scroll);
+  if(!editing){
+   content.append(button('Print / Save as PDF',()=>{
+    const printable=el('article',undefined,'task-retest-print'),register=table.cloneNode(true);
+    register.querySelectorAll('button,.task-retest-pin-status').forEach(control=>control.remove());
+    register.classList.remove('task-retest-teacher-table');
+    printable.append(panel.querySelector('h2').cloneNode(true),alert.cloneNode(true),summary.cloneNode(true),register);
+    document.body.append(printable);
+    window.addEventListener('afterprint',()=>printable.remove(),{once:true});
+    window.print();
+   }));
+  }
+  content.append(editor);
   if(!editing)return;
   const actions=el('div',undefined,'task-actions');
   actions.append(el('button','Save retest details'),button('Cancel',()=>{if(discard())draw();}));
