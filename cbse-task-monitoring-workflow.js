@@ -16,10 +16,12 @@ export const MONITORING_STEPS=[
  {role:'exam',label:'Final report by Exam IC',options:[['advance','Final report completed by Exam IC'],['return','Returned for correction']]},
 ];
 
+export const monitoringExamDateKey=value=>String(value||'').trim().replace(/^(\d{2})\/(\d{2})\/(\d{4})$/,'$3-$2-$1');
+
 export function monitoringBundlesByExamDate(published){
  const dates=new Map((published.sheets?.[0]||[]).slice(5).map(([serial,subject,section,date])=>{
   const key='row_'+serial,paper=published.assignments?.[key];
-  return [key,paper&&paper.subject===subject&&paper.section===section?(date||'').trim():''];
+  return [key,paper&&paper.subject===subject&&paper.section===section?monitoringExamDateKey(date):''];
  }));
  return Object.entries(published.assignments||{}).map(([key,paper])=>({key,paper,date:dates.get(key)||''}))
   .sort((a,b)=>(a.date||'9999').localeCompare(b.date||'9999'));

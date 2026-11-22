@@ -138,20 +138,9 @@
 .pb1-class-summary{margin:1rem 0;padding:.8rem;border:1px solid #bfd8c6;border-radius:.6rem;background:#f6fbf6}
 .pb1-class-summary h4,.pb1-class-summary h5{margin:.3rem 0 .6rem}
 
-.task-app button.task-monitoring-entry{width:100%;text-align:start;white-space:normal;background:#fff1f0;color:#8a2424;border:1px solid #edb6b3;border-left:5px solid #c33030;padding:clamp(.9rem,2vw,1.35rem)}
-.task-app button.task-monitoring-entry:hover{background:#ffe5e2}
-.task-monitoring-entry .task-importance-label{font-size:clamp(.88rem,2.2vw,1.12rem)}
-.task-monitoring-entry .task-heading-title{font-size:clamp(1.1rem,2.8vw,1.5rem);font-weight:750}
-.task-app .task-direct-marks h2{font-size:clamp(1.25rem,2.5vw,1.6rem)}
-.task-direct-marks .task-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin-bottom:0}
-.task-app .task-direct-marks button{min-height:44px;background:#176651;color:#fff;border-color:#176651;font-size:clamp(.9rem,1.8vw,1.05rem);font-weight:700;white-space:normal}
-.task-app .task-direct-marks button:hover{background:#10503f}
-@media(max-width:640px){.task-direct-marks .task-actions{grid-template-columns:minmax(0,1fr)}}
 .task-analyser-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;margin:0 0 1.25rem}
 .task-app .task-analyser-cards .task-card{display:flex;flex-direction:column;margin:0}
 .task-analyser-cards .task-actions{margin:auto 0 0;gap:.5rem}
-.task-marks-guidance{display:grid;justify-items:center;gap:.1rem;margin:.75rem 0;color:#175849;text-align:center;font-size:clamp(1rem,2.2vw,1.3rem)}
-.task-marks-arrow{display:block;font-size:3.6rem;line-height:1;font-weight:800}
 @media(max-width:640px){.task-analyser-cards{grid-template-columns:minmax(0,1fr)}}
 
 .task-plan-search{max-width:36rem}
@@ -277,9 +266,6 @@
 .task-bundle-complete{display:inline-block;background:#dff1e5;color:#185740;border-radius:.3rem;padding:.2rem .45rem}
 .task-bundle-list button .task-bundle-complete{display:block;width:fit-content;margin:.3rem auto 0}
 
-.task-app button.task-monitoring-entry{background:#ffd4cf;border-color:#dc8b82;border-left:7px solid #a52222;color:#781b1b}
-.task-app button.task-monitoring-entry:hover{background:#ffc1ba}
-.task-monitoring-entry :is(.task-heading-title,.task-importance-label){font-weight:900}
 .task-monitoring-compact .task-pending-status{background:#f5f8f4}
 .task-monitoring-compact .task-pending-status ul{margin:0 0 .4rem;padding:0;list-style:none}
 .task-monitoring-compact .task-pending-status li{margin:0 0 .2rem;padding:.2rem .35rem}
@@ -295,6 +281,8 @@
 .task-status-report-content :is(td,th){padding:.45rem;border:1px solid #c7d9d1;text-align:start;vertical-align:top;overflow-wrap:anywhere}
 .task-status-report-content th{background:#eaf4ef}
 .task-status-report-content th:first-child{width:7em}
+.task-status-report-content td:first-child{white-space:nowrap}
+.task-status-report-content td div+div{margin-top:.35rem}
 .task-status-report-content td small{display:block;margin-top:.25rem}
 .task-status-print{display:none}
 @media print{
@@ -308,3 +296,15 @@
  .task-status-print tr,.task-status-print li{break-inside:avoid}
  .task-status-print :is(td,th){padding:3pt 4pt}
 }
+.task-stage-list{list-style:none;display:grid;gap:12px;padding:0;margin:14px 0 24px}
+.task-app .task-stage-strip{width:100%;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:clamp(14px,3vw,24px);border:1px solid var(--stage-border);border-inline-start:6px solid var(--stage-accent);border-radius:14px;background:var(--stage-bg);color:var(--stage-text);text-align:start;white-space:normal}
+.task-stage-strip.is-done{--stage-bg:#eaf6ed;--stage-border:#bcdac8;--stage-accent:#438361;--stage-text:#1c543c}
+.task-stage-strip.is-running{--stage-bg:#eaf1ff;--stage-border:#a8bff3;--stage-accent:#294eae;--stage-text:#193674}
+.task-stage-strip.is-upcoming{--stage-bg:#fff6e3;--stage-border:#e5d3a6;--stage-accent:#a66e1c;--stage-text:#68480f}
+.task-app button.task-stage-strip:hover{background:#dbe8ff;border-color:#294eae}
+.task-app button.task-stage-strip:focus-visible{outline:3px solid #294eae;outline-offset:3px}
+.task-stage-info{display:grid;gap:4px}
+.task-stage-number{font-size:.8rem;font-weight:750}
+.task-stage-title{font-size:clamp(1.03rem,2.5vw,1.45rem);line-height:1.24}
+.task-stage-subtitle{font-size:.9rem;font-weight:550}
+.task-stage-state{display:flex;align-items:center;gap:.35rem;padding:.35rem .65rem;border-radius:2rem;background:#ffffffba;font-size:.82rem;font-weight:750}

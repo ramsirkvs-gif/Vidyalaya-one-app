@@ -68,7 +68,44 @@ try:
         print('PASS Principal persistent login, exact Task 1 private draft, assignment/header import, save and publication')
         release={'version':json.loads((ROOT/'public/app-version.json').read_text())['version']}
         staffctx=browser.new_context();staffctx.route('**/app-version.json',lambda route:route.fulfill(json=release));staffctx.route('https://www.gstatic.com/firebasejs/**',sdk);teacher=staffctx.new_page();teacher.on('pageerror',lambda e:errors.append(str(e)))
-        teacher.goto(BASE+'cbse-task-manager.html#staff');teacher.locator('[data-task-class="IX A"]').wait_for();assert teacher.locator('.task-public-list tbody tr').count()==18;assert teacher.locator('.task-urgent-heading .task-alarm-icon').inner_text()=='🚨';assert teacher.locator('.task-importance-label').text_content()=='Most urgent task · Handle with care';assert teacher.locator('.task-count').count()==0;assert teacher.locator('[name=teacher-remarks]').count()==0;assert teacher.locator('[name=curtain]').count()==0
+        api({'action':'task-principal','operation':'monitoring-publish','expectedRevision':0})
+        teacher.goto(BASE+'cbse-task-manager.html#staff')
+        strips=teacher.locator('.task-stage-strip')
+        strips.last.wait_for()
+        assert strips.count()==3
+        assert strips.nth(0).inner_text().splitlines()==['Task 1','HQ Survey','✓','Done']
+        assert strips.nth(2).inner_text().splitlines()==['Task 3','Class IX Pre-Annual Exam','Upcoming']
+        assert teacher.locator('.task-public-list').count()==0
+        assert teacher.locator('button.task-stage-strip').count()==1
+        for width in [320,390,768,1440]:
+            teacher.set_viewport_size({'width':width,'height':900})
+            assert teacher.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        teacher.locator('button.task-stage-strip').click()
+        teacher.get_by_role('button',name='Open Wisdom Analyser',exact=True).wait_for()
+        teacher.get_by_role('button',name='Open XI Half-Yearly Analyser',exact=True).wait_for()
+        teacher.get_by_role('button',name='Open Pre-Samagam Evaluation Monitoring',exact=True).click()
+        teacher.get_by_label('Staff viewing password',exact=True).fill('synthetic-view')
+        teacher.get_by_role('button',name='Open published plan',exact=True).click()
+        teacher.get_by_label('Search by name',exact=True).wait_for()
+        teacher.get_by_role('button',name='Back to Task 2',exact=True).click()
+        teacher.get_by_role('button',name='Back to task list',exact=True).click()
+        strips.last.wait_for()
+
+        report_page=ctx.new_page()
+        report_page.goto(BASE+'cbse-task-manager.html#principal')
+        report_page.get_by_role('button',name='Open Task 2 — Pre-Samagam Evaluation Monitoring',exact=True).click()
+        report_page.get_by_role('button',name='Task status report / PDF',exact=True).click()
+        report=report_page.get_by_role('dialog',name='Task 2 status report')
+        report.get_by_role('cell',name='Class 10-B · Maths Basic & Standard',exact=True).wait_for()
+        math=report.get_by_role('row').filter(has_text='Class 10-B · Maths Basic & Standard')
+        assert math.get_by_role('cell').first.inner_text()=='16/11/2026'
+        assert 'Basic · Step 1' in math.inner_text() and 'Standard · Step 1' in math.inner_text()
+        report_page.close()
+        print('PASS Teacher task strips, mobile layout, Task 2 workflow and grouped report')
+
+        # Exercise the generic survey UI with the same synthetic survey data under an active task ID.
+        staffctx.set_extra_http_headers({'X-Synthetic-Active-Survey':'1'})
+        teacher.reload();teacher.locator('[data-task-class="IX A"]').wait_for();assert teacher.locator('.task-public-list tbody tr').count()==18;assert teacher.locator('.task-urgent-heading .task-alarm-icon').inner_text()=='🚨';assert teacher.locator('.task-importance-label').text_content()=='Most urgent task · Handle with care';assert teacher.locator('.task-count').count()==0;assert teacher.locator('[name=teacher-remarks]').count()==0;assert teacher.locator('[name=curtain]').count()==0
         for width in [320,360,390,768,1440]:
             teacher.set_viewport_size({'width':width,'height':900});assert teacher.evaluate('document.documentElement.scrollWidth<=innerWidth'),teacher.evaluate("({w:innerWidth,s:document.documentElement.scrollWidth,x:scrollX,b:document.body.scrollWidth,items:[...document.querySelectorAll('body *')].filter(e=>e.scrollWidth>e.clientWidth+1).map(e=>[e.tagName,e.className,e.scrollWidth,e.clientWidth,e.getBoundingClientRect().right]).slice(0,16)})")
         teacher.set_viewport_size({'width':390,'height':844});teacher.screenshot(path='/tmp/task-manager-public-mobile.png',full_page=False)
@@ -111,7 +148,7 @@ try:
             edited=api({'action':'task-principal','operation':'read'})['tasks']['task1'];assert edited['reports']['IX A']['values']['passed']==int(value);assert edited['reports']['IX A']['submittedBy']==original_author;assert edited['summary']['totals']['passed']['total']==int(value)
         assert report.locator('.task-save-confirmation').inner_text().startswith('Saved by Principal')
         assert '✓ Submitted' in card.locator('.task-class-status').first.inner_text()
-        anonymous=browser.new_context();anonymous.route('https://www.gstatic.com/firebasejs/**',sdk);status_page=anonymous.new_page();status_page.goto(BASE+'cbse-task-manager.html')
+        anonymous=browser.new_context(extra_http_headers={'X-Synthetic-Active-Survey':'1'});anonymous.route('https://www.gstatic.com/firebasejs/**',sdk);status_page=anonymous.new_page();status_page.goto(BASE+'cbse-task-manager.html')
         status_page.locator('[data-task-class="IX A"] .task-row-submitted').wait_for();assert status_page.locator('[data-task-class="IX A"] .task-row-submitted').inner_text()=='✓ Submitted'
         assert status_page.locator('[data-task-class="IX B"] .task-row-pending').evaluate('(node)=>getComputedStyle(node).color')=='rgb(180, 35, 41)';anonymous.close()
         print('PASS green submitted ticks, red pending labels and Principal answer corrections with confirmed saves and updated totals')
