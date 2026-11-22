@@ -94,12 +94,20 @@ try:
         assignment_page.get_by_label('Science · Principal’s QP assignment / comment',exact=True).fill('Synthetic assignment')
         assignment_page.get_by_role('button',name='Save QP assignments',exact=True).click()
         assignment_page.get_by_role('cell',name='Synthetic assignment',exact=True).wait_for()
+        assignment_page.get_by_role('button',name='Import roster / open analyser',exact=True).click()
+        assignment_page.get_by_text('Import Class IX roster and PT-2 marks',exact=True).click()
+        csv=('Section,RollNo,StudentName,Subject,PreviousMarks,PreviousMM,PreAnnualMM,Teacher\n'
+             'A,1,Synthetic IX student,Science,8,40,80,X:one\n'
+             'B,1,Synthetic pending student,Hindi,29,40,80,Synthetic Unmatched Teacher\n')
+        assignment_page.get_by_label('Class IX roster and PT-2 marks CSV',exact=True).set_input_files({
+            'name':'synthetic-class-ix.csv','mimeType':'text/csv','buffer':csv.encode()})
+        assignment_page.once('dialog',lambda dialog:dialog.accept())
+        assignment_page.get_by_role('button',name='Import Class IX CSV',exact=True).click()
+        assignment_page.get_by_role('heading',name='PT-2 class-wise analysis',exact=True).wait_for()
+        assignment_page.get_by_role('heading',name='PT-2 teacher-wise analysis',exact=True).wait_for()
+        assignment_page.get_by_text('Synthetic Unmatched Teacher (PIN assignment pending) · IX · HINDI',exact=True).wait_for()
+        assignment_page.get_by_text('Pre-Annual marks pending.',exact=True).wait_for()
         assignment_page.close()
-        teacher.get_by_role('button',name='Open marks entry and analyser',exact=True).click()
-        teacher.get_by_text('The list opens after the Principal imports',exact=False).wait_for()
-        teacher.get_by_role('button',name='Back to Task 3',exact=True).click()
-        api({'action':'task-principal','operation':'half-yearly-import','exam':'class-ix','expectedRevision':0,
-             'csv':'Section,RollNo,StudentName,Subject,PreviousMarks,PreviousMM,PreAnnualMM,Teacher\nA,1,Synthetic IX student,Science,8,40,80,X:one\n'})
         teacher.get_by_role('button',name='Open marks entry and analyser',exact=True).click()
         teacher.get_by_label('Evaluator or cross-checker',exact=True).select_option('X:one')
         teacher.get_by_label('Personal PIN',exact=True).fill('123')

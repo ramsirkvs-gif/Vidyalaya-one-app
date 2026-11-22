@@ -816,3 +816,18 @@ test('Class IX seating uses Jyoti’s PIN and marks and remedial notes stay scop
  assert.equal(saved.rows[0].current.band,'yellow');
  assert.equal(Object.values(saved.rows[0].weeklyActions)[0].comment,edit.comment);
 });
+
+
+test('Class IX imports unmatched teacher labels for PT-2 analysis without granting PIN access',async()=>{
+ const f=taskFixture(),exam='class-ix';
+ await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ const csv='Section,RollNo,StudentName,Subject,PreviousMarks,PreviousMM,PreAnnualMM,Teacher\nA,1,Synthetic IX student,Hindi,22,40,80,Synthetic Unmatched Teacher\n';
+ const report=await f.admin({operation:'half-yearly-import',exam,expectedRevision:0,csv});
+ assert.equal(report.scopes[0].teacher,'Synthetic Unmatched Teacher');
+ assert.equal(report.scopes[0].teacherAssignmentPending,true);
+ assert.deepEqual(report.scopes[0].teachers,[]);
+ assert.equal(report.rows[0].before.score,22);
+ assert.equal(report.rows[0].current,null);
+ assert.deepEqual((await f.teacher({exam,taskOperation:'pb1-read'})).rows,[]);
+ assert.deepEqual((await f.service('task-read',{exam,operation:'pb1-directory'})).teachers,[]);
+});

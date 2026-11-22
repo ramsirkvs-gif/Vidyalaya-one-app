@@ -180,7 +180,9 @@ function control(parent,label,tag='select'){
 function groups(rows,key){
  const grouped=new Map();for(const row of rows){const id=key(row);if(!grouped.has(id))grouped.set(id,[]);grouped.get(id).push(row);}return grouped;
 }
-const scopeTeachers=scope=>scope.teachers||(scope.teacher?[{key:scope.teacher,name:scope.teacher}]:[]);
+const scopeTeachers=scope=>scope.teacherAssignmentPending?
+ [{key:'pending:'+scope.teacher,name:scope.teacher+' (PIN assignment pending)'}]:
+ scope.teachers||(scope.teacher?[{key:scope.teacher,name:scope.teacher}]:[]);
 function teacherOptions(scopes){
  const teachers=new Map(scopes.flatMap(scopeTeachers).map(({key,name})=>[key,name]));
  return [['','All teachers'],...[...teachers].sort((a,b)=>a[1].localeCompare(b[1]))];
@@ -290,6 +292,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
  const filters=el('div',undefined,'pb1-filters'),report=el('div');
  let entering=entryOnly,entryAction,classMode=false;
+ const showBaseline=exam.classId==='IX';
  const description=el('p',teacher?'Your assigned '+exam.current+' papers':publicView?exam.classes+' · Public student labels are coded':exam.classes+' · '+exam.current);
  card.append(el('h2',entryOnly?(approve?'Review and freeze ':'Update ')+exam.short+' marks':exam.title),description);
  if(setup)card.append(setup(()=>data.revision));
@@ -335,10 +338,10 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   options(sectionSelect,choices(values([...assigned,...rosterSections],'section'),'All sections'),sectionSelect.value);
  }
  restrict();
- const changeFilters=()=>{restrict();hasReport=false;report.replaceChildren();};
+ const changeFilters=()=>{restrict();if(showBaseline)drawReport();else{hasReport=false;report.replaceChildren();}};
  subjectSelect.onchange=teacherSelect.onchange=changeFilters;
  if(classSelect)classSelect.onchange=changeFilters;
- sectionSelect.onchange=()=>{hasReport=false;report.replaceChildren();};
+ sectionSelect.onchange=()=>{if(showBaseline)drawReport();else{hasReport=false;report.replaceChildren();}};
  function scopeMatches(info){
   const assigned=paper=>scopeTeachers(paper).some(person=>person.key===teacherSelect.value);
   const matchesTeacher=!teacherSelect.value||assigned(info)||
@@ -404,6 +407,17 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    const {person,row}=group[0];
    return [person.name+' · '+info(row).classId+' · '+subjectGroup(info(row)),group.map(item=>item.row)];
   });
+ }
+ function showBaselineResults(parent,title,grouped){
+  parent.append(el('h3',title));
+  table(parent,['Group','PT-2 appeared / enrolled','PT-2 pass rate','PT-2 average','Pre-Annual marks'],[...grouped].map(([label,rows])=>{
+   const before=rows.filter(row=>row.before?.percentage!=null);
+   const recorded=rows.filter(row=>row.current).length,pending=rows.length-recorded;
+   return [label,before.length+' / '+rows.length,
+    pct(before.length?before.filter(row=>!row.before.failed).length*100/before.length:null),
+    pct(before.length?before.reduce((sum,row)=>sum+row.before.percentage,0)/before.length:null),
+    pending?pending+' pending'+(recorded?' · '+recorded+' recorded':''):'All recorded'];
+  }));
  }
  function showStudentComparison(parent,rows){
   parent.append(el('h3','Student-by-student comparison'));
@@ -549,8 +563,12 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    report.append(list);
   }
   if(!rows.length){report.append(el('p','No paper results match this selection.'));return;}
+  if(showBaseline){
+   showBaselineResults(report,'PT-2 class-wise analysis',groups(rows,sectionLabel));
+   showBaselineResults(report,'PT-2 teacher-wise analysis',teacherGroups(rows));
+  }
   if(!entered.length){
-   report.append(el('p',exam.short+' marks have not been uploaded for this selection. Please enter the marks to see the analysis.','task-monitoring-notice'));
+   report.append(el('p',showBaseline?'Pre-Annual marks pending.':exam.short+' marks have not been uploaded for this selection. Please enter the marks to see the analysis.','task-monitoring-notice'));
    showStudentComparison(report,rows);
    return;
   }
@@ -781,6 +799,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    return;
   }
   content.append(filters,toolbar,report);
+  if(showBaseline&&data.rows.length&&!classMode)drawReport();
  }
  drawMode();
 }

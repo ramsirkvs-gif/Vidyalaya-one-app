@@ -978,7 +978,9 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=fa
    const panel=halfYearlyImportPanel(data.roster,async csv=>{
     const imported=await send('half-yearly-import',{csv,expectedRevision:revision()});
     await open('', '', imported);
-    message((classIX?'Class IX':'Class XI')+' roster and '+(classIX?'PT-2':'PT-1')+' marks imported.');
+    const pending=classIX?imported.scopes.filter(paper=>paper.teacherAssignmentPending).length:0;
+    message((classIX?'Class IX':'Class XI')+' roster and '+(classIX?'PT-2':'PT-1')+' marks imported.'+
+     (pending?' PIN assignment pending for '+pending+' '+(pending===1?'paper.':'papers.'):''));
    },classIX?CLASS_IX_EXAM:undefined);
    if(classIX)return panel;
    const transfer=halfYearlyTransferPanel(data,async values=>{

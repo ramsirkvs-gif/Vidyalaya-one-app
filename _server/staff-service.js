@@ -232,7 +232,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(!actor.uid)throw new AccessError('Principal access required.',403);
    const identify=(kind,...parts)=>kind==='teacher'?(teacherIdentityIds(parts[0],faculty,mission).sort()[0]||parts[0]):
     createHash('sha256').update(JSON.stringify([kind,...parts])).digest('hex').slice(0,32);
-   try{imported=importHalfYearly(input.csv,staffIndex(faculty,mission),identify,exam);}
+   try{imported=importHalfYearly(input.csv,staffIndex(faculty,mission,exam?{includeRollOnly:true}:undefined),identify,exam);}
    catch(error){throw new AccessError(error.message,400);}
   }
   const stamp=now();let reason;

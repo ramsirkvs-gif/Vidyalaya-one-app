@@ -59,11 +59,13 @@ export function importHalfYearly(source,staff,identify,exam){
   const matched=teacher?teachers.filter(([id,person])=>id===teacher||norm(person.name)===norm(teacher)||
    teacherName&&rollNameKey(person.name)===teacherName||rosterEntry&&secondaryStaffEntry(person)?.serial===rosterEntry.serial):[];
   const identities=new Set(matched.map(([id])=>identify('teacher',id)));
-  if(teacher&&identities.size!==1)fail('Enter one unambiguous active teacher’s name or staff ID, or leave Teacher blank.');
-  const [teacherId,person]=matched[0]||[];
+  if(!exam&&teacher&&identities.size!==1)fail('Enter one unambiguous active teacher’s name or staff ID, or leave Teacher blank.');
+  const [teacherId,person]=(identities.size===1?matched[0]:null)||[];
+  const teacherLabel=person?.name||(exam?teacher.trim():'');
   const paper=papers[paperId]??={classId,sectionId:section,section,subjectId:paperId,subject,maximum:Number(currentMM),
-   teacher:person?.name||'',teacherId:teacherId||'',students:{}};
-  if(paper.maximum!==Number(currentMM)||paper.teacherId!==(teacherId||''))fail('Use the same '+examName+' maximum and Teacher for every row of this paper.');
+   teacher:teacherLabel,teacherId:teacherId||'',students:{},
+   ...(exam&&teacherLabel&&!teacherId?{teacherAssignmentPending:true}:{})};
+  if(paper.maximum!==Number(currentMM)||paper.teacherId!==(teacherId||'')||exam&&!teacherId&&norm(paper.teacher)!==norm(teacherLabel))fail('Use the same '+examName+' maximum and Teacher for every row of this paper.');
   paper.students[studentId]={enrolled:true,...(scoreValue?{before:result(absent?'AB':Number(scoreValue),Number(previousMM),exam?.previous||'Periodic Test 1 (PT-1)')}:{})};
  }
  return {papers,roster,excluded};
