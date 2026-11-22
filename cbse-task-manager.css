@@ -335,3 +335,5 @@
 
 .task-stage-strip.is-priority{--stage-bg:#fff1ef;--stage-border:#ebbdba;--stage-accent:#ad3536;--stage-text:#7c2628}
 .task-app button.task-stage-strip.is-priority:hover{background:#ffe4e0;border-color:#ad3536}
+
+.task-retest-comment{margin-top:.4rem;color:#315954;white-space:pre-wrap;overflow-wrap:anywhere}

@@ -926,3 +926,34 @@ test('Task 4 imports, updates and publishes the retest register behind staff vie
  await f.admin({operation:'retest-unpublish',expectedRevision:5});
  assert.deepEqual(await read(),{published:false});
 });
+
+test('Task 4 accepts step comments by either assigned teacher’s PIN and rejects other teachers',async()=>{
+ const f=taskFixture();
+ const staff=f.data.cbse.facultyDraft.classes.X.teachers;
+ staff.one.name='MRS. PRIYANKA MEHTA';
+ staff.two.name='MR. GAURAV SINGH';
+ staff.three={...staff.two,name:'Synthetic Unassigned Teacher'};
+ await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');
+ await f.service('set-pin',{staffId:'X:three',pin:'789'},'principal');
+ const csv='Name,Class with section,Roll number,Subject,Exam date,Subject teacher,Class teacher\nSynthetic Student,X A,10113,Maths Standard,2026-11-16,MRS. PRIYANKA MEHTA,MR. GAURAV SINGH\n';
+ const draft=await f.admin({operation:'retest-import',expectedRevision:0,csv});
+ const [rowId]=Object.keys(draft.rows),{viewerToken}=await f.service('remember-view',{},'principal');
+ const session={viewerToken};
+ const update=(staffId,pin,values)=>f.service('pin-submit',{
+  operation:'task-manager',taskOperation:'retest-teacher-save',rowId,staffId,pin,...values,
+ },'','test',session);
+ const date={step:'retestDate',value:'2026-11-26',comment:'Room to be confirmed.',expectedRevision:1};
+ await assert.rejects(update('X:one','123',date),/published retest step/);
+ await f.admin({operation:'retest-publish',expectedRevision:1});
+ const viewed=await f.service('task-read',{operation:'retest-read'},'','test',session);
+ assert.deepEqual(viewed.editors[rowId].map(person=>person.id),['X:one','X:two']);
+ await assert.rejects(update('X:three','789',{...date,expectedRevision:2}),/assigned subject or class teacher/);
+ const saved=await update('X:one','123',{...date,expectedRevision:2});
+ assert.equal(saved.row.retestDate,'2026-11-26');
+ assert.equal(saved.row.retestDateComment,'Room to be confirmed.');
+ const qp=await update('X:two','456',{step:'qpReady',value:'Ready',comment:'Paper ready.',expectedRevision:saved.revision});
+ assert.equal(qp.row.qpReadyComment,'Paper ready.');
+ assert.equal(qp.row.retestDateComment,date.comment);
+ await assert.rejects(update('X:two','456',{...date,step:'subjectTeacher',expectedRevision:qp.revision}),/published retest step/);
+});

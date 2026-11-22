@@ -11,6 +11,8 @@ export const RETEST_FIELDS=[
  ['principalDiscussion','Marks discussed with Principal',['Pending','Discussed']],
 ];
 
+export const RETEST_STEPS=RETEST_FIELDS.slice(2);
+
 const validDate=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)&&
  Number.isFinite(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
 
@@ -48,6 +50,12 @@ export function retestUpdates(rows,changes){
    if(value&&(Array.isArray(type)?!type.includes(value):type==='date'?!validDate(value):value.length>120))
     throw Error('Check '+label+'.');
    update[key]=value;
+  }
+  for(const [key,label] of RETEST_STEPS){
+   const field=key+'Comment';
+   if(!Object.hasOwn(fields,field))continue;
+   if(typeof fields[field]!=='string'||fields[field].trim().length>500)throw Error('Enter up to 500 characters for '+label+'.');
+   update[field]=fields[field].trim();
   }
   next[id]={...rows[id],...update};
  }

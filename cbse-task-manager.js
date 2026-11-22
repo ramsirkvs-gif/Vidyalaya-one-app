@@ -1,4 +1,4 @@
-import {RETEST_TITLE,RETEST_HEADERS,RETEST_CSV_HEADERS,RETEST_FIELDS} from './cbse-task-retest-model.js';
+import {RETEST_TITLE,RETEST_HEADERS,RETEST_CSV_HEADERS,RETEST_FIELDS,RETEST_STEPS} from './cbse-task-retest-model.js';
 import {openTaskStatusReport} from './cbse-task-status-report.js';
 import {rollStaffStatus} from './cbse-roll-call-status.js';
 import {rollDateText,rollTimestamp} from './cbse-roll-call-time.js';
@@ -1258,12 +1258,63 @@ async function openRetest(){
   });};
   panel.append(login);return;
  }
- const content=el('div');panel.append(content);
+ const filters=el('div',undefined,'pb1-filters'),content=el('div');
+ const search=field(filters,'Search student, subject or teacher','retest-search','search');
+ const section=field(filters,'Class / section','retest-section','select');
+ panel.append(filters,content);
+ search.oninput=section.onchange=()=>draw();
+
+ function openProgress(id,row){
+  const staff=plan.editors[id];
+  const dialog=el('dialog',undefined,'task-start-dialog');
+  const title=el('h2','Update retest progress');title.id='retest-progress-title';
+  dialog.setAttribute('aria-labelledby',title.id);
+  const editor=form(),person=field(editor,'Select your name','retest-teacher','select');
+  options(person,[['','Choose your name'],...staff.map(({id,name})=>[id,name])],'');person.required=true;
+  const step=field(editor,'Retest step','retest-step','select');
+  options(step,RETEST_STEPS.map(([key,label])=>[key,label]),RETEST_STEPS[0][0]);
+  const fields=el('div'),pinFields=el('div');
+  const pin=field(pinFields,'Personal PIN','retest-pin','password');
+  pin.required=true;pin.inputMode='numeric';pin.autocomplete='off';
+  let value,comment;
+  function drawStep(){
+   fields.replaceChildren();
+   const [key,label,type]=RETEST_STEPS.find(([key])=>key===step.value);
+   value=field(fields,label,'retest-value',Array.isArray(type)?'select':type,row[key]||'');
+   if(Array.isArray(type))options(value,[['','—'],...type.map(item=>[item,item])],row[key]||'');
+   comment=field(fields,label+' comment','retest-comment','textarea',row[key+'Comment']||'');comment.maxLength=500;
+  }
+  let selectedStep=step.value;
+  step.onchange=()=>{
+   const changed=value.value!==(row[selectedStep]||'')||comment.value!==(row[selectedStep+'Comment']||'');
+   if(changed&&!confirm('Discard this step’s unsaved changes?')){step.value=selectedStep;return;}
+   selectedStep=step.value;drawStep();editor.dataset.portalDirty='false';
+  };
+  drawStep();
+  const cancel=button('Cancel',()=>{if(discard())dialog.close();});
+  editor.append(fields,pinFields,el('button','Save progress'),cancel);
+  editor.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(async()=>{
+   const result=await request({action:'pin-submit',operation:'task-manager',taskOperation:'retest-teacher-save',
+    staffId:person.value,pin:secret,rowId:id,step:step.value,value:value.value,comment:comment.value,expectedRevision:plan.revision});
+   plan.revision=result.revision;plan.rows[id]=result.row;
+   editor.dataset.portalDirty='false';dialog.close();draw();message('Retest progress saved.');
+  });};
+  dialog.append(title,el('p',[row.name,row.classLabel,row.subject].join(' · ')),editor);
+  dialog.addEventListener('cancel',event=>{if(!discard())event.preventDefault();});
+  dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+  document.body.append(dialog);dialog.showModal();
+ }
 
  function draw(editing=false){
   content.replaceChildren();
-  const rows=Object.entries(plan.rows||{}).sort(([,a],[,b])=>a.classLabel.localeCompare(b.classLabel)||
-   a.examDate.localeCompare(b.examDate)||a.subject.localeCompare(b.subject)||Number(a.roll)-Number(b.roll));
+  const all=Object.entries(plan.rows||{}),selected=section.value,query=search.value.trim().toLowerCase();
+  const sections=[...new Set(all.map(([,row])=>row.classLabel))].sort();
+  options(section,[['','All sections'],...sections.map(value=>[value,value])],selected);
+  filters.hidden=editing||!all.length;
+  const rows=all.filter(([,row])=>editing||(!selected||row.classLabel===selected)&&
+   [row.name,row.roll,row.subject,row.subjectTeacher,row.classTeacher].join(' ').toLowerCase().includes(query))
+   .sort(([,a],[,b])=>a.classLabel.localeCompare(b.classLabel)||
+    a.examDate.localeCompare(b.examDate)||a.subject.localeCompare(b.subject)||Number(a.roll)-Number(b.roll));
   const state=asPrincipal?(plan.published?'Published to staff':'Draft for Principal review'):(plan.published?'':'The retest list is awaiting publication.');
   if(state)content.append(el('p',state));
   if(!editing&&asPrincipal){
@@ -1280,7 +1331,7 @@ async function openRetest(){
    template.href='data:text/csv;charset=utf-8,'+encodeURIComponent(RETEST_CSV_HEADERS.join(',')+'\n');
    template.download='Task-4-retest-template.csv';
    importer.append(template);content.append(importer);
-   if(rows.length){
+   if(all.length){
     const actions=el('div',undefined,'task-actions');
     actions.append(button('Edit retest details',()=>draw(true)),button(plan.published?'Stop publication':'Publish to staff',async()=>{
      plan=await send(plan.published?'retest-unpublish':'retest-publish',{expectedRevision:plan.revision});
@@ -1289,8 +1340,9 @@ async function openRetest(){
     content.append(actions);
    }
   }
-  if(!rows.length)return;
-  content.append(el('p',rows.length+' missed papers · '+new Set(rows.map(([,row])=>row.classLabel+' '+row.roll)).size+' students'));
+  if(!rows.length){if(all.length)content.append(el('p','No retests match the filters.'));return;}
+  content.append(el('p',rows.length+' missed papers · '+new Set(rows.map(([,row])=>row.classLabel+' '+row.roll)).size+
+   ' students · '+rows.filter(([,row])=>row.retestDate).length+' scheduled · '+rows.filter(([,row])=>row.testDone==='Done').length+' completed'));
   const editor=editing?form():el('div'),scroll=el('div',undefined,'task-exam-table-scroll');
   const table=el('table',undefined,'task-exam-table'),head=table.createTHead().insertRow(),tbody=table.createTBody();
   for(const label of [...RETEST_HEADERS,...RETEST_FIELDS.map(([,label])=>label)]){
@@ -1299,17 +1351,33 @@ async function openRetest(){
   const inputs=new Map();
   for(const [id,row] of rows){
    const tr=tbody.insertRow(),identity=row.name+' · '+row.subject;
-   for(const value of [row.name,row.classLabel,row.roll,row.subject,rollDateText(row.examDate)])tr.insertCell().textContent=value;
+   const student=tr.insertCell();
+   student.append(el('strong',row.name));
+   if(!asPrincipal&&plan.editors?.[id]?.length){
+    const edit=button('Update progress',()=>openProgress(id,row));edit.setAttribute('aria-label','Update progress for '+identity);
+    const action=el('div');action.append(edit);student.append(action);
+   }
+   for(const value of [row.classLabel,row.roll,row.subject,rollDateText(row.examDate)])tr.insertCell().textContent=value;
    const fields={};
    for(const [key,label,type] of RETEST_FIELDS){
     const td=tr.insertCell(),value=row[key]||'';
     td.className='task-exam-table-value';
-    if(!editing){td.textContent=(type==='date'&&value?rollDateText(value):value)||'—';continue;}
+    const status=RETEST_STEPS.some(([step])=>step===key);
+    if(!editing){
+     td.textContent=(type==='date'&&value?rollDateText(value):value)||'—';
+     if(status&&row[key+'Comment'])td.append(el('div',row[key+'Comment'],'task-retest-comment'));
+     continue;
+    }
     const control=el(Array.isArray(type)?'select':'input');
     control.setAttribute('aria-label',identity+' · '+label);
     if(Array.isArray(type))options(control,[['','—'],...type.map(choice=>[choice,choice])],value);
     else{control.type=type;control.value=value;if(type==='text')control.maxLength=120;}
     td.append(control);fields[key]=control;
+    if(status){
+     const comment=el('textarea');comment.maxLength=500;comment.value=row[key+'Comment']||'';
+     comment.setAttribute('aria-label',identity+' · '+label+' comment');
+     td.append(comment);fields[key+'Comment']=comment;
+    }
    }
    inputs.set(id,fields);
   }

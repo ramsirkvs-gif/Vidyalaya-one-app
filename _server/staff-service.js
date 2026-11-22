@@ -1,4 +1,4 @@
-import {parseRetestCSV,retestUpdates} from '../cbse-task-retest-model.js';
+import {parseRetestCSV,retestUpdates,RETEST_STEPS} from '../cbse-task-retest-model.js';
 import {checkTaskSlipDrive,uploadTaskSignedSlip} from './task-signed-slip-drive.js';
 import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
 import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList,minuteLanguages} from '../cbse-staff-meetings-model.js';
@@ -458,6 +458,22 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   if(!monitoring)throw new AccessError(reason||'The signed PDF step could not be reopened.',409);
   return monitoring;
  }
+ function retestTeachers(row,staff,access){
+  const eligible=new Map(),directory=entries(staff);
+  for(const name of [row.subjectTeacher,row.classTeacher]){
+   const key=rollNameKey(name);
+   if(!key)continue;
+   const official=secondaryStaffEntry({name}),matches=directory.filter(([,person])=>person.status==='active'&&
+    (rollNameKey(person.name)===key||official&&secondaryStaffEntry(person)?.serial===official.serial));
+   const id=matches[0]?.[0];
+   if(!id||!matches.every(([candidate])=>rollStaffIdentityIds(staff,id).includes(candidate)))continue;
+   for(const [candidate,person] of matches){
+    const owner=person.pinOwnerId||candidate;
+    if(access?.[owner]?.enabled&&staff[owner]?.status==='active')eligible.set(owner,{id:owner,name:staff[owner].name});
+   }
+  }
+  return [...eligible.values()];
+ }
  async function retestWorkspace(input,actor,session){
   const path='cbse/taskRetest';
   if(!actor){
@@ -466,7 +482,14 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(!record?.published)return {published:false};
    const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
    if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}
-   return {published:true,rows:record.rows||{}};
+   const [staff,pins]=await Promise.all([directoryStaff(),read('cbse/staffAccess')]);
+   const rows=record.rows||{};
+   return {published:true,revision:record.revision,rows,
+    editors:Object.fromEntries(entries(rows).map(([id,row])=>[id,retestTeachers(row,staff,pins)]))};
+  }
+  if(actor.id){
+   const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
+   if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}
   }
   if(input.operation==='retest-read')return await read(path)||{revision:0,published:false,rows:{}};
   let imported;
@@ -476,12 +499,23 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   let reason;
   const result=await mcqTransaction(db,'cbse',current=>{
    if(current===null)return null;
-   if(current.adminUid!==actor.uid)return;
+   if(actor.uid?current.adminUid!==actor.uid:
+    !current.staffAccess?.[actor.id]?.enabled||current.staffAccess[actor.id].version!==actor.version)return;
    const plan=current.taskRetest||{},revision=plan.revision||0,rows=plan.rows||{};
    if(revision!==input.expectedRevision)return;
    try{
     let next={...plan,revision:revision+1};
-    if(imported){
+    if(actor.id){
+     const {rowId,step,value,comment}=input,row=Object.hasOwn(rows,rowId)?rows[rowId]:null;
+     if(!plan.published||!row||!RETEST_STEPS.some(([key])=>key===step)){
+      reason='Choose a published retest step.';return;
+     }
+     const staff=rollDirectory(current.facultyDraft,current.mission?.staff,current.draft);
+     if(!retestTeachers(row,staff,current.staffAccess).some(person=>person.id===actor.id)){
+      reason='Only the assigned subject or class teacher may update this retest.';return;
+     }
+     next.rows=retestUpdates(rows,{[rowId]:{[step]:value,[step+'Comment']:comment}});
+    }else if(imported){
      const {draft,faculty,mission}=resolvedViewingData(current.draft,current.facultyDraft,current.mission||emptyMission());
      const papers=[...pb1Scopes(draft,mission,staffIndex(faculty,mission,{includeRollOnly:true})),...Object.values(current.taskHalfYearly?.papers||{})];
      const subjectKey=value=>String(value||'').toUpperCase().replace(/MATHEMATICS/g,'MATHS')
@@ -506,7 +540,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   },{restTransaction});
   const record=result.committed&&result.snapshot.val()?.taskRetest;
   if(!record)throw new AccessError(reason||'Task 4 changed. Reopen the tracker before saving.',409);
-  return record;
+  return actor.id?{revision:record.revision,row:record.rows[input.rowId]}:record;
  }
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
@@ -891,6 +925,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(input.taskOperation==='class-ix-date-notes-save'||input.taskOperation==='class-ix-qp-notes-save')
     return saveClassIXComments(input,input.taskOperation==='class-ix-date-notes-save'?'dateNotes':'qpAssignments',{id,version:access.version});
    if(input.taskOperation==='class-ix-seating-save')return saveClassIXSeating(input,id,access);
+   if(input.taskOperation==='retest-teacher-save')return retestWorkspace({...input,operation:'retest-teacher-save'},{id,version:access.version},session);
    if(input.exam==='class-ix'&&input.taskOperation==='class-ix-remedial-save')return halfYearlyWorkspace(input,{id,accessVersion:access.version});
    if(['pb1-read','pb1-save'].includes(input.taskOperation))return (['half-yearly','class-ix'].includes(input.exam)?halfYearlyWorkspace:pb1Workspace)(input,{id,accessVersion:access.version});
    if(['monitoring-update','monitoring-practice','monitoring-reopen-upload'].includes(input.taskOperation)){
