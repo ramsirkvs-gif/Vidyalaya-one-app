@@ -4,9 +4,18 @@ import {pb1ResultBand,paperDiscussionComment} from './cbse-pb1-analyser-model.js
 
 export const HALF_YEARLY_COLUMNS=['Section','RollNo','StudentName','Subject','PreviousMarks','PreviousMM','HalfYearlyMM','Teacher'];
 export const CLASS_IX_EXAM={classId:'IX',name:'Pre-Annual Exam',column:'PreAnnualMM',baseline:'PT-2',previous:'Periodic Test 2 (PT-2)'};
-export const CLASS_IX_SEATING=Object.entries({
- A:[[1,20],[21,40],[41,43]],B:[[1,20],[21,40],[41,48]],C:[[9301,9320],[9321,9340]],D:[[1,20],[21,38]],
-}).flatMap(([section,ranges])=>ranges.map(([start,end],index)=>({key:section+[1,21,41][index],section,start,end})));
+const classIXRollBase={A:9100,B:9200,C:9300,D:9400};
+function classIXRoll(section,value){
+ if(!/^\d+$/.test(value))return '';
+ const base=classIXRollBase[section],roll=Number(value);
+ if(roll>0&&roll<100)return String(base+roll);
+ return roll>base&&roll<base+100?String(roll):'';
+}
+export const CLASS_IX_SEATING=Object.entries({A:43,B:48,C:40,D:38}).flatMap(([section,last])=>
+ Array.from({length:Math.ceil(last/20)},(_,index)=>{
+  const first=index*20+1,base=classIXRollBase[section];
+  return {key:section+first,section,start:base+first,end:base+Math.min(first+19,last)};
+ }));
 export const CLASS_IX_SEATING_FIELDS=[['area','Exam area / room','text'],['invigilator','Invigilator name','text'],
  ['from','From time','time'],['to','To time','time']];
 export const CLASS_IX_PAPERS=[
@@ -39,11 +48,14 @@ export function importHalfYearly(source,staff,identify,exam){
   const fail=message=>{throw Error('CSV row '+(index+2)+' · '+message);};
   if(values.length!==header.length)fail('Expected eight cells.');
   const [sectionValue,rollValue,name,subjectValue,scoreValue,previousMM,currentMM,teacher]=values;
-  const section=norm(sectionValue),roll=norm(rollValue),subject=norm(subjectValue);
+  const section=norm(sectionValue),rawRoll=norm(rollValue),subject=norm(subjectValue);
+  const roll=exam?classIXRoll(section,rawRoll):rawRoll;
   if(!(exam?/^[A-D]$/:/^[A-Z]$/).test(section)||!roll||roll.length>30||!name||name.length>120||!subject||subject.length>100)
    fail('Enter a section letter, roll number, student name and subject.');
   if(exam&&!classIXSubjects.has(subject))fail('Use a subject on the Class IX Pre-Annual date sheet.');
-  const studentId=identify('student',section,roll);
+  // Preserve existing Class IX identities and any saved work when an import uses the new display rolls.
+  const identityRoll=exam&&section!=='C'?String(Number(roll)-classIXRollBase[section]):roll;
+  const studentId=identify('student',section,identityRoll);
   if(roster[studentId]&&roster[studentId].name!==name)fail('This roll number has conflicting student names in the section.');
   roster[studentId]={key:studentId,classId,section,roll,name};
   const paperId=identify('paper',section,subject),rowKey=paperId+'|'+studentId;
@@ -76,13 +88,15 @@ function savedResult(mark){
 }
 
 export function halfYearlyReport(state,allowedIds,checkers=()=>[]){
- const scopes=[],rows=[],roster=new Map(allowedIds?[]:Object.entries(state?.roster||{}));
+ const records=Object.fromEntries(Object.entries(state?.roster||{}).map(([key,student])=>[key,student.classId==='IX'?
+  {...student,roll:classIXRoll(student.section,student.roll)||student.roll}:student]));
+ const scopes=[],rows=[],roster=new Map(allowedIds?[]:Object.entries(records));
  for(const {students,teacherId,...paper} of Object.values(state?.papers||{})){
   if(allowedIds&&![teacherId,...checkers(paper)].some(id=>allowedIds.has(id)))continue;
   const scope=scopes.length;
   scopes.push({...paper,additional:/^(AI|ARTIFICIAL INTELLIGENCE)(?:\s*\([^)]*\))?$|\bADDITIONAL\b/i.test(paper.subject),teachers:teacherId?[{key:teacherId,name:paper.teacher}]:[]});
   for(const [key,marks] of Object.entries(students||{})){
-   const student=state.roster[key];
+   const student=records[key];
    roster.set(key,student);
    rows.push({...student,scope,before:savedResult(marks.before),current:savedResult(marks.current),
     ...(paper.classId==='IX'?{weeklyActions:marks.weeklyActions||{}}:{})});
