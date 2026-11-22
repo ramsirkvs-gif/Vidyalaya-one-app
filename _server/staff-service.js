@@ -221,6 +221,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
  const halfYearlyPath='cbse/taskHalfYearly';
  const marksCheckers=(plan,faculty,mission,overrides)=>publishedMarksCheckers(plan,
   staffIndex(faculty,mission,{includeRollOnly:true}),id=>teacherIdentityIds(id,faculty,mission),overrides);
+ const codedExamStudent=(key,prefix)=>'Student '+createHmac('sha256',displayKey).update(prefix+key).digest('hex').slice(0,10).toUpperCase();
  const classIXAssignments=(state,faculty,mission)=>assignClassIXMathsD(state,
   staffIndex(faculty,mission,{includeRollOnly:true}),id=>teacherIdentityIds(id,faculty,mission));
  async function halfYearlyWorkspace(input,actor){
@@ -283,7 +284,16 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     }else{
      const {faculty,mission}=resolvedViewingData(current.draft,current.facultyDraft,current.mission||emptyMission());
      const allowed=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
-     next=updateHalfYearly(structuredClone(exam?classIXAssignments(state,faculty,mission):state),{...input,operation},allowed,stamp,exam?()=>[]:marksCheckers(current.taskMonitoring?.published,faculty,mission,current.taskMonitoring?.overrides),exam);
+     const assigned=exam?classIXAssignments(state,faculty,mission):state;
+     let studentKey=input.studentKey;
+     if(exam&&operation==='class-ix-remedial-save'&&input.codedStudent){
+      const paper=Object.hasOwn(assigned?.papers||{},input.subjectId)?assigned.papers[input.subjectId]:null;
+      if(!paper||!allowed?.has(paper.teacherId))throw Error('This Class IX paper is outside your assigned teaching scope.');
+      const matches=Object.keys(paper.students||{}).filter(key=>codedExamStudent(key,'class-ix-public:')===input.codedStudent);
+      if(matches.length!==1)throw Error('This student could not be identified. Reopen the remedial list.');
+      studentKey=matches[0];
+     }
+     next=updateHalfYearly(structuredClone(assigned),{...input,operation,studentKey},allowed,stamp,exam?()=>[]:marksCheckers(current.taskMonitoring?.published,faculty,mission,current.taskMonitoring?.overrides),exam);
     }
     const result={...current,[stateKey]:exam&&imported?classIXAssignments(next,faculty,mission):next};
     if(!exam&&operation==='pb1-approve'&&current.taskMonitoring){
@@ -483,18 +493,21 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
      report.classSections=pb1Sections(draft,faculty);
     }
     const {scopes,rows,roster,classSections}=report;
-    const students=new Map();
+    const remedial=classIX&&input.remedial===true,students=new Map();
     const label=key=>{
-     if(!students.has(key))students.set(key,'Student '+createHmac('sha256',displayKey).update((classIX?'class-ix-public:':halfYearly?'half-yearly-public:':'pb1-public:')+key).digest('hex').slice(0,10).toUpperCase());
+     if(!students.has(key))students.set(key,codedExamStudent(key,classIX?'class-ix-public:':halfYearly?'half-yearly-public:':'pb1-public:'));
      return students.get(key);
     };
-    const publicRows=rows.map(({scope,key,name,roll,before,current})=>({
+    const publicRows=rows.map(({scope,key,name,roll,before,current,weeklyActions})=>({
      scope,key:named?key:label(key),name:named?name:label(key),...(named?{roll}:{}),
+     ...(remedial?{actionWeeks:Object.keys(weeklyActions||{})}:{}),
      before:before&&{...before,exam:classIX?CLASS_IX_EXAM.previous:halfYearly?'Periodic Test 1 (PT-1)':'Monthly test · '+before.date.slice(0,7)},
      current:current&&{...current,exam:classIX?CLASS_IX_EXAM.name:halfYearly?'Half-Yearly':'Preboard 1'},
     }))
      .sort((a,b)=>a.scope-b.scope||a.name.localeCompare(b.name));
-    return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum,approvedAt,additional,teacherAssignmentPending})=>({classId,section,subject,teacher,teachers,maximum,approvedAt,additional,...(classIX?{teacherAssignmentPending}: {})})),rows:publicRows,...(named?{roster}:{}),
+    return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum,approvedAt,additional,teacherAssignmentPending,sectionId,subjectId})=>
+     ({classId,section,subject,teacher,teachers,maximum,approvedAt,additional,...(classIX?{teacherAssignmentPending}: {}),
+      ...(remedial?{sectionId,subjectId}:{})})),rows:publicRows,...(named?{roster}:{}),...(remedial?{revision:report.revision}:{}),
      ...(classSections?{classSections}:{}),...(!named?{classRoster:roster.map(({key,classId,section})=>({key:label(key),name:label(key),classId,section}))}:{})};
    }
    if(!admin&&input.operation==='pb1-directory'){

@@ -910,17 +910,14 @@ function halfYearlyTransferPanel(data,transfer){
  return details;
 }
 
-function drawClassIXRemedial(data,save,back,openEditor){
+function drawClassIXRemedial(data,back,{teachers=[],save}={}){
  const panel=el('section',undefined,'task-card');
  panel.append(el('h2','Class IX weekly remedial action'),
   el('p','Targets use Pre-Annual marks when entered and PT-2 marks until then.'));
  if(save)panel.append(el('p','Record the support given and the next check. A new entry updates the comment for the current week.'));
- if(openEditor){
-  panel.append(button('Add or update weekly action',openEditor));
- }
  const groups=[['critical','Critical fail'],['red','Fail'],['yellow','Borderline']];
  const bandLabels=new Map(groups);
- if(!openEditor)groups.push(['history','Previous targets with recorded actions']);
+ groups.push(['history','Previous targets with recorded actions']);
  const bandFor=row=>(row.current||row.before)?.band;
  const targetStudents=new Map(),subjects=new Map();
  for(const row of data.rows){
@@ -928,7 +925,7 @@ function drawClassIXRemedial(data,save,back,openEditor){
   if(bandLabels.has(band)){
    const records=targetStudents.get(row.key)||[];
    records.push(row);targetStudents.set(row.key,records);
-  }else if(openEditor||!Object.keys(row.weeklyActions||{}).length)continue;
+  }else if(!(row.actionWeeks?.length||Object.keys(row.weeklyActions||{}).length))continue;
   const records=subjects.get(paper.subject)||[];
   records.push(row);subjects.set(paper.subject,records);
  }
@@ -960,16 +957,27 @@ function drawClassIXRemedial(data,save,back,openEditor){
      el('p',paper.teacher||'Teacher assignment pending'),
      el('p',mark?mark.exam+' · '+(mark.absent?'AB':mark.score+'/'+mark.maximum):'Result pending'));
     for(const [week,{comment}] of history)card.append(el('p','Week of '+rollDateText(week)+' · '+comment));
-    if(save&&band!=='history'){
-     const editor=form(),comment=field(editor,'Weekly action taken for '+row.name+' · '+subject,'remedial-comment','textarea');
+    const actionStatus=el('p',row.actionWeeks?.length?'Action recorded · '+rollDateText([...row.actionWeeks].sort().at(-1)):'');
+    if(row.actionWeeks)card.append(actionStatus);
+    if(save&&band!=='history'&&paper.teachers?.length){
+     const action=el('details'),editor=form();
+     action.append(el('summary','Action taken report'),editor);
+     const person=field(editor,'Select your name','remedial-teacher','select');
+     options(person,[['','Choose your name'],...teachers.map(({id,name})=>[id,name])],'');
+     person.required=true;
+     const comment=field(editor,'Weekly action taken for '+row.name+' · '+subject,'remedial-comment','textarea');
      comment.required=true;comment.maxLength=1000;
      const pin=field(editor,'Personal PIN','remedial-pin','password');pin.required=true;pin.inputMode='numeric';pin.autocomplete='off';
      editor.append(el('button','Save weekly action'));
      editor.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(async()=>{
-      await save({...paper,studentKey:row.key,comment:comment.value,expectedRevision:data.revision},secret);
+      const {revision}=await save({classId:paper.classId,sectionId:paper.sectionId,subjectId:paper.subjectId,
+       codedStudent:row.key,comment:comment.value,expectedRevision:data.revision},person.value,secret);
+      data.revision=revision;
+      editor.reset();editor.dataset.portalDirty='false';action.open=false;
+      actionStatus.textContent='Action recorded for this week';
       message('Weekly action saved.');
      });};
-     card.append(editor);
+     card.append(action);
     }
     section.append(card);
    }
@@ -977,17 +985,21 @@ function drawClassIXRemedial(data,save,back,openEditor){
   }
   panel.append(subjectBlock);
  }
- host.replaceChildren(button(save?'Back to remedial list':'Back to Task 3',()=>{if(discard())return back();}),panel);
+ host.replaceChildren(button('Back to Task 3',()=>{if(discard())return back();}),panel);
 }
 async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=false){
  const classIX=examId==='class-ix';
  const exam=classIX?{title:'Class IX Pre-Annual Wisdom Analyser',short:'Pre-Annual',current:'Pre-Annual Exam',previous:CLASS_IX_EXAM.previous,baseline:CLASS_IX_EXAM.baseline,classId:'IX',classes:'Class IX'}:examId==='half-yearly'?HALF_YEARLY_ANALYSER:PB1_ANALYSER;
  const openExam=(entry=false)=>openPB1Analyser(entry,examId);
  const asPrincipal=principal;
- const openRemedial=()=>openPB1Analyser(false,examId,undefined,true);
- if(!asPrincipal&&remedial&&!entryOnly){
-  const data=await request({action:'task-read',operation:'pb1-public',exam:examId});
-  drawClassIXRemedial(data,null,drawClassIXExam,()=>openPB1Analyser(true,examId,undefined,true));
+ if(!asPrincipal&&remedial){
+  const [data,{teachers}]=await Promise.all([
+   request({action:'task-read',operation:'pb1-public',exam:examId,remedial:true}),
+   request({action:'task-read',operation:'pb1-directory',exam:examId}),
+  ]);
+  drawClassIXRemedial(data,drawClassIXExam,{teachers,save:(values,staffId,pin)=>request({
+   action:'pin-submit',operation:'task-manager',taskOperation:'class-ix-remedial-save',exam:examId,staffId,pin,...values,
+  })});
   return;
  }
  if(!asPrincipal&&!entryOnly&&!remedial){
@@ -1005,14 +1017,7 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=fa
   const send=(operation,values={},secret='')=>request(asPrincipal?{action:'task-principal',operation,exam:examId,...values}:
    {action:'pin-submit',operation:'task-manager',taskOperation:operation,exam:examId,staffId,pin:secret,...values},asPrincipal);
   const data=savedReport||await send('pb1-read',{},pin);
-  if(remedial){
-   drawClassIXRemedial(data,asPrincipal?null:async(values,secret)=>{
-    const {classId,sectionId,subjectId,studentKey,comment,expectedRevision}=values;
-    const result=await send('class-ix-remedial-save',{classId,sectionId,subjectId,studentKey,comment,expectedRevision},secret);
-    await open(staffId,'',result);
-   },asPrincipal?drawClassIXExam:openRemedial);
-   return;
-  }
+  if(remedial){drawClassIXRemedial(data,drawClassIXExam);return;}
   const setup=asPrincipal&&examId?revision=>{
    const panel=halfYearlyImportPanel(data.roster,async csv=>{
     const imported=await send('half-yearly-import',{csv,expectedRevision:revision()});
@@ -1048,19 +1053,19 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=fa
  if(asPrincipal){await open();return;}
  const {teachers,paperCount}=await request({action:'task-read',operation:'pb1-directory',exam:examId});
  const login=form(),card=el('section',undefined,'task-card pb1-marks-login');
- card.append(el('h2',remedial?'Class IX weekly remedial action':'Update '+exam.short+' marks'));
+ card.append(el('h2','Update '+exam.short+' marks'));
  if(teachers.length){
   const person=field(login,'Evaluator or cross-checker','pb1-teacher','select'),pin=field(login,'Personal PIN','pb1-pin','password');
   options(person,[['','Choose your name'],...teachers.map(({id,name})=>[id,name])],'');
   person.required=pin.required=true;pin.inputMode='numeric';pin.autocomplete='off';
-  login.append(el('button',remedial?'Open my remedial list':'Open marks entry'));
+  login.append(el('button','Open marks entry'));
   login.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(()=>open(person.value,secret));};
   card.append(login);
  }else if(paperCount===0){
   card.append(el('p',classIX?'The list opens after the Principal imports the Class IX roster and PT-2 marks.':'Class XI marks entry opens after the Principal imports the roster and PT-1 marks in the XI Half-Yearly Analyser.'));
  }else card.append(el('p','No evaluators or cross-checkers are assigned to '+exam.current+' papers.'));
- host.replaceChildren(button(remedial?'Back to remedial list':classIX?'Back to Task 3':'Back to Wisdom Analyser',()=>{
-  if(discard())return remedial?openRemedial():classIX?drawClassIXExam():openExam();
+ host.replaceChildren(button(classIX?'Back to Task 3':'Back to Wisdom Analyser',()=>{
+  if(discard())return classIX?drawClassIXExam():openExam();
  }),card);
 }
 function drawAnalyserCards(){

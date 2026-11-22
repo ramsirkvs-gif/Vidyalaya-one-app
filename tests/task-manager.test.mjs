@@ -827,13 +827,24 @@ test('Class IX seating uses Jyoti’s PIN and marks and remedial notes stay scop
  assert(publicReport.rows.every(row=>/^Student [0-9A-F]{10}$/.test(row.name)&&!('roll' in row)&&!('weeklyActions' in row)));
  assert(publicReport.rows.some(row=>row.before.exam==='Periodic Test 2 (PT-2)'&&row.current?.exam==='Pre-Annual Exam'));
  assert(publicReport.rows.some(row=>row.current===null));
- const refreshed=await f.admin({operation:'half-yearly-import',exam,expectedRevision:saved.revision,
+ const openRemedial=()=>f.service('task-read',{operation:'pb1-public',exam,remedial:true});
+ const remedial=await openRemedial();
+ const codedStudent=remedial.rows.find(row=>remedial.scopes[row.scope].subjectId===subjectId).key;
+ const codedEdit={...edit,studentKey:undefined,codedStudent,expectedRevision:remedial.revision,comment:'Synthetic coded remark'};
+ await assert.rejects(f.teacher(codedEdit,'X:two','456'),/outside your assigned/);
+ const codedSave=await f.teacher(codedEdit);
+ assert.equal(Object.values(codedSave.rows[0].weeklyActions)[0].comment,codedEdit.comment);
+ const openAfter=await openRemedial();
+ assert(openAfter.rows.find(row=>row.key===codedStudent).actionWeeks.length);
+ assert(!JSON.stringify(openAfter).includes(codedEdit.comment));
+
+ const refreshed=await f.admin({operation:'half-yearly-import',exam,expectedRevision:codedSave.revision,
   csv:csv.replace('A,1,','A,9101,').replace('B,1,','B,9201,')});
  assert.deepEqual(refreshed.roster.map(row=>row.roll),['9101','9201']);
  assert.equal(refreshed.rows.length,2);
  assert.equal(refreshed.rows[0].key,studentKey);
  assert.equal(refreshed.rows[0].current.score,30);
- assert.equal(Object.values(refreshed.rows[0].weeklyActions)[0].comment,edit.comment);
+ assert.equal(Object.values(refreshed.rows[0].weeklyActions)[0].comment,codedEdit.comment);
 
 
 });
