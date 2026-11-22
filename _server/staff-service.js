@@ -168,13 +168,18 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   const [record,staff,access]=await Promise.all([read('cbse/taskClassIXSeating'),directoryStaff(),read('cbse/staffAccess')]);
   const matches=entries(staff).filter(([id,person])=>person.status==='active'&&access?.[id]?.enabled&&rollNameKey(person.name)===rollNameKey(CLASS_IX_EXAM_IC));
   const eligible=[...new Set(matches.map(([id,person])=>person.pinOwnerId||id))];
-  return {revision:record?.revision||0,rooms:record?.rooms||{},duties:record?.duties||{},dateNotes:record?.dateNotes||{},qpAssignments:record?.qpAssignments||{},qpNotes:record?.qpNotes||{},icId:eligible.length===1?eligible[0]:''};
+  const qpAssignments=record?.qpAssignments||{};
+  if(record?.qpNotes?.values){
+   qpAssignments.values=Object.fromEntries(CLASS_IX_PAPERS.map(([, ,subject])=>[subject,
+    [...new Set([record.qpNotes.values[subject],qpAssignments.values?.[subject]].filter(Boolean))].join('\n')]));
+  }
+  return {revision:record?.revision||0,rooms:record?.rooms||{},duties:record?.duties||{},dateNotes:record?.dateNotes||{},qpAssignments,icId:eligible.length===1?eligible[0]:''};
  }
  async function saveClassIXComments(input,key,actor){
-  const fields=CLASS_IX_PAPERS.map(([, ,subject])=>subject);
+  const fields=CLASS_IX_PAPERS.map(([, ,subject])=>subject),maximum=key==='qpAssignments'?1001:500;
   if(!input.values||typeof input.values!=='object'||Object.keys(input.values).length!==fields.length||
-   fields.some(subject=>!Object.hasOwn(input.values,subject)||typeof input.values[subject]!=='string'||input.values[subject].trim().length>500))
-   throw new AccessError('Enter up to 500 characters per paper.',400);
+   fields.some(subject=>!Object.hasOwn(input.values,subject)||typeof input.values[subject]!=='string'||input.values[subject].trim().length>maximum))
+   throw new AccessError('Enter up to '+maximum+' characters per paper.',400);
   if(actor.id&&(await classIXSeating()).icId!==actor.id)
    throw new AccessError('Only Mrs. Jyoti Verma can update Class IX Exam Department instructions with her PIN.',403);
   const values=Object.fromEntries(fields.map(subject=>[subject,input.values[subject].trim()]));
@@ -183,7 +188,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(actor.uid?current.adminUid!==actor.uid:!current.staffAccess?.[actor.id]?.enabled||current.staffAccess[actor.id].version!==actor.version)return;
    const plan=current.taskClassIXSeating||{},revision=plan[key]?.revision||0;
    if(revision!==input.expectedRevision)return;
-   return {...current,taskClassIXSeating:{...plan,[key]:{values,revision:revision+1}}};
+   return {...current,taskClassIXSeating:{...plan,[key]:{values,revision:revision+1},...(key==='qpAssignments'?{qpNotes:null}:{})}};
   },{restTransaction});
   if(!result.committed||!result.snapshot.val()?.taskClassIXSeating?.[key])throw new AccessError('These comments changed. Reopen Task 3 before saving.',409);
   return result.snapshot.val().taskClassIXSeating[key];
@@ -457,15 +462,15 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(admin&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze'].includes(input.operation))return pb1Workspace(input,{uid:adminIdentity.uid});
    if(!admin&&['pb1-read','pb1-save','pb1-approve','pb1-unfreeze'].includes(input.operation))throw new AccessError('Use a teacher PIN for marks entry or Principal sign-in for approval.',403);
    if(!admin&&['pb1-public','pb1-named'].includes(input.operation)){
-    if(classIX)throw new AccessError('Use your assigned teacher PIN for Class IX results.',403);
-    if(!await read('cbse/taskMonitoring/published/updatedAt'))throw new AccessError('The Pre-Samagam plan is not published.',404);
+    if(classIX&&input.operation==='pb1-named')throw new AccessError('Use your assigned teacher PIN for named Class IX results.',403);
+    if(!classIX&&!await read('cbse/taskMonitoring/published/updatedAt'))throw new AccessError('The Pre-Samagam plan is not published.',404);
     const named=input.operation==='pb1-named';
     if(named){
      const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
      if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}
     }
     let report;
-    if(halfYearly)report=halfYearlyReport(await read(halfYearlyPath));
+    if(classIX||halfYearly)report=halfYearlyReport(await read(classIX?'cbse/taskClassIX':halfYearlyPath));
     else{
      const [{draft,faculty,mission},published]=await Promise.all([context(),read('cbse/taskMonitoring/published')]);
      report=pb1Report(draft,pb1Mission(draft,mission,published),staffIndex(faculty,mission,{includeRollOnly:true}),undefined,id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id);
@@ -475,16 +480,16 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     const {scopes,rows,roster,classSections}=report;
     const students=new Map();
     const label=key=>{
-     if(!students.has(key))students.set(key,'Student '+createHmac('sha256',displayKey).update((halfYearly?'half-yearly-public:':'pb1-public:')+key).digest('hex').slice(0,10).toUpperCase());
+     if(!students.has(key))students.set(key,'Student '+createHmac('sha256',displayKey).update((classIX?'class-ix-public:':halfYearly?'half-yearly-public:':'pb1-public:')+key).digest('hex').slice(0,10).toUpperCase());
      return students.get(key);
     };
     const publicRows=rows.map(({scope,key,name,roll,before,current})=>({
      scope,key:named?key:label(key),name:named?name:label(key),...(named?{roll}:{}),
-     before:before&&{...before,exam:halfYearly?'Periodic Test 1 (PT-1)':'Monthly test · '+before.date.slice(0,7)},
-     current:current&&{...current,exam:halfYearly?'Half-Yearly':'Preboard 1'},
+     before:before&&{...before,exam:classIX?CLASS_IX_EXAM.previous:halfYearly?'Periodic Test 1 (PT-1)':'Monthly test · '+before.date.slice(0,7)},
+     current:current&&{...current,exam:classIX?CLASS_IX_EXAM.name:halfYearly?'Half-Yearly':'Preboard 1'},
     }))
      .sort((a,b)=>a.scope-b.scope||a.name.localeCompare(b.name));
-    return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum,approvedAt,additional})=>({classId,section,subject,teacher,teachers,maximum,approvedAt,additional})),rows:publicRows,...(named?{roster}:{}),
+    return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum,approvedAt,additional,teacherAssignmentPending})=>({classId,section,subject,teacher,teachers,maximum,approvedAt,additional,...(classIX?{teacherAssignmentPending}: {})})),rows:publicRows,...(named?{roster}:{}),
      ...(classSections?{classSections}:{}),...(!named?{classRoster:roster.map(({key,classId,section})=>({key:label(key),name:label(key),classId,section}))}:{})};
    }
    if(!admin&&input.operation==='pb1-directory'){
@@ -813,7 +818,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    const id=pinIdentity.decoded.staffId,staff=await directoryStaff(),access=await read('cbse/staffAccess/'+id);
    if(!access?.enabled||access.version!==pinIdentity.access.version||staff[id]?.status!=='active')throw new AccessError('Staff access changed. Verify your PIN again.',403);
    if(input.taskOperation==='class-ix-date-notes-save'||input.taskOperation==='class-ix-qp-notes-save')
-    return saveClassIXComments(input,input.taskOperation==='class-ix-date-notes-save'?'dateNotes':'qpNotes',{id,version:access.version});
+    return saveClassIXComments(input,input.taskOperation==='class-ix-date-notes-save'?'dateNotes':'qpAssignments',{id,version:access.version});
    if(input.taskOperation==='class-ix-seating-save')return saveClassIXSeating(input,id,access);
    if(input.exam==='class-ix'&&input.taskOperation==='class-ix-remedial-save')return halfYearlyWorkspace(input,{id,accessVersion:access.version});
    if(['pb1-read','pb1-save'].includes(input.taskOperation))return (['half-yearly','class-ix'].includes(input.exam)?halfYearlyWorkspace:pb1Workspace)(input,{id,accessVersion:access.version});

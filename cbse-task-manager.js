@@ -951,15 +951,15 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=fa
  const exam=classIX?{title:'Class IX Pre-Annual Wisdom Analyser',short:'Pre-Annual',current:'Pre-Annual Exam',previous:CLASS_IX_EXAM.previous,baseline:CLASS_IX_EXAM.baseline,classId:'IX',classes:'Class IX'}:examId==='half-yearly'?HALF_YEARLY_ANALYSER:PB1_ANALYSER;
  const openExam=(entry=false)=>openPB1Analyser(entry,examId);
  const asPrincipal=principal;
- if(!asPrincipal&&!entryOnly&&!classIX){
+ if(!asPrincipal&&!entryOnly&&!remedial){
   const read=named=>request({action:'task-read',operation:named?'pb1-named':'pb1-public',exam:examId});
-  let data,publicView=false;
-  try{data=await read(true);}catch(error){
+  let data,publicView=classIX;
+  try{data=await read(!classIX);}catch(error){
    if(!error.curtainRequired)throw error;
    data=await read(false);publicView=true;
   }
-  renderPB1Analyser(host,data,{button,run,exam,publicView,back:drawStaff,openEntry:paper=>openPB1Analyser(true,examId,paper),
-   openNames:publicView?()=>openNamedPB1Results(examId):undefined,refresh:read});
+  renderPB1Analyser(host,data,{button,run,exam,publicView,back:classIX?drawClassIXExam:drawStaff,backLabel:classIX?'Back to Task 3':undefined,openEntry:paper=>openPB1Analyser(true,examId,paper),
+   openNames:publicView&&!classIX?()=>openNamedPB1Results(examId):undefined,refresh:named=>read(!classIX&&named)});
   return;
  }
  const open=async(staffId='',pin='',savedReport)=>{
@@ -1060,15 +1060,15 @@ function classIXTable(panel,{headers,columns,rows,editors}){
     }else cell.textContent=value;
    });
    const editable={};
-   for(const [name,title,type] of columns){
+   for(const [name,title,type,maximum] of columns){
     const cell=row.insertCell(),value=values[name]||'';
     cell.className='task-exam-table-value';
-    if(!editing||editing.column&&editing.column!==name){cell.textContent=value||(name==='area'?'Room to be assigned':'—');continue;}
+    if(!editing){cell.textContent=value||(name==='area'?'Room to be assigned':'—');continue;}
     const input=el(type==='textarea'?'textarea':'input');
     if(type!=='textarea')input.type=type;
     input.setAttribute('aria-label',label+' · '+title);
     input.value=value;
-    if(type==='textarea')input.maxLength=500;
+    if(type==='textarea')input.maxLength=maximum||500;
     if(type==='text')input.maxLength=80;
     cell.append(input);editable[name]=input;
    }
@@ -1108,7 +1108,7 @@ async function drawClassIXExam(){
  };
  const dates=addStep('Date sheet'),submission=addStep('Question paper submission'),seating=addStep('Seating and invigilation');
  const marks=addStep('Marks entry and Wisdom Analyser','Enter marks out of 80 for your assigned subject. Compare results with PT-2 in the Wisdom Analyser.');
- marks.append(button(principal?'Import roster / open analyser':'Open marks entry and analyser',()=>{if(discard())return openPB1Analyser(false,'class-ix');}));
+ marks.append(button(principal?'Import roster / open analyser':'Open Wisdom Analyser',()=>{if(discard())return openPB1Analyser(false,'class-ix');}));
  const remedial=addStep('Remedial action plan','Review critical fail, fail and borderline students by subject. The assigned teacher records action taken each week with their PIN.');
  remedial.append(button(principal?'Review remedial actions':'Open weekly remedial action',()=>{if(discard())return openPB1Analyser(false,'class-ix',undefined,true);}));
  host.scrollIntoView({block:'start'});
@@ -1120,7 +1120,7 @@ async function drawClassIXExam(){
   const values=Object.fromEntries(Object.entries(rows).map(([key,fields])=>[key,fields[column]]));
   record.revision=(await send({values,expectedRevision:record.revision||0},pin)).revision;
  };
- const dateNotes=data.dateNotes||{},qpAssignments=data.qpAssignments||{},qpNotes=data.qpNotes||{};
+ const dateNotes=data.dateNotes||{},qpAssignments=data.qpAssignments||{};
  classIXTable(dates,{
   headers:['Date','Day','Subject'],columns:[['comment','Instructions from Exam Department','textarea']],
   rows:CLASS_IX_PAPERS.map(([date,day,subject])=>({key:subject,label:subject,cells:[date,day,subject],values:{comment:dateNotes.values?.[subject]}})),
@@ -1129,13 +1129,13 @@ async function drawClassIXExam(){
  });
  classIXTable(submission,{
   headers:['Subject','Teachers from master timetable'],
-  columns:[['department','Instructions from Exam Department','textarea'],['comment','Principal’s QP assignment / comment','textarea']],
+  columns:[['comment','Exam / Principal','textarea',1001]],
   rows:CLASS_IX_PAPERS.map(([, ,subject,names])=>({key:subject,label:subject,cells:[subject,names.split(' | ')],
-   values:{department:qpNotes.values?.[subject],comment:qpAssignments.values?.[subject]}})),
+   values:{comment:qpAssignments.values?.[subject]}})),
   editors:[
-   {column:'department',editLabel:'Edit question-paper instructions',saveLabel:'Save question-paper instructions',pinRequired:true,
-    save:data.icId?commentSave(qpNotes,'department',(values,pin)=>pinSend('class-ix-qp-notes-save',values,pin)):undefined},
-   {column:'comment',editLabel:'Edit QP assignments',saveLabel:'Save QP assignments',
+   {editLabel:'Edit question-paper instructions',saveLabel:'Save question-paper instructions',pinRequired:true,
+    save:data.icId?commentSave(qpAssignments,'comment',(values,pin)=>pinSend('class-ix-qp-notes-save',values,pin)):undefined},
+   {editLabel:'Edit QP assignments',saveLabel:'Save QP assignments',
     save:principal&&data.qpAssignments?commentSave(qpAssignments,'comment',values=>request({action:'task-principal',operation:'class-ix-qp-save',...values},true)):undefined},
   ],
  });

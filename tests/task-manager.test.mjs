@@ -788,14 +788,18 @@ test('Class IX seating uses Jyoti’s PIN and marks and remedial notes stay scop
  await assert.rejects(f.service('task-read',qp),/Principal access/);
  const qpNotes={taskOperation:'class-ix-qp-notes-save',expectedRevision:0,values:{...blank,Science:'Synthetic QP instructions'}};
  await assert.rejects(f.teacher(qpNotes,'X:two','456'),/Only Mrs/);
- await Promise.all([f.teacher(dateNotes),f.admin(qp),f.teacher(qpNotes)]);
+ await Promise.all([f.teacher(dateNotes),f.admin(qp)]);
+ f.data.cbse.taskClassIXSeating.qpNotes={revision:2,values:qpNotes.values};
+ const legacy=await f.service('task-read',{operation:'class-ix-seating-read'});
+ assert.equal(legacy.qpAssignments.values.Science,qpNotes.values.Science+'\n'+qp.values.Science);
+ await assert.rejects(f.teacher(qpNotes),/comments changed/i);
+ await f.teacher({...qpNotes,expectedRevision:1,values:legacy.qpAssignments.values});
  await assert.rejects(f.teacher(dateNotes),/comments changed/i);
  await assert.rejects(f.admin(qp),/comments changed/i);
  await f.teacher({...seat,expectedRevision:1});
  const updated=await f.service('task-read',{operation:'class-ix-seating-read'});
  assert.deepEqual(updated.dateNotes.values,dateNotes.values);
- assert.deepEqual(updated.qpAssignments.values,qp.values);
- assert.deepEqual(updated.qpNotes.values,qpNotes.values);
+ assert.deepEqual(updated.qpAssignments.values,legacy.qpAssignments.values);
  assert.deepEqual(updated.duties,duties);
 
 
@@ -818,6 +822,12 @@ test('Class IX seating uses Jyoti’s PIN and marks and remedial notes stay scop
  assert.equal(saved.rows[0].current.exam,'Pre-Annual Exam');
  assert.equal(saved.rows[0].current.band,'yellow');
  assert.equal(Object.values(saved.rows[0].weeklyActions)[0].comment,edit.comment);
+ const publicReport=await f.service('task-read',{operation:'pb1-public',exam});
+ assert.equal(publicReport.rows.length,2);
+ assert(publicReport.rows.every(row=>/^Student [0-9A-F]{10}$/.test(row.name)&&!('roll' in row)&&!('weeklyActions' in row)));
+ assert(publicReport.rows.some(row=>row.before.exam==='Periodic Test 2 (PT-2)'&&row.current?.exam==='Pre-Annual Exam'));
+ assert(publicReport.rows.some(row=>row.current===null));
+
 });
 
 
