@@ -245,3 +245,22 @@
 .task-slip-scan [hidden]{display:none}
 .task-slip-scan img{display:block;max-width:100%;max-height:36vh;margin-bottom:.4rem;object-fit:contain}
 .task-slip-scan button{margin:.25rem;min-height:44px}
+
+.task-bundle-list{display:flex;flex-wrap:wrap;gap:.5rem;margin:.8rem 0}
+.task-bundle-list h3{width:100%;margin:.2rem 0}
+.task-bundle-list button[aria-pressed=true]{background:#175d50;color:#fff;border-color:#175d50}
+.task-bundle-details,.task-bundle-workflow{padding:1rem;margin:1rem 0;border-radius:.6rem}
+.task-bundle-details{background:#eaf3fa;border:1px solid #c4dced}
+.task-bundle-details h3,.task-bundle-workflow h3{margin:.15rem 0 .65rem}
+.task-bundle-details dl{display:grid;grid-template-columns:minmax(7rem,auto) 1fr;gap:.4rem .8rem;margin:.7rem 0 0}
+.task-bundle-details dt{font-weight:650}
+.task-bundle-details dd{margin:0;overflow-wrap:anywhere}
+.task-bundle-workflow{background:#f2f6ef;border:1px solid #d7e4d2}
+.task-bundle-workflow ol{list-style:none;padding:0;margin:0}
+.task-bundle-workflow li{display:grid;gap:.35rem;margin:.4rem 0;padding:.65rem;border-radius:.4rem;background:#fff}
+.task-bundle-workflow li>*{margin:0}
+.task-bundle-workflow li>span{font-weight:700}
+.task-bundle-workflow li.task-bundle-done{background:#dff1e5;color:#185740}
+.task-bundle-workflow li.task-bundle-due{background:#fff1d2;color:#6b3f04;border:1px solid #eac87f}
+.task-bundle-workflow li.task-bundle-pending{background:#f8fafb;color:#42545c}
+.task-bundle-workflow li :is(button,a){justify-self:start;margin:.25rem 0}

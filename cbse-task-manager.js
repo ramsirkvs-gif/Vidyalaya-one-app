@@ -93,11 +93,11 @@ async function openMonitoring(){
  const {monitoring}=await request({action:'task-principal',operation:'monitoring-read'},true);
  drawMonitoring(monitoring);
 }
-async function openPublishedMonitoring(passwordValue,focusRow,searchQuery=''){
+async function openPublishedMonitoring(passwordValue,focusRow,staffId=''){
  try{
   if(passwordValue!==undefined)await request({action:'view-login',password:passwordValue});
   const {monitoring}=await request({action:'task-read',operation:'monitoring-read'});
-  drawMonitoring(monitoring,{staffView:true,focusRow,searchQuery});
+  drawStaffBundles(monitoring,{focusRow,staffId});
  }catch(error){
   if(!error.curtainRequired&&passwordValue===undefined)throw error;
   if(passwordValue!==undefined)throw error;
@@ -105,7 +105,7 @@ async function openPublishedMonitoring(passwordValue,focusRow,searchQuery=''){
   login.className='task-monitoring';
   password.required=true;
   login.append(el('button','Open published plan'));
-  login.onsubmit=event=>{event.preventDefault();const secret=password.value;password.value='';run(()=>openPublishedMonitoring(secret,focusRow,searchQuery));};
+  login.onsubmit=event=>{event.preventDefault();const secret=password.value;password.value='';run(()=>openPublishedMonitoring(secret,focusRow,staffId));};
   host.replaceChildren(button('Back to task list',drawStaff),el('h2',MONITORING_TITLE),login);
  }
 }
@@ -141,7 +141,7 @@ function drawMonitoringSettings(record,index){
  });};
  card.append(editor);
 }
-function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate,searchQuery=''){
+function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate,staffId=''){
  const entry=(staffView?record:record.published).assignments[key],progress=record.progress?.[key];
  const stage=monitoringStage(progress),step=MONITORING_STEPS[stage],dialog=el('dialog',undefined,'task-start-dialog task-monitoring-dialog');
  const title=el('h2',step?.uploadPdf?[monitoringExamLabel(entry.section),entry.section,entry.subject].join(' · '):entry.subject+' · '+entry.section);
@@ -163,7 +163,7 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate
  if(staffView&&allowUpdate&&step&&eligible.length){
   const editor=form(),assigned=step.uploadPdf&&eligible.length===1?eligible[0]:null;
   const person=assigned?null:field(editor,'Your name','monitoring-staff','select');
-  if(person){options(person,[['','Choose your name'],...eligible.map(({id,name})=>[id,name])],'');person.required=true;}
+  if(person){options(person,[['','Choose your name'],...eligible.map(({id,name})=>[id,name])],staffId);person.required=true;}
   else editor.append(el('p',assigned.name));
   const outcome=step.uploadPdf?null:field(editor,'Status','monitoring-outcome','select');
   if(outcome)options(outcome,[['','Choose status'],...step.options],'');
@@ -184,11 +184,89 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate
     const result=await request({action:'pin-submit',operation:'task-manager',pdf:practiceUpdate?undefined:pdf,taskOperation:practiceUpdate?'monitoring-practice':'monitoring-update',staffId:assigned?.id||person.value,pin:secret,rowKey:key,publicationRevision:record.revision,expectedRevision:progress?.revision||0,stage,outcome:outcome?.value||'advance',remark:remark?.value});
     dialog.close();
     if(practiceUpdate){practiceUpdate(result);message('Practice status saved.');}
-    else{await openPublishedMonitoring(undefined,key,searchQuery);message(pdf?'Signed PDF uploaded.':'Status saved.');}
+    else{await openPublishedMonitoring(undefined,key,staffId);message(pdf?'Signed PDF uploaded.':'Status saved.');}
    }catch(error){errorText.textContent=error.message;}
   });};
  }else if(staffView&&allowUpdate&&step)dialog.append(el('p','Awaiting a Principal assignment for '+step.label+'.'));
  dialog.addEventListener('close',()=>{scan?.clear();dialog.remove();},{once:true});document.body.append(dialog);dialog.showModal();
+}
+function drawStaffBundles(record,{focusRow,staffId=''}={}){
+ const card=el('section',undefined,'task-card task-monitoring'),bundleList=el('div',undefined,'task-bundle-list'),detail=el('div');
+ const bundles=Object.entries(record.assignments||{});
+ const people=new Map();
+ const bundlePeople=new Map(bundles.map(([key,entry])=>{
+  const assigned=[...Object.values(entry.roles||{}),...Object.values(entry.substitutes||{}),...(record.examReviewers||[])];
+  for(const {id,name} of assigned)people.set(id,name);
+  return [key,new Set(assigned.map(({id})=>id))];
+ }));
+ card.append(el('h2',MONITORING_TITLE));
+ const teacher=field(card,'Select your name','monitoring-teacher','select');
+ options(teacher,[['','Choose your name'],...[...people].sort(([,a],[,b])=>a.localeCompare(b))],staffId);
+ const practiceNotice=el('p','Mock practice · use your PIN. These changes stay in this tab.','task-monitoring-notice');
+ practiceNotice.hidden=true;
+ let practice=null,selected=focusRow;
+ const toggle=button('Mock practice with PIN',()=>{
+  practice=practice?null:{};
+  practiceNotice.hidden=!practice;
+  toggle.textContent=practice?'Exit mock practice':'Mock practice with PIN';
+  drawDetail();
+ });
+ card.append(bundleList,detail,practiceNotice,toggle);
+ host.replaceChildren(button('Back to task list',drawStaff),card);
+ const currentProgress=key=>practice?practice[key]:record.progress?.[key];
+ function drawBundles(){
+  bundleList.replaceChildren();
+  if(!teacher.value){detail.replaceChildren();return;}
+  const assigned=bundles.filter(([key])=>bundlePeople.get(key).has(teacher.value));
+  bundleList.append(el('h3','Your bundles · '+assigned.length));
+  if(!assigned.some(([key])=>key===selected))selected=undefined;
+  for(const [key,entry] of assigned){
+   const choose=button(entry.section+' · '+entry.subject,()=>{
+    selected=key;drawBundles();detail.scrollIntoView({block:'start'});
+   });
+   choose.setAttribute('aria-pressed',String(selected===key));bundleList.append(choose);
+  }
+  drawDetail();
+ }
+ function drawDetail(){
+  detail.replaceChildren();
+  if(!selected)return;
+  const key=selected,entry=record.assignments[key],progress=currentProgress(key),stage=monitoringStage(progress);
+  const view=practice?{...record,progress:practice}:record;
+  const updatePractice=practice?({stage,event})=>{
+   practice[key]={stage,separateMatching:true,history:[...(progress?.history||[]),event]};drawDetail();
+  }:undefined;
+  const info=el('section',undefined,'task-bundle-details'),roles=el('dl');
+  info.append(el('h3',entry.section+' · '+entry.subject),el('p',monitoringExamLabel(entry.section)),roles);
+  for(const [role,label] of MONITORING_ROLES)roles.append(el('dt',label),el('dd',entry.roles?.[role]?.name||'Assignment pending'));
+  detail.append(info);
+  const steps=el('section',undefined,'task-bundle-workflow'),items=el('ol');
+  steps.append(el('h3','Workflow status'),items);
+  for(const [position,step] of MONITORING_STEPS.entries()){
+   const due=position===stage,done=position<stage,assigned=monitoringPeople(record,entry,position);
+   const item=el('li',undefined,due?'task-bundle-due':done?'task-bundle-done':'task-bundle-pending');
+   const pdfNotRecorded=step.uploadPdf&&done&&!progress?.history?.some(event=>event.label===step.options[0][1]);
+   item.append(el('strong','Step '+(position+1)+' · '+step.label),el('span',pdfNotRecorded?'PDF status not recorded':done?'Done':due?'Action due':'Pending'));
+   if(due)item.setAttribute('aria-current','step');
+   if(assigned.length)item.append(el('p',assigned.map(person=>person.name).join(' / ')));
+   else if(due)item.append(el('p','Assignment needed'));
+   if(done&&!pdfNotRecorded)item.append(el('small',step.options[0][1]));
+   if(step.uploadPdf&&progress?.signedSlip?.id){
+    const link=el('a','View signed PDF','button');
+    link.href='https://drive.google.com/file/d/'+encodeURIComponent(progress.signedSlip.id)+'/view';
+    link.target='_blank';link.rel='noopener noreferrer';item.append(link);
+   }else if(pdfNotRecorded&&!practice)item.append(signedPdfUploadLink(entry.section));
+   if(due&&assigned.some(person=>person.id===teacher.value))
+    item.append(button(step.uploadPdf?'Scan signed marks slip':practice?'Practise status update':'Update status',
+     ()=>openMonitoringStep(view,key,true,true,updatePractice,teacher.value)));
+   if(due&&step.samagam)item.append(el('p',SAMAGAM_REPORTING_NOTICE));
+   items.append(item);
+  }
+  if(progress?.history?.length)steps.append(button('View history',()=>openMonitoringStep(view,key,true,false,updatePractice,teacher.value)));
+  detail.append(steps);
+ }
+ teacher.onchange=()=>{selected=undefined;drawBundles();};
+ drawBundles();
 }
 function openMonitoringPractice(record,index){
  const actors=Object.fromEntries([...MONITORING_ROLES,['exam','Exam IC / Co-IC']].map(([id,label])=>[id,{id,name:'Practice '+label}]));
@@ -243,32 +321,19 @@ function openMonitoringPractice(record,index){
  }
  draw();
 }
-function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyPeople,focusRow,searchQuery=''}={}){
+function drawMonitoring(record,{index=0,editing=false,emergencyPeople,focusRow,searchQuery=''}={}){
  const sheets=structuredClone(emergencyPeople?record.published.sheets:record.sheets),editor=form(),scroll=el('div',undefined,'task-scroll task-monitoring-scroll');
  scroll.tabIndex=0;scroll.setAttribute('role','region');
  const scrollHint=el('p','Scroll sideways for more columns and down for more records.','task-monitoring-scroll-hint');
  const card=el('section',undefined,'task-card task-monitoring'),actions=el('div',undefined,'task-actions');
- const back=emergencyPeople?()=>drawMonitoringSettings(record,index):staffView?drawStaff:drawPrincipal;
+ const back=emergencyPeople?()=>drawMonitoringSettings(record,index):drawPrincipal;
  host.replaceChildren(button(emergencyPeople?'Back to workflow settings':'Back to task list',()=>{if(discard())back();}),card);
  card.append(el('h2',MONITORING_TITLE));
- if(staffView)card.append(el('p',SAMAGAM_REPORTING_NOTICE,'task-monitoring-notice'));
  const publication=record.published?.updatedAt;
- let practice=null;
- const practiceNotice=el('p','Mock practice · use your own PIN. These changes stay in this tab.','task-monitoring-notice');
- if(staffView){practiceNotice.hidden=true;card.append(practiceNotice);}
  if(emergencyPeople)card.append(el('h3','Emergency assignment'),el('p','Choose a substitute in the workflow cell and save it there. Saved changes apply immediately to the published plan.'));
- else if(!staffView)card.append(el('p',publication?'Published copy available to staff.':'Private draft'));
+ else card.append(el('p',publication?'Published copy available to staff.':'Private draft'));
  const tabs=MONITORING_SHEETS.map(({name},position)=>button(name,()=>drawSheet(position)));
  actions.append(...tabs);
- if(staffView&&record.assignments){
-  const toggle=button('Mock practice with PIN',()=>{
-   practice=practice?null:{};
-   practiceNotice.hidden=!practice;reset.hidden=!practice;
-   toggle.textContent=practice?'Exit mock practice':'Mock practice with PIN';redrawSheet();
-  });
-  const reset=button('Reset practice',()=>{practice={};redrawSheet();message('Practice reset.');});
-  reset.hidden=true;actions.append(toggle,reset);
- }
  const markDirty=()=>{editor.dataset.portalDirty='true';};
  async function update(operation){
   const {monitoring}=await request({action:'task-principal',operation,expectedRevision:record.revision,...(operation==='monitoring-save'?{sheets}:{})},true);
@@ -294,7 +359,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
    const headingCell=String.fromCharCode(65+width)+(index===0?5:8);
    markDirty();drawSheet(index);scroll.querySelector('[aria-label="'+headingCell+'"]')?.focus();
   }),el('button','Save draft'),button('Cancel edits',()=>{if(discard())drawMonitoring(record,{index});}));
- }else if(!staffView&&!emergencyPeople){
+ }else if(!emergencyPeople){
   actions.append(button('Edit cells',()=>drawMonitoring(record,{index,editing:true})),
    button('Workflow settings',()=>drawMonitoringSettings(record,index)),
    button('Mock practice',()=>openMonitoringPractice(record,index)),
@@ -361,8 +426,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
   const width=sheet[0].length;
   const columnOrder=Array.from({length:width},(_,column)=>column);
   if(index===0&&!editing)columnOrder.splice(6,2,7,6);
-  const viewRecord=practice?{...record,progress:practice}:record;
-  const workflow=!editing&&index===0&&(staffView?viewRecord:record.published);
+  const workflow=!editing&&index===0&&record.published;
   if(workflow)table.classList.add('task-monitoring-workflow');
   if(editing){
    const heading=table.createTHead().insertRow();heading.append(el('th','#'));
@@ -377,7 +441,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
    const header=index===0?r===4:r===3||r===7;
    const row=!editing&&index===0&&header?table.createTHead().insertRow():body.insertRow();
    const entry=workflow&&r>4?workflow.assignments?.['row_'+values[0]]:null;
-   const progress=entry?viewRecord.progress?.['row_'+values[0]]:null;
+   const progress=entry?record.progress?.['row_'+values[0]]:null;
    const key='row_'+values[0];
    if(readable){
     row.setAttribute('role','row');
@@ -471,7 +535,7 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
      if(step.uploadPdf&&progress?.signedSlip?.id){
       const link=el('a','View signed PDF','button');
       link.href='https://drive.google.com/file/d/'+encodeURIComponent(progress.signedSlip.id)+'/view';link.target='_blank';link.rel='noopener noreferrer';cell.append(link);
-      if(!staffView&&stage===position+1)cell.append(button('Reopen signed PDF upload',async()=>{
+      if(stage===position+1)cell.append(button('Reopen signed PDF upload',async()=>{
        if(!confirm('Reopen the signed PDF upload for '+entry.section+' · '+entry.subject+'? The current file will stay in Drive.'))return;
        const {monitoring}=await request({action:'task-principal',operation:'monitoring-reopen-upload',
         rowKey:key,publicationRevision:workflow.revision,expectedRevision:progress.revision},true);
@@ -479,18 +543,12 @@ function drawMonitoring(record,{staffView=false,index=0,editing=false,emergencyP
        message('Signed PDF upload is Action due again.');
       }));
      }
-     if(staffView&&step.uploadPdf&&!practice&&pdfNotRecorded)cell.append(signedPdfUploadLink(entry.section));
      const latest=progress?.history?.at(-1)?.label;
      if(current&&latest&&MONITORING_STEPS.some(stage=>stage.options.some(([value,label])=>value==='return'&&label===latest)))
       cell.append(el('span',latest));
-     const practiceUpdate=practice?({stage,event})=>{
-      practice[key]={stage,separateMatching:true,history:[...(progress?.history||[]),event]};
-      redrawSheet();
-     }:undefined;
      if(emergencyPeople&&step.role!=='exam')addEmergencyControl(cell,key,position,entry,step);
-     if(current&&staffView)cell.append(button(step.uploadPdf?'Scan signed marks slip':practice?'Practise status update':'Update status',()=>openMonitoringStep(viewRecord,key,true,true,practiceUpdate,search.value)));
      if(position===Math.min(stage,MONITORING_STEPS.length-1)&&progress?.history?.length)
-      cell.append(button('View history',()=>openMonitoringStep(viewRecord,key,staffView,false,practiceUpdate)));
+      cell.append(button('View history',()=>openMonitoringStep(record,key,false,false)));
     });
    }
 
