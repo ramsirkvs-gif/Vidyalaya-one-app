@@ -987,9 +987,9 @@ function drawAnalyserCards(){
 }
 function drawClassIXExamDraft(){
  const papers=[
-  ['07/12/2026','Monday','Science','IX A/C · Vandana Umang | IX B/D · Jyoti Verma | IX D · Michi Loder'],
+  ['07/12/2026','Monday','Science','IX A/C · Vandana Umang | IX B/D · Jyoti Verma'],
   ['08/12/2026','Tuesday','Hindi','IX A · Suraj Dahal | IX B · Devendra Kumar Meena | IX C/D · Dipti Singh'],
-  ['09/12/2026','Wednesday','Mathematics','IX A/C · Priyanka Mehta | IX A · Rajen Kumar | IX B/D · Ranjan Chetry | IX D · Bikash Jyoti Das'],
+  ['09/12/2026','Wednesday','Mathematics','IX A/C · Priyanka Mehta | IX B/D · Ranjan Chetry | IX D · Bikash Jyoti Das'],
   ['10/12/2026','Thursday','English','IX A · Abhishek Singh | IX B · M. T. Munya | IX C · Gocham Yagom | IX D · Sweta Kestwal'],
   ['11/12/2026','Friday','Social Science','IX A/D · Ajay Pratap Singh C. | IX B/C · Nitish Raj Sharma'],
  ];
@@ -1005,7 +1005,8 @@ function drawClassIXExamDraft(){
  dates.append(schedule);
  const submission=addStep('Question paper submission','Check your subject team. The Exam IC will confirm who submits each paper, the deadline, and the submission channel.');
  const reference=el('details'),teachers=el('ul');
- reference.append(el('summary','Class IX teachers from the master timetable'),teachers);
+ reference.append(el('summary','Class IX teachers from the master timetable'),
+  el('p','Saturday periods VII and VIII are tentative and are excluded from this list.'),teachers);
  for(const [,,subject,names] of papers)teachers.append(el('li',subject+' · '+names));
  submission.append(reference);
  addStep('Seating area','Check the room and roll-number ranges for each section once the Exam IC shares the seating plan.');
