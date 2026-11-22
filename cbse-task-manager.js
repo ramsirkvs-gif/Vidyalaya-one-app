@@ -193,11 +193,17 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate
 function drawStaffBundles(record,{focusRow,staffId=''}={}){
  const card=el('section',undefined,'task-card task-monitoring'),bundleList=el('div',undefined,'task-bundle-list'),detail=el('div');
  const bundles=Object.entries(record.assignments||{});
- const people=new Map();
- const bundlePeople=new Map(bundles.map(([key,entry])=>{
-  const assigned=[...Object.values(entry.roles||{}),...Object.values(entry.substitutes||{}),...(record.examReviewers||[])];
-  for(const {id,name} of assigned)people.set(id,name);
-  return [key,new Set(assigned.map(({id})=>id))];
+ const groups=[
+  ['evaluator','Evaluator bundles'],['checker','Cross-checker bundles'],
+  ['matching','Samagam Matching IC bundles'],['exam','Exam IC bundles'],
+ ];
+ const people=new Map(),bundlePeople=new Map(bundles.map(([key,entry])=>{
+  const byRole=new Map(groups.map(([role])=>[role,new Set()]));
+  for(const [index,step] of MONITORING_STEPS.entries()){
+   const assigned=[entry.roles?.[step.role],...monitoringPeople(record,entry,index)].filter(Boolean);
+   for(const {id,name} of assigned){people.set(id,name);byRole.get(step.role).add(id);}
+  }
+  return [key,byRole];
  }));
  card.append(el('h2',MONITORING_TITLE));
  const teacher=field(card,'Select your name','monitoring-teacher','select');
@@ -217,14 +223,21 @@ function drawStaffBundles(record,{focusRow,staffId=''}={}){
  function drawBundles(){
   bundleList.replaceChildren();
   if(!teacher.value){detail.replaceChildren();return;}
-  const assigned=bundles.filter(([key])=>bundlePeople.get(key).has(teacher.value));
+  const assigned=bundles.filter(([key])=>[...bundlePeople.get(key).values()].some(ids=>ids.has(teacher.value)));
   bundleList.append(el('h3','Your bundles · '+assigned.length));
   if(!assigned.some(([key])=>key===selected))selected=undefined;
-  for(const [key,entry] of assigned){
-   const choose=button(entry.section+' · '+entry.subject,()=>{
-    selected=key;drawBundles();detail.scrollIntoView({block:'start'});
-   });
-   choose.setAttribute('aria-pressed',String(selected===key));bundleList.append(choose);
+  for(const [role,label] of groups){
+   const papers=assigned.filter(([key])=>bundlePeople.get(key).get(role).has(teacher.value));
+   if(!papers.length)continue;
+   const section=el('section',undefined,'task-bundle-group task-bundle-group-'+role);
+   section.append(el('h4',label+' · '+papers.length));
+   for(const [key,entry] of papers){
+    const choose=button(entry.section+' · '+entry.subject,()=>{
+     selected=key;drawBundles();detail.scrollIntoView({block:'start'});
+    });
+    choose.setAttribute('aria-pressed',String(selected===key));section.append(choose);
+   }
+   bundleList.append(section);
   }
   drawDetail();
  }

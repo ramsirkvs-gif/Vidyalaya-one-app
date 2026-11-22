@@ -246,7 +246,12 @@
 .task-slip-scan img{display:block;max-width:100%;max-height:36vh;margin-bottom:.4rem;object-fit:contain}
 .task-slip-scan button{margin:.25rem;min-height:44px}
 
-.task-bundle-list{display:flex;flex-wrap:wrap;gap:.5rem;margin:.8rem 0}
+.task-bundle-list{display:grid;gap:.65rem;margin:.8rem 0}
+.task-bundle-group{display:flex;flex-wrap:wrap;gap:.5rem;min-width:0;padding:.8rem;border:1px solid #d4dfe7;border-radius:.6rem;background:#f1f4f7}
+.task-bundle-group h4{width:100%;margin:0 0 .15rem}
+.task-bundle-group-evaluator{background:#eaf5e8;border-color:#c8dfc3}
+.task-bundle-group-checker{background:#e9f2fb;border-color:#c3d9ef}
+.task-bundle-group-matching{background:#fcf3df;border-color:#e8d7ab}
 .task-bundle-list h3{width:100%;margin:.2rem 0}
 .task-bundle-list button[aria-pressed=true]{background:#175d50;color:#fff;border-color:#175d50}
 .task-bundle-details,.task-bundle-workflow{padding:1rem;margin:1rem 0;border-radius:.6rem}
