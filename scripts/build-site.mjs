@@ -32,6 +32,15 @@ await copy('vendor');
 // PptxGenJS is bundled locally so report exports do not send school data to a third party.
 await fs.mkdir(path.join(output,'vendor/pptxgenjs'),{recursive:true});
 for(const [source,name]of [['dist/pptxgen.bundle.js','pptxgen.bundle.js'],['LICENSE','LICENSE']]){const bytes=await fs.readFile(path.join(root,'node_modules/pptxgenjs',source));hash.update('pptxgenjs/'+name);hash.update(bytes);await fs.writeFile(path.join(output,'vendor/pptxgenjs',name),bytes);}
+// Keep the retest PDF libraries local. Downloads are generated in the browser.
+await fs.mkdir(path.join(output,'vendor/retest-pdf'),{recursive:true});
+for(const [pkg,source,name] of [
+ ['jspdf','dist/jspdf.umd.min.js','jspdf.umd.min.js'],['jspdf','LICENSE','jspdf-LICENSE'],
+ ['jspdf-autotable','dist/jspdf.plugin.autotable.min.js','jspdf.plugin.autotable.min.js'],['jspdf-autotable','LICENSE.txt','autotable-LICENSE'],
+]){
+ const bytes=await fs.readFile(path.join(root,'node_modules',pkg,source));
+ hash.update(name);hash.update(bytes);await fs.writeFile(path.join(output,'vendor/retest-pdf',name),bytes);
+}
 const version=hash.digest('hex');
 for(const name of await fs.readdir(output))if(name.endsWith('.html')){
  const p=path.join(output,name);const html=await fs.readFile(p,'utf8');

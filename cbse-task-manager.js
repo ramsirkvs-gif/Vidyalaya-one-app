@@ -1392,14 +1392,9 @@ async function openRetest(){
   }
   scroll.append(table);editor.append(scroll);
   if(!editing){
-   content.append(button('Print / Save as PDF',()=>{
-    const printable=el('article',undefined,'task-retest-print'),register=table.cloneNode(true);
-    register.querySelectorAll('button,.task-retest-pin-status').forEach(control=>control.remove());
-    register.classList.remove('task-retest-teacher-table');
-    printable.append(panel.querySelector('h2').cloneNode(true),alert.cloneNode(true),summary.cloneNode(true),register);
-    document.body.append(printable);
-    window.addEventListener('afterprint',()=>printable.remove(),{once:true});
-    window.print();
+   content.append(button('Download PDF',async()=>{
+    const {downloadRetestPDF}=await import('./cbse-task-retest-pdf.js');
+    await downloadRetestPDF(rows.map(([,row])=>row),summary.textContent,[...alert.querySelectorAll('p')].map(line=>line.textContent));
    }));
   }
   content.append(editor);
