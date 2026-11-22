@@ -153,6 +153,11 @@ try:
         teacher.get_by_text(re.compile(r'(?=.*SCIENCE · Borderline)(?=.*ENGLISH · Borderline)')).first.wait_for()
         science=teacher.locator('section.task-report').filter(has=teacher.get_by_role('heading',name='SCIENCE',exact=True))
         science.get_by_text('Borderline · 1',exact=True).click()
+        science.get_by_text('Pre-Annual · 30/80',exact=True).wait_for()
+        assert science.get_by_text('Critical fail · 0',exact=True).is_visible()
+        english=teacher.locator('section.task-report').filter(has=teacher.get_by_role('heading',name='ENGLISH',exact=True))
+        english.get_by_text('Borderline · 1',exact=True).click()
+        english.get_by_text('PT-2 · Provisional · 14/40',exact=True).wait_for()
         assert science.get_by_label('Personal PIN',exact=True).is_hidden()
         assert teacher.get_by_text('Synthetic IX student',exact=True).count()==0
         assert teacher.get_by_role('heading',name=re.compile(r'IX A · Student [0-9A-F]{10}')).is_visible()

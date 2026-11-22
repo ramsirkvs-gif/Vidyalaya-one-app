@@ -913,7 +913,7 @@ function halfYearlyTransferPanel(data,transfer){
 function drawClassIXRemedial(data,back,{teachers=[],save}={}){
  const panel=el('section',undefined,'task-card');
  panel.append(el('h2','Class IX weekly remedial action'),
-  el('p','Targets use Pre-Annual marks when entered and PT-2 marks until then.'));
+  el('p','Critical fail, Fail, and Borderline are all remedial targets. Each subject uses PT-2 until its Pre-Annual mark is entered, then switches to the Pre-Annual result.'));
  if(save)panel.append(el('p','Record the support given and the next check. A new entry updates the comment for the current week.'));
  const groups=[['critical','Critical fail'],['red','Fail'],['yellow','Borderline']];
  const bandLabels=new Map(groups);
@@ -955,7 +955,7 @@ function drawClassIXRemedial(data,back,{teachers=[],save}={}){
     const card=el('div',undefined,'task-report');
     card.append(el('h4',studentLabel(row)),
      el('p',paper.teacher||'Teacher assignment pending'),
-     el('p',mark?mark.exam+' · '+(mark.absent?'AB':mark.score+'/'+mark.maximum):'Result pending'));
+     el('p',mark?(row.current?'Pre-Annual':'PT-2 · Provisional')+' · '+(mark.absent?'AB':mark.score+'/'+mark.maximum):'Result pending'));
     for(const [week,{comment}] of history)card.append(el('p','Week of '+rollDateText(week)+' · '+comment));
     const actionStatus=el('p',row.actionWeeks?.length?'Action recorded · '+rollDateText([...row.actionWeeks].sort().at(-1)):'');
     if(row.actionWeeks)card.append(actionStatus);
