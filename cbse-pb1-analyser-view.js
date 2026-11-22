@@ -666,6 +666,11 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    }
    host.replaceChildren(el('h3','Class '+scope.classId+' '+scope.section+' · '+scope.subject),maxima,
     el('p','Each percentage uses the marks earned divided by that exam’s maximum.'));
+   if(scope.approvedAt&&teacher){
+    const notice=el('p',undefined,'task-monitoring-notice');
+    notice.append(el('strong','Marks are already frozen. Request the Principal to unfreeze this paper for corrections.'));
+    host.prepend(notice);
+   }
    const preview=button(approve?'Preview marks slip / PDF':'Preview marks slip',()=>{
     if(host.querySelector('[data-portal-dirty=true]'))throw Error('Save your mark changes before previewing the slip.');
     paperSlip(scope,data,exam,!!approve);
@@ -675,7 +680,6 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    if(scope.approvedAt){
     host.append(el('p','Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),'task-monitoring-notice'));
     if(unfreeze)host.append(button('Unfreeze for emergency correction',()=>reopenPaper(scope,drawMarks)));
-    if(teacher)host.append(el('p','Ask the Principal to unfreeze this paper for corrections.'));
     if(scope.discussionComment)host.append(el('h4','Principal’s comment to teacher'),el('p',scope.discussionComment,'pb1-discussion-comment'));
     table(host,['Roll','Student',exam.baseline+' marks ('+monthlyMM+')','Approved '+exam.short+' marks ('+pb1MM+')'],
      rows.map(row=>[row.roll,row.name,result(row.before),result(row.current)]));
