@@ -337,6 +337,22 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   return entryReport(saved.draft,faculty,pb1Report(saved.draft,assigned,access.staff,access.ids,access.identity,
    marksCheckers(saved.taskMonitoring?.published,faculty,mission,saved.taskMonitoring?.overrides)),access.ids);
  }
+ async function reopenTaskUpload(input,actor,staff){
+  let reason;
+  const stamp=now();
+  const result=await mcqTransaction(db,'cbse/taskMonitoring',current=>{
+   if(current===null)return null;
+   try{
+    const published=current.published;
+    const effective=staff?resolvePublishedAvinashAssignments(published,staff,current.overrides):published;
+    const next=monitoringReopenUpload({...current,published:effective},input,stamp,actor);
+    return {...next,published};
+   }catch(error){reason=error.message;return;}
+  },{restTransaction});
+  const monitoring=result.committed&&result.snapshot?.val();
+  if(!monitoring)throw new AccessError(reason||'The signed PDF step could not be reopened.',409);
+  return monitoring;
+ }
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
@@ -408,18 +424,8 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     }
     return {monitoring};
    }
-   if(admin&&input.operation==='monitoring-reopen-upload'){
-    let reason;
-    const stamp=now();
-    const result=await mcqTransaction(db,monitoringPath,current=>{
-     if(current===null)return null;
-     try{return monitoringReopenUpload(current,input,stamp);}
-     catch(error){reason=error.message;return;}
-    },{restTransaction});
-    const monitoring=result.committed&&result.snapshot?.val();
-    if(!monitoring)throw new AccessError(reason||'The signed PDF step could not be reopened.',409);
-    return {monitoring};
-   }
+   if(admin&&input.operation==='monitoring-reopen-upload')
+    return {monitoring:await reopenTaskUpload(input,{id:'principal',name:'Principal'})};
    if(admin&&['monitoring-save','monitoring-settings','monitoring-publish','monitoring-unpublish','monitoring-emergency'].includes(input.operation)){
     const saving=input.operation==='monitoring-save';
     const settings=input.operation==='monitoring-settings',publishing=input.operation==='monitoring-publish';
@@ -714,10 +720,14 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    const id=pinIdentity.decoded.staffId,staff=await directoryStaff(),access=await read('cbse/staffAccess/'+id);
    if(!access?.enabled||access.version!==pinIdentity.access.version||staff[id]?.status!=='active')throw new AccessError('Staff access changed. Verify your PIN again.',403);
    if(['pb1-read','pb1-save'].includes(input.taskOperation))return (input.exam==='half-yearly'?halfYearlyWorkspace:pb1Workspace)(input,{id,accessVersion:access.version});
-   if(['monitoring-update','monitoring-practice'].includes(input.taskOperation)){
+   if(['monitoring-update','monitoring-practice','monitoring-reopen-upload'].includes(input.taskOperation)){
     const curtain=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
     if(curtain?.error){const error=new AccessError(curtain.error,curtain.status);error.curtainRequired=true;throw error;}
     const path='cbse/taskMonitoring',actor={id,name:staff[id].name};
+    if(input.taskOperation==='monitoring-reopen-upload'){
+     await reopenTaskUpload(input,actor,staff);
+     return {ok:true};
+    }
     const examReviewers=await finalExamReviewers(staff);
     if(input.taskOperation==='monitoring-practice'){
      if(typeof input.rowKey!=='string'||!/^row_[1-9]\d{0,5}$/.test(input.rowKey)||!Number.isInteger(input.stage)||input.stage<0)

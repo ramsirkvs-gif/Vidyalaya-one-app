@@ -190,6 +190,28 @@ function openMonitoringStep(record,key,staffView,allowUpdate=true,practiceUpdate
  }else if(staffView&&allowUpdate&&step)dialog.append(el('p','Awaiting a Principal assignment for '+step.label+'.'));
  dialog.addEventListener('close',()=>{scan?.clear();dialog.remove();},{once:true});document.body.append(dialog);dialog.showModal();
 }
+function openStaffSlipReplacement(record,key,staffId){
+ const entry=record.assignments[key],progress=record.progress[key],dialog=el('dialog',undefined,'task-start-dialog task-monitoring-dialog'),editor=form();
+ const title=el('h2','Replace signed PDF');title.id='task-slip-replace-title';dialog.setAttribute('aria-labelledby',title.id);
+ const pin=field(editor,'Personal PIN','monitoring-replace-pin','password'),feedback=el('p',undefined,'task-error');
+ pin.required=true;pin.autocomplete='new-password';pin.inputMode='numeric';
+ pin.addEventListener('focus',()=>{pin.value='';},{once:true});
+ feedback.setAttribute('role','status');
+ editor.append(el('button','Remove current slip and reopen upload'),button('Cancel',()=>dialog.close()),feedback);
+ dialog.append(title,el('p',entry.section+' · '+entry.subject),
+  el('p','This removes the current slip from the bundle and reopens Step 4. The previous file stays in Drive.'),editor);
+ editor.onsubmit=event=>{event.preventDefault();run(async()=>{
+  const secret=pin.value;pin.value='';feedback.textContent='';
+  try{await request({action:'pin-submit',operation:'task-manager',taskOperation:'monitoring-reopen-upload',
+   staffId,pin:secret,rowKey:key,publicationRevision:record.revision,expectedRevision:progress.revision});}
+  catch(error){feedback.textContent=error.message;return;}
+  dialog.close();
+  await openPublishedMonitoring(undefined,key,staffId);
+  message('Previous slip removed. Scan the replacement at Step 4.');
+ });};
+ dialog.addEventListener('close',()=>dialog.remove(),{once:true});
+ document.body.append(dialog);dialog.showModal();
+}
 function drawStaffBundles(record,{focusRow,staffId=''}={}){
  const card=el('section',undefined,'task-card task-monitoring'),bundleList=el('div',undefined,'task-bundle-list'),detail=el('div');
  const bundles=Object.entries(record.assignments||{});
@@ -280,6 +302,8 @@ function drawStaffBundles(record,{focusRow,staffId=''}={}){
     const link=el('a','View signed PDF','button');
     link.href='https://drive.google.com/file/d/'+encodeURIComponent(progress.signedSlip.id)+'/view';
     link.target='_blank';link.rel='noopener noreferrer';item.append(link);
+    if(!practice&&stage===position+1&&assigned.some(person=>person.id===teacher.value))
+     item.append(button('Replace signed PDF',()=>openStaffSlipReplacement(record,key,teacher.value)));
    }else if(pdfNotRecorded&&!practice)item.append(signedPdfUploadLink(entry.section));
    if(due&&assigned.some(person=>person.id===teacher.value))
     item.append(button(step.uploadPdf?'Scan signed marks slip':practice?'Practise status update':'Update status',

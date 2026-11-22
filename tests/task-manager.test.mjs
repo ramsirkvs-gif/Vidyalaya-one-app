@@ -719,7 +719,7 @@ test('assigned cross-checkers can save PB-1 and XI marks with their PIN while fr
  assert.equal((await f.teacher({taskOperation:'pb1-read'},'X:two','456')).scopes.length,0);
 });
 
-test('Principal can reopen a test signed slip while matching is pending',async()=>{
+test('Principal and assigned evaluators can reopen a signed slip while matching is pending',async()=>{
  const f=taskFixture();
  const paper={section:'Class 10-B',subject:'ENGLISH',roles:{evaluator:{id:'X:one',name:'Synthetic Teacher one'}}};
  const signedSlip={id:'sample-pdf',name:'Sample signed slip.pdf'};
@@ -737,4 +737,15 @@ test('Principal can reopen a test signed slip while matching is pending',async()
  assert.equal(monitoring.archivedSignedSlips.row_1_4.id,'sample-pdf');
  assert.equal(monitoring.progress.row_2.stage,5);
  await assert.rejects(f.admin(request),/row changed/);
+ f.data.cbse.taskMonitoring.progress.row_1={stage:4,separateMatching:true,revision:6,history:[],signedSlip};
+ await f.service('set-pin',{staffId:'X:one',pin:'123'},'principal');
+ await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');
+ const {viewerToken}=await f.service('remember-view',{},'principal');
+ const reopen=(staffId,pin)=>f.service('pin-submit',{operation:'task-manager',taskOperation:'monitoring-reopen-upload',
+  rowKey:'row_1',publicationRevision:1,expectedRevision:6,staffId,pin},'','test',{viewerToken});
+ await assert.rejects(reopen('X:two','456'),/Only the assigned evaluator/);
+ assert.deepEqual(await reopen('X:one','123'),{ok:true});
+ const progress=f.data.cbse.taskMonitoring.progress.row_1;
+ assert.equal(monitoringStage(progress),3);
+ assert.equal(progress.history.at(-1).name,'Synthetic Teacher one');
 });
