@@ -433,7 +433,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    return [appeared.length,resultCount('Passed',passed),resultCount('Failed',failed),
     pct(appeared.length?passed.length*100/appeared.length:null)];
   };
-  parent.append(el('h3',title));
+  parent.append(el('h3',title),el('p','Passed and Failed counts · Click to see list'));
   table(parent,['Subject / group','Enrolled',...examColumns(exam.baseline),...examColumns(exam.short),exam.short+' marks pending'],
    [...grouped].map(([label,rows])=>[label,rows.length,...counts(rows,'before',exam.baseline,label),
     ...counts(rows,'current',exam.short,label),rows.filter(row=>!row.current).length]));
