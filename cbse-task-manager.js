@@ -9,7 +9,7 @@ import {importTaskFiguresCSV,importTaskStrengthWorkbook,taskFiguresTemplate,deco
 import {TASK_CLASSES,TASK_AVAILABLE_CLASSES,TASK_PRIMARY_CLASSES,taskClasses,TASK_PRIORITIES,TASK_HEADERS,TASK_REPORT_COMMENTS,taskHeader,taskQuestions,taskQuestionLabels,taskCompatibleValues,taskSummary,taskQuestionIsWritten,taskQuestionWording,taskRemarkWordCount} from './cbse-task-manager-model.js';
 import {el,options} from './cbse-ui.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
-import {HALF_YEARLY_COLUMNS,HALF_YEARLY_CSV_LIMIT,CLASS_IX_EXAM,CLASS_IX_EXAM_IC,CLASS_IX_SEATING} from './cbse-half-yearly-analyser-model.js';
+import {HALF_YEARLY_COLUMNS,HALF_YEARLY_CSV_LIMIT,CLASS_IX_EXAM,CLASS_IX_EXAM_IC,CLASS_IX_SEATING,CLASS_IX_SEATING_FIELDS} from './cbse-half-yearly-analyser-model.js';
 import {renderPB1Analyser,PB1_ANALYSER,HALF_YEARLY_ANALYSER} from './cbse-pb1-analyser-view.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
 import {MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES,monitoringAssignments,monitoringAdvance,monitoringBundlesByExamDate,monitoringStage,monitoringPeople,monitoringExamDateKey,monitoringExamLabel,monitoringSlipFolder} from './cbse-task-monitoring-workflow.js';
@@ -821,12 +821,12 @@ async function openNamedPB1Results(exam){
  });
 }
 function halfYearlyImportPanel(roster,upload,exam){
- const standard=exam?.classId||'XI',label='Class '+standard,examName=exam?.name||'Half-Yearly';
+ const standard=exam?.classId||'XI',label='Class '+standard,examName=exam?.name||'Half-Yearly',baseline=exam?.baseline||'PT-1';
  const columns=exam?HALF_YEARLY_COLUMNS.map(column=>column==='HalfYearlyMM'?exam.column:column):HALF_YEARLY_COLUMNS;
  const details=el('details'),editor=form(),template=el('a','Download CSV template');
  template.href='data:text/csv;charset=utf-8,'+encodeURIComponent(columns.join(',')+'\r\n');
  template.download='Class-'+standard+'-'+examName.replaceAll(' ','-')+'-template.csv';
- const file=field(editor,label+' roster and PT-1 marks CSV','xi-roster-csv','file');
+ const file=field(editor,label+' roster and '+baseline+' marks CSV','xi-roster-csv','file');
  file.accept='.csv,text/csv';file.required=true;
  const feedback=el('p');
  feedback.setAttribute('role','status');
@@ -842,7 +842,7 @@ function halfYearlyImportPanel(roster,upload,exam){
     if(!selected||selected.size>HALF_YEARLY_CSV_LIMIT)throw Error('Choose a CSV up to 256 KB.');
     if([...host.querySelectorAll('form[data-portal-dirty="true"]')].some(active=>active!==editor))throw Error('Save your mark changes before importing a roster.');
     if(!confirm('Import this '+label+' roster and previous marks? Saved '+examName+' marks are retained.'))return;
-    feedback.textContent='Importing '+label+' roster and PT-1 marks…';
+    feedback.textContent='Importing '+label+' roster and '+baseline+' marks…';
     feedback.hidden=false;
     await upload(await selected.text());
    }catch(error){
@@ -853,7 +853,7 @@ function halfYearlyImportPanel(roster,upload,exam){
    }
   });
  };
- details.append(el('summary','Import '+label+' roster and PT-1 marks'),el('p','Use one row per student and subject. '+(exam?'Enter 80 as the Pre-Annual maximum. ':'Enter the previous and Half-Yearly maximum marks for each paper. ')+'Use - for subjects the student is not enrolled in. Use AB for enrolled students who were absent from PT-1. Leave marks blank only if an enrolled student’s PT-1 result is unavailable. Teacher accepts the exact portal name or staff ID. Leave it blank for Principal-only entry.'),template,editor);
+ details.append(el('summary','Import '+label+' roster and '+baseline+' marks'),el('p','Use one row per student and subject. '+(exam?'Enter 80 as the Pre-Annual maximum. ':'Enter the previous and Half-Yearly maximum marks for each paper. ')+'Use - for subjects the student is not enrolled in. Use AB for enrolled students who were absent from '+baseline+'. Leave marks blank only if an enrolled student’s '+baseline+' result is unavailable. Teacher accepts the exact portal name or staff ID. Leave it blank for Principal-only entry.'),template,editor);
  const counts=new Map();
  for(const {section} of roster)counts.set(section,(counts.get(section)||0)+1);
  const sections=[...counts.keys()].sort();
@@ -913,7 +913,7 @@ function halfYearlyTransferPanel(data,transfer){
 function drawClassIXRemedial(data,save,back){
  const panel=el('section',undefined,'task-card');
  panel.append(el('h2','Class IX weekly remedial action'),
-  el('p','Targets use Pre-Annual marks when entered and PT-1 marks until then. Record the support given and the next check. A new entry updates the comment for the current week.'));
+  el('p','Targets use Pre-Annual marks when entered and PT-2 marks until then. Record the support given and the next check. A new entry updates the comment for the current week.'));
  const groups=[['critical','Critical fail'],['red','Fail'],['yellow','Borderline']];
  const targetBands=new Set(groups.map(([band])=>band));
  groups.push(['history','Previous targets with recorded actions']);
@@ -948,7 +948,7 @@ function drawClassIXRemedial(data,save,back){
 }
 async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=false){
  const classIX=examId==='class-ix';
- const exam=classIX?{title:'Class IX Pre-Annual Wisdom Analyser',short:'Pre-Annual',current:'Pre-Annual Exam',previous:'Periodic Test 1',baseline:'PT-1',classId:'IX',classes:'Class IX'}:examId==='half-yearly'?HALF_YEARLY_ANALYSER:PB1_ANALYSER;
+ const exam=classIX?{title:'Class IX Pre-Annual Wisdom Analyser',short:'Pre-Annual',current:'Pre-Annual Exam',previous:CLASS_IX_EXAM.previous,baseline:CLASS_IX_EXAM.baseline,classId:'IX',classes:'Class IX'}:examId==='half-yearly'?HALF_YEARLY_ANALYSER:PB1_ANALYSER;
  const openExam=(entry=false)=>openPB1Analyser(entry,examId);
  const asPrincipal=principal;
  if(!asPrincipal&&!entryOnly&&!classIX){
@@ -978,7 +978,7 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=fa
    const panel=halfYearlyImportPanel(data.roster,async csv=>{
     const imported=await send('half-yearly-import',{csv,expectedRevision:revision()});
     await open('', '', imported);
-    message((classIX?'Class IX':'Class XI')+' roster and PT-1 marks imported.');
+    message((classIX?'Class IX':'Class XI')+' roster and '+(classIX?'PT-2':'PT-1')+' marks imported.');
    },classIX?CLASS_IX_EXAM:undefined);
    if(classIX)return panel;
    const transfer=halfYearlyTransferPanel(data,async values=>{
@@ -1016,7 +1016,7 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=fa
   login.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(()=>open(person.value,secret));};
   card.append(login);
  }else if(paperCount===0){
-  card.append(el('p',classIX?'The list opens after the Principal imports the Class IX roster and PT-1 marks.':'Class XI marks entry opens after the Principal imports the roster and PT-1 marks in the XI Half-Yearly Analyser.'));
+  card.append(el('p',classIX?'The list opens after the Principal imports the Class IX roster and PT-2 marks.':'Class XI marks entry opens after the Principal imports the roster and PT-1 marks in the XI Half-Yearly Analyser.'));
  }else card.append(el('p','No evaluators or cross-checkers are assigned to '+exam.current+' papers.'));
  host.replaceChildren(button(classIX?'Back to Task 3':'Back to Wisdom Analyser',()=>{if(discard())return classIX?drawClassIXExam():openExam();}),card);
 }
@@ -1062,30 +1062,38 @@ async function drawClassIXExam(){
  submission.append(reference,el('p','Exam IC for updates · '+CLASS_IX_EXAM_IC),
   el('p','Principal’s note · “Where more than one teacher is listed, I will assign the teacher responsible for submission.”'));
  const seating=addStep('Seating area','Check the room assigned to your section and roll-number range.');
- const marks=addStep('Marks entry and Wisdom Analyser','Enter marks out of 80 for your assigned subject. Compare results with PT-1 in the Wisdom Analyser.');
+ const marks=addStep('Marks entry and Wisdom Analyser','Enter marks out of 80 for your assigned subject. Compare results with PT-2 in the Wisdom Analyser.');
  marks.append(button(principal?'Import roster / open analyser':'Open marks entry and analyser',()=>openPB1Analyser(false,'class-ix')));
  const remedial=addStep('Remedial action plan','Review critical fail, fail and borderline students by subject. The assigned teacher records action taken each week with their PIN.');
  remedial.append(button(principal?'Review remedial actions':'Open weekly remedial action',()=>openPB1Analyser(false,'class-ix',undefined,true)));
  host.scrollIntoView({block:'start'});
  try{
   const data=await request({action:'task-read',operation:'class-ix-seating-read'});
-  const editor=form(),rooms={};
+  const editor=form(),duties={};
   const info=el('dl');
   for(const {key,section,start,end} of CLASS_IX_SEATING){
    const label='IX '+section+' · '+start+'–'+end;
-   info.append(el('dt',label),el('dd',data.rooms[key]||'Room to be assigned'));
-   if(data.icId)rooms[key]=field(editor,label,'room-'+key,'text',data.rooms[key]||'');
+   const duty=data.duties?.[key]||{area:data.rooms?.[key]};
+   info.append(el('dt',label),el('dd',[duty.area||'Room to be assigned',duty.invigilator,
+    duty.from&&duty.to?duty.from+'–'+duty.to+' IST':''].filter(Boolean).join(' · ')));
+   if(data.icId){
+    const group=el('fieldset');group.append(el('legend',label));editor.append(group);
+    duties[key]=Object.fromEntries(CLASS_IX_SEATING_FIELDS.map(([name,title,type])=>{
+     const input=field(group,label+' · '+title,key+'-'+name,type,duty[name]||'');
+     if(type==='text')input.maxLength=80;
+     return [name,input];
+    }));
+   }
   }
   seating.append(info);
   if(data.icId){
-   const edit=el('details');edit.append(el('summary',CLASS_IX_EXAM_IC+' · Update seating rooms'),editor);
-   for(const input of Object.values(rooms))input.maxLength=80;
+   const edit=el('details');edit.append(el('summary',CLASS_IX_EXAM_IC+' · Update seating and invigilation'),editor);
    const pin=field(editor,'Exam IC personal PIN','class-ix-seating-pin','password');pin.required=true;pin.inputMode='numeric';pin.autocomplete='off';
-   editor.append(el('button','Save seating rooms'));
+   editor.append(el('button','Save seating and invigilation'));
    editor.onsubmit=event=>{event.preventDefault();const secret=pin.value;pin.value='';run(async()=>{
     await request({action:'pin-submit',operation:'task-manager',taskOperation:'class-ix-seating-save',staffId:data.icId,pin:secret,
-     rooms:Object.fromEntries(Object.entries(rooms).map(([key,input])=>[key,input.value])),expectedRevision:data.revision});
-    await drawClassIXExam();message('Seating rooms saved.');
+     duties:Object.fromEntries(Object.entries(duties).map(([key,inputs])=>[key,Object.fromEntries(Object.entries(inputs).map(([name,input])=>[name,input.value]))])),expectedRevision:data.revision});
+    await drawClassIXExam();message('Seating and invigilation saved.');
    });};
    seating.append(edit);
   }else seating.append(el('p','Room updates open when the Exam IC’s PIN is enabled.'));

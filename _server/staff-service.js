@@ -7,7 +7,7 @@ import {monitoringAssignments,monitoringAdvance,monitoringReopenUpload,monitorin
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {advanceFrozenDiscussions,evaluatorDirectory,publishedMarksCheckers,withPublishedPB1Evaluators} from './pb1-evaluators.js';
 import {pb1Report,pb1Scopes,paperDiscussionComment} from '../cbse-pb1-analyser-model.js';
-import {halfYearlyReport,importHalfYearly,updateHalfYearly,CLASS_IX_EXAM,CLASS_IX_EXAM_IC,CLASS_IX_SEATING} from '../cbse-half-yearly-analyser-model.js';
+import {halfYearlyReport,importHalfYearly,updateHalfYearly,CLASS_IX_EXAM,CLASS_IX_EXAM_IC,CLASS_IX_SEATING,CLASS_IX_SEATING_FIELDS} from '../cbse-half-yearly-analyser-model.js';
 import {pb1ApprovalKey} from '../cbse-academic-exam-kind.js';
 import {createPINPolicy} from './pin-policy.js';
 import {createMissingStaffPINGenerator} from './staff-pin-allocation.js';
@@ -168,23 +168,32 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   const [record,staff,access]=await Promise.all([read('cbse/taskClassIXSeating'),directoryStaff(),read('cbse/staffAccess')]);
   const matches=entries(staff).filter(([id,person])=>person.status==='active'&&access?.[id]?.enabled&&rollNameKey(person.name)===rollNameKey(CLASS_IX_EXAM_IC));
   const eligible=[...new Set(matches.map(([id,person])=>person.pinOwnerId||id))];
-  return {revision:record?.revision||0,rooms:record?.rooms||{},icId:eligible.length===1?eligible[0]:''};
+  return {revision:record?.revision||0,rooms:record?.rooms||{},duties:record?.duties||{},icId:eligible.length===1?eligible[0]:''};
  }
  async function saveClassIXSeating(input,id,access){
   const seating=await classIXSeating();
   if(seating.icId!==id)throw new AccessError('Only Mrs. Jyoti Verma can update Class IX seating with her PIN.',403);
-  if(!input.rooms||typeof input.rooms!=='object'||Array.isArray(input.rooms)||Object.keys(input.rooms).length!==CLASS_IX_SEATING.length||
-   CLASS_IX_SEATING.some(({key})=>!Object.hasOwn(input.rooms,key)||typeof input.rooms[key]!=='string'||input.rooms[key].trim().length>80))
-   throw new AccessError('Enter room names of up to 80 characters for the eight seating ranges.',400);
-  const rooms=Object.fromEntries(CLASS_IX_SEATING.map(({key})=>[key,input.rooms[key].trim()]));
+  const duties={};
+  if(!input.duties||typeof input.duties!=='object'||Array.isArray(input.duties)||Object.keys(input.duties).length!==CLASS_IX_SEATING.length)
+   throw new AccessError('Fill out the seating schedule for all roll ranges.',400);
+  for(const {key} of CLASS_IX_SEATING){
+   const entry=Object.hasOwn(input.duties,key)?input.duties[key]:null;
+   if(!entry||CLASS_IX_SEATING_FIELDS.some(([field])=>typeof entry[field]!=='string'||entry[field].trim().length>80))
+    throw new AccessError('Enter exam areas and invigilator names of up to 80 characters.',400);
+   const duty=Object.fromEntries(CLASS_IX_SEATING_FIELDS.map(([field])=>[field,entry[field].trim()]));
+   const validTime=/^(?:[01]\d|2[0-3]):[0-5]\d$/;
+   if((duty.from||duty.to)&&(!validTime.test(duty.from)||!validTime.test(duty.to)||duty.from>=duty.to))
+    throw new AccessError('Enter both duty times with From earlier than To.',400);
+   duties[key]=duty;
+  }
   const result=await mcqTransaction(db,'cbse',current=>{
    if(current===null)return null;
    const revision=current.taskClassIXSeating?.revision||0;
    if(revision!==input.expectedRevision||!current.staffAccess?.[id]?.enabled||current.staffAccess[id].version!==access.version)return;
-   return {...current,taskClassIXSeating:{revision:revision+1,rooms}};
+   return {...current,taskClassIXSeating:{revision:revision+1,duties}};
   },{restTransaction});
   if(!result.committed||!result.snapshot.val()?.taskClassIXSeating)throw new AccessError('Seating changed. Reopen Task 3 before saving.',409);
-  return {rooms,revision:input.expectedRevision+1,icId:id};
+  return {duties,revision:input.expectedRevision+1,icId:id};
  }
  const halfYearlyPath='cbse/taskHalfYearly';
  const marksCheckers=(plan,faculty,mission,overrides)=>publishedMarksCheckers(plan,

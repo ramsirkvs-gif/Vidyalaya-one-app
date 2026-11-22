@@ -773,16 +773,19 @@ test('Class IX seating uses Jyoti’s PIN and marks and remedial notes stay scop
  const exam='class-ix';
  const seating=await f.service('task-read',{operation:'class-ix-seating-read'});
  assert.equal(seating.icId,'X:one');
- const rooms=Object.fromEntries(['A','B','C','D'].flatMap(section=>[1,21].map(start=>[section+start,'Room '+section+start])));
- const seat={taskOperation:'class-ix-seating-save',rooms,expectedRevision:0};
+ const duties=Object.fromEntries(['A1','A21','A41','B1','B21','B41','C1','C21','D1','D21'].map(key=>[key,
+  {area:'Room '+key,invigilator:'Synthetic invigilator',from:'08:00',to:'11:00'}]));
+ const seat={taskOperation:'class-ix-seating-save',duties,expectedRevision:0};
  await assert.rejects(f.teacher(seat,'X:two','456'),/Only Mrs/);
+ await assert.rejects(f.teacher({...seat,duties:{...duties,A1:{...duties.A1,to:'07:00'}}}),/From earlier than To/);
  await f.teacher(seat);
- assert.deepEqual((await f.service('task-read',{operation:'class-ix-seating-read'})).rooms,rooms);
+ assert.deepEqual((await f.service('task-read',{operation:'class-ix-seating-read'})).duties,duties);
  await assert.rejects(f.teacher(seat),/changed/i);
 
  const csv='Section,RollNo,StudentName,Subject,PreviousMarks,PreviousMM,PreAnnualMM,Teacher\nA,1,Synthetic IX student,Science,8,40,80,X:one\nB,1,Synthetic other student,Hindi,14,40,80,X:two\n';
  const uploaded=await f.admin({operation:'half-yearly-import',exam,expectedRevision:0,csv});
  assert.deepEqual(uploaded.scopes.map(p=>p.classId),['IX','IX']);
+ assert.equal(uploaded.rows[0].before.exam,'Periodic Test 2 (PT-2)');
  assert.equal((await f.admin({operation:'pb1-read',exam:'half-yearly'})).scopes.length,0);
  await assert.rejects(f.service('task-read',{operation:'pb1-named',exam}),/teacher PIN/);
  const own=await f.teacher({exam,taskOperation:'pb1-read'});

@@ -1,10 +1,15 @@
 import {parseCSVRows} from './cbse-basic-import.js';
-import {rollNameKey} from './cbse-roll-call-roster.js';
+import {rollNameKey,secondaryStaffEntry} from './cbse-roll-call-roster.js';
 import {pb1ResultBand,paperDiscussionComment} from './cbse-pb1-analyser-model.js';
 
 export const HALF_YEARLY_COLUMNS=['Section','RollNo','StudentName','Subject','PreviousMarks','PreviousMM','HalfYearlyMM','Teacher'];
-export const CLASS_IX_EXAM={classId:'IX',name:'Pre-Annual Exam',column:'PreAnnualMM'};
-export const CLASS_IX_SEATING=['A','B','C','D'].flatMap(section=>[1,21].map(start=>({key:section+start,section,start,end:start+19})));
+export const CLASS_IX_EXAM={classId:'IX',name:'Pre-Annual Exam',column:'PreAnnualMM',baseline:'PT-2',previous:'Periodic Test 2 (PT-2)'};
+export const CLASS_IX_SEATING=Object.entries({
+ A:[[1,20],[21,40],[41,43]],B:[[1,20],[21,40],[41,48]],C:[[9301,9320],[9321,9340]],D:[[1,20],[21,38]],
+}).flatMap(([section,ranges])=>ranges.map(([start,end],index)=>({key:section+[1,21,41][index],section,start,end})));
+export const CLASS_IX_SEATING_FIELDS=[['area','Exam area / room','text'],['invigilator','Invigilator name','text'],
+ ['from','From time','time'],['to','To time','time']];
+const classIXSubjects=new Set(['ENGLISH','HINDI','MATHEMATICS','SCIENCE','SOCIAL SCIENCE']);
 export const CLASS_IX_EXAM_IC='Mrs. Jyoti Verma';
 export const HALF_YEARLY_CSV_LIMIT=256*1024;
 const norm=value=>value.normalize('NFC').trim().replace(/\s+/g,' ').toUpperCase();
@@ -30,6 +35,7 @@ export function importHalfYearly(source,staff,identify,exam){
   const section=norm(sectionValue),roll=norm(rollValue),subject=norm(subjectValue);
   if(!(exam?/^[A-D]$/:/^[A-Z]$/).test(section)||!roll||roll.length>30||!name||name.length>120||!subject||subject.length>100)
    fail('Enter a section letter, roll number, student name and subject.');
+  if(exam&&!classIXSubjects.has(subject))fail('Use a subject on the Class IX Pre-Annual date sheet.');
   const studentId=identify('student',section,roll);
   if(roster[studentId]&&roster[studentId].name!==name)fail('This roll number has conflicting student names in the section.');
   roster[studentId]={key:studentId,classId,section,roll,name};
@@ -42,16 +48,16 @@ export function importHalfYearly(source,staff,identify,exam){
   const absent=/^ABS?$/i.test(scoreValue);
   if(scoreValue&&!absent&&(!/^\d+(?:\.\d+)?$/.test(scoreValue)||Number(scoreValue)>Number(previousMM)))
    fail('Previous marks must be within the previous maximum, AB, or blank.');
-  const teacherName=rollNameKey(teacher);
+  const teacherName=rollNameKey(teacher),rosterEntry=exam&&secondaryStaffEntry({name:teacher});
   const matched=teacher?teachers.filter(([id,person])=>id===teacher||norm(person.name)===norm(teacher)||
-   teacherName&&rollNameKey(person.name)===teacherName):[];
+   teacherName&&rollNameKey(person.name)===teacherName||rosterEntry&&secondaryStaffEntry(person)?.serial===rosterEntry.serial):[];
   const identities=new Set(matched.map(([id])=>identify('teacher',id)));
   if(teacher&&identities.size!==1)fail('Enter one unambiguous active teacher’s name or staff ID, or leave Teacher blank.');
   const [teacherId,person]=matched[0]||[];
   const paper=papers[paperId]??={classId,sectionId:section,section,subjectId:paperId,subject,maximum:Number(currentMM),
    teacher:person?.name||'',teacherId:teacherId||'',students:{}};
   if(paper.maximum!==Number(currentMM)||paper.teacherId!==(teacherId||''))fail('Use the same '+examName+' maximum and Teacher for every row of this paper.');
-  paper.students[studentId]={enrolled:true,...(scoreValue?{before:result(absent?'AB':Number(scoreValue),Number(previousMM),'Periodic Test 1 (PT-1)')}:{})};
+  paper.students[studentId]={enrolled:true,...(scoreValue?{before:result(absent?'AB':Number(scoreValue),Number(previousMM),exam?.previous||'Periodic Test 1 (PT-1)')}:{})};
  }
  return {papers,roster,excluded};
 }

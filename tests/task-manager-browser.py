@@ -83,8 +83,8 @@ try:
             assert teacher.evaluate('document.documentElement.scrollWidth<=innerWidth')
         strips.nth(2).click()
         teacher.get_by_text('07/12/2026 · Monday · Science',exact=True).wait_for()
-        teacher.get_by_text('IX D · 21–40',exact=True).wait_for()
-        assert teacher.get_by_text('Room to be assigned',exact=True).count()==8
+        teacher.get_by_text('IX C · 9321–9340',exact=True).wait_for()
+        assert teacher.get_by_text('Room to be assigned',exact=True).count()==10
         teacher.get_by_role('button',name='Open marks entry and analyser',exact=True).click()
         teacher.get_by_text('The list opens after the Principal imports',exact=False).wait_for()
         teacher.get_by_role('button',name='Back to Task 3',exact=True).click()
