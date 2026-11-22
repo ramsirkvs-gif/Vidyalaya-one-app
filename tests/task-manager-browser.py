@@ -102,6 +102,7 @@ try:
         assignment_page.get_by_text('Import Class IX roster and PT-2 marks',exact=True).click()
         csv=('Section,RollNo,StudentName,Subject,PreviousMarks,PreviousMM,PreAnnualMM,Teacher\n'
              'A,1,Synthetic IX student,Science,8,40,80,X:one\n'
+             'A,1,Synthetic IX student,English,14,40,80,X:one\n'
              'B,1,Synthetic pending student,Hindi,29,40,80,Synthetic Unmatched Teacher\n')
         assignment_page.get_by_label('Class IX roster and PT-2 marks CSV',exact=True).set_input_files({
             'name':'synthetic-class-ix.csv','mimeType':'text/csv','buffer':csv.encode()})
@@ -140,13 +141,18 @@ try:
         teacher.get_by_label('Evaluator or cross-checker',exact=True).select_option('X:one')
         teacher.get_by_label('Personal PIN',exact=True).fill('123')
         teacher.get_by_role('button',name='Open marks entry',exact=True).click()
+        teacher.get_by_label('Class / section and subject',exact=True).select_option(label='A · SCIENCE')
         teacher.get_by_label('Pre-Annual marks for Synthetic IX student',exact=True).fill('30')
         teacher.get_by_label('Personal PIN to save',exact=True).fill('123')
         teacher.get_by_role('button',name='Save Pre-Annual marks',exact=True).click()
         teacher.get_by_text('Marks saved successfully.',exact=True).wait_for()
         teacher.get_by_role('button',name='Back to Task 3',exact=True).click()
         teacher.get_by_role('button',name='Open weekly remedial action',exact=True).click()
-        teacher.get_by_text('Borderline · 1',exact=True).click()
+        teacher.get_by_text('1 student needs support.',exact=False).wait_for()
+        teacher.get_by_text('View student-wise overview',exact=True).click()
+        teacher.get_by_text(re.compile(r'(?=.*SCIENCE · Borderline)(?=.*ENGLISH · Borderline)')).first.wait_for()
+        science=teacher.locator('section.task-report').filter(has=teacher.get_by_role('heading',name='SCIENCE',exact=True))
+        science.get_by_text('Borderline · 1',exact=True).click()
         assert teacher.get_by_label('Personal PIN',exact=True).count()==0
         assert teacher.get_by_text('Synthetic IX student',exact=True).count()==0
         assert teacher.get_by_role('heading',name=re.compile(r'IX A · Student [0-9A-F]{10}')).is_visible()
@@ -154,10 +160,10 @@ try:
         teacher.get_by_label('Evaluator or cross-checker',exact=True).select_option('X:one')
         teacher.get_by_label('Personal PIN',exact=True).fill('123')
         teacher.get_by_role('button',name='Open my remedial list',exact=True).click()
-        teacher.get_by_text('Borderline · 1',exact=True).click()
-        teacher.get_by_label('Weekly action taken for Synthetic IX student',exact=True).fill('Reteach one concept and reassess on Friday.')
-        teacher.get_by_label('Personal PIN',exact=True).fill('123')
-        teacher.get_by_role('button',name='Save weekly action',exact=True).click()
+        science.get_by_text('Borderline · 1',exact=True).click()
+        science.get_by_label('Weekly action taken for Synthetic IX student · SCIENCE',exact=True).fill('Reteach one concept and reassess on Friday.')
+        science.get_by_label('Personal PIN',exact=True).fill('123')
+        science.get_by_role('button',name='Save weekly action',exact=True).click()
         teacher.get_by_text('Weekly action saved.',exact=True).wait_for()
         teacher.get_by_role('button',name='Back to remedial list',exact=True).click()
         teacher.get_by_role('button',name='Back to Task 3',exact=True).click()
