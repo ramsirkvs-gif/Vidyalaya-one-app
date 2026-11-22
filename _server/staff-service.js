@@ -5,7 +5,7 @@ import {withTaskExamParticipation} from './task-exam-participation.js';
 import {validateMonitoringSheets} from '../cbse-task-workbook.js';
 import {monitoringAssignments,monitoringAdvance,monitoringReopenUpload,monitoringStage,resolvePublishedAvinashAssignments,MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES} from '../cbse-task-monitoring-workflow.js';
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
-import {evaluatorDirectory,publishedMarksCheckers,withPublishedPB1Evaluators} from './pb1-evaluators.js';
+import {advanceFrozenDiscussions,evaluatorDirectory,publishedMarksCheckers,withPublishedPB1Evaluators} from './pb1-evaluators.js';
 import {pb1Report,pb1Scopes,paperDiscussionComment} from '../cbse-pb1-analyser-model.js';
 import {halfYearlyReport,importHalfYearly,updateHalfYearly} from '../cbse-half-yearly-analyser-model.js';
 import {pb1ApprovalKey} from '../cbse-academic-exam-kind.js';
@@ -225,7 +225,12 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
      const allowed=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
      next=updateHalfYearly(structuredClone(state),{...input,operation},allowed,stamp,marksCheckers(current.taskMonitoring?.published,faculty,mission,current.taskMonitoring?.overrides));
     }
-    return {...current,taskHalfYearly:next};
+    const result={...current,taskHalfYearly:next};
+    if(operation==='pb1-approve'&&current.taskMonitoring){
+     const paper=Object.values(next.papers).find(p=>p.classId===input.classId&&p.sectionId===input.sectionId&&p.subjectId===input.subjectId);
+     result.taskMonitoring=advanceFrozenDiscussions(current.taskMonitoring,[paper]);
+    }
+    return result;
    }catch(error){reason=error.message;return;}
   },{restTransaction});
   const saved=transaction.committed&&transaction.snapshot?.val()?.taskHalfYearly;
@@ -303,7 +308,8 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
       key,{...raw.marks[row.markId],id:row.markId,exam:raw.exams[row.examId]},
      ]));
      const pb1Approvals={...raw.pb1Approvals,[approvalKey]:{approvedAt:stamp,marks,discussionComment:paperDiscussionComment(input.discussionComment)}};
-     return {...current,mission:{...raw,pb1Approvals,revision:(raw.revision||0)+1}};
+     return {...current,mission:{...raw,pb1Approvals,revision:(raw.revision||0)+1},
+      ...(current.taskMonitoring?{taskMonitoring:advanceFrozenDiscussions(current.taskMonitoring,[{...paper,approvedAt:stamp}])}:{})};
     }
     if(stale&&(input.expectedMaximum!==paper.maximum||input.entries.some(entry=>{
      const current=roster.get(entry?.key)?.current;
@@ -336,6 +342,34 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   const access=scoped(saved.draft,faculty,assigned);
   return entryReport(saved.draft,faculty,pb1Report(saved.draft,assigned,access.staff,access.ids,access.identity,
    marksCheckers(saved.taskMonitoring?.published,faculty,mission,saved.taskMonitoring?.overrides)),access.ids);
+ }
+ async function monitoringWithFrozenDiscussions(monitoring){
+  const discussion=MONITORING_STEPS.findIndex(step=>step.review);
+  const awaiting=Object.entries(monitoring?.published?.assignments||{})
+   .filter(([key])=>monitoringStage(monitoring.progress?.[key])===discussion).map(([,entry])=>entry);
+  if(!awaiting.length)return monitoring;
+  const xi=entry=>/^(?:Class\s+)?(?:11|XI)\s*-?\s*[A-E]$/i.test(String(entry.section||'').trim());
+  const [approvals,halfYearly]=await Promise.all([
+   awaiting.some(entry=>!xi(entry))?readVersioned('cbse/mission/pb1Approvals','cbse/mission/revision'):null,
+   awaiting.some(xi)?readVersioned(halfYearlyPath,halfYearlyPath+'/revision'):null,
+  ]);
+  const papers=Object.values(halfYearly?.papers||{});
+  if(Object.keys(approvals||{}).length){
+   const draft=await readVersioned('cbse/draft','cbse/draft/revision');
+   papers.push(...pb1Scopes(draft,{pb1Approvals:approvals},{}));
+  }
+  if(advanceFrozenDiscussions(monitoring,papers)===monitoring)return monitoring;
+  // Recheck the approvals inside the transaction in case a paper was just unfrozen.
+  const result=await mcqTransaction(db,'cbse',current=>{
+   if(current===null)return null;
+   const frozenPapers=[
+    ...Object.values(current.taskHalfYearly?.papers||{}),
+    ...pb1Scopes(current.draft,current.mission||{},{}),
+   ];
+   const next=advanceFrozenDiscussions(current.taskMonitoring,frozenPapers);
+   return next===current.taskMonitoring?undefined:{...current,taskMonitoring:next};
+  },{restTransaction});
+  return result.snapshot?.val()?.taskMonitoring||await read(monitoringPath);
  }
  async function reopenTaskUpload(input,actor,staff){
   let reason;
@@ -411,13 +445,13 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(!admin&&input.operation==='monitoring-read'){
     const access=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
     if(access?.error){const error=new AccessError(access.error,access.status);error.curtainRequired=access.curtainRequired;throw error;}
-    const {published,progress,overrides}=await read(monitoringPath)||{};
+    const {published,progress,overrides}=await monitoringWithFrozenDiscussions(await read(monitoringPath))||{};
     if(!published)throw new AccessError('The monitoring plan is no longer published.',404);
     const staff=await directoryStaff();
     return {monitoring:{...resolvePublishedAvinashAssignments(published,staff,overrides),examReviewers:await finalExamReviewers(staff),progress:progress||{}}};
    }
    if(admin&&input.operation==='monitoring-read'){
-    const monitoring=await read(monitoringPath)||{sheets:TASK_MONITORING_SEED,revision:0};
+    const monitoring=await monitoringWithFrozenDiscussions(await read(monitoringPath))||{sheets:TASK_MONITORING_SEED,revision:0};
     if(monitoring.published){
      const staff=await directoryStaff();
      monitoring.published={...resolvePublishedAvinashAssignments(monitoring.published,staff,monitoring.overrides),examReviewers:await finalExamReviewers(staff)};

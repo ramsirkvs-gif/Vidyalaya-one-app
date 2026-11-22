@@ -692,7 +692,8 @@ test('assigned cross-checkers can save PB-1 and XI marks with their PIN while fr
  f.data.cbse.taskMonitoring={published:{revision:1,sheets,assignments:{
   row_1:{subject:'CHEMISTRY',section:'Class 12-A',roles:{}},
   row_2:{subject:'CHEMISTRY',section:'Class 11-A',roles:{checker:{id:'X:two',name:'LAISHRAM GANGA DEVI'}}},
- }}};
+  row_3:{subject:'CHEMISTRY',section:'Class 12-B',roles:{}},
+ }},progress:Object.fromEntries(['row_1','row_2','row_3'].map(key=>[key,{stage:2,revision:2,separateMatching:true}]))};
  await f.service('set-pin',{staffId:'X:two',pin:'456'},'principal');
  // A legacy linked profile can have the PIN previously issued to the same staff member.
  f.data.cbse.facultyDraft.classes.XII.teachers.ganga={name:'MS. L. GANGA DEVI',designation:'PGT-Chemistry',status:'active'};
@@ -712,6 +713,20 @@ test('assigned cross-checkers can save PB-1 and XI marks with their PIN while fr
   assert.equal(saved.rows[0].current.score,30);
   const frozen=await f.admin({...paper,operation:'pb1-approve',expectedRevision:saved.revision});
   await assert.rejects(save(frozen.revision,40),/frozen/);
+  const key=exam?'row_2':'row_1';
+  const progress=f.data.cbse.taskMonitoring.progress;
+  assert.equal(progress[key].stage,3);
+  assert.equal(progress[key].revision,3);
+  assert.equal(progress[key].history[0].remark,'Marks approved and frozen.');
+  assert.equal(progress.row_3.stage,2);
+
+  // Recreate an older approval that predates automatic Task 2 updates.
+  progress[key]={stage:2,revision:2,separateMatching:true};
+  const caughtUp=await f.admin({operation:'monitoring-read'});
+  assert.equal(caughtUp.monitoring.progress[key].stage,3);
+  assert.equal(caughtUp.monitoring.progress.row_3.stage,2);
+  const reopened=await f.admin({operation:'monitoring-read'});
+  assert.deepEqual(reopened.monitoring.progress[key],caughtUp.monitoring.progress[key]);
  }
  f.data.cbse.staffAccess['XII:ganga'].enabled=false;
  await assert.rejects(f.teacher({taskOperation:'pb1-read'},'X:two','789'),/does not match/);

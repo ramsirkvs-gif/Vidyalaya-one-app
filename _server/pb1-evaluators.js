@@ -1,3 +1,4 @@
+import {MONITORING_STEPS,monitoringStage} from '../cbse-task-monitoring-workflow.js';
 import {isGangaDeviProfile} from '../cbse-faculty-guest.js';
 import {compareRollStaff} from '../cbse-roll-call-roster.js';
 
@@ -12,13 +13,38 @@ const subjectKey=value=>{
 const paperKey=(classId,section,subject)=>JSON.stringify([classId,String(section).trim().toUpperCase(),subjectKey(subject)]);
 const classIds={'10':'X','11':'XI','12':'XII'};
 
+function planPaperKey(entry){
+ const section=String(entry.section||'').trim().match(/^(?:Class\s+)?(10|11|12|XII|XI|X)\s*-?\s*([A-E])$/i);
+ if(!section)return '';
+ const standard=section[1].toUpperCase();
+ return paperKey(classIds[standard]||standard,section[2],entry.subject);
+}
+
+export function advanceFrozenDiscussions(monitoring,papers){
+ if(!monitoring?.published||!papers.length)return monitoring;
+ const discussion=MONITORING_STEPS.findIndex(step=>step.review);
+ const frozen=new Map(papers.filter(paper=>paper.approvedAt).map(paper=>[
+  paperKey(paper.classId,paper.section,paper.paperName||paper.subject),paper.approvedAt,
+ ]));
+ let progress;
+ for(const [key,entry] of Object.entries(monitoring.published.assignments||{})){
+  const prior=monitoring.progress?.[key],approvedAt=frozen.get(planPaperKey(entry));
+  if(!approvedAt||monitoringStage(prior)!==discussion)continue;
+  if(prior.identity&&(prior.identity.section!==entry.section||prior.identity.subject!==entry.subject))continue;
+  progress??={...monitoring.progress};
+  progress[key]={...prior,stage:discussion+1,separateMatching:true,revision:(prior.revision||0)+1,
+   identity:{section:entry.section,subject:entry.subject},history:[...(prior.history||[]),{
+    label:MONITORING_STEPS[discussion].options[0][1],name:'Principal',remark:'Marks approved and frozen.',at:approvedAt,
+   }]};
+ }
+ return progress?{...monitoring,progress}:monitoring;
+}
+
 function publishedAssignments(published,role,step){
  const assignments=new Map();
  for(const entry of Object.values(published?.assignments||{})){
-  const section=String(entry.section||'').trim().match(/^(?:Class\s+)?(10|11|12|XII|XI|X)\s*-?\s*([A-E])$/i);
-  const id=(entry.substitutes?.[step]||entry.roles?.[role])?.id;
-  if(!section||!id)continue;
-  const standard=section[1].toUpperCase(),key=paperKey(classIds[standard]||standard,section[2],entry.subject);
+  const key=planPaperKey(entry),id=(entry.substitutes?.[step]||entry.roles?.[role])?.id;
+  if(!key||!id)continue;
   const people=assignments.get(key)||new Set();
   people.add(id);assignments.set(key,people);
  }
