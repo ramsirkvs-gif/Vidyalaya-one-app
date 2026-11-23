@@ -17,7 +17,7 @@ with sync_playwright() as p:
    route.fulfill(json=value)
   except Exception as e:route.fulfill(status=409,json={'error':str(e)})
  page.route('**/api/staff-access',api);page.evaluate("""async()=>{const {renderRollCall}=await import('./cbse-roll-call-view.js');renderRollCall(document.querySelector('#host'));}""")
- other_text='Custom leave request: family commitment. '+('Details supplied in free text. '*4).strip()+'\nSecond line with punctuation & dates.'
+ other_text='Family duty.\nUrgent!'
  page.get_by_role('button',name='Leave/OD outside reporting (to avoid Roll Call)',exact=True).click();page.locator('[name=roll-reporting-wing]').select_option('secondary');page.locator('[name=roll-staff]').select_option('X:one');page.locator('.advance-leave-form').wait_for();page.locator('[name=advance-leave-kind]').select_option('Other');page.locator('[name=other-leave-kind]').fill(other_text);page.locator('[name=leave-undertaking]').check();page.locator('[data-leave-date="2026-11-09"]').click();page.locator('[data-leave-date="2026-11-11"]').click();assert '2 dates selected' in page.locator('.advance-leave-selected').inner_text()
  for name in ['advance_approval','advance_cover','advance_exam','advance_tasks']:page.locator('[name=roll-'+name+']').select_option('yes')
  page.once('dialog',lambda dialog:dialog.accept())

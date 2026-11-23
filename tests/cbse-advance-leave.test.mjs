@@ -51,15 +51,18 @@ test('OD outside saves short Samagam details through retries, review edits and p
  const leave=applyRollCall({},{...payload,leaveKind:'Casual leave (CL)'},actor,staff,now,'cl');assert.equal(leave.advanceLeaves.cl.odDetails,undefined);
 });
 
-test('advance leave accepts multiline custom text and supports Principal review of the saved type',()=>{
- const other='Custom leave details '.repeat(8)+'\nSecond line with punctuation & a date.';
+test('advance leave caps custom text at 20 characters and preserves earlier types on review',()=>{
+ const other='Family duty.\nUrgent!';
+ assert.equal(other.length,20);
+ assert.throws(()=>applyRollCall({}, {...input,workflowVersion:3,leaveKind:'Other',otherLeaveKind:other+'!',undertaking:true},actor,staff,now,'custom'),/up to 20 characters/);
  const state=applyRollCall({},{
   ...input,workflowVersion:3,leaveKind:'Other',otherLeaveKind:other,undertaking:true,
  },actor,staff,now,'custom');
  assert.equal(state.advanceLeaves.custom.leaveKind,'Other: '+other);
+ state.advanceLeaves.custom.leaveKind='Other: '+other+' Earlier detail.';
  const reviewed=applyRollCall(state,{
   rollOperation:'advance-leave-edit',leaveId:'custom',expectedRevision:1,reviewComment:'Reviewed.',
   dates:input.dates,leaveKind:state.advanceLeaves.custom.leaveKind,
  },admin,staff,now);
- assert.equal(reviewed.advanceLeaves.custom.leaveKind,'Other: '+other);
+ assert.equal(reviewed.advanceLeaves.custom.leaveKind,state.advanceLeaves.custom.leaveKind);
 });
