@@ -50,3 +50,16 @@ test('OD outside saves short Samagam details through retries, review edits and p
  state=applyRollCall(state,{...payload,rollOperation:'advance-leave-resubmit',leaveId:id,expectedRevision:3,requestId:'od_corrected',odDetails:'Teacher training at KVS RO'},actor,staff,now+3);assert.equal(state.advanceLeaves[id].odDetails,'Teacher training at KVS RO');assert.equal(state.advanceLeaves[id].history[3].status,'returned');
  const leave=applyRollCall({},{...payload,leaveKind:'Casual leave (CL)'},actor,staff,now,'cl');assert.equal(leave.advanceLeaves.cl.odDetails,undefined);
 });
+
+test('advance leave accepts multiline custom text and supports Principal review of the saved type',()=>{
+ const other='Custom leave details '.repeat(8)+'\nSecond line with punctuation & a date.';
+ const state=applyRollCall({},{
+  ...input,workflowVersion:3,leaveKind:'Other',otherLeaveKind:other,undertaking:true,
+ },actor,staff,now,'custom');
+ assert.equal(state.advanceLeaves.custom.leaveKind,'Other: '+other);
+ const reviewed=applyRollCall(state,{
+  rollOperation:'advance-leave-edit',leaveId:'custom',expectedRevision:1,reviewComment:'Reviewed.',
+  dates:input.dates,leaveKind:state.advanceLeaves.custom.leaveKind,
+ },admin,staff,now);
+ assert.equal(reviewed.advanceLeaves.custom.leaveKind,'Other: '+other);
+});

@@ -16,4 +16,5 @@ export function snapshotQuestionComments(questions,answers,comments={}){
  return out;
 }
 export const LEAVE_KINDS=['Casual leave (CL)','Earned leave (EL)','Unpaid contractual leave','Paid contractual leave','OD outside','Other'];
-export function chamberLeaveKind(input){if(!LEAVE_KINDS.includes(input.leaveKind))throw Error('Select a valid leave type.');if(input.leaveKind!=='Other')return input.leaveKind;const other=String(input.otherLeaveKind||'').trim();if(!other||other.length>100)throw Error('Enter the other leave type (up to 100 characters).');return 'Other: '+other;}
+export const OTHER_LEAVE_KIND_LIMIT=2000;
+export function chamberLeaveKind(input){if(!LEAVE_KINDS.includes(input.leaveKind))throw Error('Select a valid leave type.');if(input.leaveKind!=='Other')return input.leaveKind;const other=String(input.otherLeaveKind||'').trim();if(!other||other.length>OTHER_LEAVE_KIND_LIMIT)throw Error('Enter the other leave type (up to '+OTHER_LEAVE_KIND_LIMIT+' characters).');return 'Other: '+other;}
