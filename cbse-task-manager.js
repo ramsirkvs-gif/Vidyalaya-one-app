@@ -58,12 +58,13 @@ function navigation(){
 function clearSuppliedFigures(id){if(suppliedFigures?.taskId===id){suppliedFigures=null;document.querySelector('.task-import-ready')?.remove();}}
 function adopt(result){store=result;staff=result.staff||staff;}
 async function admin(input){const result=await request({action:'task-principal',...input},true);adopt(result);return result;}
-async function load(){closeTaskPresentation();document.body.classList.remove('task-form-open');document.querySelectorAll('dialog.task-start-dialog').forEach(d=>d.remove());renderedMode=mode();navigation();host.replaceChildren();if(user){try{await admin({operation:'read'});principal=true;history.replaceState(null,'','#principal');navigation();
+async function load(){const portfolioRequested=location.hash==="#portfolio";closeTaskPresentation();document.body.classList.remove('task-form-open');document.querySelectorAll('dialog.task-start-dialog').forEach(d=>d.remove());renderedMode=mode();navigation();host.replaceChildren();if(user){try{await admin({operation:'read'});principal=true;history.replaceState(null,'','#principal');navigation();
  const review=pendingHalfYearlyReview;pendingHalfYearlyReview=undefined;
  if(review)await openPB1Analyser(Boolean(review.paper),'half-yearly',review.paper);
+ else if(portfolioRequested)await openSupportPortfolio();
  else drawPrincipal();
  return;}catch(error){if(![401,403].includes(error.status))throw error;}}
- adopt(await request({action:'task-read'}));drawStaff();}
+ adopt(await request({action:'task-read'}));if(portfolioRequested)await openSupportPortfolio();else drawStaff();}
 
 function catalogue(parent){
  const list=Object.entries(store.tasks||{}).map(([id,t])=>({
@@ -833,7 +834,7 @@ async function openDailyPending(){
 
 function drawPrincipal(){if(suppliedFigures&&Object.hasOwn(store.tasks||{},suppliedFigures.taskId)){const task=store.tasks[suppliedFigures.taskId];task.draft.headers={...task.draft.headers,...suppliedFigures.headers};task.summary=taskSummary(task);}host.replaceChildren(el('h2','Create and manage tasks'));host.append(el('p','1. Create task → 2. Select classes → 3. Assign teachers → 4. Prepare shared questions → 5. Save and publish → 6. Track submissions.','task-flow-guide'));
  if(suppliedFigures){const banner=el('p',Object.keys(suppliedFigures.headers).length+(Object.hasOwn(store.tasks||{},suppliedFigures.taskId)?' supplied class rows are loaded into the shared draft. Review the figures, assign teachers, then Save and publish task.':' supplied class rows are ready. Create the Task 1 draft to load them.'),'task-import-ready');host.append(banner);}if(suppliedFiguresError)host.append(el('p',suppliedFiguresError,'task-error'));
- const actions=el('div',undefined,'task-actions');actions.append(button('Create Task 1 unpublished draft',async()=>{if(!discard())return;await admin({operation:'create-task1'});openPrincipalTask('task1',store.tasks.task1);message('Task 1 is an unpublished draft unless it was previously published. Existing content is preserved.');}),button('Create another task',()=>{if(!discard())return;newTask();}),button('Refresh tasks',async()=>{if(!discard())return;await admin({operation:'read'});drawPrincipal();}));actions.firstElementChild.hidden=!!store.tasks?.task1;actions.prepend(button('PB-1 Marks and Freeze Report',openPB1FreezeReport),button('Daily pending list',openDailyPending));host.append(actions);catalogue(host);drawAnalyserCards();}
+ const actions=el('div',undefined,'task-actions');actions.append(button('Create Task 1 unpublished draft',async()=>{if(!discard())return;await admin({operation:'create-task1'});openPrincipalTask('task1',store.tasks.task1);message('Task 1 is an unpublished draft unless it was previously published. Existing content is preserved.');}),button('Create another task',()=>{if(!discard())return;newTask();}),button('Refresh tasks',async()=>{if(!discard())return;await admin({operation:'read'});drawPrincipal();}));actions.firstElementChild.hidden=!!store.tasks?.task1;actions.prepend(button('Task 5 · Student Support Portfolio',openSupportPortfolio),button('PB-1 Marks and Freeze Report',openPB1FreezeReport),button('Daily pending list',openDailyPending));host.append(actions);catalogue(host);drawAnalyserCards();}
 let excelLoading;
 async function taskExcel(){if(globalThis.ExcelJS&&globalThis.JSZip)return {ExcelJS:globalThis.ExcelJS,JSZip:globalThis.JSZip};excelLoading||=Promise.all([['ExcelJS','vendor/exceljs/exceljs.min.js'],['JSZip','vendor/mcq/jszip.min.js']].map(([name,src])=>globalThis[name]?Promise.resolve():new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.onload=resolve;script.onerror=()=>{excelLoading=null;reject(Error('Excel reader could not load. Retry the import.'));};document.head.append(script);}))).then(()=>({ExcelJS:globalThis.ExcelJS,JSZip:globalThis.JSZip}));return excelLoading;}
 function fixedClassQuestions(parent,headers={}){parent.replaceChildren();let number=0;for(const [key,label]of Object.entries(TASK_HEADERS)){const item=el('div',undefined,'task-fixed-question');item.dataset.fixedQuestion=key;item.append(el('small','Q'+(++number)+' · View only'),el('span',label),el('strong',String(headers[key]??'Unprovided'),headers[key]==null?'task-header-missing':undefined));parent.append(item);}}
@@ -1529,6 +1530,116 @@ async function openRetest(){
  draw();
 }
 
+async function openSupportPortfolio(){
+ const back=()=>{if(discard())return principal?drawPrincipal():drawStaff();};
+ const card=el('section',undefined,'task-card'),title=el('h2','Task 5 — PB-1 Student Support Portfolio');
+ card.append(title);
+ host.replaceChildren(button('Back to task list',back),card);
+ const read=(staffId,pin)=>request(principal?{action:'task-principal',operation:'portfolio-read'}:
+  {action:'pin-submit',operation:'task-manager',taskOperation:'portfolio-read',staffId,pin},principal);
+ const content=el('div');
+ function render(data,staffId='',selected=''){
+  content.replaceChildren();
+  content.append(el('p','HQ report reference · '+data.updated));
+  if(!data.students.length){content.append(el('p','No reported PB-1 fail cases are available for this view.'));return;}
+  const filters=el('div',undefined,'pb1-filters'),subjects=field(filters,'Subject','portfolio-subject','select'),
+   sections=field(filters,'Section','portfolio-section','select'),students=field(filters,'Student','portfolio-student','select');
+  const detail=el('div');
+  options(subjects,[['','All subjects'],...[...new Set(data.students.flatMap(student=>student.subjects.map(item=>item.subject)))].sort().map(value=>[value,value])]);
+  options(sections,[['','All sections'],...[...new Set(data.students.map(student=>student.section))].sort().map(value=>[value,value])]);
+  content.append(filters,detail);
+  function drawStudent(allSubjects=false){
+   detail.replaceChildren();
+   const student=data.students.find(item=>item.key===students.value);
+   if(!student)return;
+   detail.append(el('h3',student.name+' · '+student.section+(student.roll?' · Roll '+student.roll:'')));
+   for(const item of student.subjects.filter(item=>allSubjects||!subjects.value||item.subject===subjects.value)){
+    const section=el('section',undefined,'task-card');
+    section.append(el('h4',item.subject+' · '+item.score+'/'+item.maximum),el('p',item.teacher||'Subject teacher assignment pending'));
+    section.append(el('h5','Work already recorded'));
+    if(!item.evidence.length)section.append(el('p','No matching portal records.'));
+    for(const event of item.evidence)section.append(el('p',[rollDateText(event.date),event.source,event.detail].filter(Boolean).join(' · ')));
+    section.append(el('h5','Action taken and next plan'));
+    if(!item.actions.length)section.append(el('p','Awaiting teacher update.'));
+    for(const entry of item.actions){
+     const note=el('div');
+     note.append(el('strong',rollTimestamp(entry.at)+' · '+entry.teacher));
+     for(const [label,value] of [['Action taken',entry.taken],['Next action plan',entry.plan],
+      ['Progress / reassessment',entry.progress],['Review date',entry.review?rollDateText(entry.review):'']]){
+      if(value)note.append(el('p',label+' · '+value));
+     }
+     section.append(note);
+    }
+    if(staffId){
+     const editor=el('details'),update=form(),entryId=crypto.randomUUID();
+     editor.append(el('summary','Add action or update plan'),update);
+     const taken=field(update,'Action taken','portfolio-taken','textarea');
+     const plan=field(update,'Next action plan','portfolio-plan','textarea');
+     const progress=field(update,'Progress / reassessment','portfolio-progress','textarea');
+     const review=field(update,'Next review date','portfolio-review','date');
+     const pin=field(update,'Personal PIN to save','portfolio-save-pin','password');
+     for(const control of [taken,plan])control.maxLength=1500;
+     progress.maxLength=800;pin.required=true;pin.autocomplete='off';pin.inputMode='numeric';
+     update.append(el('button','Save portfolio update'));
+     update.onsubmit=event=>{
+      event.preventDefault();
+      const secret=pin.value;pin.value='';
+      run(async()=>{
+       const saved=await request({action:'pin-submit',operation:'task-manager',taskOperation:'portfolio-save',staffId,pin:secret,
+        caseKey:item.key,entryId,taken:taken.value,plan:plan.value,progress:progress.value,review:review.value});
+       render(saved,staffId,student.key);
+       message('Portfolio update saved.');
+      });
+     };
+     section.append(editor);
+    }
+    detail.append(section);
+   }
+  }
+  function filterStudents(preferred){
+   const matches=data.students.filter(student=>(!sections.value||student.section===sections.value)&&
+    (!subjects.value||student.subjects.some(item=>item.subject===subjects.value)));
+   options(students,[['',matches.length?matches.length+' students · Choose a student':'No matching students'],
+    ...matches.map(student=>[student.key,student.section+' · '+student.name])],preferred);
+   drawStudent();
+  }
+  let previous={};
+  const remember=()=>{previous={student:students.value,section:sections.value,subject:subjects.value};};
+  const protect=draw=>{
+   if(discard()){draw();remember();}
+   else{students.value=previous.student;sections.value=previous.section;subjects.value=previous.subject;}
+  };
+  students.onchange=()=>protect(drawStudent);
+  sections.onchange=subjects.onchange=()=>protect(()=>filterStudents(students.value));
+  if(principal)content.append(button('Print selected portfolio',()=>{
+   if(!students.value)return;
+   const print=el('article',undefined,'task-status-print');
+   drawStudent(true);
+   print.append(title.cloneNode(true),detail.cloneNode(true));
+   drawStudent();
+   document.body.append(print);
+   try{window.print();}finally{print.remove();}
+  }));
+  filterStudents(selected);remember();
+ }
+ if(principal){card.append(content);render(await read());return;}
+ const {teachers}=await request({action:'task-read',operation:'pb1-directory'});
+ const login=form(),person=field(login,'Select your name','portfolio-teacher','select'),
+  pin=field(login,'Personal PIN','portfolio-pin','password');
+ options(person,[['','Choose your name'],...teachers.map(({id,name})=>[id,name])]);
+ person.required=pin.required=true;pin.autocomplete='off';pin.inputMode='numeric';
+ login.append(el('button','Open assigned portfolios'));
+ login.onsubmit=event=>{
+  event.preventDefault();
+  if(content.querySelector('[data-portal-dirty=true]')&&!confirm('Discard the unsaved portfolio update?'))return;
+  const secret=pin.value,id=person.value;
+  pin.value='';
+  content.replaceChildren();
+  run(async()=>{const data=await read(id,secret);login.dataset.portalDirty='false';render(data,id);});
+ };
+ card.append(login,content);
+}
+
 function drawStaff(){
  const tasks=Object.entries(store.tasks||{}).filter(([id])=>id!=='task1')
   .sort(([,a],[,b])=>TASK_PRIORITIES.indexOf(a.priority)-TASK_PRIORITIES.indexOf(b.priority));
@@ -1537,6 +1648,7 @@ function drawStaff(){
   ['Task 2','Pre-Samagam Evaluation Monitoring','Running','running',drawStaffTask2],
   ['Task 3','Class IX Pre-Annual Exam','Running','upcoming',drawClassIXExam],
   ['Task 4',RETEST_TITLE,'High priority','priority',openRetest],
+  ['Task 5','PB-1 Student Support Portfolio','Running','running',openSupportPortfolio],
  ]){
   const item=el('li'),strip=button('',open);
   strip.className='task-stage-strip is-'+style;

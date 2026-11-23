@@ -128,15 +128,45 @@ try:
         teacher.goto(BASE+'cbse-task-manager.html#staff')
         strips=teacher.locator('.task-stage-strip')
         strips.last.wait_for()
-        assert strips.count()==3
+        assert strips.count()==4
         assert teacher.get_by_text('HQ Survey',exact=True).count()==0
         assert strips.nth(1).inner_text().splitlines()[:2]==['Task 3','Class IX Pre-Annual Exam']
         assert 'Running' in strips.nth(1).inner_text()
         assert teacher.locator('.task-public-list').count()==0
-        assert teacher.locator('button.task-stage-strip').count()==3
+        assert teacher.locator('button.task-stage-strip').count()==4
         for width in [320,390,768,1440]:
             teacher.set_viewport_size({'width':width,'height':900})
             assert teacher.evaluate('document.documentElement.scrollWidth<=innerWidth')
+        def portfolio_api(route):
+            payload=route.request.post_data_json
+            if payload.get('operation')=='pb1-directory':
+                route.fulfill(json={'teachers':[{'id':'X:one','name':'Synthetic Teacher one'}]})
+            elif payload.get('taskOperation') in ('portfolio-read','portfolio-save'):
+                saved=payload['taskOperation']=='portfolio-save'
+                assert payload['pin']=='123' and payload['staffId']=='X:one'
+                if saved:assert payload['caseKey']=='case-one' and payload['taken']=='Practice completed'
+                route.fulfill(json={'updated':'23/11/2026 15:00:33 IST','students':[{
+                    'key':'one','name':'Synthetic Student','roll':'1','section':'XA','subjects':[{
+                        'key':'case-one','subject':'English','teacher':'Synthetic Teacher one','score':20,'maximum':80,
+                        'evidence':[{'source':'Verified remedial attendance','date':'2026-11-23','detail':'Reading practice'}],
+                        'actions':[{'taken':'Practice completed','at':1795420000000,'teacher':'Synthetic Teacher one'}] if saved else []
+                    }]
+                }]})
+            else:route.continue_()
+        teacher.route('**/api/staff-access',portfolio_api)
+        strips.nth(3).click()
+        teacher.get_by_label('Select your name',exact=True).select_option('X:one')
+        teacher.get_by_label('Personal PIN',exact=True).fill('123')
+        teacher.get_by_role('button',name='Open assigned portfolios',exact=True).click()
+        teacher.get_by_label('Student',exact=True).select_option('one')
+        teacher.get_by_text('Reading practice',exact=False).wait_for()
+        teacher.get_by_text('Add action or update plan',exact=True).click()
+        teacher.get_by_label('Action taken',exact=True).fill('Practice completed')
+        teacher.get_by_label('Personal PIN to save',exact=True).fill('123')
+        teacher.get_by_role('button',name='Save portfolio update',exact=True).click()
+        teacher.get_by_text('Action taken · Practice completed',exact=True).wait_for()
+        teacher.get_by_role('button',name='Back to task list',exact=True).click()
+        teacher.unroute('**/api/staff-access',portfolio_api)
         strips.nth(2).click()
         teacher.get_by_text('The retest list is awaiting publication.',exact=True).wait_for()
         teacher.get_by_role('button',name='Back to task list',exact=True).click()

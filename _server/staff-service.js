@@ -1,3 +1,4 @@
+import {portfolioCases,portfolioView,portfolioAction} from './pb1-support-portfolio.js';
 import {hqPB1Verification} from './pb1-hq-verification.js';
 import {parseRetestCSV,retestUpdates,RETEST_STEPS} from '../cbse-task-retest-model.js';
 import {checkTaskSlipDrive,uploadTaskSignedSlip} from './task-signed-slip-drive.js';
@@ -336,6 +337,42 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   }
   return {...report,scopes:report.scopes.map((paper,index)=>({...paper,freezeToken:pb1FreezeToken(paper,rowsByScope.get(index)||[])}))};
  }
+ function supportPortfolioData(draft,faculty,mission,actor){
+  const directory=staffIndex(faculty,mission,{includeRollOnly:true});
+  const identity=id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id;
+  const ids=actor.id?new Set(teacherIdentityIds(actor.id,faculty,mission)):undefined;
+  const report=pb1Report(draft,mission,directory,undefined,identity);
+  return {cases:portfolioCases(report,ids),ids};
+ }
+ async function supportPortfolio(input,actor){
+  if(input.taskOperation!=='portfolio-save'){
+   const [{draft,faculty,mission},actions]=await Promise.all([
+    context(),read('cbse/taskPB1Portfolio')
+   ]);
+   const {cases,ids}=supportPortfolioData(draft,faculty,mission,actor);
+   return portfolioView(cases,mission,Object.fromEntries(cases.map(({key})=>[key,actions?.[createHash('sha256').update(key).digest('hex')]])),ids);
+  }
+  if(typeof input.caseKey!=='string'||input.caseKey.length>700||
+     typeof input.entryId!=='string'||!/^[a-f0-9-]{36}$/.test(input.entryId))throw new AccessError('Choose a portfolio case.',400);
+  const stamp=now();
+  let reason;
+  const saved=await mcqTransaction(db,'cbse',current=>{
+   if(!current)return null;
+   try{
+    const access=current.staffAccess?.[actor.id];
+    if(!access?.enabled||access.version!==actor.version)throw Error('Your PIN access changed. Verify again.');
+    const {draft}=current,{faculty,mission}=resolvedViewingData(draft,current.facultyDraft,current.mission||emptyMission());
+    const {cases}=supportPortfolioData(draft,faculty,mission,actor);
+    if(!cases.some(item=>item.key===input.caseKey))throw Error('This failed subject is outside your assigned portfolio.');
+    const entry=portfolioAction(input,actor,stamp);
+    const key=createHash('sha256').update(input.caseKey).digest('hex');
+    const entries=current.taskPB1Portfolio?.[key]||{};
+    return {...current,taskPB1Portfolio:{...current.taskPB1Portfolio,[key]:{...entries,[input.entryId]:entries[input.entryId]||entry}}};
+   }catch(error){reason=error.message;return;}
+  },{restTransaction});
+  if(!saved.committed)throw new AccessError(reason||'The action could not be saved. Try again.',409);
+  return supportPortfolio({},actor);
+ }
  async function pb1Workspace(input,actor){
   function scoped(draft,faculty,mission){
    const staff=staffIndex(faculty,mission,{includeRollOnly:true}),ids=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
@@ -557,6 +594,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
+   if(input.operation==='portfolio-read'&&admin)return supportPortfolio(input,{});
    if(['retest-read','retest-import','retest-save','retest-publish','retest-unpublish'].includes(input.operation))return retestWorkspace(input,adminIdentity,session);
    if(admin&&input.operation==='monitoring-drive-check'){
     try{return {folders:await checkTaskSlipDrive()};}
@@ -947,6 +985,8 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(input.taskOperation==='class-ix-date-notes-save'||input.taskOperation==='class-ix-qp-notes-save')
     return saveClassIXComments(input,input.taskOperation==='class-ix-date-notes-save'?'dateNotes':'qpAssignments',{id,version:access.version});
    if(input.taskOperation==='class-ix-seating-save')return saveClassIXSeating(input,id,access);
+   if(['portfolio-read','portfolio-save'].includes(input.taskOperation))
+    return supportPortfolio(input,{id,version:access.version,name:staff[id].name});
    if(input.taskOperation==='retest-teacher-save')return retestWorkspace({...input,operation:'retest-teacher-save'},{id,version:access.version},session);
    if(input.exam==='class-ix'&&input.taskOperation==='class-ix-remedial-save')return halfYearlyWorkspace(input,{id,accessVersion:access.version});
    if(['pb1-read','pb1-save'].includes(input.taskOperation))return (['half-yearly','class-ix'].includes(input.exam)?halfYearlyWorkspace:pb1Workspace)(input,{id,accessVersion:access.version});
