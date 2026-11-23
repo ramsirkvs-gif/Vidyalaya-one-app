@@ -362,3 +362,16 @@
 .portfolio-progress-track>span{display:block;background:#487ca9;height:100%;print-color-adjust:exact}
 .portfolio-pb1-point .portfolio-progress-track>span{background:#17745c}
 @media(max-width:550px){.portfolio-progress-graph li{grid-template-columns:minmax(0,1fr) 5ch 6ch}.portfolio-progress-track{grid-column:1/-1}}
+
+.portfolio-student-avatar{overflow:hidden;box-shadow:0 0 0 1px #c1d9ec}
+.portfolio-student-avatar img{display:block;width:100%;height:100%;object-fit:cover;object-position:center 28%}
+.portfolio-profile-heading,.portfolio-teacher-profile{display:flex;align-items:center;gap:12px}
+.portfolio-profile-heading{margin:16px 0;padding:14px;border-radius:13px;background:#eaf3fa}
+.portfolio-profile-heading .portfolio-student-avatar{flex:none;width:62px;height:62px}
+.portfolio-profile-heading :is(h3,p){margin:0}
+.portfolio-profile-heading p{margin-top:4px;color:#455d73}
+.portfolio-teacher-profile{width:fit-content;max-width:100%;margin:8px 0 18px;padding:8px 13px;border:1px solid #d1e7df;border-radius:12px;background:#edf7f3}
+.portfolio-teacher-profile .portfolio-student-avatar{flex:none;background:#dcece6;color:#175849;box-shadow:0 0 0 1px #b4d5c9}
+.portfolio-teacher-profile :is(strong,small){display:block;overflow-wrap:anywhere}
+.portfolio-teacher-profile small{margin-top:3px;color:#47635d}
+@media print{.portfolio-profile-heading,.portfolio-teacher-profile{break-inside:avoid}}

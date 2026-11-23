@@ -1541,6 +1541,22 @@ function portfolioAssessmentDate(value){
  return /^\d{4}-\d{2}$/.test(value||'')?value.slice(0,4):'';
 }
 
+function portfolioPortrait(name,photo){
+ const initials=String(name||'').trim().split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('');
+ const avatar=el('span',initials,'portfolio-student-avatar');
+ avatar.setAttribute('aria-hidden','true');
+ if(photo){
+  const image=el('img');
+  image.alt='';
+  image.loading='lazy';
+  image.decoding='async';
+  image.addEventListener('error',()=>{avatar.textContent=initials;},{once:true});
+  avatar.replaceChildren(image);
+  image.src=photo;
+ }
+ return avatar;
+}
+
 async function openSupportPortfolio(teacherMode=false){
  const asPrincipal=principal&&!teacherMode;
  const back=()=>{if(discard())return principal?drawPrincipal():drawStaff();};
@@ -1580,7 +1596,10 @@ async function openSupportPortfolio(teacherMode=false){
    detail.replaceChildren();
    const student=data.students.find(item=>item.key===selected);
    if(!student)return;
-   detail.append(el('h3',student.name+' · '+student.section+(student.roll?' · Roll '+student.roll:'')));
+   const heading=el('div',undefined,'portfolio-profile-heading'),copy=el('div');
+   copy.append(el('h3',student.name),el('p',student.section+(student.roll?' · Roll '+student.roll:'')));
+   heading.append(portfolioPortrait(student.name,student.photo),copy);
+   detail.append(heading);
    const mcq=student.mcq||[];
    const participation=el('section',undefined,'task-card');
    participation.append(el('h4','MCQ participation · '+mcq.length+' evaluated '+(mcq.length===1?'paper':'papers')));
@@ -1592,7 +1611,16 @@ async function openSupportPortfolio(teacherMode=false){
    detail.append(participation);
    for(const item of student.subjects.filter(item=>allSubjects||!subjects.value||subjectLabel(student,item)===subjects.value)){
     const section=el('section',undefined,'task-card');
-    section.append(el('h4',item.subject+' · PB-1 '+item.score+'/'+item.maximum),el('p',item.teacher||'Subject teacher assignment pending'));
+    section.append(el('h4',item.subject+' · PB-1 '+item.score+'/'+item.maximum));
+    const teachers=(item.teacherKeys||[]).map(key=>data.teachers?.[key]).filter(Boolean);
+    if(!teachers.length)section.append(el('p',item.teacher||'Subject teacher assignment pending'));
+    for(const teacher of teachers){
+     const profile=el('div',undefined,'portfolio-teacher-profile'),copy=el('div');
+     copy.append(el('strong',teacher.name));
+     if(teacher.designation)copy.append(el('small',teacher.designation));
+     profile.append(portfolioPortrait(teacher.name,teacher.photo),copy);
+     section.append(profile);
+    }
     section.append(el('h5','Marks progress'));
     const graph=el('ul',undefined,'portfolio-progress-graph');
     for(const assessment of item.assessments||[{name:'PB-1',score:item.score,maximum:item.maximum,pb1:true}]){
@@ -1669,9 +1697,8 @@ async function openSupportPortfolio(teacherMode=false){
     strip.className='portfolio-student-strip';
     strip.setAttribute('aria-label',student.name);
     strip.setAttribute('aria-pressed',String(student.key===selected));
-    const initials=student.name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('');
-    const avatar=el('span',initials,'portfolio-student-avatar'),arrow=el('span','›','portfolio-student-arrow');
-    avatar.setAttribute('aria-hidden','true');arrow.setAttribute('aria-hidden','true');
+    const avatar=portfolioPortrait(student.name,student.photo),arrow=el('span','›','portfolio-student-arrow');
+    arrow.setAttribute('aria-hidden','true');
     const copy=el('span',undefined,'portfolio-student-copy');
     copy.append(el('strong',student.name),el('small',[student.section,student.roll?'Roll '+student.roll:'',student.subjects.map(subject=>subject.subject).join(', ')].filter(Boolean).join(' · ')));
     strip.append(avatar,copy,arrow);

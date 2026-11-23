@@ -342,15 +342,15 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   const identity=id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id;
   const ids=actor.id?new Set(teacherIdentityIds(actor.id,faculty,mission)):undefined;
   const report=pb1Report(draft,mission,directory,undefined,identity);
-  return {cases:portfolioCases(report,ids),ids};
+  return {cases:portfolioCases(report,ids),ids,directory};
  }
  async function supportPortfolio(input,actor){
   if(input.taskOperation!=='portfolio-save'){
    const [{draft,faculty,mission},actions]=await Promise.all([
     context(),read('cbse/taskPB1Portfolio')
    ]);
-   const {cases,ids}=supportPortfolioData(draft,faculty,mission,actor);
-   return portfolioView(cases,mission,Object.fromEntries(cases.map(({key})=>[key,actions?.[createHash('sha256').update(key).digest('hex')]])),ids,draft);
+   const {cases,ids,directory}=supportPortfolioData(draft,faculty,mission,actor);
+   return portfolioView(cases,mission,Object.fromEntries(cases.map(({key})=>[key,actions?.[createHash('sha256').update(key).digest('hex')]])),ids,draft,directory);
   }
   if(typeof input.caseKey!=='string'||input.caseKey.length>700||
      typeof input.entryId!=='string'||!/^[a-f0-9-]{36}$/.test(input.entryId))throw new AccessError('Choose a portfolio case.',400);

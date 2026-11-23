@@ -1,5 +1,12 @@
 import {facultyPortraits} from './cbse-faculty-portrait-data.js';
 const nameKey=value=>String(value||'').replace(/\b(MRS|MR|MS|DR|SHRI|SMT|MISS)\b\.?\s*/gi,'').toUpperCase().replace(/[^A-Z]/g,'');
+export function facultyPortraitSource(id,person){
+ if(!person||person.status!=='active')return '';
+ if(/^data:image\/(jpeg|png|webp);base64,/.test(person.photoData||''))return person.photoData;
+ const matches=facultyPortraits.filter(item=>item.names.some(name=>nameKey(name)===nameKey(person.name))&&
+  (item.staffId?item.staffId===id:item.kind===person.kind));
+ return matches.length===1?matches[0].file:'';
+}
 function portrait(person,size){const img=document.createElement('img');img.src=person.photoData||new URL('./'+person.file,import.meta.url).href;img.alt='';img.setAttribute('aria-hidden','true');img.width=size;img.height=size;img.className='faculty-portrait faculty-portrait--'+size;return img;}
 export function showFacultyPortrait(root,getStaff){
  let scheduled=false;

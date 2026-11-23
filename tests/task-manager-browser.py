@@ -145,9 +145,11 @@ try:
                 saved=payload['taskOperation']=='portfolio-save'
                 assert payload['pin']=='123' and payload['staffId']=='X:one'
                 if saved:assert payload['caseKey']=='case-one' and payload['taken']=='Practice completed'
-                route.fulfill(json={'updated':'23/11/2026 15:00:33 IST','students':[{
-                    'key':'one','name':'Synthetic Student','roll':'1','section':'XA','subjects':[{
-                        'key':'case-one','subject':'English','teacher':'Synthetic Teacher one','score':20,'maximum':80,
+                photo='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAALUlEQVR4nGNUrYxnoCVgoqnpoxaMWjBqwagFoxaMWjBqwagFoxaMWjBqARUBAIpPAT1/hp27AAAAAElFTkSuQmCC'
+                route.fulfill(json={'updated':'23/11/2026 15:00:33 IST',
+                    'teachers':{'X:one':{'name':'Synthetic Teacher one','designation':'TGT English','photo':photo}},'students':[{
+                    'key':'one','name':'Synthetic Student','roll':'1','section':'XA','photo':photo,'subjects':[{
+                        'key':'case-one','subject':'English','teacher':'Synthetic Teacher one','teacherKeys':['X:one'],'score':20,'maximum':80,
                         'evidence':[{'source':'Verified remedial attendance','date':'2026-11-23','detail':'Reading practice'}],
                         'actions':[{'taken':'Practice completed','at':1795420000000,'teacher':'Synthetic Teacher one'}] if saved else []
                     }]
@@ -163,6 +165,9 @@ try:
         teacher.get_by_role('button',name='Class X · 1',exact=True).click()
         teacher.get_by_role('button',name='Synthetic Student',exact=True).click()
         teacher.get_by_text('Reading practice',exact=False).wait_for()
+        teacher.get_by_text('TGT English',exact=True).wait_for()
+        assert teacher.get_by_role('button',name='Synthetic Student',exact=True).locator('img').count()==1
+        assert teacher.locator('.portfolio-teacher-profile img').count()==1
         teacher.get_by_text('English · PB-1 20/80',exact=True).wait_for()
         teacher.get_by_text('MCQ participation · 0 evaluated papers',exact=True).wait_for()
         teacher.get_by_label('Action taken',exact=True).fill('Practice completed')
