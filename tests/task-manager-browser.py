@@ -71,8 +71,13 @@ try:
                 {'classId':'X','section':'B','subject':'Science','maximum':80},
                 {'classId':'XII','section':'A','subject':'Chemistry','maximum':70},
                 {'classId':'XII','section':'B','subject':'Physics','maximum':70}]
-        marks=[{'scope':0,'current':{'maximum':80}},{'scope':1,'current':None},
-               {'scope':2,'current':{'maximum':70}},{'scope':3,'current':{'maximum':80}}]
+        for scope in scopes:
+            scope['paperName']=scope['subject']
+            scope['date']='2026-11-12'
+        marks=[{'scope':0,'current':{'maximum':80,'score':0}},{'scope':1,'current':None},
+               {'scope':2,'current':{'maximum':70,'score':None,'absent':True}},{'scope':3,'current':{'maximum':80,'score':30}}]
+        for row in marks:
+            row.update(name='Synthetic Student',roll='001')
         def freeze_report_api(route):
             if route.request.post_data_json.get('operation')=='pb1-read':
                 route.fulfill(json={'scopes':scopes,'rows':marks})
@@ -96,6 +101,14 @@ try:
         text=subprocess.check_output(['pdftotext',str(report.path()),'-'],text=True)
         assert 'Class XII' in text and 'XA' in text and 'English' in text and 'Frozen' in text
         assert 'Science' not in text and 'Chemistry' not in text
+        with freeze_page.expect_download() as hq_excel:
+            freeze_page.get_by_role('button',name='Download HQ marks Excel',exact=True).click()
+        download=hq_excel.value
+        assert download.suggested_filename=='PB-1-HQ-Written-Marks-X-XII.xlsx'
+        with zipfile.ZipFile(download.path()) as workbook:
+            strings=workbook.read('xl/sharedStrings.xml').decode()
+            assert all(value in strings for value in ['Synthetic Student','Pending','Absent','Check paper maximum','12/11/2026'])
+            assert '<c r="I2"><v>0</v></c>' in workbook.read('xl/worksheets/sheet2.xml').decode()
         freeze_page.close()
         release={'version':json.loads((ROOT/'public/app-version.json').read_text())['version']}
         staffctx=browser.new_context();staffctx.route('**/app-version.json',lambda route:route.fulfill(json=release));staffctx.route('https://www.gstatic.com/firebasejs/**',sdk);teacher=staffctx.new_page();teacher.on('pageerror',lambda e:errors.append(str(e)))
