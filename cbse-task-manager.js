@@ -705,29 +705,40 @@ async function openPB1FreezeReport(){
  const filter=field(filters,'Paper status','pb1-freeze-status','select');
  const statuses=['Frozen','Filled · awaiting freeze','Marks pending','Paper maximum needs correction','No enrolled students'];
  options(filter,[['','All statuses'],...statuses.map(status=>[status,status])]);
- actions.after(filters,el('p','Updated '+rollTimestamp(Date.now())));
+ const updated='Updated '+rollTimestamp(Date.now());
+ const columns=['Exam date','Section','Subject','Teacher','Marks recorded','Status'];
+ actions.after(filters,el('p',updated));
+ const groupFor=classId=>{
+  const group=papers.filter(({paper})=>paper.classId===classId);
+  const summary=statuses.map(status=>group.filter(item=>item.status===status).length+' '+status.toLowerCase())
+   .filter((text,index)=>index<3||!text.startsWith('0 ')).join(' · ');
+  const matching=group.filter(item=>!filter.value||item.status===filter.value)
+   .sort((a,b)=>(a.paper.date||'').localeCompare(b.paper.date||'')||
+    a.paper.subject.localeCompare(b.paper.subject)||a.paper.section.localeCompare(b.paper.section));
+  return {classId,summary,matching};
+ };
+ const cells=({paper,count,status})=>[rollDateText(paper.date),paper.classId+paper.section,paper.subject,paper.teacher||'—',
+  (count.enrolled-count.pending)+' / '+count.enrolled,status+(count.pending?' · '+count.pending+' missing':'')];
+ actions.append(button('Download PDF',async()=>{
+  const {downloadPB1FreezePDF}=await import('./cbse-task-report-pdf.js');
+  const groups=['X','XII'].map(groupFor).map(({classId,summary,matching})=>({classId,summary,rows:matching.map(cells)}));
+  await downloadPB1FreezePDF({groups,columns,updated,filter:filter.value||'All statuses'});
+ }));
  function draw(){
   results.replaceChildren();
-  for(const classId of ['X','XII']){
-   const group=papers.filter(({paper})=>paper.classId===classId);
+  for(const {classId,summary,matching} of ['X','XII'].map(groupFor)){
    const section=el('section');
-   section.append(el('h3','Class '+classId));
-   const totals=statuses.map(status=>group.filter(item=>item.status===status).length+' '+status.toLowerCase()).filter((text,index)=>index<3||!text.startsWith('0 '));
-   section.append(el('p',totals.join(' · ')));
-   const matching=group.filter(item=>!filter.value||item.status===filter.value)
-    .sort((a,b)=>(a.paper.date||'').localeCompare(b.paper.date||'')||
-     a.paper.subject.localeCompare(b.paper.subject)||a.paper.section.localeCompare(b.paper.section));
+   section.append(el('h3','Class '+classId),el('p',summary));
    if(!matching.length){section.append(el('p','No papers match this selection.'));results.append(section);continue;}
    const scroll=el('div',undefined,'task-exam-table-scroll'),table=el('table',undefined,'task-exam-table');
    scroll.tabIndex=0;scroll.setAttribute('role','region');scroll.setAttribute('aria-label','Class '+classId+' PB-1 papers');
    const head=table.createTHead().insertRow(),body=table.createTBody();
-   for(const label of ['Exam date','Section','Subject','Teacher','Marks recorded','Status','Review']){
+   for(const label of [...columns,'Review']){
     const cell=el('th',label);cell.scope='col';head.append(cell);
    }
-   for(const {paper,count,status} of matching){
-    const row=body.insertRow();
-    for(const value of [rollDateText(paper.date),paper.classId+paper.section,paper.subject,paper.teacher||'—',
-     (count.enrolled-count.pending)+' / '+count.enrolled,status+(count.pending?' · '+count.pending+' missing':'')])row.insertCell().textContent=value;
+   for(const item of matching){
+    const {paper}=item,row=body.insertRow();
+    for(const value of cells(item))row.insertCell().textContent=value;
     const review=button('Open paper',()=>openPB1Analyser(true,undefined,paper,false,openPB1FreezeReport));
     review.setAttribute('aria-label','Open paper · Class '+classId+' '+paper.section+' · '+paper.subject);
     row.insertCell().append(review);
@@ -1472,7 +1483,7 @@ async function openRetest(){
   scroll.append(table);editor.append(scroll);
   if(!editing){
    content.append(button('Download PDF',async()=>{
-    const {downloadRetestPDF}=await import('./cbse-task-retest-pdf.js');
+    const {downloadRetestPDF}=await import('./cbse-task-report-pdf.js');
     await downloadRetestPDF(rows.map(([,row])=>row),summary.textContent,[...alert.querySelectorAll('p')].map(line=>line.textContent));
    }));
   }

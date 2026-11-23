@@ -89,6 +89,13 @@ try:
         freeze_page.get_by_label('Paper status',exact=True).select_option('Frozen')
         assert class_x.get_by_role('cell',name='Frozen',exact=True).is_visible()
         assert class_x.get_by_role('cell',name='Marks pending · 1 missing',exact=True).count()==0
+        with freeze_page.expect_download() as freeze_pdf:
+            freeze_page.get_by_role('button',name='Download PDF',exact=True).click()
+        report=freeze_pdf.value
+        assert report.suggested_filename=='PB-1-Marks-and-Freeze-Report.pdf'
+        text=subprocess.check_output(['pdftotext',str(report.path()),'-'],text=True)
+        assert 'Class XII' in text and 'XA' in text and 'English' in text and 'Frozen' in text
+        assert 'Science' not in text and 'Chemistry' not in text
         freeze_page.close()
         release={'version':json.loads((ROOT/'public/app-version.json').read_text())['version']}
         staffctx=browser.new_context();staffctx.route('**/app-version.json',lambda route:route.fulfill(json=release));staffctx.route('https://www.gstatic.com/firebasejs/**',sdk);teacher=staffctx.new_page();teacher.on('pageerror',lambda e:errors.append(str(e)))

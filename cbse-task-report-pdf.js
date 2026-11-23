@@ -61,3 +61,33 @@ export async function downloadRetestPDF(rows,summary,instructions){
  }
  doc.save('Task-4-Retest-Tracker.pdf');
 }
+
+export async function downloadPB1FreezePDF({groups,columns,updated,filter}){
+ const PDF=await pdfLibrary(),doc=new PDF({orientation:'landscape',unit:'mm',format:'a4'});
+ const title='PB-1 Marks and Freeze Report',margin=12;
+ doc.setProperties({title});
+ for(const [index,group] of groups.entries()){
+  if(index)doc.addPage();
+  doc.setFont('helvetica','bold').setFontSize(16).setTextColor('#175849');
+  doc.text(title,margin,16);
+  doc.setFontSize(12);
+  doc.text('Class '+group.classId,margin,24);
+  doc.setFont('helvetica','normal').setFontSize(9).setTextColor('#173738');
+  doc.text(updated+'  |  '+filter,margin,30);
+  doc.text(group.summary,margin,35);
+  if(!group.rows.length){doc.text('No papers match this selection.',margin,44);continue;}
+  doc.autoTable({
+   startY:40,margin:{top:12,right:margin,bottom:12,left:margin},head:[columns],body:group.rows,
+   styles:{fontSize:9,cellPadding:2,valign:'top',overflow:'linebreak',textColor:'#173738'},
+   headStyles:{fillColor:'#175849',textColor:'#ffffff'},
+   alternateRowStyles:{fillColor:'#f1f7f4'},rowPageBreak:'avoid',
+  });
+ }
+ const pageCount=doc.getNumberOfPages();
+ doc.setFontSize(8).setTextColor('#536a70');
+ for(let page=1;page<=pageCount;page++){
+  doc.setPage(page);
+  doc.text(page+' / '+pageCount,doc.internal.pageSize.getWidth()-margin,doc.internal.pageSize.getHeight()-6,{align:'right'});
+ }
+ doc.save('PB-1-Marks-and-Freeze-Report.pdf');
+}
