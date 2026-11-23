@@ -726,7 +726,7 @@ async function openPB1FreezeReport(){
    }
    for(const {paper,count,status} of matching){
     const row=body.insertRow();
-    for(const value of [rollDateText(paper.date),paper.section,paper.subject,paper.teacher||'—',
+    for(const value of [rollDateText(paper.date),paper.classId+paper.section,paper.subject,paper.teacher||'—',
      (count.enrolled-count.pending)+' / '+count.enrolled,status+(count.pending?' · '+count.pending+' missing':'')])row.insertCell().textContent=value;
     const review=button('Open paper',()=>openPB1Analyser(true,undefined,paper,false,openPB1FreezeReport));
     review.setAttribute('aria-label','Open paper · Class '+classId+' '+paper.section+' · '+paper.subject);
