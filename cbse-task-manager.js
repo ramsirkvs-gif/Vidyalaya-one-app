@@ -677,6 +677,68 @@ function drawMonitoring(record,{index=0,editing=false,emergencyPeople,focusRow,s
   target?.scrollIntoView({block:'nearest',inline:'nearest'});
  }
 }
+function paperMarkCounts(scopes,rows){
+ const counts=scopes.map(()=>({enrolled:0,pending:0,wrongMaximum:false}));
+ for(const row of rows){
+  const count=counts[row.scope];
+  count.enrolled++;
+  if(!row.current)count.pending++;
+  else if(row.current.maximum!==scopes[row.scope].maximum)count.wrongMaximum=true;
+ }
+ return counts;
+}
+
+async function openPB1FreezeReport(){
+ const panel=el('section',undefined,'task-card'),actions=el('div',undefined,'task-actions'),results=el('div');
+ actions.append(button('Back to task list',drawPrincipal),button('Refresh report',openPB1FreezeReport));
+ panel.append(el('h2','PB-1 Marks and Freeze Report'),actions,results);
+ host.replaceChildren(panel);
+ const {scopes,rows}=await request({action:'task-principal',operation:'pb1-read'},true);
+ const counts=paperMarkCounts(scopes,rows);
+ const papers=scopes.map((paper,index)=>{
+  const count=counts[index];
+  const status=paper.approvedAt?'Frozen':!count.enrolled?'No enrolled students':
+   count.pending?'Marks pending':count.wrongMaximum?'Paper maximum needs correction':'Filled · awaiting freeze';
+  return {paper,count,status};
+ });
+ const filters=el('div',undefined,'pb1-filters');
+ const filter=field(filters,'Paper status','pb1-freeze-status','select');
+ const statuses=['Frozen','Filled · awaiting freeze','Marks pending','Paper maximum needs correction','No enrolled students'];
+ options(filter,[['','All statuses'],...statuses.map(status=>[status,status])]);
+ actions.after(filters,el('p','Updated '+rollTimestamp(Date.now())));
+ function draw(){
+  results.replaceChildren();
+  for(const classId of ['X','XII']){
+   const group=papers.filter(({paper})=>paper.classId===classId);
+   const section=el('section');
+   section.append(el('h3','Class '+classId));
+   const totals=statuses.map(status=>group.filter(item=>item.status===status).length+' '+status.toLowerCase()).filter((text,index)=>index<3||!text.startsWith('0 '));
+   section.append(el('p',totals.join(' · ')));
+   const matching=group.filter(item=>!filter.value||item.status===filter.value)
+    .sort((a,b)=>(a.paper.date||'').localeCompare(b.paper.date||'')||
+     a.paper.subject.localeCompare(b.paper.subject)||a.paper.section.localeCompare(b.paper.section));
+   if(!matching.length){section.append(el('p','No papers match this selection.'));results.append(section);continue;}
+   const scroll=el('div',undefined,'task-exam-table-scroll'),table=el('table',undefined,'task-exam-table');
+   scroll.tabIndex=0;scroll.setAttribute('role','region');scroll.setAttribute('aria-label','Class '+classId+' PB-1 papers');
+   const head=table.createTHead().insertRow(),body=table.createTBody();
+   for(const label of ['Exam date','Section','Subject','Teacher','Marks recorded','Status','Review']){
+    const cell=el('th',label);cell.scope='col';head.append(cell);
+   }
+   for(const {paper,count,status} of matching){
+    const row=body.insertRow();
+    for(const value of [rollDateText(paper.date),paper.section,paper.subject,paper.teacher||'—',
+     (count.enrolled-count.pending)+' / '+count.enrolled,status+(count.pending?' · '+count.pending+' missing':'')])row.insertCell().textContent=value;
+    const review=button('Open paper',()=>openPB1Analyser(true,undefined,paper,false,openPB1FreezeReport));
+    review.setAttribute('aria-label','Open paper · Class '+classId+' '+paper.section+' · '+paper.subject);
+    row.insertCell().append(review);
+   }
+   scroll.append(table);section.append(scroll);results.append(section);
+  }
+ }
+ filter.onchange=draw;
+ draw();
+}
+
 async function openDailyPending(){
  const dashboard=el('section',undefined,'task-card'),actions=el('div',undefined,'task-actions'),date=el('p');
  const driveStatus=el('div');driveStatus.setAttribute('role','status');
@@ -720,8 +782,7 @@ async function openDailyPending(){
   const block=section(exam.short+' · '+exam.classes);
   block.append(button('Open analyser',()=>openPB1Analyser(false,examId)));
   if(result.status==='rejected'){failure(block,result);continue;}
-  const {scopes,rows}=result.value,counts=scopes.map(()=>({enrolled:0,pending:0}));
-  for(const row of rows){counts[row.scope].enrolled++;if(!row.current)counts[row.scope].pending++;}
+  const {scopes,rows}=result.value,counts=paperMarkCounts(scopes,rows);
   if(!scopes.length){block.append(el('p','No papers are available.'));continue;}
   const label=paper=>'Class '+paper.classId+' '+paper.section+' · '+paper.subject+(paper.teacher?' · '+paper.teacher:'');
   const review=(paper,suffix='')=>button(label(paper)+suffix,()=>openPB1Analyser(true,examId,paper));
@@ -743,7 +804,7 @@ async function openDailyPending(){
 
 function drawPrincipal(){if(suppliedFigures&&Object.hasOwn(store.tasks||{},suppliedFigures.taskId)){const task=store.tasks[suppliedFigures.taskId];task.draft.headers={...task.draft.headers,...suppliedFigures.headers};task.summary=taskSummary(task);}host.replaceChildren(el('h2','Create and manage tasks'));host.append(el('p','1. Create task → 2. Select classes → 3. Assign teachers → 4. Prepare shared questions → 5. Save and publish → 6. Track submissions.','task-flow-guide'));
  if(suppliedFigures){const banner=el('p',Object.keys(suppliedFigures.headers).length+(Object.hasOwn(store.tasks||{},suppliedFigures.taskId)?' supplied class rows are loaded into the shared draft. Review the figures, assign teachers, then Save and publish task.':' supplied class rows are ready. Create the Task 1 draft to load them.'),'task-import-ready');host.append(banner);}if(suppliedFiguresError)host.append(el('p',suppliedFiguresError,'task-error'));
- const actions=el('div',undefined,'task-actions');actions.append(button('Create Task 1 unpublished draft',async()=>{if(!discard())return;await admin({operation:'create-task1'});openPrincipalTask('task1',store.tasks.task1);message('Task 1 is an unpublished draft unless it was previously published. Existing content is preserved.');}),button('Create another task',()=>{if(!discard())return;newTask();}),button('Refresh tasks',async()=>{if(!discard())return;await admin({operation:'read'});drawPrincipal();}));actions.firstElementChild.hidden=!!store.tasks?.task1;actions.prepend(button('Daily pending list',openDailyPending));host.append(actions);catalogue(host);drawAnalyserCards();}
+ const actions=el('div',undefined,'task-actions');actions.append(button('Create Task 1 unpublished draft',async()=>{if(!discard())return;await admin({operation:'create-task1'});openPrincipalTask('task1',store.tasks.task1);message('Task 1 is an unpublished draft unless it was previously published. Existing content is preserved.');}),button('Create another task',()=>{if(!discard())return;newTask();}),button('Refresh tasks',async()=>{if(!discard())return;await admin({operation:'read'});drawPrincipal();}));actions.firstElementChild.hidden=!!store.tasks?.task1;actions.prepend(button('PB-1 Marks and Freeze Report',openPB1FreezeReport),button('Daily pending list',openDailyPending));host.append(actions);catalogue(host);drawAnalyserCards();}
 let excelLoading;
 async function taskExcel(){if(globalThis.ExcelJS&&globalThis.JSZip)return {ExcelJS:globalThis.ExcelJS,JSZip:globalThis.JSZip};excelLoading||=Promise.all([['ExcelJS','vendor/exceljs/exceljs.min.js'],['JSZip','vendor/mcq/jszip.min.js']].map(([name,src])=>globalThis[name]?Promise.resolve():new Promise((resolve,reject)=>{const script=document.createElement('script');script.src=src;script.onload=resolve;script.onerror=()=>{excelLoading=null;reject(Error('Excel reader could not load. Retry the import.'));};document.head.append(script);}))).then(()=>({ExcelJS:globalThis.ExcelJS,JSZip:globalThis.JSZip}));return excelLoading;}
 function fixedClassQuestions(parent,headers={}){parent.replaceChildren();let number=0;for(const [key,label]of Object.entries(TASK_HEADERS)){const item=el('div',undefined,'task-fixed-question');item.dataset.fixedQuestion=key;item.append(el('small','Q'+(++number)+' · View only'),el('span',label),el('strong',String(headers[key]??'Unprovided'),headers[key]==null?'task-header-missing':undefined));parent.append(item);}}
@@ -1026,7 +1087,7 @@ function signInForHalfYearlyReview(paper){
  dialog.append(title,login,button('Cancel',()=>dialog.close()));
  dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
 }
-async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=false){
+async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=false,returnTo){
  const classIX=examId==='class-ix';
  const exam=classIX?{title:'Class IX Pre-Annual Wisdom Analyser',short:'Pre-Annual',current:'Pre-Annual Exam',previous:CLASS_IX_EXAM.previous,baseline:CLASS_IX_EXAM.baseline,classId:'IX',classes:'Class IX'}:examId==='half-yearly'?HALF_YEARLY_ANALYSER:PB1_ANALYSER;
  const openExam=(entry=false)=>openPB1Analyser(entry,examId);
@@ -1081,8 +1142,8 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=fa
    if(transfer)panel.append(transfer);
    return panel;
   }:undefined;
-  renderPB1Analyser(host,data,{button,run,exam,setup,teacher:!asPrincipal,entryOnly,requestedPaper,backLabel:classIX?'Back to Task 3':undefined,
-   back:()=>{if(discard())return classIX?drawClassIXExam():asPrincipal?drawPrincipal():openExam();},
+  renderPB1Analyser(host,data,{button,run,exam,setup,teacher:!asPrincipal,entryOnly,requestedPaper,backLabel:returnTo?'Back to PB-1 report':classIX?'Back to Task 3':undefined,
+   back:()=>{if(discard())return returnTo?returnTo():classIX?drawClassIXExam():asPrincipal?drawPrincipal():openExam();},
    unfreeze:asPrincipal?async({classId,sectionId,subjectId},expectedRevision)=>{
     const result=await send('pb1-unfreeze',{classId,sectionId,subjectId,expectedRevision});
     message(exam.current+' marks reopened for correction.');return result;

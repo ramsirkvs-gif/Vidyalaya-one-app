@@ -66,6 +66,30 @@ try:
         card.get_by_role('button',name='Save and publish task',exact=True).click();page.get_by_role('status').get_by_text('Published. Reports remain restricted',exact=False).wait_for()
         page.reload();page.get_by_role('row').filter(has_text='Vidyalaya Level Confidential Survey').get_by_role('button').click();card.get_by_role('button',name='Stop publication',exact=True).wait_for();assert card.evaluate("card=>Boolean(card.querySelector('.task-results').compareDocumentPosition(card.querySelector('.task-editor'))&Node.DOCUMENT_POSITION_FOLLOWING)");assert card.get_by_role('button',name='View submission status',exact=True).count()==1;assert page.get_by_label('Principal password',exact=True).count()==0
         print('PASS Principal persistent login, exact Task 1 private draft, assignment/header import, save and publication')
+        freeze_page=ctx.new_page()
+        scopes=[{'classId':'X','section':'A','subject':'English','maximum':80,'approvedAt':1},
+                {'classId':'X','section':'B','subject':'Science','maximum':80},
+                {'classId':'XII','section':'A','subject':'Chemistry','maximum':70},
+                {'classId':'XII','section':'B','subject':'Physics','maximum':70}]
+        marks=[{'scope':0,'current':{'maximum':80}},{'scope':1,'current':None},
+               {'scope':2,'current':{'maximum':70}},{'scope':3,'current':{'maximum':80}}]
+        def freeze_report_api(route):
+            if route.request.post_data_json.get('operation')=='pb1-read':
+                route.fulfill(json={'scopes':scopes,'rows':marks})
+            else:route.continue_()
+        freeze_page.route('**/api/staff-access',freeze_report_api)
+        freeze_page.goto(BASE+'cbse-task-manager.html#principal')
+        freeze_page.get_by_role('button',name='PB-1 Marks and Freeze Report',exact=True).click()
+        class_x=freeze_page.get_by_role('region',name='Class X PB-1 papers',exact=True)
+        class_x.get_by_role('cell',name='Frozen',exact=True).wait_for()
+        class_x.get_by_role('cell',name='Marks pending · 1 missing',exact=True).wait_for()
+        class_xii=freeze_page.get_by_role('region',name='Class XII PB-1 papers',exact=True)
+        class_xii.get_by_role('cell',name='Filled · awaiting freeze',exact=True).wait_for()
+        class_xii.get_by_role('cell',name='Paper maximum needs correction',exact=True).wait_for()
+        freeze_page.get_by_label('Paper status',exact=True).select_option('Frozen')
+        assert class_x.get_by_role('cell',name='Frozen',exact=True).is_visible()
+        assert class_x.get_by_role('cell',name='Marks pending · 1 missing',exact=True).count()==0
+        freeze_page.close()
         release={'version':json.loads((ROOT/'public/app-version.json').read_text())['version']}
         staffctx=browser.new_context();staffctx.route('**/app-version.json',lambda route:route.fulfill(json=release));staffctx.route('https://www.gstatic.com/firebasejs/**',sdk);teacher=staffctx.new_page();teacher.on('pageerror',lambda e:errors.append(str(e)))
         api({'action':'task-principal','operation':'monitoring-publish','expectedRevision':0})

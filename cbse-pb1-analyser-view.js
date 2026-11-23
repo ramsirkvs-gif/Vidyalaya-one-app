@@ -725,7 +725,8 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   };
   if(cls)cls.onchange=()=>{if(canSwitch()){previousClass=entryClass();drawChoices(Number(previousPaper));}else cls.value=previousClass;};
   paper.onchange=()=>{if(canSwitch())drawMarks();else paper.value=previousPaper;};
-  const requestedIndex=requestedPaper?data.scopes.findIndex(scope=>mathsSection(scope,requestedPaper)||['classId','section','subject'].every(key=>scope[key]===requestedPaper[key])):-1;
+  const exactIndex=requestedPaper?data.scopes.findIndex(scope=>['classId','section','subject'].every(key=>scope[key]===requestedPaper[key])):-1;
+  const requestedIndex=exactIndex<0&&requestedPaper?data.scopes.findIndex(scope=>mathsSection(scope,requestedPaper)):exactIndex;
   if(requestedPaper&&requestedIndex<0)panel.prepend(el('p','The requested paper is outside your assigned scope. Choose one of your assigned papers.','task-monitoring-notice'));
   drawChoices(requestedIndex);
   function drawMarks(announceSaved=false){
