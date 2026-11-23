@@ -1538,19 +1538,34 @@ async function openSupportPortfolio(){
  const read=(staffId,pin)=>request(principal?{action:'task-principal',operation:'portfolio-read'}:
   {action:'pin-submit',operation:'task-manager',taskOperation:'portfolio-read',staffId,pin},principal);
  const content=el('div');
- function render(data,staffId='',selected=''){
+ function render(data,staffId='',view={}){
   content.replaceChildren();
   content.append(el('p','HQ report reference · '+data.updated));
   if(!data.students.length){content.append(el('p','No reported PB-1 fail cases are available for this view.'));return;}
+  const classOf=student=>student.classId||(/^XII/.test(student.section)?'XII':'X');
+  const classCounts=new Map(['X','XII'].map(classId=>[classId,data.students.filter(student=>classOf(student)===classId).length]));
+  let activeClass=view.classId||[...classCounts].find(([,count])=>count)[0],selected=view.student||'';
+  const classPicker=el('div',undefined,'task-actions portfolio-class-picker');
+  classPicker.setAttribute('role','group');
+  classPicker.setAttribute('aria-label','Class');
+  const classButtons=new Map([...classCounts].map(([classId,count])=>{
+   const choose=button('Class '+classId+' · '+count,()=>{
+    if(activeClass===classId||!discard())return;
+    activeClass=classId;
+    selected='';
+    drawClass();
+   });
+   classPicker.append(choose);
+   return [classId,choose];
+  }));
   const filters=el('div',undefined,'pb1-filters'),subjects=field(filters,'Subject','portfolio-subject','select'),
-   sections=field(filters,'Section','portfolio-section','select'),students=field(filters,'Student','portfolio-student','select');
-  const detail=el('div');
-  options(subjects,[['','All subjects'],...[...new Set(data.students.flatMap(student=>student.subjects.map(item=>item.subject)))].sort().map(value=>[value,value])]);
-  options(sections,[['','All sections'],...[...new Set(data.students.map(student=>student.section))].sort().map(value=>[value,value])]);
-  content.append(filters,detail);
+   sections=field(filters,'Section','portfolio-section','select');
+  const list=el('ul',undefined,'portfolio-student-list'),count=el('p',undefined,'portfolio-student-count'),detail=el('div');
+  detail.tabIndex=-1;
+  content.append(classPicker,filters,count,list,detail);
   function drawStudent(allSubjects=false){
    detail.replaceChildren();
-   const student=data.students.find(item=>item.key===students.value);
+   const student=data.students.find(item=>item.key===selected);
    if(!student)return;
    detail.append(el('h3',student.name+' · '+student.section+(student.roll?' · Roll '+student.roll:'')));
    for(const item of student.subjects.filter(item=>allSubjects||!subjects.value||item.subject===subjects.value)){
@@ -1587,7 +1602,7 @@ async function openSupportPortfolio(){
       run(async()=>{
        const saved=await request({action:'pin-submit',operation:'task-manager',taskOperation:'portfolio-save',staffId,pin:secret,
         caseKey:item.key,entryId,taken:taken.value,plan:plan.value,progress:progress.value,review:review.value});
-       render(saved,staffId,student.key);
+       render(saved,staffId,{classId:activeClass,student:student.key,section:sections.value,subject:subjects.value});
        message('Portfolio update saved.');
       });
      };
@@ -1596,31 +1611,58 @@ async function openSupportPortfolio(){
     detail.append(section);
    }
   }
-  function filterStudents(preferred){
-   const matches=data.students.filter(student=>(!sections.value||student.section===sections.value)&&
+  function filterStudents(){
+   const matches=data.students.filter(student=>classOf(student)===activeClass&&(!sections.value||student.section===sections.value)&&
     (!subjects.value||student.subjects.some(item=>item.subject===subjects.value)));
-   options(students,[['',matches.length?matches.length+' students · Choose a student':'No matching students'],
-    ...matches.map(student=>[student.key,student.section+' · '+student.name])],preferred);
+   if(!matches.some(student=>student.key===selected))selected='';
+   count.textContent=matches.length?matches.length+' '+(matches.length===1?'student':'students'):'No matching students';
+   list.replaceChildren();
+   for(const student of matches){
+    const item=el('li'),strip=button('',()=>{
+     if(student.key===selected){detail.focus();return;}
+     if(!discard())return;
+     selected=student.key;
+     filterStudents();
+     detail.focus();
+    });
+    strip.className='portfolio-student-strip';
+    strip.setAttribute('aria-label',student.name);
+    strip.setAttribute('aria-pressed',String(student.key===selected));
+    const initials=student.name.split(/\s+/).filter(Boolean).slice(0,2).map(part=>part[0]).join('');
+    const avatar=el('span',initials,'portfolio-student-avatar'),arrow=el('span','›','portfolio-student-arrow');
+    avatar.setAttribute('aria-hidden','true');arrow.setAttribute('aria-hidden','true');
+    const copy=el('span',undefined,'portfolio-student-copy');
+    copy.append(el('strong',student.name),el('small',[student.section,student.roll?'Roll '+student.roll:'',student.subjects.map(subject=>subject.subject).join(', ')].filter(Boolean).join(' · ')));
+    strip.append(avatar,copy,arrow);
+    item.append(strip);list.append(item);
+   }
    drawStudent();
+   if(printButton)printButton.disabled=!selected;
   }
   let previous={};
-  const remember=()=>{previous={student:students.value,section:sections.value,subject:subjects.value};};
-  const protect=draw=>{
-   if(discard()){draw();remember();}
-   else{students.value=previous.student;sections.value=previous.section;subjects.value=previous.subject;}
+  function drawClass(section='',subject=''){
+   for(const [classId,choose] of classButtons)choose.setAttribute('aria-pressed',String(classId===activeClass));
+   const current=data.students.filter(student=>classOf(student)===activeClass);
+   options(subjects,[['','All subjects'],...[...new Set(current.flatMap(student=>student.subjects.map(item=>item.subject)))].sort().map(value=>[value,value])],subject);
+   options(sections,[['','All sections'],...[...new Set(current.map(student=>student.section))].sort().map(value=>[value,value])],section);
+   previous={section:sections.value,subject:subjects.value};
+   filterStudents();
+  }
+  sections.onchange=subjects.onchange=()=>{
+   if(discard()){previous={section:sections.value,subject:subjects.value};filterStudents();}
+   else{sections.value=previous.section;subjects.value=previous.subject;}
   };
-  students.onchange=()=>protect(drawStudent);
-  sections.onchange=subjects.onchange=()=>protect(()=>filterStudents(students.value));
-  if(principal)content.append(button('Print selected portfolio',()=>{
-   if(!students.value)return;
+  const printButton=principal?button('Print selected portfolio',()=>{
+   if(!selected)return;
    const print=el('article',undefined,'task-status-print');
    drawStudent(true);
    print.append(title.cloneNode(true),detail.cloneNode(true));
    drawStudent();
    document.body.append(print);
    try{window.print();}finally{print.remove();}
-  }));
-  filterStudents(selected);remember();
+  }):null;
+  if(printButton)filters.after(printButton);
+  drawClass(view.section,view.subject);
  }
  if(principal){card.append(content);render(await read());return;}
  const {teachers}=await request({action:'task-read',operation:'pb1-directory'});

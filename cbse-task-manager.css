@@ -345,3 +345,12 @@
 .task-exam-table.task-retest-teacher-table tbody tr:nth-child(odd) td:first-child{background:#fff}
 .task-retest-teacher-table td:first-child button{margin-top:.35rem;padding:.35rem .55rem;white-space:normal}
 .task-retest-pin-status{display:block;margin-top:.3rem;color:#536a70;font-weight:500}
+
+.portfolio-class-picker button[aria-pressed=true]{background:#175849;border-color:#175849;color:#fff}
+.portfolio-student-list{display:grid;gap:8px;list-style:none;margin:0 0 20px;padding:0}
+.task-app button.portfolio-student-strip{display:grid;grid-template-columns:38px minmax(0,1fr) auto;align-items:center;gap:12px;width:100%;margin:0;padding:10px 12px;border:1px solid #d8e5ef;border-radius:13px;background:#fff;box-shadow:0 2px 8px #325d810a;text-align:left;white-space:normal}
+.task-app button.portfolio-student-strip:hover,.task-app button.portfolio-student-strip[aria-pressed=true]{background:#f0f7ff;border-color:#87aace}
+.portfolio-student-avatar{display:grid;place-items:center;width:38px;height:38px;border-radius:50%;background:#e4effb;color:#294e76;font-weight:700}
+.portfolio-student-copy{display:grid;gap:3px;min-width:0;color:#254c69;overflow-wrap:anywhere}
+.portfolio-student-copy small{color:#597185}
+.portfolio-student-arrow{color:#446d93;font-size:1.45rem;line-height:1}
