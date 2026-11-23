@@ -101,31 +101,40 @@ export async function downloadPB1HQVerificationPDF(verification,scope){
  const PDF=await pdfLibrary(),doc=new PDF({orientation:'landscape',unit:'mm',format:'a4'});
  const margin=12,title='HQ/RO Analysis Verification',width=doc.internal.pageSize.getWidth()-2*margin;
  doc.setProperties({title});
- function heading(subtitle){
-  doc.setFont('helvetica','bold').setFontSize(17).setTextColor('#175849');
-  doc.text(title,margin,16);
-  doc.setFontSize(12);
-  doc.text(subtitle,margin,24);
+ function heading(){
+  doc.setFont('helvetica','bold').setFontSize(15).setTextColor('#175849');
+  doc.text(title,margin,13);
   doc.setFont('helvetica','normal').setFontSize(9).setTextColor('#173738');
-  doc.text('PB-1 written marks | PM SHRI Kendriya Vidyalaya No. 1 Itanagar | '+verification.updated,margin,32);
+  doc.text('PB-1 written marks | PM SHRI Kendriya Vidyalaya No. 1 Itanagar | '+verification.updated,margin,19);
  }
  const columns=['Section / paper','App roster','Appeared','Absent','Passed','Failed','Pass %',
   '33-44.9%','45-59.9%','60-74.9%','75-89.9%','90-100%','Pending','Subject teacher signature'];
  const format=counts=>counts.map((value,index)=>index===5?(value===null?'--':(value*100).toFixed(1)+'%'):value);
- for(const [index,group] of groups.entries()){
-  if(index)doc.addPage();
-  heading(['Class '+group.classId,group.stream,group.subject].filter(Boolean).join(' / '));
+ const pageBottom=doc.internal.pageSize.getHeight()-14;
+ const signatureRowHeight=9;
+ let y=27;
+ heading();
+ for(const group of groups){
+  const blockHeight=26+group.sections.length*signatureRowHeight;
+  if(y+blockHeight>pageBottom){
+   doc.addPage();
+   heading();
+   y=27;
+  }
+  doc.setFont('helvetica','bold').setFontSize(10).setTextColor('#175849');
+  doc.text(['Class '+group.classId,group.stream,group.subject].filter(Boolean).join(' / '),margin,y);
   const body=group.sections.map(paper=>[paper.section+' / '+paper.paper+'\n'+(paper.frozen?'Frozen':'Awaiting freeze'),...format(paper.counts),'']);
   body.push(['HQ '+(group.stream||'Class '+group.classId)+' subject total',...format(group.total),'']);
-  doc.autoTable({startY:39,margin:{left:margin,right:margin},head:[columns],body,
-   styles:{fontSize:8,cellPadding:2,textColor:'#173738'},
+  doc.autoTable({startY:y+3,margin:{left:margin,right:margin,bottom:14},head:[columns],body,
+   rowPageBreak:'avoid',
+   styles:{fontSize:8,cellPadding:1.2,textColor:'#173738'},
    headStyles:{fillColor:'#175849',textColor:'#ffffff'},
    alternateRowStyles:{fillColor:'#f1f7f4'},
-   columnStyles:{[columns.length-1]:{cellWidth:39}},
+   columnStyles:{0:{cellWidth:52},[columns.length-1]:{cellWidth:39}},
    didParseCell(data){
     if(data.section!=='body')return;
     if(data.row.index===body.length-1)data.cell.styles.fontStyle='bold';
-    else data.cell.styles.minCellHeight=12;
+    else data.cell.styles.minCellHeight=signatureRowHeight;
    },
    didDrawCell({section,row,column,cell}){
     if(section!=='body'||row.index===body.length-1||column.index!==columns.length-1)return;
@@ -134,21 +143,16 @@ export async function downloadPB1HQVerificationPDF(verification,scope){
     doc.line(cell.x+3,y,cell.x+cell.width-3,y);
    },
   });
-  let y=doc.lastAutoTable.finalY+8;
-  for(const note of ['Draft verification figures. Official registration counts are pending LOC reconciliation.',
-   'Pass is 33% or above. Pass percentage uses students who appeared. Pending entries are excluded.',
-   ...(group.stream?['Class XII stream mapping is provisional until checked against the LOC.']:[])]){
-   doc.text(note,margin,y);y+=5;
-  }
-  doc.text('Verified by __________________________     Date ______________',margin,y+6);
-  doc.text('Corrections / remarks ______________________________________________________________',margin,y+17);
+  y=doc.lastAutoTable.finalY+8;
  }
- for(const classId of [...new Set(groups.map(group=>group.classId))]){
+ if(y+5>pageBottom){
   doc.addPage();
-  heading('Class '+classId+' / Consolidated result');
-  doc.text('Status: Pending completion of marks and LOC reconciliation.',margin,44);
-  doc.text('The consolidated result will use each student\'s five main subjects, excluding AI.',margin,51);
+  heading();
+  y=27;
  }
+ const classes=[...new Set(groups.map(group=>group.classId))].join(' and ');
+ doc.setFont('helvetica','normal').setFontSize(8).setTextColor('#536a70');
+ doc.text('Consolidated result | Class '+classes+' | Pending LOC reconciliation and final marks',margin,y);
  const pages=doc.getNumberOfPages();
  for(let page=1;page<=pages;page++){
   doc.setPage(page);
