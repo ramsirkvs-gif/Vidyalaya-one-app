@@ -1684,7 +1684,11 @@ async function openSupportPortfolio(teacherMode=false){
   function drawClass(section='',subject=''){
    for(const [classId,choose] of classButtons)choose.setAttribute('aria-pressed',String(classId===activeClass));
    const current=data.students.filter(student=>classOf(student)===activeClass);
-   options(subjects,[['','All subjects'],...[...new Set(current.flatMap(student=>student.subjects.map(item=>subjectLabel(student,item))))].sort().map(value=>[value,value])],subject);
+   const order=new Map([['maths',0],['mathematics',0],['science',1],['english',2],['ai',3],['artificial intelligence',3]]);
+   const rank=name=>order.get(name.trim().toLowerCase())??order.size;
+   const names=[...new Set(current.flatMap(student=>student.subjects.map(item=>subjectLabel(student,item))))];
+   names.sort((a,b)=>rank(a)-rank(b)||a.localeCompare(b));
+   options(subjects,[['','All subjects'],...names.map(value=>[value,value])],subject);
    options(sections,[['','All sections'],...[...new Set(current.map(student=>student.section))].sort().map(value=>[value,value])],section);
    previous={section:sections.value,subject:subjects.value};
    filterStudents();
