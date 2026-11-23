@@ -288,7 +288,7 @@ function renderMarksGraph(parent,grouped,exam){
  if(graph.childElementCount)parent.append(graph);else parent.append(el('p','No records match these filters.'));
 }
 
-export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,back,teacher,publicView,entryOnly,openEntry,openNames,refresh,exam=PB1_ANALYSER,setup,requestedPaper,backLabel}){
+export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,back,teacher,publicView,entryOnly,openEntry,openNames,refresh,exam=PB1_ANALYSER,setup,requestedPaper,backLabel,openPrincipalReview}){
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
  const filters=el('div',undefined,'pb1-filters'),report=el('div');
  let entering=entryOnly,entryAction,classMode=false;
@@ -323,6 +323,10 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   if(entering){entering=false;drawMode();}
   classMode=true;filters.hidden=true;hasReport=true;
   drawClassAnalysis();report.scrollIntoView({block:'start'});
+ }));
+ if(openPrincipalReview)toolbar.append(button('Principal review / freeze / print',()=>{
+  const papers=data.scopes.filter(scopeMatches);
+  return openPrincipalReview(papers.length===1?papers[0]:undefined);
  }));
  if(openEntry)toolbar.append(button('Update '+exam.short+' marks',()=>openEntry()));
  else if(save&&!entryOnly){
@@ -631,7 +635,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    report.append(el('p',status,'task-monitoring-notice'));
   }
   const paperActions=el('div',undefined,'task-actions');
-  if(approve){
+  if(approve||openPrincipalReview){
    const freezeStatus=papersByScope.map(([index,papers])=>{
     const scope=data.scopes[index],missing=papers.filter(row=>!row.current).length;
     const status=scope.approvedAt?'Frozen':missing?missing+' pending '+(missing===1?'mark':'marks'):
@@ -639,7 +643,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     return {index,scope,status};
    });
    const ready=freezeStatus.filter(paper=>paper.status==='Ready to freeze').map(paper=>paper.index);
-   report.append(el('p','Freeze one class section and subject at a time.'));
+   if(approve)report.append(el('p','Freeze one class section and subject at a time.'));
    if(freezeStatus.length>1){
     const details=el('details',undefined,'pb1-comparison-details');
     details.append(el('summary','Freeze status by class section and subject'));
@@ -647,10 +651,12 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     report.append(details);
    }else report.append(el('p','Freeze status · '+freezeStatus[0].status));
 
-   const freeze=button('Freeze marks after Principal discussion',()=>choosePaper(ready,'Choose a paper to freeze','Continue to freeze',index=>freezePaper(data.scopes[index],drawReport)));
-   freeze.disabled=!ready.length;
-   paperActions.append(freeze);
-   if(!ready.length&&frozenPapers.length<papersByScope.length)report.append(el('p','Complete marks or AB for every student and correct any paper maximum mismatch before freezing.'));
+   if(approve){
+    const freeze=button('Freeze marks after Principal discussion',()=>choosePaper(ready,'Choose a paper to freeze','Continue to freeze',index=>freezePaper(data.scopes[index],drawReport)));
+    freeze.disabled=!ready.length;
+    paperActions.append(freeze);
+    if(!ready.length&&frozenPapers.length<papersByScope.length)report.append(el('p','Complete marks or AB for every student and correct any paper maximum mismatch before freezing.'));
+   }
   }
   if(unfreeze&&frozenPapers.length)paperActions.append(button('Unfreeze for emergency correction',()=>
    choosePaper(frozenPapers,'Choose a paper to unfreeze','Continue to unfreeze',index=>reopenPaper(data.scopes[index],drawReport))));

@@ -23,7 +23,7 @@ const SAMAGAM_REPORTING_NOTICE='Upload marks to Samagam only after both the Subj
 const host=document.getElementById('task-content'),nav=document.getElementById('task-nav'),status=document.getElementById('task-status');
 const OVERALL_COMMENT_LABEL='Overall situation — comments by CT / Prime mentor / Survey IC';
 let suppliedFigures=null,suppliedFiguresError='';const entryParams=new URLSearchParams(location.hash.slice(1));if(entryParams.has('figures')){try{suppliedFigures=decodePreparedTaskFigures(entryParams.get('figures'));}catch(error){suppliedFiguresError=error.message;}history.replaceState(null,'','#principal');}
-let renderedMode='staff';
+let renderedMode='staff',pendingHalfYearlyReview;
 let auth,authApi,user=null,principal=false,busy=false,epoch=0,store={tasks:{}},staff={},selectedStaff='';
 const mode=()=>location.hash==='#principal'?'principal':'staff';
 const dirty=()=>!!document.querySelector('form[data-portal-dirty="true"]');
@@ -58,7 +58,11 @@ function navigation(){
 function clearSuppliedFigures(id){if(suppliedFigures?.taskId===id){suppliedFigures=null;document.querySelector('.task-import-ready')?.remove();}}
 function adopt(result){store=result;staff=result.staff||staff;}
 async function admin(input){const result=await request({action:'task-principal',...input},true);adopt(result);return result;}
-async function load(){closeTaskPresentation();document.body.classList.remove('task-form-open');document.querySelectorAll('dialog.task-start-dialog').forEach(d=>d.remove());renderedMode=mode();navigation();host.replaceChildren();if(user){try{await admin({operation:'read'});principal=true;history.replaceState(null,'','#principal');navigation();drawPrincipal();return;}catch(error){if(![401,403].includes(error.status))throw error;}}
+async function load(){closeTaskPresentation();document.body.classList.remove('task-form-open');document.querySelectorAll('dialog.task-start-dialog').forEach(d=>d.remove());renderedMode=mode();navigation();host.replaceChildren();if(user){try{await admin({operation:'read'});principal=true;history.replaceState(null,'','#principal');navigation();
+ const review=pendingHalfYearlyReview;pendingHalfYearlyReview=undefined;
+ if(review)await openPB1Analyser(Boolean(review.paper),'half-yearly',review.paper);
+ else drawPrincipal();
+ return;}catch(error){if(![401,403].includes(error.status))throw error;}}
  adopt(await request({action:'task-read'}));drawStaff();}
 
 function catalogue(parent){
@@ -1009,6 +1013,19 @@ function drawClassIXRemedial(data,back,{teachers=[],save,openNames,filters={}}={
  drawResults();
  host.replaceChildren(button('Back to Task 3',()=>{if(discard())return back();}),panel);
 }
+function signInForHalfYearlyReview(paper){
+ if(!authApi)throw Error('Principal sign-in is unavailable. Refresh to retry.');
+ const dialog=el('dialog',undefined,'task-start-dialog'),title=el('h2','Principal review, freeze and print');
+ title.id='half-yearly-review-title';dialog.setAttribute('aria-labelledby',title.id);
+ const login=el('div');
+ renderPrincipalLogin(login,async password=>{
+  pendingHalfYearlyReview={paper};
+  try{await authApi.signInWithEmailAndPassword(auth,'ramsirkvs@gmail.com',password);}
+  catch(error){pendingHalfYearlyReview=undefined;throw error;}
+ });
+ dialog.append(title,login,button('Cancel',()=>dialog.close()));
+ dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
+}
 async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=false){
  const classIX=examId==='class-ix';
  const exam=classIX?{title:'Class IX Pre-Annual Wisdom Analyser',short:'Pre-Annual',current:'Pre-Annual Exam',previous:CLASS_IX_EXAM.previous,baseline:CLASS_IX_EXAM.baseline,classId:'IX',classes:'Class IX'}:examId==='half-yearly'?HALF_YEARLY_ANALYSER:PB1_ANALYSER;
@@ -1038,7 +1055,8 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=fa
    data=await read(false);publicView=true;
   }
   renderPB1Analyser(host,data,{button,run,exam,publicView,back:classIX?drawClassIXExam:drawStaff,backLabel:classIX?'Back to Task 3':undefined,openEntry:paper=>openPB1Analyser(true,examId,paper),
-   openNames:publicView&&!classIX?()=>openNamedPB1Results(examId):undefined,refresh:named=>read(!classIX&&named)});
+   openNames:publicView&&!classIX?()=>openNamedPB1Results(examId):undefined,refresh:named=>read(!classIX&&named),
+   openPrincipalReview:examId==='half-yearly'?signInForHalfYearlyReview:undefined});
   return;
  }
  const open=async(staffId='',pin='',savedReport)=>{
