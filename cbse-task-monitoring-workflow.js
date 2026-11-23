@@ -1,4 +1,4 @@
-import {isAvinashGuestProfile} from './cbse-faculty-guest.js';
+import {isAvinashGuestProfile,isGangaDeviProfile,isBamangMehaProfile} from './cbse-faculty-guest.js';
 
 const isHalfYearlySection=section=>/\b(?:11|XI)\b/i.test(section);
 export const monitoringExamLabel=section=>isHalfYearlySection(section)?'XI Half-Yearly':'PB-1';
@@ -41,21 +41,33 @@ export function monitoringPeople(published,entry,position){
 }
 
 const assignmentNameKey=name=>isAvinashGuestProfile({name})?'avinashsingh':
+ isGangaDeviProfile({name})?'laishramgangadevi':isBamangMehaProfile({name})?'bamangmeha':
  String(name||'').toLowerCase().replace(/^(mr|mrs|ms|dr|shri|smt)\.?\s+/,'').replace(/[^\p{L}\p{N}]/gu,'');
 
-export function resolvePublishedAvinashAssignments(published,staff,overrides={}){
+function assignmentNames(staff){
+ const names=new Map();
+ for(const [id,person] of Object.entries(staff)){
+  const owner=person.pinOwnerId||id;
+  if(person.status!=='active'||staff[owner]?.status!=='active')continue;
+  const key=assignmentNameKey(person.name);
+  if(key){const matches=names.get(key)||new Set();matches.add(owner);names.set(key,matches);}
+ }
+ return names;
+}
+
+export function resolvePublishedMonitoringAssignments(published,staff,overrides={}){
  if(!published?.assignments||!Array.isArray(published.sheets?.[0]))return published;
- const owners=new Set(Object.entries(staff).filter(([,person])=>person.status==='active'&&isAvinashGuestProfile(person))
-  .map(([id,person])=>person.pinOwnerId||id).filter(id=>staff[id]?.status==='active'));
- if(owners.size!==1)return published;
- const id=[...owners][0],assignments={...published.assignments};
+ const names=assignmentNames(staff),assignments={...published.assignments};
  for(const [serial,subject,section,...cells] of published.sheets[0].slice(5)){
   const key='row_'+serial,entry=assignments[key];
   if(!entry||entry.subject!==subject||entry.section!==section)continue;
   const roles={...entry.roles};
   MONITORING_ROLES.forEach(([role],index)=>{
-   if(!roles[role]&&!Object.hasOwn(overrides[key]||{},role)&&isAvinashGuestProfile({name:cells[index+1]}))
-    roles[role]={id,name:staff[id].name};
+   if(roles[role]||Object.hasOwn(overrides[key]||{},role))return;
+   const matches=names.get(assignmentNameKey(cells[index+1]));
+   if(matches?.size!==1)return;
+   const [id]=matches;
+   roles[role]={id,name:staff[id].name};
   });
   assignments[key]={...entry,roles};
  }
@@ -63,12 +75,7 @@ export function resolvePublishedAvinashAssignments(published,staff,overrides={})
 }
 
 export function monitoringAssignments(sheets,staff,overrides={}){
- const names=new Map(),records={};
- for(const [id,person] of Object.entries(staff)){
-  if(person.status!=='active')continue;
-  const key=assignmentNameKey(person.name),owner=person.pinOwnerId||id;
-  if(key){const matches=names.get(key)||new Set();matches.add(owner);names.set(key,matches);}
- }
+ const names=assignmentNames(staff),records={};
  for(const row of sheets[0].slice(5)){
   if(!row.some(Boolean))continue;
   const [serial,subject,section]=row,key='row_'+serial;

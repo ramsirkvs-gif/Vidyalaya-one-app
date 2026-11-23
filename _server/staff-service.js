@@ -5,7 +5,7 @@ import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
 import {applyStaffMeeting,meetingAttendanceDefaults,meetingRoster,meetingAttendanceRoster,canOpenMeeting,meetingMinute,meetingReport,publishedMeetingReport,staffMeetingList,minuteLanguages} from '../cbse-staff-meetings-model.js';
 import {withTaskExamParticipation} from './task-exam-participation.js';
 import {validateMonitoringSheets} from '../cbse-task-workbook.js';
-import {monitoringAssignments,monitoringAdvance,monitoringReopenUpload,monitoringStage,resolvePublishedAvinashAssignments,MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES} from '../cbse-task-monitoring-workflow.js';
+import {monitoringAssignments,monitoringAdvance,monitoringReopenUpload,monitoringStage,resolvePublishedMonitoringAssignments,MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES} from '../cbse-task-monitoring-workflow.js';
 import {TASK_MONITORING_SEED} from './task-monitoring-seed.js';
 import {advanceFrozenDiscussions,evaluatorDirectory,publishedMarksCheckers,withPublishedPB1Evaluators} from './pb1-evaluators.js';
 import {pb1Report,pb1Scopes,paperDiscussionComment} from '../cbse-pb1-analyser-model.js';
@@ -116,6 +116,14 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
  async function notificationRead(path,fresh){const parent=path.startsWith('cbse/mission/')?'cbse/mission':path.startsWith('cbse/mcq/')?'cbse/mcq':path.startsWith('cbse/teamNews/')?'cbse/teamNews':path.startsWith('cbse/rollCall/')?'cbse/rollCall':path.startsWith('cbse/contributionCredits/')?'cbse/contributionCredits':path.startsWith('cbse/chamber/movements/')?'cbse/chamber/movements':path==='cbse/chamber/podcasts'?'cbse/chamber/podcasts':'';return parent?readVersioned(path,parent+'/revision',{fresh,key:'notification:'+path}):read(path);}
  async function notificationStaffNames(fresh){const[faculty,support]=await Promise.all([readVersioned('cbse/facultyDraft','cbse/facultyDraft/revision',{fresh}),readVersioned('cbse/mission/staff','cbse/mission/revision',{fresh})]);return Object.fromEntries(entries(staffIndex(faculty,{staff:support||{}},{includeRollOnly:true})).map(([id,p])=>[id,p.name]));}
 
+ function monitoringDirectory(staff){
+  return Object.fromEntries(entries(staff).map(([id,person])=>{
+   if(person.status!=='active'||!isGangaDeviProfile(person))return [id,person];
+   const owner=rollStaffIdentityIds(staff,id).filter(key=>staff[key]?.status==='active'&&isGangaDeviProfile(staff[key]))
+    .sort((a,b)=>Number(a.startsWith('support:'))-Number(b.startsWith('support:'))||a.localeCompare(b))[0];
+   return [id,owner&&owner!==id?{...person,pinOwnerId:owner}:person];
+  }));
+ }
  async function directoryStaff(){return rollDirectory(...await Promise.all([read('cbse/facultyDraft'),read('cbse/mission/staff'),read('cbse/draft')]));}
  function rollDirectory(faculty,support,draft){const staff=primaryDirectory(rollRoleDirectory(staffIndex(faculty,{staff:support||{}},{includeRollOnly:true}),faculty,draft?.classes));return Object.fromEntries(entries(staff).map(([id,p])=>{const owner=avinashBibekIdentityIds(id,faculty,{staff:support||{}})?.[0];return [id,owner?{...p,pinOwnerId:owner}:p];}));}
  const pinPolicy=createPINPolicy({db,read,restTransaction,getStaff:async()=>primaryDirectory(await officeDirectoryStaff()),displayKey,verifyPIN,AccessError});
@@ -453,7 +461,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(current===null)return null;
    try{
     const published=current.published;
-    const effective=staff?resolvePublishedAvinashAssignments(published,staff,current.overrides):published;
+    const effective=staff?resolvePublishedMonitoringAssignments(published,monitoringDirectory(staff),current.overrides):published;
     const next=monitoringReopenUpload({...current,published:effective},input,stamp,actor);
     return {...next,published};
    }catch(error){reason=error.message;return;}
@@ -621,13 +629,13 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     const {published,progress,overrides}=await monitoringWithFrozenDiscussions(await read(monitoringPath))||{};
     if(!published)throw new AccessError('The monitoring plan is no longer published.',404);
     const staff=await directoryStaff();
-    return {monitoring:{...resolvePublishedAvinashAssignments(published,staff,overrides),examReviewers:await finalExamReviewers(staff),progress:progress||{}}};
+    return {monitoring:{...resolvePublishedMonitoringAssignments(published,monitoringDirectory(staff),overrides),examReviewers:await finalExamReviewers(staff),progress:progress||{}}};
    }
    if(admin&&input.operation==='monitoring-read'){
     const monitoring=await monitoringWithFrozenDiscussions(await read(monitoringPath))||{sheets:TASK_MONITORING_SEED,revision:0};
     if(monitoring.published){
      const staff=await directoryStaff();
-     monitoring.published={...resolvePublishedAvinashAssignments(monitoring.published,staff,monitoring.overrides),examReviewers:await finalExamReviewers(staff)};
+     monitoring.published={...resolvePublishedMonitoringAssignments(monitoring.published,monitoringDirectory(staff),monitoring.overrides),examReviewers:await finalExamReviewers(staff)};
     }
     return {monitoring};
    }
@@ -691,7 +699,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
      if(settings)return {...current,sheets:draft,overrides,revision,updatedAt};
      let published=null;
      if(publishing)try{
-      const assignments=monitoringAssignments(draft,directory,current?.overrides);
+      const assignments=monitoringAssignments(draft,monitoringDirectory(directory),current?.overrides);
       for(const [key,entry] of Object.entries(assignments)){
        const previous=current?.emergencyAssignments?.[key];
        if(previous?.subject===entry.subject&&previous.section===entry.section)entry.substitutes=previous.substitutes||{};
@@ -826,11 +834,21 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     officeRollActor=await officeService('office-roll-ic-pin',input,token,ip,session);
     action='roll-call';
    }else{
-    const selectedId=String(input.staffId||'');if(!/^[a-zA-Z0-9_:-]{1,200}$/.test(selectedId))throw new AccessError('Choose your name and enter your PIN.',401);const directory=await directoryStaff(),id=directory[selectedId]?.pinOwnerId||selectedId,access=await read(`cbse/staffAccess/${id}`),person=directory[id];if(!access?.enabled||person?.status!=='active')throw new AccessError('Choose your name and enter the correct PIN.',401);
+    const selectedId=String(input.staffId||'');
+    if(!/^[a-zA-Z0-9_:-]{1,200}$/.test(selectedId))throw new AccessError('Choose your name and enter your PIN.',401);
+    const directory=await directoryStaff(),id=directory[selectedId]?.pinOwnerId||selectedId,person=directory[id];
+    let access=await read(`cbse/staffAccess/${id}`),pinId=id;
     const marksEntry=input.operation==='task-manager'&&['pb1-read','pb1-save'].includes(input.taskOperation);
-    const linkedIds=marksEntry&&isGangaDeviProfile(person)?rollStaffIdentityIds(directory,id)
+    const monitoringEntry=input.operation==='task-manager'&&['monitoring-update','monitoring-practice','monitoring-reopen-upload'].includes(input.taskOperation);
+    const linkedIds=(marksEntry||monitoringEntry)&&isGangaDeviProfile(person)?rollStaffIdentityIds(directory,id)
      .filter(key=>directory[key]?.status==='active'&&isGangaDeviProfile(directory[key])).sort():[];
-    const verified=await verifySubmissionPIN(id,input.pin,access,ip,person,linkedIds);
+    if(monitoringEntry&&!access?.enabled){
+     const alternatives=await Promise.all(linkedIds.filter(key=>key!==id).map(async key=>[key,await read('cbse/staffAccess/'+key)]));
+     const enabled=alternatives.find(([,record])=>record?.enabled);
+     if(enabled)[pinId,access]=enabled;
+    }
+    if(!access?.enabled||person?.status!=='active')throw new AccessError('Choose your name and enter the correct PIN.',401);
+    const verified=await verifySubmissionPIN(pinId,input.pin,access,ip,directory[pinId],linkedIds);
     action=String(input.operation||'comment');if(!['staff-meetings','task-manager','comment','teacher-comment','update-contact','update-task','conversation-start','conversation-reply','news-create','news-comment','credit-claim','mcq-contribute','mcq-import-csv','mcq-question-edit','mcq-question-delete','mcq-paper-delete','mcq-paper','mcq-evaluate','mcq-answer-key','remedial-plan','roll-call','movement','podcast-list','podcast-ack','exam-attendance-save'].includes(action))throw new AccessError('This operation requires Principal access.',403);if(!['staff-meetings','task-manager','roll-call','movement','podcast-list','podcast-ack'].includes(action)&&!missionMemberAllowed(person))throw new AccessError('This staff member is not part of the Mission team.',403);pinIdentity={decoded:{staffId:verified.id},access:verified.access};
    }
   }
@@ -935,7 +953,10 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(['monitoring-update','monitoring-practice','monitoring-reopen-upload'].includes(input.taskOperation)){
     const curtain=await sharedView('view-version',{accessOnly:true},session.viewerToken||'');
     if(curtain?.error){const error=new AccessError(curtain.error,curtain.status);error.curtainRequired=true;throw error;}
-    const path='cbse/taskMonitoring',actor={id,name:staff[id].name};
+    const path='cbse/taskMonitoring';
+    const selected=staff[input.staffId],roleId=isGangaDeviProfile(staff[id])&&selected?.status==='active'&&
+     isGangaDeviProfile(selected)&&rollStaffIdentityIds(staff,id).includes(input.staffId)?input.staffId:id;
+    const actor={id:roleId,name:staff[roleId].name};
     if(input.taskOperation==='monitoring-reopen-upload'){
      await reopenTaskUpload(input,actor,staff);
      return {ok:true};
@@ -945,7 +966,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
      if(typeof input.rowKey!=='string'||!/^row_[1-9]\d{0,5}$/.test(input.rowKey)||!Number.isInteger(input.stage)||input.stage<0)
       throw new AccessError('Choose a valid practice step.',400);
      const {published,overrides}=await read(path)||{};
-     const mock={published:published&&{...resolvePublishedAvinashAssignments(published,staff,overrides),examReviewers},progress:{[input.rowKey]:{stage:input.stage,separateMatching:true,revision:0,history:[]}}};
+     const mock={published:published&&{...resolvePublishedMonitoringAssignments(published,monitoringDirectory(staff),overrides),examReviewers},progress:{[input.rowKey]:{stage:input.stage,separateMatching:true,revision:0,history:[]}}};
      try{
       const result=monitoringAdvance(mock,{...input,expectedRevision:0},actor,now()).progress[input.rowKey];
       return {ok:true,stage:result.stage,event:result.history[0]};
@@ -954,7 +975,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     const stored=input.pdf===undefined?null:await read(path);
     const known=stored?.revision??await read(path+'/revision'),stamp=now();
     const advance=state=>{
-     const published=state.published,effective=resolvePublishedAvinashAssignments(published,staff,state.overrides);
+     const published=state.published,effective=resolvePublishedMonitoringAssignments(published,monitoringDirectory(staff),state.overrides);
      return monitoringAdvance({...state,published:effective&&{...effective,examReviewers}},input,actor,stamp);
     };
     let signedSlip;
