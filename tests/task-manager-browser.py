@@ -138,6 +138,10 @@ try:
         freeze_page.route('**/api/staff-access',advisory_api)
         freeze_page.reload()
         freeze_page.get_by_role('button',name='Task 5 · Student Support Portfolio',exact=True).click()
+        assert api({'action':'task-read','operation':'portfolio-directory'})=={'published':False,'teachers':[]}
+        freeze_page.get_by_role('button',name='Publish Task 5',exact=True).click()
+        freeze_page.get_by_role('button',name='Stop publishing Task 5',exact=True).wait_for()
+        assert api({'action':'task-read','operation':'portfolio-directory'})['published'] is True
         freeze_page.get_by_label('Advisory letter for',exact=True).select_option('t')
         with freeze_page.expect_download() as letter_download:
             freeze_page.get_by_role('button',name='Download advisory PDF',exact=True).click()
@@ -170,7 +174,7 @@ try:
         def portfolio_api(route):
             payload=route.request.post_data_json
             if payload.get('operation')=='portfolio-directory':
-                route.fulfill(json={'teachers':[{'id':'X:one','name':'Synthetic Teacher one'}]})
+                route.fulfill(json={'published':True,'teachers':[{'id':'X:one','name':'Synthetic Teacher one'}]})
             elif payload.get('taskOperation') in ('portfolio-read','portfolio-save'):
                 saved=payload['taskOperation']=='portfolio-save'
                 assert payload['pin']=='123' and payload['staffId']=='X:one'

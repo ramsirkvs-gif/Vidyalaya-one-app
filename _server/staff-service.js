@@ -354,11 +354,21 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   return {cases,ids,directory};
  }
  async function supportPortfolio(input,actor){
+  const publicationPath='cbse/taskPB1PortfolioPublished';
+  if(['portfolio-publish','portfolio-unpublish'].includes(input.operation)){
+   if(!actor.uid)throw new AccessError('Principal access required.',403);
+   const published=input.operation==='portfolio-publish';
+   const result=await mcqTransaction(db,publicationPath,()=>published,{restTransaction});
+   if(!result.committed)throw new AccessError('The publication status could not be saved. Try again.',409);
+   return {published};
+  }
+  const published=await read(publicationPath)===true;
   if(input.operation==='portfolio-directory'){
+   if(!published)return {published,teachers:[]};
    const [{draft,faculty,mission},access]=await Promise.all([context(),read('cbse/staffAccess')]);
    const {cases,directory}=supportPortfolioData(draft,faculty,mission,actor);
    const assigned=new Set(cases.flatMap(entry=>[...entry.classTeacherKeys,...entry.paper.teachers.map(({key})=>key)]));
-   return {teachers:evaluatorDirectory(directory,access||{},id=>teacherIdentityIds(id,faculty,mission),assigned)};
+   return {published,teachers:evaluatorDirectory(directory,access||{},id=>teacherIdentityIds(id,faculty,mission),assigned)};
   }
   if(input.operation==='portfolio-advisory-save'){
    if(!actor.uid)throw new AccessError('Principal access required.',403);
@@ -379,13 +389,14 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    if(!saved.committed||!saved.snapshot.val())throw new AccessError('The advisory changed. Reopen the portfolio to load the latest draft.',409);
    return {advisory:saved.snapshot.val()};
   }
+  if(!actor.uid&&!published)throw new AccessError('Task 5 is awaiting publication.',403);
   if(input.taskOperation!=='portfolio-save'){
    const [{draft,faculty,mission},actions,advisories]=await Promise.all([
     context(),read('cbse/taskPB1Portfolio'),actor.uid?read('cbse/taskPB1Advisories'):null
    ]);
    const {cases,ids,directory}=supportPortfolioData(draft,faculty,mission,actor);
    const byCase=source=>Object.fromEntries(cases.flatMap(({key,row})=>[key,JSON.stringify(['issues',row.key])]).map(key=>[key,source?.[createHash('sha256').update(key).digest('hex')]]));
-   return portfolioView(cases,mission,byCase(actions),ids,draft,directory,byCase(advisories));
+   return {...portfolioView(cases,mission,byCase(actions),ids,draft,directory,byCase(advisories)),published};
   }
   if(typeof input.caseKey!=='string'||input.caseKey.length>700||
      typeof input.entryId!=='string'||!/^[a-f0-9-]{36}$/.test(input.entryId))throw new AccessError('Choose a portfolio case.',400);
@@ -394,6 +405,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   const saved=await mcqTransaction(db,'cbse',current=>{
    if(!current)return null;
    try{
+    if(current.taskPB1PortfolioPublished!==true)throw Error('Task 5 is awaiting publication.');
     const access=current.staffAccess?.[actor.id];
     if(!access?.enabled||access.version!==actor.version)throw Error('Your PIN access changed. Verify again.');
     const {draft}=current,{faculty,mission}=resolvedViewingData(draft,current.facultyDraft,current.mission||emptyMission());
@@ -634,7 +646,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
    if(!admin&&input.operation==='portfolio-directory')return supportPortfolio(input,{});
-   if(admin&&['portfolio-read','portfolio-advisory-save'].includes(input.operation))return supportPortfolio(input,{uid:adminIdentity.uid});
+   if(admin&&['portfolio-read','portfolio-advisory-save','portfolio-publish','portfolio-unpublish'].includes(input.operation))return supportPortfolio(input,{uid:adminIdentity.uid});
    if(['retest-read','retest-import','retest-save','retest-publish','retest-unpublish'].includes(input.operation))return retestWorkspace(input,adminIdentity,session);
    if(admin&&input.operation==='monitoring-drive-check'){
     try{return {folders:await checkTaskSlipDrive()};}
@@ -798,8 +810,10 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    const directory=Object.fromEntries(entries(staff).filter(([,p])=>p.status==='active').map(([id,p])=>[id,{name:p.name,status:p.status}]));
    const stored=withTaskExamParticipation(taskRosterStore(await read('cbse/taskManager'),staff,rollStaffIdentityIds));if(!admin){
     const catalogue=taskCatalogue(stored,staff,TASK1_ROSTER);
-    const monitoringPublishedAt=await read(monitoringPath+'/published/updatedAt');
-    return monitoringPublishedAt?{...catalogue,monitoringPublishedAt}:catalogue;
+    const [monitoringPublishedAt,portfolioPublished]=await Promise.all([
+     read(monitoringPath+'/published/updatedAt'),read('cbse/taskPB1PortfolioPublished')
+    ]);
+    return {...catalogue,...(monitoringPublishedAt?{monitoringPublishedAt}:{}),portfolioPublished:portfolioPublished===true};
    }
    const [monitoringUpdatedAt,retestPublished]=await Promise.all([read(monitoringPath+'/updatedAt'),read('cbse/taskRetest/published')]);
    if(!input.operation||input.operation==='read')return {...taskView(stored,actor),staff:directory,classFigures:stored.classFigures||{},monitoringUpdatedAt,retestPublished:!!retestPublished};

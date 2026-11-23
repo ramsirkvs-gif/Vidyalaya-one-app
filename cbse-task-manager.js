@@ -1811,8 +1811,26 @@ async function openSupportPortfolio(teacherMode=false){
   if(printButton)filters.after(printButton);
   drawClass(view.section,view.subject);
  }
- if(asPrincipal){card.append(button('Teacher action plan entry',()=>openSupportPortfolio(true)),content);render(await read());return;}
- const {teachers}=await request({action:'task-read',operation:'portfolio-directory'});
+ if(asPrincipal){
+  const data=await read(),controls=el('div',undefined,'task-actions'),state=el('p');
+  state.setAttribute('role','status');
+  let published=data.published===true;
+  const toggle=button('',async()=>{
+   const result=await request({action:'task-principal',operation:published?'portfolio-unpublish':'portfolio-publish'},true);
+   published=result.published;store.portfolioPublished=published;drawPublication();
+   message(published?'Task 5 published. Assigned teachers can now enter comments with their PIN.':'Task 5 publication stopped. Saved comments are retained.');
+  });
+  const teacherEntry=button('Teacher action plan entry',()=>{if(discard())return openSupportPortfolio(true);});
+  function drawPublication(){
+   toggle.textContent=published?'Stop publishing Task 5':'Publish Task 5';
+   state.textContent=published?'Published · teacher PIN entry is open':'Draft · awaiting publication';
+   teacherEntry.hidden=!published;
+  }
+  controls.append(toggle,teacherEntry);card.append(state,controls,content);
+  drawPublication();render(data);return;
+ }
+ const {teachers,published}=await request({action:'task-read',operation:'portfolio-directory'});
+ if(!published){card.append(el('p','Task 5 is awaiting publication.'));return;}
  const login=form(),person=field(login,'Select your name','portfolio-teacher','select'),
   pin=field(login,'Personal PIN','portfolio-pin','password');
  options(person,[['','Choose your name'],...teachers.map(({id,name})=>[id,name])]);
@@ -1837,7 +1855,7 @@ function drawStaff(){
   ['Task 2','Pre-Samagam Evaluation Monitoring','Running','running',drawStaffTask2],
   ['Task 3','Class IX Pre-Annual Exam','Running','upcoming',drawClassIXExam],
   ['Task 4',RETEST_TITLE,'High priority','priority',openRetest],
-  ['Task 5','PB-1 Student Support Portfolio','Running','running',openSupportPortfolio],
+  ['Task 5','PB-1 Student Support Portfolio',store.portfolioPublished?'Running':'Awaiting publication',store.portfolioPublished?'running':'upcoming',openSupportPortfolio],
  ]){
   const item=el('li'),strip=button('',open);
   strip.className='task-stage-strip is-'+style;
