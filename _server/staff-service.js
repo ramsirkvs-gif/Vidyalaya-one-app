@@ -1,3 +1,4 @@
+import {hqPB1Verification} from './pb1-hq-verification.js';
 import {parseRetestCSV,retestUpdates,RETEST_STEPS} from '../cbse-task-retest-model.js';
 import {checkTaskSlipDrive,uploadTaskSignedSlip} from './task-signed-slip-drive.js';
 import {afternoonLeaveExemption} from '../cbse-roll-call-leave.js';
@@ -336,8 +337,11 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   const [initial,published,overrides]=await Promise.all([context(),read('cbse/taskMonitoring/published'),read('cbse/taskMonitoring/overrides')]);
   initial.mission=pb1Mission(initial.draft,initial.mission,published);
   const scope=scoped(initial.draft,initial.faculty,initial.mission);
-  const entryReport=(draft,faculty,report,ids)=>actor.uid?{...principalPB1Report(report),roster:pb1Roster(draft),classSections:pb1Sections(draft,faculty)}:
-   {...report,teacherIds:[...ids]};
+  const entryReport=(draft,faculty,report,ids)=>{
+   const hqVerification=hqPB1Verification(actor.uid?undefined:report.scopes);
+   return actor.uid?{...principalPB1Report(report),roster:pb1Roster(draft),classSections:pb1Sections(draft,faculty),hqVerification}:
+    {...report,teacherIds:[...ids],hqVerification};
+  };
   if(input.operation==='pb1-read'||input.taskOperation==='pb1-read')
    return entryReport(initial.draft,initial.faculty,pb1Report(initial.draft,initial.mission,scope.staff,scope.ids,scope.identity,
     marksCheckers(published,initial.faculty,initial.mission,overrides||{})),scope.ids);

@@ -288,7 +288,7 @@ function renderMarksGraph(parent,grouped,exam){
  if(graph.childElementCount)parent.append(graph);else parent.append(el('p','No records match these filters.'));
 }
 
-export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,back,teacher,publicView,entryOnly,openEntry,openNames,refresh,exam=PB1_ANALYSER,setup,requestedPaper,backLabel,openPrincipalReview}){
+export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,back,teacher,publicView,entryOnly,openEntry,openNames,refresh,exam=PB1_ANALYSER,setup,requestedPaper,backLabel,openPrincipalReview,hqVerification,downloadHQVerification}){
  const card=el('section',undefined,'task-card pb1-analyser'),toolbar=el('div',undefined,'task-actions'),content=el('div');
  const filters=el('div',undefined,'pb1-filters'),report=el('div');
  let entering=entryOnly,entryAction,classMode=false;
@@ -750,6 +750,10 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    });
    preview.disabled=!data.rows.some(row=>row.current&&(row.scope===index||mathsSection(scope,data.scopes[row.scope])));
    host.append(preview);
+   if(hqVerification?.groups.some(group=>group.sections.some(paper=>
+    paper.section===scope.classId+scope.section&&paper.paper===scope.paperName))){
+    host.append(button('HQ/RO Analysis Verification PDF',()=>downloadHQVerification(hqVerification,scope)));
+   }
    if(scope.approvedAt){
     host.append(el('p','Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),'task-monitoring-notice'));
     if(unfreeze)host.append(button('Unfreeze for emergency correction',()=>reopenPaper(scope,drawMarks)));

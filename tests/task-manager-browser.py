@@ -78,9 +78,13 @@ try:
                {'scope':2,'current':{'maximum':70,'score':None,'absent':True}},{'scope':3,'current':{'maximum':80,'score':30}}]
         for row in marks:
             row.update(name='Synthetic Student',roll='001')
+        hq={'updated':'23/11/2026 13:07:32 IST','groups':[{
+            'classId':'X','stream':'','subject':'English','total':[1,1,0,0,1,0,0,0,0,0,0,0],
+            'sections':[{'section':'XA','paper':'English','frozen':True,'counts':[1,1,0,0,1,0,0,0,0,0,0,0]}]
+        }]}
         def freeze_report_api(route):
             if route.request.post_data_json.get('operation')=='pb1-read':
-                route.fulfill(json={'scopes':scopes,'rows':marks})
+                route.fulfill(json={'scopes':scopes,'rows':marks,'hqVerification':hq})
             else:route.continue_()
         freeze_page.route('**/api/staff-access',freeze_report_api)
         freeze_page.goto(BASE+'cbse-task-manager.html#principal')
@@ -109,6 +113,14 @@ try:
             strings=workbook.read('xl/sharedStrings.xml').decode()
             assert all(value in strings for value in ['Synthetic Student','Pending','Absent','Check paper maximum','12/11/2026'])
             assert '<c r="I2"><v>0</v></c>' in workbook.read('xl/worksheets/sheet2.xml').decode()
+        with freeze_page.expect_download() as verification_pdf:
+            freeze_page.get_by_role('button',name='HQ/RO Analysis Verification PDF',exact=True).click()
+        full_pdf=subprocess.check_output(['pdftotext',str(verification_pdf.value.path()),'-'],text=True)
+        assert all(value in full_pdf for value in ['HQ/RO Analysis Verification','XA / English','Subject total'.lower(),'Consolidated result'])
+        class_x.get_by_role('button',name='Open paper · Class X A · English',exact=True).click()
+        with freeze_page.expect_download() as paper_pdf:
+            freeze_page.get_by_role('button',name='HQ/RO Analysis Verification PDF',exact=True).click()
+        assert paper_pdf.value.suggested_filename=='HQ-RO-Analysis-Verification-XA-English.pdf'
         freeze_page.close()
         release={'version':json.loads((ROOT/'public/app-version.json').read_text())['version']}
         staffctx=browser.new_context();staffctx.route('**/app-version.json',lambda route:route.fulfill(json=release));staffctx.route('https://www.gstatic.com/firebasejs/**',sdk);teacher=staffctx.new_page();teacher.on('pageerror',lambda e:errors.append(str(e)))

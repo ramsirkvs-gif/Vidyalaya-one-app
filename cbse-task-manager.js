@@ -703,7 +703,7 @@ async function openPB1FreezeReport(){
  actions.append(button('Back to task list',drawPrincipal),button('Refresh report',openPB1FreezeReport));
  panel.append(el('h2','PB-1 Marks and Freeze Report'),actions,results);
  host.replaceChildren(panel);
- const {scopes,rows}=await request({action:'task-principal',operation:'pb1-read'},true);
+ const {scopes,rows,hqVerification}=await request({action:'task-principal',operation:'pb1-read'},true);
  const counts=paperMarkCounts(scopes,rows);
  const papers=scopes.map((paper,index)=>{
   const count=counts[index];
@@ -741,6 +741,7 @@ async function openPB1FreezeReport(){
   const workbook=buildPB1HQMarksWorkbook(ExcelJS,latest,rollTimestamp(Date.now()));
   await downloadTaskWorkbook(workbook,'PB-1-HQ-Written-Marks-X-XII.xlsx');
  }));
+ if(hqVerification?.groups.length)actions.append(button('HQ/RO Analysis Verification PDF',()=>downloadHQVerification(hqVerification)));
  function draw(){
   results.replaceChildren();
   for(const {classId,summary,matching} of ['X','XII'].map(groupFor)){
@@ -1115,6 +1116,11 @@ function signInForHalfYearlyReview(paper){
  dialog.append(title,login,button('Cancel',()=>dialog.close()));
  dialog.addEventListener('close',()=>dialog.remove(),{once:true});document.body.append(dialog);dialog.showModal();
 }
+async function downloadHQVerification(verification,paper){
+ const {downloadPB1HQVerificationPDF}=await import('./cbse-task-report-pdf.js');
+ await downloadPB1HQVerificationPDF(verification,paper);
+}
+
 async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=false,returnTo){
  const classIX=examId==='class-ix';
  const exam=classIX?{title:'Class IX Pre-Annual Wisdom Analyser',short:'Pre-Annual',current:'Pre-Annual Exam',previous:CLASS_IX_EXAM.previous,baseline:CLASS_IX_EXAM.baseline,classId:'IX',classes:'Class IX'}:examId==='half-yearly'?HALF_YEARLY_ANALYSER:PB1_ANALYSER;
@@ -1170,7 +1176,7 @@ async function openPB1Analyser(entryOnly=false,examId,requestedPaper,remedial=fa
    if(transfer)panel.append(transfer);
    return panel;
   }:undefined;
-  renderPB1Analyser(host,data,{button,run,exam,setup,teacher:!asPrincipal,entryOnly,requestedPaper,backLabel:returnTo?'Back to PB-1 report':classIX?'Back to Task 3':undefined,
+  renderPB1Analyser(host,data,{button,run,exam,setup,teacher:!asPrincipal,entryOnly,requestedPaper,hqVerification:!examId&&data.hqVerification?.groups.length?data.hqVerification:undefined,downloadHQVerification,backLabel:returnTo?'Back to PB-1 report':classIX?'Back to Task 3':undefined,
    back:()=>{if(discard())return returnTo?returnTo():classIX?drawClassIXExam():asPrincipal?drawPrincipal():openExam();},
    unfreeze:asPrincipal?async({classId,sectionId,subjectId},expectedRevision)=>{
     const result=await send('pb1-unfreeze',{classId,sectionId,subjectId,expectedRevision});

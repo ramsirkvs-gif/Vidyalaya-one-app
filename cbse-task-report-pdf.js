@@ -91,3 +91,61 @@ export async function downloadPB1FreezePDF({groups,columns,updated,filter}){
  }
  doc.save('PB-1-Marks-and-Freeze-Report.pdf');
 }
+
+export async function downloadPB1HQVerificationPDF(verification,scope){
+ const groups=scope?verification.groups.flatMap(group=>{
+  const sections=group.sections.filter(paper=>paper.section===scope.classId+scope.section&&paper.paper===scope.paperName);
+  return sections.length?[{...group,sections}]:[];
+ }):verification.groups;
+ if(!groups.length)throw Error('This paper is outside the HQ verification snapshot.');
+ const PDF=await pdfLibrary(),doc=new PDF({orientation:'landscape',unit:'mm',format:'a4'});
+ const margin=12,title='HQ/RO Analysis Verification',width=doc.internal.pageSize.getWidth()-2*margin;
+ doc.setProperties({title});
+ function heading(subtitle){
+  doc.setFont('helvetica','bold').setFontSize(17).setTextColor('#175849');
+  doc.text(title,margin,16);
+  doc.setFontSize(12);
+  doc.text(subtitle,margin,24);
+  doc.setFont('helvetica','normal').setFontSize(9).setTextColor('#173738');
+  doc.text('PB-1 written marks | PM SHRI Kendriya Vidyalaya No. 1 Itanagar | '+verification.updated,margin,32);
+ }
+ const columns=['Section / paper','App roster','Appeared','Absent','Passed','Failed','Pass %',
+  '33-44.9%','45-59.9%','60-74.9%','75-89.9%','90-100%','Pending'];
+ const format=counts=>counts.map((value,index)=>index===5?(value===null?'--':(value*100).toFixed(1)+'%'):value);
+ for(const [index,group] of groups.entries()){
+  if(index)doc.addPage();
+  heading(['Class '+group.classId,group.stream,group.subject].filter(Boolean).join(' / '));
+  const body=group.sections.map(paper=>[paper.section+' / '+paper.paper+'\n'+(paper.frozen?'Frozen':'Awaiting freeze'),...format(paper.counts)]);
+  body.push(['HQ '+(group.stream||'Class '+group.classId)+' subject total',...format(group.total)]);
+  doc.autoTable({startY:39,margin:{left:margin,right:margin},head:[columns],body,
+   styles:{fontSize:8,cellPadding:2,textColor:'#173738'},
+   headStyles:{fillColor:'#175849',textColor:'#ffffff'},
+   alternateRowStyles:{fillColor:'#f1f7f4'},
+   didParseCell(data){
+    if(data.section==='body'&&data.row.index===body.length-1)data.cell.styles.fontStyle='bold';
+   },
+  });
+  let y=doc.lastAutoTable.finalY+8;
+  for(const note of ['Draft verification figures. Official registration counts are pending LOC reconciliation.',
+   'Pass is 33% or above. Pass percentage uses students who appeared. Pending entries are excluded.',
+   ...(group.stream?['Class XII stream mapping is provisional until checked against the LOC.']:[])]){
+   doc.text(note,margin,y);y+=5;
+  }
+  doc.text('Verified by __________________________     Date ______________',margin,y+6);
+  doc.text('Corrections / remarks ______________________________________________________________',margin,y+17);
+ }
+ for(const classId of [...new Set(groups.map(group=>group.classId))]){
+  doc.addPage();
+  heading('Class '+classId+' / Consolidated result');
+  doc.text('Status: Pending completion of marks and LOC reconciliation.',margin,44);
+  doc.text('The consolidated result will use each student\'s five main subjects, excluding AI.',margin,51);
+ }
+ const pages=doc.getNumberOfPages();
+ for(let page=1;page<=pages;page++){
+  doc.setPage(page);
+  doc.setFontSize(8).setTextColor('#536a70');
+  doc.text(page+' / '+pages,margin+width,doc.internal.pageSize.getHeight()-7,{align:'right'});
+ }
+ const suffix=scope?'-'+[scope.classId+scope.section,scope.paperName].join('-').replace(/[^a-z0-9-]+/gi,'-'):'-X-XII';
+ doc.save('HQ-RO-Analysis-Verification'+suffix+'.pdf');
+}
