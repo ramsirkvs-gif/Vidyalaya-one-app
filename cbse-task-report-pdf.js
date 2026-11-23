@@ -110,19 +110,28 @@ export async function downloadPB1HQVerificationPDF(verification,scope){
   doc.text('PB-1 written marks | PM SHRI Kendriya Vidyalaya No. 1 Itanagar | '+verification.updated,margin,32);
  }
  const columns=['Section / paper','App roster','Appeared','Absent','Passed','Failed','Pass %',
-  '33-44.9%','45-59.9%','60-74.9%','75-89.9%','90-100%','Pending'];
+  '33-44.9%','45-59.9%','60-74.9%','75-89.9%','90-100%','Pending','Subject teacher signature'];
  const format=counts=>counts.map((value,index)=>index===5?(value===null?'--':(value*100).toFixed(1)+'%'):value);
  for(const [index,group] of groups.entries()){
   if(index)doc.addPage();
   heading(['Class '+group.classId,group.stream,group.subject].filter(Boolean).join(' / '));
-  const body=group.sections.map(paper=>[paper.section+' / '+paper.paper+'\n'+(paper.frozen?'Frozen':'Awaiting freeze'),...format(paper.counts)]);
-  body.push(['HQ '+(group.stream||'Class '+group.classId)+' subject total',...format(group.total)]);
+  const body=group.sections.map(paper=>[paper.section+' / '+paper.paper+'\n'+(paper.frozen?'Frozen':'Awaiting freeze'),...format(paper.counts),'']);
+  body.push(['HQ '+(group.stream||'Class '+group.classId)+' subject total',...format(group.total),'']);
   doc.autoTable({startY:39,margin:{left:margin,right:margin},head:[columns],body,
    styles:{fontSize:8,cellPadding:2,textColor:'#173738'},
    headStyles:{fillColor:'#175849',textColor:'#ffffff'},
    alternateRowStyles:{fillColor:'#f1f7f4'},
+   columnStyles:{[columns.length-1]:{cellWidth:39}},
    didParseCell(data){
-    if(data.section==='body'&&data.row.index===body.length-1)data.cell.styles.fontStyle='bold';
+    if(data.section!=='body')return;
+    if(data.row.index===body.length-1)data.cell.styles.fontStyle='bold';
+    else data.cell.styles.minCellHeight=12;
+   },
+   didDrawCell({section,row,column,cell}){
+    if(section!=='body'||row.index===body.length-1||column.index!==columns.length-1)return;
+    const y=cell.y+cell.height-3;
+    doc.setDrawColor('#728982').setLineWidth(.2);
+    doc.line(cell.x+3,y,cell.x+cell.width-3,y);
    },
   });
   let y=doc.lastAutoTable.finalY+8;

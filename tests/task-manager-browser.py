@@ -116,7 +116,7 @@ try:
         with freeze_page.expect_download() as verification_pdf:
             freeze_page.get_by_role('button',name='HQ/RO Analysis Verification PDF',exact=True).click()
         full_pdf=subprocess.check_output(['pdftotext',str(verification_pdf.value.path()),'-'],text=True)
-        assert all(value in full_pdf for value in ['HQ/RO Analysis Verification','XA / English','Subject total'.lower(),'Consolidated result'])
+        assert all(value in full_pdf for value in ['HQ/RO Analysis Verification','XA / English','subject total','Subject teacher signature','Consolidated result'])
         class_x.get_by_role('button',name='Open paper · Class X A · English',exact=True).click()
         with freeze_page.expect_download() as paper_pdf:
             freeze_page.get_by_role('button',name='HQ/RO Analysis Verification PDF',exact=True).click()
