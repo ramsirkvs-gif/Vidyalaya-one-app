@@ -128,21 +128,29 @@ try:
             route.fulfill(json={'updated':'23/11/2026 15:00:33 IST',
                 'teachers':{'t':{'name':'Synthetic Advisory Teacher','designation':'TGT English'}},
                 'students':[{'key':name,'name':name,'section':'XA','remedialCount':2,'mcq':[{}],
+                    'issues':[{'issues':'CT reading concern'}],
                     'subjects':[{'key':'case-'+name,'subject':'English','teacher':'Synthetic Advisory Teacher',
                         'teacherKeys':['t'],'score':20,'maximum':80,'remedialCount':1,'mcqCount':1,
-                        'evidence':[],'actions':[]}]}
+                        'evidence':[],'actions':[{'taken':'Practice worksheet completed','plan':'Review weekly'}],
+                        'advisory':{'instructions':'1. Carefully study the attached assessment report.\nRead with the student.',
+                                    'additional':'Weekly reading review for '+name}}]}
                     for name in ['Synthetic Advisory Student One','Synthetic Advisory Student Two']]})
         freeze_page.route('**/api/staff-access',advisory_api)
         freeze_page.reload()
         freeze_page.get_by_role('button',name='Task 5 · Student Support Portfolio',exact=True).click()
         freeze_page.get_by_label('Advisory letter for',exact=True).select_option('t')
         with freeze_page.expect_download() as letter_download:
-            freeze_page.get_by_role('button',name='Download Word letter',exact=True).click()
-        with zipfile.ZipFile(letter_download.value.path()) as letter:
-            xml=letter.read('word/document.xml').decode()
-            assert all(value in xml for value in ['Synthetic Advisory Student One','Synthetic Advisory Student Two',
-                '2 verified remedial classes attended','1 evaluated MCQ papers','Conduct retests on time'])
-            assert 'NUMPAGES' in letter.read('word/footer1.xml').decode()
+            freeze_page.get_by_role('button',name='Download advisory PDF',exact=True).click()
+        assert letter_download.value.suggested_filename=='Preventive-Advisory-Letter.pdf'
+        letter=subprocess.check_output(['pdftotext',str(letter_download.value.path()),'-'],text=True)
+        assert all(value in letter for value in ['PM SHRI Kendriya Vidyalaya No. 1 Itanagar','To the Subject Teacher',
+            'Synthetic Advisory Student One','Synthetic Advisory Student Two','2 verified remedial classes attended','Page 1 of'])
+        assert letter.count('Conduct retests on time')==1 and 'Synthetic Advisory Teacher' not in letter
+        assert letter.count('Carefully study the attached assessment report')==1
+        assert all(text in letter for text in ['Student-wise teacher response','CT reading concern',
+            'Practice worksheet completed','Review weekly','Subject teacher signature'])
+        assert letter.index('Student-wise teacher response')<letter.index('Subject teacher signature')
+        assert all('Weekly reading review for Synthetic Advisory Student '+name in letter for name in ['One','Two'])
         freeze_page.close()
         release={'version':json.loads((ROOT/'public/app-version.json').read_text())['version']}
         staffctx=browser.new_context();staffctx.route('**/app-version.json',lambda route:route.fulfill(json=release));staffctx.route('https://www.gstatic.com/firebasejs/**',sdk);teacher=staffctx.new_page();teacher.on('pageerror',lambda e:errors.append(str(e)))

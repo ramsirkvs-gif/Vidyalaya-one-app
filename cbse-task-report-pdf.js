@@ -162,3 +162,136 @@ export async function downloadPB1HQVerificationPDF(verification,scope){
  const suffix=scope?'-'+[scope.classId+scope.section,scope.paperName].join('-').replace(/[^a-z0-9-]+/gi,'-'):'-X-XII';
  doc.save('HQ-RO-Analysis-Verification'+suffix+'.pdf');
 }
+
+export async function downloadTeacherAdvisoryPDF({date,instructions,cases}){
+ const PDF=await pdfLibrary(),doc=new PDF({unit:'mm',format:'a4'});
+ const title='Preventive Advisory Letter',margin=16,width=doc.internal.pageSize.getWidth()-2*margin;
+ const bottom=doc.internal.pageSize.getHeight()-18;
+ const logos=await Promise.all(['portal-original-kvs-logo.png','portal-original-pm-shri-logo.png'].map(async file=>{
+  const response=await fetch(new URL('./'+file,import.meta.url));
+  if(!response.ok)throw Error('The school letterhead could not load. Try downloading again.');
+  return new Uint8Array(await response.arrayBuffer());
+ }));
+ doc.setProperties({title});
+ const center=margin+width/2;
+ for(const [i,image] of logos.entries()){
+  const {width:w,height:h}=doc.getImageProperties(image),scale=24/Math.max(w,h);
+  doc.addImage(image,'PNG',(i?margin+width-12:margin+12)-w*scale/2,23-h*scale/2,w*scale,h*scale);
+ }
+ // Draw the Hindi line with the browser's shaping engine, as on the Staff Meetings letterhead.
+ const canvas=document.createElement('canvas');
+ canvas.width=1100;canvas.height=70;
+ const ctx=canvas.getContext('2d');
+ ctx.font='bold 44px "Noto Sans Devanagari", Mangal, sans-serif';
+ ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillStyle='#182f37';
+ ctx.fillText('पीएमश्री केन्द्रीय विद्यालय क्रमांक–1, ईटानगर',550,36,1060);
+ doc.addImage(canvas.toDataURL('image/png'),'PNG',center-61,12,122,7.76);
+ doc.setFont('helvetica','bold').setFontSize(11).setTextColor('#182f37');
+ doc.text('PM SHRI Kendriya Vidyalaya No. 1 Itanagar',center,24,{align:'center'});
+ doc.setFontSize(17);
+ doc.text(title,center,33,{align:'center'});
+ doc.setDrawColor('#a9bdb2').line(margin,39,margin+width,39);
+ let y=48;
+ function ensure(height){
+  if(y+height<=bottom)return;
+  doc.addPage();
+  y=19;
+ }
+ function write(text,{bold=false,size=10,gap=2}={}){
+  doc.setFont('helvetica',bold?'bold':'normal').setFontSize(size).setTextColor('#182f37');
+  const lineHeight=size*.43;
+  for(const paragraph of String(text).split(/\r?\n/)){
+   if(!paragraph.trim())continue;
+   if(/[^\u0000-\u024f\u2000-\u206f]/.test(paragraph)){
+    // Keep multilingual student notes readable without relying on PDF fonts for shaping.
+    ctx.font=(bold?'bold ':'')+Math.round(size*4)+'px "Noto Sans Devanagari", Mangal, sans-serif';
+    const rows=[];
+    let line='';
+    for(const word of paragraph.trim().split(/\s+/)){
+     if(line&&ctx.measureText(line+' '+word).width>1060){rows.push(line);line='';}
+     line+=(line?' ':'')+word;
+    }
+    if(line)rows.push(line);
+    for(const row of rows){
+     ensure(lineHeight);
+     ctx.clearRect(0,0,canvas.width,canvas.height);ctx.textAlign='left';
+     ctx.fillText(row,0,36,1060);
+     doc.addImage(canvas.toDataURL('image/png'),'PNG',margin,y-3,width,lineHeight+1);
+     y+=lineHeight;
+    }
+   }else{
+    for(const line of doc.splitTextToSize(paragraph,width)){
+     ensure(lineHeight);
+     doc.text(line,margin,y);
+     y+=lineHeight;
+    }
+   }
+   y+=gap;
+  }
+ }
+ write('Date '+date);
+ write('To the Subject Teacher',{bold:true});
+ write('PB-1 student-wise support and follow-up',{bold:true,size:11});
+ write(instructions);
+ const sharedLines=new Set(instructions.split(/\r?\n/).map(line=>line.trim()).filter(Boolean));
+ for(const [i,{student,subjects}] of cases.entries()){
+  ensure(22);
+  y+=3;
+  write((i+1)+'. '+[student.name,student.section,student.roll?'Roll '+student.roll:''].filter(Boolean).join(' | '),{bold:true,size:12});
+  write('Mission Perfect 100 | '+(student.remedialCount??0)+' verified remedial classes attended | '+(student.mcq?.length??0)+' evaluated MCQ papers');
+  for(const {item,assessmentLines,advisory} of subjects){
+   ensure(13);
+   write(item.subject+' | PB-1 written marks '+item.score+'/'+item.maximum,{bold:true});
+   write('In this subject | '+(item.remedialCount??0)+' verified remedial classes attended | '+(item.mcqCount??0)+' evaluated MCQ papers');
+   if(assessmentLines.length)write('Assessment history | '+assessmentLines.join(' | '));
+   const specific=[advisory?.instructions,advisory?.additional].filter(Boolean).flatMap(text=>text.split(/\r?\n/))
+    .map(line=>line.trim()).filter(line=>line&&!sharedLines.has(line));
+   if(specific.length){
+    ensure(10);
+    write('Student-specific instructions',{bold:true});
+    write([...new Set(specific)].join('\n'));
+   }
+  }
+ }
+ ensure(14);
+ y+=5;
+ write('Principal',{bold:true});
+ ensure(28);
+ y+=5;
+ write('Student-wise teacher response',{bold:true,size:13});
+ const response=(label,value)=>{
+  ensure(11);
+  write(label,{bold:true,gap:1});
+  if(value)write(value);
+  else{
+   doc.setDrawColor('#87999b').line(margin,y+3,margin+width,y+3);
+   y+=8;
+  }
+ };
+ for(const [i,{student,subjects}] of cases.entries()){
+  ensure(20);
+  y+=3;
+  write((i+1)+'. '+[student.name,student.section,student.roll?'Roll '+student.roll:''].filter(Boolean).join(' | '),{bold:true,size:11});
+  response('1. Brief issues about the student (CT / Co-CT)',student.issues?.find(entry=>entry.issues)?.issues);
+  for(const {item} of subjects){
+   ensure(16);
+   write(item.subject,{bold:true});
+   const actions=item.actions||[];
+   response('2. Efforts made so far',actions.find(entry=>entry.taken)?.taken);
+   response('3. Mission Perfect 100 action plan',actions.find(entry=>entry.plan)?.plan);
+   const progress=actions.find(entry=>entry.progress)?.progress,review=actions.find(entry=>entry.review)?.review;
+   if(progress)write('Progress | '+progress);
+   if(review)write('Review date | '+rollDateText(review));
+  }
+ }
+ ensure(20);
+ y+=9;
+ write('Subject teacher signature ______________________________    Date ______________',{bold:true});
+ const pages=doc.getNumberOfPages();
+ doc.setFont('helvetica','normal').setFontSize(8);
+ for(let page=1;page<=pages;page++){
+  doc.setPage(page);
+  doc.text('Page '+page+' of '+pages,center,bottom+8,{align:'center'});
+ }
+ doc.save('Preventive-Advisory-Letter.pdf');
+}

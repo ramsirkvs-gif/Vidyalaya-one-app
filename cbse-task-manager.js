@@ -1706,9 +1706,7 @@ async function openSupportPortfolio(teacherMode=false){
    }
   }
   async function downloadTeacherAdvisory(id,overrides){
-   const teacher=data.teachers[id];
-   const {JSZip}=await taskExcel();
-   const {buildAdvisoryDocx}=await import('./cbse-task-advisory-docx.js');
+   const {downloadTeacherAdvisoryPDF}=await import('./cbse-task-report-pdf.js');
    const cases=data.students.flatMap(student=>{
     const assigned=student.subjects.filter(subject=>subject.teacherKeys?.includes(id)).map(subject=>({
      item:subject,advisory:overrides?.key===subject.key?overrides:subject.advisory,
@@ -1718,17 +1716,14 @@ async function openSupportPortfolio(teacherMode=false){
     return assigned.length?[{student,subjects:assigned}]:[];
    });
    const date=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kolkata',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date());
-   const bytes=await buildAdvisoryDocx(JSZip,{teacher,date,instructions:defaultRemedialInstructions,cases});
-   const url=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}));
-   const link=el('a');link.href=url;link.download='Preventive-Advisory-'+teacher.name.replace(/[^\p{L}\p{N}]+/gu,'-')+'.docx';
-   link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+   await downloadTeacherAdvisoryPDF({date,instructions:defaultRemedialInstructions,cases});
   }
   if(asPrincipal&&Object.keys(data.teachers||{}).length){
    const toolbar=el('div',undefined,'task-actions');
    const teacher=field(toolbar,'Advisory letter for','portfolio-advisory-teacher','select');
    options(teacher,[['','Choose a teacher'],...Object.entries(data.teachers)
     .sort(([,a],[,b])=>a.name.localeCompare(b.name)).map(([id,person])=>[id,person.name])]);
-   const download=button('Download Word letter',()=>downloadTeacherAdvisory(teacher.value));
+   const download=button('Download advisory PDF',()=>downloadTeacherAdvisory(teacher.value));
    download.disabled=true;teacher.onchange=()=>{download.disabled=!teacher.value;};
    toolbar.append(download);filters.before(toolbar);
   }
@@ -1751,9 +1746,11 @@ async function openSupportPortfolio(teacherMode=false){
      message('Student advisory draft saved.');
     });
    };
-   for(const id of item.teacherKeys){
-    const teacher=data.teachers?.[id];
-    if(teacher)draft.append(button('Download Word letter for '+teacher.name,()=>downloadTeacherAdvisory(id,
+   const ids=item.teacherKeys.filter(id=>data.teachers?.[id]);
+   if(ids.length){
+    const recipient=ids.length>1?field(draft,'Teacher for this PDF','advisory-teacher','select'):null;
+    if(recipient)options(recipient,ids.map(id=>[id,data.teachers[id].name]));
+    draft.append(button('Download advisory PDF',()=>downloadTeacherAdvisory(recipient?.value||ids[0],
      {key:item.key,instructions:instructions.value.trim(),additional:additional.value.trim()})));
    }
    return editor;
