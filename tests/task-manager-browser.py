@@ -72,16 +72,16 @@ try:
         teacher.goto(BASE+'cbse-task-manager.html#staff')
         strips=teacher.locator('.task-stage-strip')
         strips.last.wait_for()
-        assert strips.count()==4
-        assert strips.nth(0).inner_text().splitlines()==['Task 1','HQ Survey','✓','Done']
-        assert strips.nth(2).inner_text().splitlines()[:2]==['Task 3','Class IX Pre-Annual Exam']
-        assert 'Running' in strips.nth(2).inner_text()
+        assert strips.count()==3
+        assert teacher.get_by_text('HQ Survey',exact=True).count()==0
+        assert strips.nth(1).inner_text().splitlines()[:2]==['Task 3','Class IX Pre-Annual Exam']
+        assert 'Running' in strips.nth(1).inner_text()
         assert teacher.locator('.task-public-list').count()==0
         assert teacher.locator('button.task-stage-strip').count()==3
         for width in [320,390,768,1440]:
             teacher.set_viewport_size({'width':width,'height':900})
             assert teacher.evaluate('document.documentElement.scrollWidth<=innerWidth')
-        strips.nth(3).click()
+        strips.nth(2).click()
         teacher.get_by_text('The retest list is awaiting publication.',exact=True).wait_for()
         teacher.get_by_role('button',name='Back to task list',exact=True).click()
         retest=ctx.new_page()
@@ -131,7 +131,7 @@ try:
         assert 'High alert' in text and '26/11/2026' in text and 'Synthetic room' in text
         assert 'Add remark' not in text
         retest_ctx.close()
-        strips.nth(2).click()
+        strips.nth(1).click()
         teacher.get_by_role('cell',name='07/12/2026',exact=True).wait_for()
         teacher.get_by_role('cell',name='9321–9340',exact=True).wait_for()
         assert teacher.get_by_text('Room to be assigned',exact=True).count()==10
@@ -235,7 +235,7 @@ try:
         science.get_by_text('Action recorded for this week',exact=True).wait_for()
         teacher.get_by_role('button',name='Back to Task 3',exact=True).click()
         teacher.get_by_role('button',name='Back to task list',exact=True).click()
-        strips.nth(1).click()
+        strips.nth(0).click()
         teacher.get_by_role('button',name='Open Wisdom Analyser',exact=True).wait_for()
         teacher.get_by_role('button',name='Open XI Half-Yearly Analyser',exact=True).wait_for()
         xi=api({'action':'task-principal','operation':'half-yearly-import','exam':'half-yearly','expectedRevision':0,

@@ -1439,21 +1439,17 @@ function drawStaff(){
   .sort(([,a],[,b])=>TASK_PRIORITIES.indexOf(a.priority)-TASK_PRIORITIES.indexOf(b.priority));
  const list=el('ol',undefined,'task-stage-list');
  for(const [number,title,status,style,open] of [
-  ['Task 1','HQ Survey','Done','done'],
   ['Task 2','Pre-Samagam Evaluation Monitoring','Running','running',drawStaffTask2],
   ['Task 3','Class IX Pre-Annual Exam','Running','upcoming',drawClassIXExam],
   ['Task 4',RETEST_TITLE,'High priority','priority',openRetest],
  ]){
-  const item=el('li'),strip=open?button('',open):el('div');
+  const item=el('li'),strip=button('',open);
   strip.className='task-stage-strip is-'+style;
   const info=el('span',undefined,'task-stage-info');
   info.append(el('span',number,'task-stage-number'),el('strong',title,'task-stage-title'));
   if(number==='Task 2'||number==='Task 3')info.append(el('span',number==='Task 2'?'Wisdom Analyser · PB-1 & Half-Yearly':'Date sheet, seating, marks and remedial action','task-stage-subtitle'));
   const state=el('span',undefined,'task-stage-state');
-  if(style==='done'||open){
-   const symbol=el('span',style==='done'?'✓':'→');
-   symbol.setAttribute('aria-hidden','true');state.append(symbol);
-  }
+  const symbol=el('span','→');symbol.setAttribute('aria-hidden','true');state.append(symbol);
   state.append(el('span',status));strip.append(info,state);item.append(strip);list.append(item);
  }
  host.replaceChildren(el('h2','Task list'),list);

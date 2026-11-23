@@ -298,7 +298,6 @@
 }
 .task-stage-list{list-style:none;display:grid;gap:12px;padding:0;margin:14px 0 24px}
 .task-app .task-stage-strip{width:100%;box-sizing:border-box;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:clamp(14px,3vw,24px);border:1px solid var(--stage-border);border-inline-start:6px solid var(--stage-accent);border-radius:14px;background:var(--stage-bg);color:var(--stage-text);text-align:start;white-space:normal}
-.task-stage-strip.is-done{--stage-bg:#eaf6ed;--stage-border:#bcdac8;--stage-accent:#438361;--stage-text:#1c543c}
 .task-stage-strip.is-running{--stage-bg:#eaf1ff;--stage-border:#a8bff3;--stage-accent:#294eae;--stage-text:#193674}
 .task-stage-strip.is-upcoming{--stage-bg:#fff6e3;--stage-border:#e5d3a6;--stage-accent:#a66e1c;--stage-text:#68480f}
 .task-app button.task-stage-strip:hover{background:#dbe8ff;border-color:#294eae}
