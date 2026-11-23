@@ -1530,19 +1530,32 @@ async function openRetest(){
  draw();
 }
 
-async function openSupportPortfolio(){
+const portfolioMonth=new Intl.DateTimeFormat('en-GB',{month:'long',timeZone:'UTC'});
+function portfolioAssessmentLabel(assessment){
+ const month=/^(\d{4})-(0[1-9]|1[0-2])(?:-|$)/.exec(assessment.date||'');
+ if(assessment.monthly&&month)return portfolioMonth.format(new Date(month[1]+'-'+month[2]+'-01T00:00:00Z'))+' Monthly Test';
+ return assessment.name;
+}
+function portfolioAssessmentDate(value){
+ if(/^\d{4}-\d{2}-\d{2}$/.test(value||''))return rollDateText(value);
+ return /^\d{4}-\d{2}$/.test(value||'')?value.slice(0,4):'';
+}
+
+async function openSupportPortfolio(teacherMode=false){
+ const asPrincipal=principal&&!teacherMode;
  const back=()=>{if(discard())return principal?drawPrincipal():drawStaff();};
  const card=el('section',undefined,'task-card'),title=el('h2','Task 5 — PB-1 Student Support Portfolio');
  card.append(title);
  host.replaceChildren(button('Back to task list',back),card);
- const read=(staffId,pin)=>request(principal?{action:'task-principal',operation:'portfolio-read'}:
-  {action:'pin-submit',operation:'task-manager',taskOperation:'portfolio-read',staffId,pin},principal);
+ const read=(staffId,pin)=>request(asPrincipal?{action:'task-principal',operation:'portfolio-read'}:
+  {action:'pin-submit',operation:'task-manager',taskOperation:'portfolio-read',staffId,pin},asPrincipal);
  const content=el('div');
  function render(data,staffId='',view={}){
   content.replaceChildren();
   content.append(el('p','HQ report reference · '+data.updated));
   if(!data.students.length){content.append(el('p','No reported PB-1 fail cases are available for this view.'));return;}
   const classOf=student=>student.classId||(/^XII/.test(student.section)?'XII':'X');
+  const subjectLabel=(student,item)=>classOf(student)==='X'&&/^(?:maths|mathematics)\s+(?:basic|standard)$/i.test(item.subject.trim())?'Maths':item.subject;
   const classCounts=new Map(['X','XII'].map(classId=>[classId,data.students.filter(student=>classOf(student)===classId).length]));
   let activeClass=view.classId||[...classCounts].find(([,count])=>count)[0],selected=view.student||'';
   const classPicker=el('div',undefined,'task-actions portfolio-class-picker');
@@ -1568,12 +1581,39 @@ async function openSupportPortfolio(){
    const student=data.students.find(item=>item.key===selected);
    if(!student)return;
    detail.append(el('h3',student.name+' · '+student.section+(student.roll?' · Roll '+student.roll:'')));
-   for(const item of student.subjects.filter(item=>allSubjects||!subjects.value||item.subject===subjects.value)){
+   const mcq=student.mcq||[];
+   const participation=el('section',undefined,'task-card');
+   participation.append(el('h4','MCQ participation · '+mcq.length+' evaluated '+(mcq.length===1?'paper':'papers')));
+   if(!mcq.length)participation.append(el('p','No evaluated MCQ papers recorded.'));
+   for(const paper of mcq){
+    const date=portfolioAssessmentDate(paper.date);
+    participation.append(el('p',[date,paper.paperId,paper.subject,paper.score+'/'+paper.maximum,paper.teacher].filter(Boolean).join(' · ')));
+   }
+   detail.append(participation);
+   for(const item of student.subjects.filter(item=>allSubjects||!subjects.value||subjectLabel(student,item)===subjects.value)){
     const section=el('section',undefined,'task-card');
-    section.append(el('h4',item.subject+' · '+item.score+'/'+item.maximum),el('p',item.teacher||'Subject teacher assignment pending'));
+    section.append(el('h4',item.subject+' · PB-1 '+item.score+'/'+item.maximum),el('p',item.teacher||'Subject teacher assignment pending'));
+    section.append(el('h5','Marks progress'));
+    const graph=el('ul',undefined,'portfolio-progress-graph');
+    for(const assessment of item.assessments||[{name:'PB-1',score:item.score,maximum:item.maximum,pb1:true}]){
+     const line=el('li',undefined,assessment.pb1?'portfolio-pb1-point':undefined);
+     const label=portfolioAssessmentLabel(assessment),date=portfolioAssessmentDate(assessment.date);
+     const value=assessment.absent?'Absent':assessment.score+'/'+assessment.maximum;
+     line.append(el('span',[label,date].filter(Boolean).join(' · ')),el('strong',value));
+     if(!assessment.absent&&assessment.maximum>0){
+      const track=el('span',undefined,'portfolio-progress-track'),bar=el('span');
+      const percentage=Math.max(0,Math.min(100,100*assessment.score/assessment.maximum));
+      bar.style.width=percentage+'%';
+      track.setAttribute('aria-hidden','true');
+      track.append(bar);line.append(track);
+      line.lastElementChild.before(el('small',percentage.toFixed(1)+'%'));
+     }
+     graph.append(line);
+    }
+    section.append(graph);
     section.append(el('h5','Work already recorded'));
     if(!item.evidence.length)section.append(el('p','No matching portal records.'));
-    for(const event of item.evidence)section.append(el('p',[rollDateText(event.date),event.source,event.detail].filter(Boolean).join(' · ')));
+    for(const event of item.evidence)section.append(el('p',[portfolioAssessmentDate(event.date),event.source,event.detail].filter(Boolean).join(' · ')));
     section.append(el('h5','Action taken and next plan'));
     if(!item.actions.length)section.append(el('p','Awaiting teacher update.'));
     for(const entry of item.actions){
@@ -1587,6 +1627,7 @@ async function openSupportPortfolio(){
     }
     if(staffId){
      const editor=el('details'),update=form(),entryId=crypto.randomUUID();
+     editor.open=!item.actions.length;
      editor.append(el('summary','Add action or update plan'),update);
      const taken=field(update,'Action taken','portfolio-taken','textarea');
      const plan=field(update,'Next action plan','portfolio-plan','textarea');
@@ -1613,7 +1654,7 @@ async function openSupportPortfolio(){
   }
   function filterStudents(){
    const matches=data.students.filter(student=>classOf(student)===activeClass&&(!sections.value||student.section===sections.value)&&
-    (!subjects.value||student.subjects.some(item=>item.subject===subjects.value)));
+    (!subjects.value||student.subjects.some(item=>subjectLabel(student,item)===subjects.value)));
    if(!matches.some(student=>student.key===selected))selected='';
    count.textContent=matches.length?matches.length+' '+(matches.length===1?'student':'students'):'No matching students';
    list.replaceChildren();
@@ -1643,7 +1684,7 @@ async function openSupportPortfolio(){
   function drawClass(section='',subject=''){
    for(const [classId,choose] of classButtons)choose.setAttribute('aria-pressed',String(classId===activeClass));
    const current=data.students.filter(student=>classOf(student)===activeClass);
-   options(subjects,[['','All subjects'],...[...new Set(current.flatMap(student=>student.subjects.map(item=>item.subject)))].sort().map(value=>[value,value])],subject);
+   options(subjects,[['','All subjects'],...[...new Set(current.flatMap(student=>student.subjects.map(item=>subjectLabel(student,item))))].sort().map(value=>[value,value])],subject);
    options(sections,[['','All sections'],...[...new Set(current.map(student=>student.section))].sort().map(value=>[value,value])],section);
    previous={section:sections.value,subject:subjects.value};
    filterStudents();
@@ -1652,7 +1693,7 @@ async function openSupportPortfolio(){
    if(discard()){previous={section:sections.value,subject:subjects.value};filterStudents();}
    else{sections.value=previous.section;subjects.value=previous.subject;}
   };
-  const printButton=principal?button('Print selected portfolio',()=>{
+  const printButton=asPrincipal?button('Print selected portfolio',()=>{
    if(!selected)return;
    const print=el('article',undefined,'task-status-print');
    drawStudent(true);
@@ -1664,7 +1705,7 @@ async function openSupportPortfolio(){
   if(printButton)filters.after(printButton);
   drawClass(view.section,view.subject);
  }
- if(principal){card.append(content);render(await read());return;}
+ if(asPrincipal){card.append(button('Teacher action plan entry',()=>openSupportPortfolio(true)),content);render(await read());return;}
  const {teachers}=await request({action:'task-read',operation:'pb1-directory'});
  const login=form(),person=field(login,'Select your name','portfolio-teacher','select'),
   pin=field(login,'Personal PIN','portfolio-pin','password');

@@ -354,3 +354,11 @@
 .portfolio-student-copy{display:grid;gap:3px;min-width:0;color:#254c69;overflow-wrap:anywhere}
 .portfolio-student-copy small{color:#597185}
 .portfolio-student-arrow{color:#446d93;font-size:1.45rem;line-height:1}
+
+.portfolio-progress-graph{list-style:none;padding:0;margin:0 0 16px;display:grid;gap:5px}
+.portfolio-progress-graph li{display:grid;grid-template-columns:minmax(0,1.1fr) 5ch 6ch minmax(40px,1fr);align-items:center;gap:8px;padding:5px 8px;background:#f3f7fa;border-radius:6px}
+.portfolio-progress-graph .portfolio-pb1-point{background:#e3f3ee;color:#134f40}
+.portfolio-progress-track{height:8px;background:#e0e8ee;border-radius:6px;overflow:hidden}
+.portfolio-progress-track>span{display:block;background:#487ca9;height:100%;print-color-adjust:exact}
+.portfolio-pb1-point .portfolio-progress-track>span{background:#17745c}
+@media(max-width:550px){.portfolio-progress-graph li{grid-template-columns:minmax(0,1fr) 5ch 6ch}.portfolio-progress-track{grid-column:1/-1}}

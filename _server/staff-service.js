@@ -350,7 +350,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     context(),read('cbse/taskPB1Portfolio')
    ]);
    const {cases,ids}=supportPortfolioData(draft,faculty,mission,actor);
-   return portfolioView(cases,mission,Object.fromEntries(cases.map(({key})=>[key,actions?.[createHash('sha256').update(key).digest('hex')]])),ids);
+   return portfolioView(cases,mission,Object.fromEntries(cases.map(({key})=>[key,actions?.[createHash('sha256').update(key).digest('hex')]])),ids,draft);
   }
   if(typeof input.caseKey!=='string'||input.caseKey.length>700||
      typeof input.entryId!=='string'||!/^[a-f0-9-]{36}$/.test(input.entryId))throw new AccessError('Choose a portfolio case.',400);
