@@ -6,7 +6,7 @@ import {isMCQResult,isMonthlyResult} from '../cbse-academic-exam-kind.js';
 import {mcqAttendanceIndex,mcqResultDetails} from '../cbse-mcq-participation.js';
 import {facultyPortraitSource} from '../cbse-faculty-portrait.js';
 import {validateStudentPhoto} from '../cbse-student-photo.js';
-import {effectiveStudentMarks} from '../cbse-maths-carryover.js';
+import {effectiveStudentMarks,currentMarkSubject} from '../cbse-maths-carryover.js';
 
 const {updated,groups}=hqPB1Verification();
 // Match completed subject blocks from the HQ return, including both Class X Maths variants.
@@ -24,15 +24,16 @@ export function portfolioCases(report,teacherIds){
  });
 }
 
-export function portfolioView(cases,mission,actions,teacherIds,draft,directory={}){
+export function portfolioView(cases,mission,actions,teacherIds,draft,directory={},advisories={}){
  const teachers=new Map(),students=new Map(),people=studentIndex(draft),mcqIndex=mcqAttendanceIndex(mission);
- for(const {row,paper,key} of cases){
+ for(const {row,paper,key,canRecordIssues,canRecordPlan} of cases){
   if(!students.has(row.key)){
    const mcq=[...(mcqIndex.get(row.key)?.values()||[])].map(mark=>{
     const {testDate,subjectName,teacherName,evaluatedAt}=mcqResultDetails(mission,draft,mark);
     return {paperId:mark.paperId,date:testDate,subject:subjectName,teacher:teacherName,evaluatedAt,score:mark.score,maximum:mark.maximum};
    }).sort((a,b)=>String(b.date).localeCompare(String(a.date))||b.evaluatedAt-a.evaluatedAt);
-   const student={key:row.key,name:row.name,roll:row.roll,section:paper.classId+paper.section,subjects:[],mcq};
+   const student={key:row.key,name:row.name,roll:row.roll,section:paper.classId+paper.section,subjects:[],mcq,canRecordIssues,issueKey:JSON.stringify(['issues',row.key]),
+    issues:Object.values(actions?.[JSON.stringify(['issues',row.key])]||{}).sort((a,b)=>b.at-a.at),remedialCount:studentRemedialParticipation(mission,row.key).length};
    try{student.photo=validateStudentPhoto(mission.studentPhotos?.[row.key]).dataUrl;}catch{/* A missing or invalid portrait uses initials. */}
    students.set(row.key,student);
   }
@@ -40,9 +41,11 @@ export function portfolioView(cases,mission,actions,teacherIds,draft,directory={
    (!record.subjectId||record.subjectId===paper.subjectId)&&
    (!teacherIds||record.visibility==='general'||teacherIds.has(record.authorId)));
   const evidence=records.map(record=>({date:record.date,source:RECORD_KINDS[record.kind]||'Portal record',detail:[record.notes,record.outcome].filter(Boolean).join(' · ')}));
-  for(const session of studentRemedialParticipation(mission,row.key,[paper.subjectId]))
+  const remedial=studentRemedialParticipation(mission,row.key,[paper.subjectId]);
+  for(const session of remedial)
    evidence.push({date:session.date,source:'Verified remedial attendance',detail:[session.purpose,session.teacherName].filter(Boolean).join(' · ')});
   const person=people[row.key]||{key:row.key};
+  const mcqCount=[...(mcqIndex.get(row.key)?.values()||[])].filter(mark=>currentMarkSubject(person,mark.subjectId)===paper.subjectId).length;
   const assessments=[];
   for(const mark of Object.values(effectiveStudentMarks(person,mission.marks))){
    const exam=mission.exams?.[mark.examId];
@@ -63,8 +66,8 @@ export function portfolioView(cases,mission,actions,teacherIds,draft,directory={
    }
    return teacherKey;
   });
-  students.get(row.key).subjects.push({key,subject:paper.subject,teacher:paper.teacher,teacherKeys,
-   score:row.current.score,maximum:row.current.maximum,assessments,evidence,actions:Object.values(actions?.[key]||{}).sort((a,b)=>b.at-a.at)});
+  students.get(row.key).subjects.push({key,subject:paper.subject,teacher:paper.teacher,teacherKeys,canRecordPlan,
+   score:row.current.score,maximum:row.current.maximum,assessments,evidence,remedialCount:remedial.length,mcqCount,advisory:advisories[key],actions:Object.values(actions?.[key]||{}).sort((a,b)=>b.at-a.at)});
  }
  return {updated,teachers:Object.fromEntries(teachers),students:[...students.values()].sort((a,b)=>a.section.localeCompare(b.section)||String(a.roll).localeCompare(String(b.roll),undefined,{numeric:true}))};
 }
@@ -75,8 +78,13 @@ export function portfolioAction(input,actor,at){
   if(typeof value!=='string'||value.length>limit)throw Error('Check the length of the action fields.');
   return value.trim();
  };
+ if(input.kind==='issues'){
+  const issues=clean('issues',1500);
+  if(!issues)throw Error('Enter the brief issues about the student.');
+  return {issues,at,teacher:actor.name};
+ }
  const taken=clean('taken',1500),plan=clean('plan',1500),progress=clean('progress',800),review=clean('review',10);
- if(!taken&&!plan&&!progress)throw Error('Enter action taken, a next action plan or a progress update.');
+ if(!taken&&!plan&&!progress)throw Error('Enter an effort made, an action plan or a progress update.');
  if(review&&(!/^\d{4}-\d{2}-\d{2}$/.test(review)||!Number.isFinite(Date.parse(review))||new Date(review).toISOString().slice(0,10)!==review))
   throw Error('Enter a valid review date.');
  return {taken,plan,progress,review,at,teacher:actor.name};

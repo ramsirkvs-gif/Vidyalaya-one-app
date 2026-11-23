@@ -342,15 +342,50 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   const identity=id=>teacherIdentityIds(id,faculty,mission).sort()[0]||id;
   const ids=actor.id?new Set(teacherIdentityIds(actor.id,faculty,mission)):undefined;
   const report=pb1Report(draft,mission,directory,undefined,identity);
-  return {cases:portfolioCases(report,ids),ids,directory};
+  const cases=portfolioCases(report).flatMap(entry=>{
+   const {classId,sectionId}=entry.paper;
+   const roles=faculty?.classes?.[classId]?.roles?.[sectionId];
+   const classTeacherKeys=[roles?.classTeacher,roles?.coClassTeacher].filter(Boolean)
+    .map(id=>classId+':'+id).filter(id=>directory[id]?.status==='active').map(identity);
+   const canRecordIssues=!!ids&&classTeacherKeys.some(id=>ids.has(id));
+   const canRecordPlan=!!ids&&entry.paper.teachers.some(({key})=>ids.has(key));
+   return !ids||canRecordIssues||canRecordPlan?[{...entry,classTeacherKeys,canRecordIssues,canRecordPlan}]:[];
+  });
+  return {cases,ids,directory};
  }
  async function supportPortfolio(input,actor){
+  if(input.operation==='portfolio-directory'){
+   const [{draft,faculty,mission},access]=await Promise.all([context(),read('cbse/staffAccess')]);
+   const {cases,directory}=supportPortfolioData(draft,faculty,mission,actor);
+   const assigned=new Set(cases.flatMap(entry=>[...entry.classTeacherKeys,...entry.paper.teachers.map(({key})=>key)]));
+   return {teachers:evaluatorDirectory(directory,access||{},id=>teacherIdentityIds(id,faculty,mission),assigned)};
+  }
+  if(input.operation==='portfolio-advisory-save'){
+   if(!actor.uid)throw new AccessError('Principal access required.',403);
+   const {caseKey,instructions,additional,revision}=input;
+   if(typeof caseKey!=='string'||caseKey.length>700||typeof instructions!=='string'||!instructions.trim()||
+      instructions.length>8000||typeof additional!=='string'||additional.length>8000||!Number.isSafeInteger(revision)||revision<0)
+    throw new AccessError('Enter valid advisory instructions and additions.',400);
+   const {draft,faculty,mission}=await context();
+   if(!supportPortfolioData(draft,faculty,mission,actor).cases.some(item=>item.key===caseKey))
+    throw new AccessError('This student subject is outside the portfolio.',404);
+   const key=createHash('sha256').update(caseKey).digest('hex');
+   const advisory={instructions:instructions.trim(),additional:additional.trim(),revision:revision+1,updatedAt:now()};
+   const saved=await mcqTransaction(db,'cbse/taskPB1Advisories/'+key,current=>{
+    if(!current&&revision)return null;
+    if((current?.revision||0)===revision)return advisory;
+    if(current.revision===advisory.revision&&current.instructions===advisory.instructions&&current.additional===advisory.additional)return current;
+   },{restTransaction});
+   if(!saved.committed||!saved.snapshot.val())throw new AccessError('The advisory changed. Reopen the portfolio to load the latest draft.',409);
+   return {advisory:saved.snapshot.val()};
+  }
   if(input.taskOperation!=='portfolio-save'){
-   const [{draft,faculty,mission},actions]=await Promise.all([
-    context(),read('cbse/taskPB1Portfolio')
+   const [{draft,faculty,mission},actions,advisories]=await Promise.all([
+    context(),read('cbse/taskPB1Portfolio'),actor.uid?read('cbse/taskPB1Advisories'):null
    ]);
    const {cases,ids,directory}=supportPortfolioData(draft,faculty,mission,actor);
-   return portfolioView(cases,mission,Object.fromEntries(cases.map(({key})=>[key,actions?.[createHash('sha256').update(key).digest('hex')]])),ids,draft,directory);
+   const byCase=source=>Object.fromEntries(cases.flatMap(({key,row})=>[key,JSON.stringify(['issues',row.key])]).map(key=>[key,source?.[createHash('sha256').update(key).digest('hex')]]));
+   return portfolioView(cases,mission,byCase(actions),ids,draft,directory,byCase(advisories));
   }
   if(typeof input.caseKey!=='string'||input.caseKey.length>700||
      typeof input.entryId!=='string'||!/^[a-f0-9-]{36}$/.test(input.entryId))throw new AccessError('Choose a portfolio case.',400);
@@ -363,7 +398,11 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     if(!access?.enabled||access.version!==actor.version)throw Error('Your PIN access changed. Verify again.');
     const {draft}=current,{faculty,mission}=resolvedViewingData(draft,current.facultyDraft,current.mission||emptyMission());
     const {cases}=supportPortfolioData(draft,faculty,mission,actor);
-    if(!cases.some(item=>item.key===input.caseKey))throw Error('This failed subject is outside your assigned portfolio.');
+    const issueEntry=input.kind==='issues';
+    const allowed=issueEntry?cases.some(item=>item.canRecordIssues&&JSON.stringify(['issues',item.row.key])===input.caseKey):
+     cases.some(item=>item.canRecordPlan&&item.key===input.caseKey);
+    if(!allowed)throw Error(issueEntry?'Only the assigned CT or Co-CT can record this student issue.':
+     'Only the assigned subject teacher can record efforts and the action plan.');
     const entry=portfolioAction(input,actor,stamp);
     const key=createHash('sha256').update(input.caseKey).digest('hex');
     const entries=current.taskPB1Portfolio?.[key]||{};
@@ -594,7 +633,8 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
-   if(input.operation==='portfolio-read'&&admin)return supportPortfolio(input,{});
+   if(!admin&&input.operation==='portfolio-directory')return supportPortfolio(input,{});
+   if(admin&&['portfolio-read','portfolio-advisory-save'].includes(input.operation))return supportPortfolio(input,{uid:adminIdentity.uid});
    if(['retest-read','retest-import','retest-save','retest-publish','retest-unpublish'].includes(input.operation))return retestWorkspace(input,adminIdentity,session);
    if(admin&&input.operation==='monitoring-drive-check'){
     try{return {folders:await checkTaskSlipDrive()};}

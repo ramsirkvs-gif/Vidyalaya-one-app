@@ -19,7 +19,7 @@ const originalRemedialInstructions=[
  '2. Review the attached list of students who did not meet the pass standard and the details provided for each student.',
  '3. Give targeted remedial support the highest priority. Document the actions taken and each student’s progress, focusing on measurable improvement and quality results under Mission Perfect 100.',
 ].join('\n');
-const defaultRemedialInstructions=originalRemedialInstructions+
+export const defaultRemedialInstructions=originalRemedialInstructions+
  '\n4. Conduct retests on time and update the results in Samagam within the timelines prescribed by KVS. Ensure no retest remains overdue in Samagam.';
 const gradingNote='Papers out of 70 pass at 23 marks. Other papers pass at 33%. Critical fail is 25% or below. Borderline pass runs from the pass mark through 40%.';
 const failBreakdown=(total,critical)=>total+' ('+critical+' critical + '+(total-critical)+' other fail)';

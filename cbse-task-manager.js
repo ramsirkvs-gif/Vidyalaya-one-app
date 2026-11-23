@@ -11,7 +11,7 @@ import {TASK_CLASSES,TASK_AVAILABLE_CLASSES,TASK_PRIMARY_CLASSES,taskClasses,TAS
 import {el,options} from './cbse-ui.js';
 import {renderPrincipalLogin} from './cbse-principal-login.js';
 import {HALF_YEARLY_COLUMNS,HALF_YEARLY_CSV_LIMIT,CLASS_IX_EXAM,CLASS_IX_SEATING,CLASS_IX_SEATING_FIELDS,CLASS_IX_PAPERS} from './cbse-half-yearly-analyser-model.js';
-import {renderPB1Analyser,PB1_ANALYSER,HALF_YEARLY_ANALYSER} from './cbse-pb1-analyser-view.js';
+import {renderPB1Analyser,PB1_ANALYSER,HALF_YEARLY_ANALYSER,defaultRemedialInstructions} from './cbse-pb1-analyser-view.js';
 import {MONITORING_TITLE,MONITORING_SHEETS,MONITORING_LIMITS,monitoringFormula} from './cbse-task-workbook.js';
 import {MONITORING_ROLES,MONITORING_STEPS,FINAL_EXAM_IC_NAMES,monitoringAssignments,monitoringAdvance,monitoringBundlesByExamDate,monitoringStage,monitoringPeople,monitoringExamDateKey,monitoringExamLabel,monitoringSlipFolder} from './cbse-task-monitoring-workflow.js';
 function signedPdfUploadLink(section){
@@ -1599,7 +1599,34 @@ async function openSupportPortfolio(teacherMode=false){
    const heading=el('div',undefined,'portfolio-profile-heading'),copy=el('div');
    copy.append(el('h3',student.name),el('p',student.section+(student.roll?' · Roll '+student.roll:'')));
    heading.append(portfolioPortrait(student.name,student.photo),copy);
-   detail.append(heading);
+   detail.append(heading,el('p','Mission Perfect 100 · '+(student.remedialCount??0)+' verified remedial classes attended · '+(student.mcq?.length??0)+' evaluated MCQ papers'));
+   if(student.issues?.length||staffId&&student.canRecordIssues&&!allSubjects){
+    const issues=el('section',undefined,'task-card');
+    issues.append(el('h4','Brief issues about the student · CT / Co-CT'));
+    for(const entry of student.issues||[]){
+     issues.append(el('p',entry.issues),el('small',rollTimestamp(entry.at)+' · '+entry.teacher));
+    }
+    if(staffId&&student.canRecordIssues&&!allSubjects){
+     const update=form(),entryId=crypto.randomUUID();
+     const notes=field(update,'Brief issues about the student','portfolio-issues','textarea');
+     notes.required=true;notes.maxLength=1500;
+     const pin=field(update,'Personal PIN to save student issues','portfolio-issue-pin','password');
+     pin.required=true;pin.autocomplete='off';pin.inputMode='numeric';
+     update.append(el('button','Save student issues'));
+     update.onsubmit=event=>{
+      event.preventDefault();
+      const secret=pin.value;pin.value='';
+      run(async()=>{
+       const saved=await request({action:'pin-submit',operation:'task-manager',taskOperation:'portfolio-save',staffId,pin:secret,
+        kind:'issues',caseKey:student.issueKey,entryId,issues:notes.value});
+       render(saved,staffId,{classId:activeClass,student:student.key,section:sections.value,subject:subjects.value});
+       message('Student issues saved.');
+      });
+     };
+     issues.append(update);
+    }
+    detail.append(issues);
+   }
    const mcq=student.mcq||[];
    const participation=el('section',undefined,'task-card');
    participation.append(el('h4','MCQ participation · '+mcq.length+' evaluated '+(mcq.length===1?'paper':'papers')));
@@ -1637,25 +1664,26 @@ async function openSupportPortfolio(teacherMode=false){
      }
      graph.append(line);
     }
-    section.append(graph);
+    section.append(graph,el('p','In this subject · '+(item.remedialCount??0)+' verified remedial classes attended · '+(item.mcqCount??0)+' evaluated MCQ papers'));
+    if(asPrincipal&&!allSubjects&&item.teacherKeys?.length)section.append(advisoryEditor(data,item));
     if(item.evidence.length)section.append(el('h5','Work already recorded'));
     for(const event of item.evidence)section.append(el('p',[portfolioAssessmentDate(event.date),event.source,event.detail].filter(Boolean).join(' · ')));
-    if(item.actions.length)section.append(el('h5','Action taken and next plan'));
+    if(item.actions.length)section.append(el('h5','Teacher comments'));
     for(const entry of item.actions){
      const note=el('div');
      note.append(el('strong',rollTimestamp(entry.at)+' · '+entry.teacher));
-     for(const [label,value] of [['Action taken',entry.taken],['Next action plan',entry.plan],
+     for(const [label,value] of [['Brief issues about the student',entry.issues],['Efforts made so far',entry.taken],['Mission Perfect 100 action plan',entry.plan],
       ['Progress / reassessment',entry.progress],['Review date',entry.review?rollDateText(entry.review):'']]){
       if(value)note.append(el('p',label+' · '+value));
      }
      section.append(note);
     }
-    if(staffId){
+    if(staffId&&item.canRecordPlan){
      const editor=el('details'),update=form(),entryId=crypto.randomUUID();
      editor.open=!item.actions.length;
      editor.append(el('summary','Add action or update plan'),update);
-     const taken=field(update,'Action taken','portfolio-taken','textarea');
-     const plan=field(update,'Next action plan','portfolio-plan','textarea');
+     const taken=field(update,'Efforts made so far','portfolio-taken','textarea');
+     const plan=field(update,'Mission Perfect 100 action plan','portfolio-plan','textarea');
      const progress=field(update,'Progress / reassessment','portfolio-progress','textarea');
      const review=field(update,'Next review date','portfolio-review','date');
      const pin=field(update,'Personal PIN to save','portfolio-save-pin','password');
@@ -1676,6 +1704,59 @@ async function openSupportPortfolio(teacherMode=false){
     }
     detail.append(section);
    }
+  }
+  async function downloadTeacherAdvisory(id,overrides){
+   const teacher=data.teachers[id];
+   const {JSZip}=await taskExcel();
+   const {buildAdvisoryDocx}=await import('./cbse-task-advisory-docx.js');
+   const cases=data.students.flatMap(student=>{
+    const assigned=student.subjects.filter(subject=>subject.teacherKeys?.includes(id)).map(subject=>({
+     item:subject,advisory:overrides?.key===subject.key?overrides:subject.advisory,
+     assessmentLines:(subject.assessments||[]).map(mark=>[portfolioAssessmentLabel(mark),portfolioAssessmentDate(mark.date),
+      mark.absent?'Absent':mark.score+'/'+mark.maximum].filter(Boolean).join(' · '))
+    }));
+    return assigned.length?[{student,subjects:assigned}]:[];
+   });
+   const date=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Kolkata',day:'2-digit',month:'2-digit',year:'numeric'}).format(new Date());
+   const bytes=await buildAdvisoryDocx(JSZip,{teacher,date,instructions:defaultRemedialInstructions,cases});
+   const url=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}));
+   const link=el('a');link.href=url;link.download='Preventive-Advisory-'+teacher.name.replace(/[^\p{L}\p{N}]+/gu,'-')+'.docx';
+   link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }
+  if(asPrincipal&&Object.keys(data.teachers||{}).length){
+   const toolbar=el('div',undefined,'task-actions');
+   const teacher=field(toolbar,'Advisory letter for','portfolio-advisory-teacher','select');
+   options(teacher,[['','Choose a teacher'],...Object.entries(data.teachers)
+    .sort(([,a],[,b])=>a.name.localeCompare(b.name)).map(([id,person])=>[id,person.name])]);
+   const download=button('Download Word letter',()=>downloadTeacherAdvisory(teacher.value));
+   download.disabled=true;teacher.onchange=()=>{download.disabled=!teacher.value;};
+   toolbar.append(download);filters.before(toolbar);
+  }
+  function advisoryEditor(data,item){
+   const editor=el('details'),draft=form();
+   editor.append(el('summary','Preventive Advisory Letter'),draft);
+   const instructions=field(draft,'Student instructions','advisory-instructions','textarea');
+   instructions.value=item.advisory?.instructions||defaultRemedialInstructions;
+   instructions.required=true;instructions.rows=7;instructions.maxLength=8000;
+   const additional=field(draft,'Additional student-specific instructions','advisory-additional','textarea');
+   additional.value=item.advisory?.additional||'';additional.rows=3;additional.maxLength=8000;
+   draft.append(el('button','Save advisory draft'));
+   draft.onsubmit=event=>{
+    event.preventDefault();
+    run(async()=>{
+     const result=await request({action:'task-principal',operation:'portfolio-advisory-save',caseKey:item.key,
+      instructions:instructions.value,additional:additional.value,revision:item.advisory?.revision||0},true);
+     item.advisory=result.advisory;
+     draft.dataset.portalDirty='false';
+     message('Student advisory draft saved.');
+    });
+   };
+   for(const id of item.teacherKeys){
+    const teacher=data.teachers?.[id];
+    if(teacher)draft.append(button('Download Word letter for '+teacher.name,()=>downloadTeacherAdvisory(id,
+     {key:item.key,instructions:instructions.value.trim(),additional:additional.value.trim()})));
+   }
+   return editor;
   }
   function filterStudents(){
    const matches=data.students.filter(student=>classOf(student)===activeClass&&(!sections.value||student.section===sections.value)&&
@@ -1734,7 +1815,7 @@ async function openSupportPortfolio(teacherMode=false){
   drawClass(view.section,view.subject);
  }
  if(asPrincipal){card.append(button('Teacher action plan entry',()=>openSupportPortfolio(true)),content);render(await read());return;}
- const {teachers}=await request({action:'task-read',operation:'pb1-directory'});
+ const {teachers}=await request({action:'task-read',operation:'portfolio-directory'});
  const login=form(),person=field(login,'Select your name','portfolio-teacher','select'),
   pin=field(login,'Personal PIN','portfolio-pin','password');
  options(person,[['','Choose your name'],...teachers.map(({id,name})=>[id,name])]);

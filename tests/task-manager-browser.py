@@ -121,6 +121,28 @@ try:
         with freeze_page.expect_download() as paper_pdf:
             freeze_page.get_by_role('button',name='HQ/RO Analysis Verification PDF',exact=True).click()
         assert paper_pdf.value.suggested_filename=='HQ-RO-Analysis-Verification-XA-English.pdf'
+        freeze_page.unroute('**/api/staff-access',freeze_report_api)
+        def advisory_api(route):
+            if route.request.post_data_json.get('operation')!='portfolio-read':
+                route.continue_();return
+            route.fulfill(json={'updated':'23/11/2026 15:00:33 IST',
+                'teachers':{'t':{'name':'Synthetic Advisory Teacher','designation':'TGT English'}},
+                'students':[{'key':name,'name':name,'section':'XA','remedialCount':2,'mcq':[{}],
+                    'subjects':[{'key':'case-'+name,'subject':'English','teacher':'Synthetic Advisory Teacher',
+                        'teacherKeys':['t'],'score':20,'maximum':80,'remedialCount':1,'mcqCount':1,
+                        'evidence':[],'actions':[]}]}
+                    for name in ['Synthetic Advisory Student One','Synthetic Advisory Student Two']]})
+        freeze_page.route('**/api/staff-access',advisory_api)
+        freeze_page.reload()
+        freeze_page.get_by_role('button',name='Task 5 · Student Support Portfolio',exact=True).click()
+        freeze_page.get_by_label('Advisory letter for',exact=True).select_option('t')
+        with freeze_page.expect_download() as letter_download:
+            freeze_page.get_by_role('button',name='Download Word letter',exact=True).click()
+        with zipfile.ZipFile(letter_download.value.path()) as letter:
+            xml=letter.read('word/document.xml').decode()
+            assert all(value in xml for value in ['Synthetic Advisory Student One','Synthetic Advisory Student Two',
+                '2 verified remedial classes attended','1 evaluated MCQ papers','Conduct retests on time'])
+            assert 'NUMPAGES' in letter.read('word/footer1.xml').decode()
         freeze_page.close()
         release={'version':json.loads((ROOT/'public/app-version.json').read_text())['version']}
         staffctx=browser.new_context();staffctx.route('**/app-version.json',lambda route:route.fulfill(json=release));staffctx.route('https://www.gstatic.com/firebasejs/**',sdk);teacher=staffctx.new_page();teacher.on('pageerror',lambda e:errors.append(str(e)))
@@ -139,17 +161,17 @@ try:
             assert teacher.evaluate('document.documentElement.scrollWidth<=innerWidth')
         def portfolio_api(route):
             payload=route.request.post_data_json
-            if payload.get('operation')=='pb1-directory':
+            if payload.get('operation')=='portfolio-directory':
                 route.fulfill(json={'teachers':[{'id':'X:one','name':'Synthetic Teacher one'}]})
             elif payload.get('taskOperation') in ('portfolio-read','portfolio-save'):
                 saved=payload['taskOperation']=='portfolio-save'
                 assert payload['pin']=='123' and payload['staffId']=='X:one'
-                if saved:assert payload['caseKey']=='case-one' and payload['taken']=='Practice completed'
+                if saved:assert payload['caseKey']=='case-one' and payload['taken']=='Practice completed' and 'issues' not in payload
                 photo='data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAIAAAD8GO2jAAAALUlEQVR4nGNUrYxnoCVgoqnpoxaMWjBqwagFoxaMWjBqwagFoxaMWjBqARUBAIpPAT1/hp27AAAAAElFTkSuQmCC'
                 route.fulfill(json={'updated':'23/11/2026 15:00:33 IST',
                     'teachers':{'X:one':{'name':'Synthetic Teacher one','designation':'TGT English','photo':photo}},'students':[{
                     'key':'one','name':'Synthetic Student','roll':'1','section':'XA','photo':photo,'subjects':[{
-                        'key':'case-one','subject':'English','teacher':'Synthetic Teacher one','teacherKeys':['X:one'],'score':20,'maximum':80,
+                        'key':'case-one','subject':'English','teacher':'Synthetic Teacher one','teacherKeys':['X:one'],'canRecordPlan':True,'score':20,'maximum':80,
                         'evidence':[{'source':'Verified remedial attendance','date':'2026-11-23','detail':'Reading practice'}],
                         'actions':[{'taken':'Practice completed','at':1795420000000,'teacher':'Synthetic Teacher one'}] if saved else []
                     }]
@@ -171,10 +193,11 @@ try:
         teacher.get_by_text('English · PB-1 20/80',exact=True).wait_for()
         assert teacher.get_by_text('MCQ participation',exact=False).count()==0
         assert teacher.get_by_text('Awaiting teacher update.',exact=True).count()==0
-        teacher.get_by_label('Action taken',exact=True).fill('Practice completed')
+        assert teacher.get_by_label('Brief issues about the student',exact=True).count()==0
+        teacher.get_by_label('Efforts made so far',exact=True).fill('Practice completed')
         teacher.get_by_label('Personal PIN to save',exact=True).fill('123')
         teacher.get_by_role('button',name='Save portfolio update',exact=True).click()
-        teacher.get_by_text('Action taken · Practice completed',exact=True).wait_for()
+        teacher.get_by_text('Efforts made so far · Practice completed',exact=True).wait_for()
         teacher.get_by_role('button',name='Back to task list',exact=True).click()
         teacher.unroute('**/api/staff-access',portfolio_api)
         strips.nth(2).click()
