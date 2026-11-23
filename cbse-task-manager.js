@@ -1603,12 +1603,11 @@ async function openSupportPortfolio(teacherMode=false){
    const mcq=student.mcq||[];
    const participation=el('section',undefined,'task-card');
    participation.append(el('h4','MCQ participation · '+mcq.length+' evaluated '+(mcq.length===1?'paper':'papers')));
-   if(!mcq.length)participation.append(el('p','No evaluated MCQ papers recorded.'));
    for(const paper of mcq){
     const date=portfolioAssessmentDate(paper.date);
     participation.append(el('p',[date,paper.paperId,paper.subject,paper.score+'/'+paper.maximum,paper.teacher].filter(Boolean).join(' · ')));
    }
-   detail.append(participation);
+   if(mcq.length)detail.append(participation);
    for(const item of student.subjects.filter(item=>allSubjects||!subjects.value||subjectLabel(student,item)===subjects.value)){
     const section=el('section',undefined,'task-card');
     section.append(el('h4',item.subject+' · PB-1 '+item.score+'/'+item.maximum));
@@ -1639,11 +1638,9 @@ async function openSupportPortfolio(teacherMode=false){
      graph.append(line);
     }
     section.append(graph);
-    section.append(el('h5','Work already recorded'));
-    if(!item.evidence.length)section.append(el('p','No matching portal records.'));
+    if(item.evidence.length)section.append(el('h5','Work already recorded'));
     for(const event of item.evidence)section.append(el('p',[portfolioAssessmentDate(event.date),event.source,event.detail].filter(Boolean).join(' · ')));
-    section.append(el('h5','Action taken and next plan'));
-    if(!item.actions.length)section.append(el('p','Awaiting teacher update.'));
+    if(item.actions.length)section.append(el('h5','Action taken and next plan'));
     for(const entry of item.actions){
      const note=el('div');
      note.append(el('strong',rollTimestamp(entry.at)+' · '+entry.teacher));

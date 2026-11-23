@@ -169,7 +169,8 @@ try:
         assert teacher.get_by_role('button',name='Synthetic Student',exact=True).locator('img').count()==1
         assert teacher.locator('.portfolio-teacher-profile img').count()==1
         teacher.get_by_text('English · PB-1 20/80',exact=True).wait_for()
-        teacher.get_by_text('MCQ participation · 0 evaluated papers',exact=True).wait_for()
+        assert teacher.get_by_text('MCQ participation',exact=False).count()==0
+        assert teacher.get_by_text('Awaiting teacher update.',exact=True).count()==0
         teacher.get_by_label('Action taken',exact=True).fill('Practice completed')
         teacher.get_by_label('Personal PIN to save',exact=True).fill('123')
         teacher.get_by_role('button',name='Save portfolio update',exact=True).click()
