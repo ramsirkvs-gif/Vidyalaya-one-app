@@ -493,15 +493,15 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     for(const entry of input.entries){
      if(!entry||!roster.has(entry.key)||seen.has(entry.key))throw Error('Use each enrolled student once.');
      seen.add(entry.key);
-     const absent=entry.mark==='AB';
-     if(!absent&&(typeof entry.mark!=='number'||!Number.isFinite(entry.mark)||entry.mark<0||entry.mark>paper.maximum))throw Error('Enter AB or a mark between 0 and '+paper.maximum+'.');
+     const absent=typeof entry.mark==='string'&&/^ABS?$/i.test(entry.mark.trim());
+     if(!absent&&(typeof entry.mark!=='number'||!Number.isFinite(entry.mark)||entry.mark<0||entry.mark>paper.maximum))throw Error('Enter AB, ABS or a mark between 0 and '+paper.maximum+'.');
      const existing=roster.get(entry.key),examId=existing.examId||defaultExam,markId=existing.markId||'pb1_'+stable([entry.key,paper.subjectId,examId]);
      exams[examId]??={name:'Preboard 1 · '+paper.subject.slice(0,80),type:'PB-1',classId:paper.classId,date:paper.date};
      const previous=marks[markId],rubric=previous?.maximum===paper.maximum?previous:{};
      marks[markId]={...rubric,studentKey:entry.key,subjectId:paper.subjectId,examId,maximum:paper.maximum,absent,score:absent?null:entry.mark,
       updatedAt:stamp,updatedBy:actor.id||'principal'};
      if(marks[markId].importSource==='monthly_workbook_v1'){
-      marks[markId].inferredAbsent=false;marks[markId].sourceValue=String(entry.mark);
+      marks[markId].inferredAbsent=false;marks[markId].sourceValue=absent?'AB':String(entry.mark);
      }
     }
     return {...current,mission:{...raw,exams,marks,revision:(raw.revision||0)+1}};

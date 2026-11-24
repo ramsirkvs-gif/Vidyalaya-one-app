@@ -763,7 +763,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     return;
    }
    const missing=rows.filter(row=>!row.current).length;
-   host.append(el('p','Enter '+exam.short+' marks. If a student was absent, type ABS. Leave a mark blank to keep it pending or retain the saved result.'));
+   host.append(el('p','Enter '+exam.short+' marks. For an absent student, type AB or ABS in any letter case. Leave a mark blank to keep it pending or retain the saved result.'));
    if(approve){
     const differentMaximum=rows.some(row=>row.current&&row.current.maximum!==scope.maximum);
     const ready=rows.length>0&&!missing&&!differentMaximum;
@@ -806,7 +806,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     const changed=changedInputs().map(({row,input})=>{
      const value=input.value.trim().toUpperCase();
      const absent=value==='ABS'||value==='AB';
-     if(!absent&&(!/^\d+(?:\.\d+)?$/.test(value)||Number(value)>scope.maximum))throw Error('Enter ABS or marks from 0 to '+scope.maximum+' for '+row.name+'.');
+     if(!absent&&(!/^\d+(?:\.\d+)?$/.test(value)||Number(value)>scope.maximum))throw Error('Enter AB, ABS or marks from 0 to '+scope.maximum+' for '+row.name+'.');
      const previous=row.current?{score:row.current.score,absent:!!row.current.absent,maximum:row.current.maximum}:null;
      return {key:row.key,mark:absent?'AB':Number(value),...(exam.mission?{previous}:{})};
     });
