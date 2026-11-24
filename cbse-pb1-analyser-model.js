@@ -97,7 +97,7 @@ export function pb1SmartStudents(rows){
  return [...grouped.values()].map(papers=>{
   const current=papers.filter(row=>appeared(row.current));
   const matched=current.filter(row=>appeared(row.before)),failed=current.some(row=>row.current.failed);
-  return {papers,current,matched,failed,incomplete:current.length<papers.length,
+  return {papers,current,matched,failed,incomplete:papers.some(row=>!row.current?.absent&&!appeared(row.current)),
    absent:papers.some(row=>row.current?.absent),pending:papers.some(row=>!row.current),
    critical:current.some(row=>row.current.band==='critical'),
    borderline:!failed&&current.some(row=>row.current.band==='yellow'),
@@ -117,7 +117,7 @@ export function pb1SmartSummary(rows){
   if(!student.current.length)continue;
   summary.assessed++;
   if(student.failed)summary.failed++;else summary.passed++;
-  if(!student.failed&&!student.incomplete)summary.enrolledPassed++;
+  if(!student.failed&&!student.absent&&!student.incomplete)summary.enrolledPassed++;
   if(student.critical)summary.critical++;
   if(student.borderline)summary.borderline++;
   for(const cutoff of [90,75,50])if(student.percentage>=cutoff)summary['score'+cutoff]++;

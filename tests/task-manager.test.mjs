@@ -45,7 +45,7 @@ test('smart PB-1 summary counts each student once and compares matching papers',
   {key:'b',before:mark(25,'red'),current:mark(34,'yellow')},{key:'b',before:mark(45),current:null},
   {key:'c',before:null,current:mark(20,'critical')},{key:'d',before:mark(55),current:{absent:true}},
  ];
- assert.deepEqual(pb1SmartSummary(rows),{students:4,assessed:3,incomplete:2,absent:1,pending:1,passed:2,enrolledPassed:1,failed:1,critical:1,
+ assert.deepEqual(pb1SmartSummary(rows),{students:4,assessed:3,incomplete:1,absent:1,pending:1,passed:2,enrolledPassed:1,failed:1,critical:1,
   borderline:1,score90:1,score75:1,score50:1,paired:2,previousPassed:1,pairedPassed:2});
 });
 test('PB-1 appeared and enrolled results distinguish retest from pending marks',()=>{
@@ -58,6 +58,7 @@ test('PB-1 appeared and enrolled results distinguish retest from pending marks',
   assert.equal((summary.enrolledPassed/summary.students*100).toFixed(1),'95.8');
   assert.equal(summary.absent,current?1:0);
   assert.equal(summary.pending,current?0:1);
+  assert.equal(summary.incomplete,current?0:1);
   assert.equal(pb1CategoryCounts(results,'current').enrolledPassPercentage.toFixed(1),'95.8');
  }
 });

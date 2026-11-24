@@ -813,7 +813,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     const [monitoringPublishedAt,portfolioPublished]=await Promise.all([
      read(monitoringPath+'/published/updatedAt'),read('cbse/taskPB1PortfolioPublished')
     ]);
-    return {...catalogue,...(monitoringPublishedAt?{monitoringPublishedAt}:{}),portfolioPublished:portfolioPublished===true};
+    return {...catalogue,...(monitoringPublishedAt?{monitoringPublishedAt}:{}),...(portfolioPublished===true?{portfolioPublished:true}:{})};
    }
    const [monitoringUpdatedAt,retestPublished]=await Promise.all([read(monitoringPath+'/updatedAt'),read('cbse/taskRetest/published')]);
    if(!input.operation||input.operation==='read')return {...taskView(stored,actor),staff:directory,classFigures:stored.classFigures||{},monitoringUpdatedAt,retestPublished:!!retestPublished};

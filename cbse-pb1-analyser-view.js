@@ -253,9 +253,9 @@ function renderSmartAnalysis(parent,rows,showList,exam){
   ['Scored 50%+',outOf(stats.score50),'result',student=>student.percentage>=50],
   [passRateLabel,pct(previous)+' → '+pct(current),direction?.style||'result'],
   ['Change vs '+exam.baseline.toLowerCase(),delta(previous,current),direction?.style||'result'],
-  ['Absent · Retest awaited',stats.absent+' / '+stats.students,'border',student=>student.absent],
-  ['Marks entry pending',stats.pending+' / '+stats.students,'border',student=>student.pending],
-  ['Incomplete coverage',stats.incomplete+' / '+stats.students,'border',student=>student.incomplete],
+  ['Absent · Retest awaited',stats.absent+' / '+stats.students,'border',student=>student.absent,row=>!!row.current?.absent],
+  ['Marks entry pending',stats.pending+' / '+stats.students,'border',student=>student.pending,row=>!row.current],
+  ['Incomplete coverage',stats.incomplete+' / '+stats.students,'border',student=>student.incomplete,row=>!row.current?.absent&&!Number.isFinite(row.current?.percentage)],
  ];
  for(const [label,value,style,filter,paperFilter] of items){
   const tile=el('div',undefined,'pb1-stat-'+style);tile.append(el('span',label),el('strong',value));
