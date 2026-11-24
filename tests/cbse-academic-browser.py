@@ -16,6 +16,20 @@ with sync_playwright() as p:
   page.set_viewport_size({'width':width,'height':900});assert page.evaluate('document.documentElement.scrollWidth<=innerWidth')
  page.get_by_role('button',name='Edit',exact=True).first.click();assert page.locator('[name=maximum]').get_attribute('readonly') is not None;page.locator('#mission-cancel').click()
  page.locator('.academic-history-details').get_by_role('button',name='Edit',exact=True).nth(2).click();assert page.locator('[name=examId]').is_disabled();assert page.locator('[name=subjectId]').is_disabled();page.locator('[name=absent]').select_option('false');page.locator('[name=score]').fill('14');page.locator('#mission-save').click();page.locator('#mission-editor').wait_for(state='hidden');assert page.evaluate("Object.values(window.__teacherMission.marks).find(m=>window.__teacherMission.exams[m.examId].date==='2026-07').inferredAbsent") is False
+ frozen=page.evaluate("""async()=>{
+  const {renderStudentAcademics}=await import('./cbse-academic-view.js');
+  const {pb1ApprovalKey}=await import('./cbse-academic-exam-kind.js');
+  const mission=structuredClone(window.__teacherMission),key='X:a:one';
+  const person={key,classId:'X',sectionId:'a',subjects:{english:true},subjectCatalog:{english:{name:'English'}}};
+  mission.pb1Approvals={[pb1ApprovalKey('X','a','english')]:{approvedAt:1,marks:{[key]:{
+   studentKey:key,subjectId:'english',score:16,maximum:80,absent:false,exam:{name:'Preboard 1',type:'PB-1',date:'2026-11-12'}
+  }}}};
+  const panel=document.createElement('section');
+  renderStudentAcademics(panel,person,mission,{showCriteria:false});
+  return {graph:panel.querySelector('.academic-graph').textContent,results:panel.querySelector('.student-current-results').textContent};
+ }""")
+ assert 'PB-1' in frozen['graph'] and '20.0' in frozen['graph']
+ assert '16/80' in frozen['results'] and 'Preboard 1 · Approved' in frozen['results']
  print('PASS reviewed academic import, critical/13-pass/AB colours, May gap, teacher allocation, graphs and responsive profile')
  guest=browser.new_page();guest.add_init_script('window.__guest=true');guest.route('https://www.gstatic.com/firebasejs/**',sdk);guest.goto('http://127.0.0.1:8000/cbse-mission.html#tab=academics');guest.wait_for_timeout(300);assert guest.evaluate('window.__teacherReads')==['cbse/public'];assert 'Synthetic Student X' not in guest.locator('#mission-view').inner_text();assert guest.locator('#mission-tools').is_hidden()
  print('PASS academic history and import controls remain private to Principal access')

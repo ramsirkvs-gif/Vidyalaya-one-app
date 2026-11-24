@@ -15,3 +15,26 @@ test('authorized staff history preserves imported grading metadata without expos
 });
 
 test('default repeated upload skips existing results, including corrections, while adding new exams',()=>{const {draft,pkg,row}=fixture();const first=importAcademicHistory(pkg,emptyMission(),draft);pkg.records=[{...row,score:1},{...row,period:'2026-06',score:20}];const next=importAcademicHistory(pkg,first.next,draft);assert.equal(next.skipped,1);assert.equal(next.added,1);assert.equal(next.updated,0);assert.equal(next.next.marks.academic_X_a_one_2026_04_english.score,13);assert.equal(Object.keys(next.next.marks).length,2);});
+
+test('frozen PB-1 replaces monthly classification and has its own assessment point',async()=>{
+ const {pb1ApprovalKey}=await import('../cbse-academic-exam-kind.js');
+ const {academicHistoryMarks}=await import('../cbse-academic-model.js');
+ const {draft,pkg}=fixture(),{next}=importAcademicHistory(pkg,emptyMission(),draft),key='X:a:one',person=studentIndex(draft)[key];
+ const exam={name:'PB-1',type:'PB-1',classId:'X',date:'2026-11-12'};
+ next.exams.pb1=exam;
+ next.marks.raw={studentKey:key,subjectId:'english',examId:'pb1',score:70,maximum:80};
+ next.pb1Approvals={[pb1ApprovalKey('X','a','english')]:{approvedAt:1,marks:{
+  [key]:{...next.marks.raw,score:16,exam}
+ }}};
+ assert.equal(academicSnapshot(person,next).subjects[0].band,'critical');
+ assert.equal(studentProgress(key,next,draft).subjects[0].latest.score,16);
+ assert.equal(academicSnapshot(person,next,'2026-04').subjects[0].mark.score,13);
+ const pb1=academicSnapshot(person,next,'PB-1');
+ assert.equal(pb1.percentage,20);
+ assert.equal(pb1.appeared,1);
+ assert.equal(pb1.unrecorded,1);
+ assert.deepEqual(academicHistoryMarks(person,next).map(mark=>mark.score),[13,16]);
+ next.pb1Approvals={};
+ assert.equal(academicSnapshot(person,next,'PB-1').percentage,null);
+ assert.deepEqual(academicHistoryMarks(person,next).map(mark=>mark.score),[13]);
+});
