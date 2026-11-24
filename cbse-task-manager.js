@@ -712,6 +712,44 @@ async function openPB1FreezeReport(){
    count.pending?'Marks pending':count.wrongMaximum?'Paper maximum needs correction':'Filled · awaiting freeze';
   return {paper,count,status};
  });
+ const pending=rows.filter(row=>!row.current).map(row=>({row,paper:scopes[row.scope]}))
+  .sort((a,b)=>a.paper.classId.localeCompare(b.paper.classId)||a.paper.section.localeCompare(b.paper.section)||
+   a.paper.subject.localeCompare(b.paper.subject)||String(a.row.roll??'').localeCompare(String(b.row.roll??''),undefined,{numeric:true}));
+ const pendingCount=pending.length;
+ const pendingPanel=el('section'),pendingColumns=['Exam date','Section','Subject','Teacher','Roll number','Student'];
+ pendingPanel.hidden=true;
+ const pendingToggle=button('Pending marks · '+pendingCount,()=>{
+  pendingPanel.hidden=!pendingPanel.hidden;
+  pendingToggle.setAttribute('aria-expanded',String(!pendingPanel.hidden));
+  if(!pendingPanel.hidden)pendingPanel.scrollIntoView({block:'nearest'});
+ });
+ pendingToggle.setAttribute('aria-expanded','false');
+ actions.append(pendingToggle);
+ pendingPanel.append(el('h3','Pending marks before HQ reporting'));
+ if(!pendingCount)pendingPanel.append(el('p','All listed students have marks or a recorded absence.'));
+ else{
+  const pendingCells=({row,paper})=>[rollDateText(paper.date),paper.classId+paper.section,paper.subject,paper.teacher||'—',row.roll??'',row.name];
+  const scroll=el('div',undefined,'task-exam-table-scroll'),table=el('table',undefined,'task-exam-table');
+  scroll.tabIndex=0;scroll.setAttribute('role','region');scroll.setAttribute('aria-label','Students with pending PB-1 marks');
+  const head=table.createTHead().insertRow(),body=table.createTBody();
+  for(const label of pendingColumns){const cell=el('th',label);cell.scope='col';head.append(cell);}
+  for(const item of pending){
+   const tr=body.insertRow();
+   for(const cell of pendingCells(item))tr.insertCell().textContent=cell;
+  }
+  scroll.append(table);
+  pendingPanel.append(el('p',pendingCount+' student–paper entries need a mark or ABS.'),
+   button('Download pending marks PDF',async()=>{
+    const {downloadPB1FreezePDF}=await import('./cbse-task-report-pdf.js');
+    const groups=['X','XII'].map(classId=>{
+     const items=pending.filter(({paper})=>paper.classId===classId);
+     return {classId,summary:items.length+' pending entries',rows:items.map(pendingCells)};
+    }).filter(group=>group.rows.length);
+    await downloadPB1FreezePDF({groups,columns:pendingColumns,updated,filter:'Blank marks',
+     title:'PB-1 Pending Marks Report',filename:'PB-1-Pending-Marks-Report.pdf'});
+   }),scroll);
+ }
+ results.before(pendingPanel);
  const filters=el('div',undefined,'pb1-filters');
  const filter=field(filters,'Paper status','pb1-freeze-status','select');
  const statuses=['Frozen','Filled · awaiting freeze','Marks pending','Paper maximum needs correction','No enrolled students'];

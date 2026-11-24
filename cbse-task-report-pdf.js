@@ -62,9 +62,9 @@ export async function downloadRetestPDF(rows,summary,instructions){
  doc.save('Task-4-Retest-Tracker.pdf');
 }
 
-export async function downloadPB1FreezePDF({groups,columns,updated,filter}){
+export async function downloadPB1FreezePDF({groups,columns,updated,filter,title='PB-1 Marks and Freeze Report',filename='PB-1-Marks-and-Freeze-Report.pdf'}){
  const PDF=await pdfLibrary(),doc=new PDF({orientation:'landscape',unit:'mm',format:'a4'});
- const title='PB-1 Marks and Freeze Report',margin=12;
+ const margin=12;
  doc.setProperties({title});
  for(const [index,group] of groups.entries()){
   if(index)doc.addPage();
@@ -89,7 +89,7 @@ export async function downloadPB1FreezePDF({groups,columns,updated,filter}){
   doc.setPage(page);
   doc.text(page+' / '+pageCount,doc.internal.pageSize.getWidth()-margin,doc.internal.pageSize.getHeight()-6,{align:'right'});
  }
- doc.save('PB-1-Marks-and-Freeze-Report.pdf');
+ doc.save(filename);
 }
 
 export async function downloadPB1HQVerificationPDF(verification,scope){

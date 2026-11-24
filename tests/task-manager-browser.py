@@ -95,6 +95,13 @@ try:
         class_xii=freeze_page.get_by_role('region',name='Class XII PB-1 papers',exact=True)
         class_xii.get_by_role('cell',name='Filled · awaiting freeze',exact=True).wait_for()
         class_xii.get_by_role('cell',name='Paper maximum needs correction',exact=True).wait_for()
+        freeze_page.get_by_role('button',name='Pending marks · 1',exact=True).click()
+        pending=freeze_page.get_by_role('region',name='Students with pending PB-1 marks',exact=True)
+        pending.get_by_role('cell',name='Synthetic Student',exact=True).wait_for()
+        assert pending.get_by_role('cell',name='Chemistry',exact=True).count()==0
+        with freeze_page.expect_download() as pending_download:
+            freeze_page.get_by_role('button',name='Download pending marks PDF',exact=True).click()
+        assert pending_download.value.suggested_filename=='PB-1-Pending-Marks-Report.pdf'
         freeze_page.get_by_label('Paper status',exact=True).select_option('Frozen')
         assert class_x.get_by_role('cell',name='Frozen',exact=True).is_visible()
         assert class_x.get_by_role('cell',name='Marks pending · 1 missing',exact=True).count()==0

@@ -833,18 +833,18 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     const title=el('h2',blanks.length===1?'1 mark is still blank':blanks.length+' marks are still blank');
     title.id='pb1-missing-marks-title';dialog.setAttribute('aria-labelledby',title.id);
     const students=el('ul');
-    for(const {row} of blanks)students.append(el('li',row.name));
-    const fill=el('button','Continue filling marks');fill.type='button';fill.onclick=()=>dialog.close('fill');
-    const proceed=el('button','OK');proceed.type='button';
+    for(const {row} of blanks)students.append(el('li',row.name+(row.roll?' · Roll '+row.roll:'')));
+    const fill=el('button','Fill marks or ABS');fill.type='button';fill.onclick=()=>dialog.close('fill');
+    const proceed=el('button',changed?'Save entered marks and leave blanks pending':'Leave marks pending');proceed.type='button';
     proceed.onclick=()=>dialog.close('confirm');
-    dialog.append(title,el('p',changed?'Select OK to save entered marks and leave blanks pending.':'Select OK to leave these marks pending.'),students,proceed,fill);
+    dialog.append(title,el('p','Please fill marks for the students below. Type ABS if a student was absent.'),students,fill,proceed);
     dialog.addEventListener('close',()=>{
      const action=dialog.returnValue;dialog.remove();
      if(action!=='confirm'){blanks[0].input.focus();return;}
      if(changed)saveMarks();
      else saveStatus.textContent='Blank marks are still pending.';
     },{once:true});
-    document.body.append(dialog);dialog.showModal();proceed.focus();
+    document.body.append(dialog);dialog.showModal();fill.focus();
    };
   }
  }
