@@ -206,3 +206,10 @@ body.mission-app:is(.mission-home-view,.mission-detail-view) #mission-nav button
 #mission-nav button[data-master-segment]:nth-child(14){--tile-bg:#f9e6f4;--tile-ink:#6d3364;--tile-border:#c89cbd}
 #mission-nav button[data-master-segment]:hover{filter:brightness(.97)}#mission-nav button[data-master-segment]:focus-visible,#mission-nav button[data-master-segment][aria-current=page]{outline:2px solid #174f47;outline-offset:2px}
 [data-remedial-status]{border-left:4px solid #8daec9}[data-remedial-status*="waiting" i]{border-left-color:#c58b1b}[data-remedial-status*="approved" i]{border-left-color:#208354}[data-remedial-status*="reverted" i],[data-remedial-status*="not done" i]{border-left-color:#b8484d}[data-remedial-status*="cancelled" i]{border-left-color:#8b9398}
+
+.remedial-today-attendance{margin:12px 0 20px;padding:16px;border:1px solid #b8dacf;border-radius:12px;background:#f0faf6}
+.remedial-today-attendance h3{margin:0 0 6px;color:#175849}
+.remedial-today-attendance label{display:grid;gap:5px;max-width:24rem;margin:12px 0}
+.remedial-today-list{display:grid;gap:8px;margin-top:12px}
+.remedial-today-list article{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid #d2e6df;border-radius:9px;background:#fff}
+.remedial-today-list p{margin:4px 0 0}

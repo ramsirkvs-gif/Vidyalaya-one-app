@@ -1,6 +1,7 @@
 import {remedialStatusLabel,remedialTeacherCanEdit} from './cbse-remedial-status.js';
 import {remedialPriorityAbsentees,remedialAbsenceReminderText} from './cbse-remedial-absence-reminder.js';
 import {el,options} from './cbse-ui.js';
+import {rollDateText} from './cbse-roll-call-time.js';
 import {remedialToday} from './cbse-remedial-model.js';
 const button=(label,fn)=>{const b=el('button',label);b.type='button';b.onclick=fn;return b;};
 export function openRemedialClass(plan,ctx,credentials,refresh,initialDate){
@@ -13,7 +14,7 @@ export function openRemedialClass(plan,ctx,credentials,refresh,initialDate){
  dialog.append(el('h3',ctx.principal?'Review attendance & evidence':'Attendance & remedial class record'),el('p',plan.teacherName+' · '+plan.classId+'-'+(plan.sections||[plan.section]).join(', ')+' · '+plan.subjectName),dateLabel,body,message,actions,button('Close',close));
  message.setAttribute('role','status');message.setAttribute('aria-live','polite');dialog.dataset.portalDirty='true';document.body.append(dialog);dialog.addEventListener('close',stop);dialog.addEventListener('cancel',event=>{event.preventDefault();classPin.blur();message.textContent='PIN entry cancelled. Your attendance and photo remain here; enter your PIN when ready.';});
  const submittedDates=plan.dates.filter(d=>plan.sessions?.[d]?.submittedAt),reviewDate=ctx.principal?(submittedDates.find(d=>!['verified','returned'].includes(plan.sessions[d].status))||submittedDates[0]):null;
- options(dates,plan.dates.map(d=>[d,d]),initialDate||reviewDate|| (plan.dates.includes(remedialToday())?remedialToday():plan.dates[0]));dialog.showModal();
+ options(dates,plan.dates.map(d=>[d,rollDateText(d)]),initialDate||reviewDate|| (plan.dates.includes(remedialToday())?remedialToday():plan.dates[0]));dialog.showModal();
  async function send(operation,extra={}){
   if(saving)return;if(!ctx.principal&&operation!=='evidence'&&!classPin.value.trim()){message.textContent='Enter your existing personal PIN. Your attendance and photo remain here.';classPin.focus();return;}const date=dates.value;saving=true;message.textContent=operation==='evidence'?'Loading photo…':'Submitting attendance and photo… Please wait.';dates.disabled=true;const locked=[...body.querySelectorAll('input,button,select,textarea')].filter(control=>!control.disabled);locked.forEach(control=>control.disabled=true);actions.querySelectorAll('button').forEach(b=>b.disabled=true);
   try{
