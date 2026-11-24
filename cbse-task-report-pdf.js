@@ -145,14 +145,29 @@ export async function downloadPB1HQVerificationPDF(verification,scope){
   });
   y=doc.lastAutoTable.finalY+8;
  }
- if(y+5>pageBottom){
+ const classes=[...new Set(groups.map(group=>group.classId))];
+ const consolidated=classes.filter(classId=>verification.consolidated?.[classId]);
+ if(y+(consolidated.length?39:5)>pageBottom){
   doc.addPage();
   heading();
   y=27;
  }
- const classes=[...new Set(groups.map(group=>group.classId))].join(' and ');
- doc.setFont('helvetica','normal').setFontSize(8).setTextColor('#536a70');
- doc.text('Consolidated result | Class '+classes+' | Pending LOC reconciliation and final marks',margin,y);
+ doc.setFont('helvetica','bold').setFontSize(10).setTextColor('#175849');
+ doc.text('Consolidated result',margin,y);
+ if(consolidated.length){
+  doc.autoTable({startY:y+3,margin:{left:margin,right:margin},head:[['Class','App roster','Appeared','Absent','Passed','Failed','Pass %',
+   '33-44.9%','45-59.9%','60-74.9%','75-89.9%','90-100%']],
+   body:consolidated.map(classId=>{
+    const c=verification.consolidated[classId];
+    return [classId,c.roster,c.appeared,c.absent,c.passed,c.failed,(100*c.passRate).toFixed(1)+'%',...c.bands];
+   }),styles:{fontSize:8,cellPadding:1.2},headStyles:{fillColor:'#175849',textColor:'#ffffff'}});
+  doc.setFont('helvetica','normal').setFontSize(8).setTextColor('#536a70');
+  doc.text('Provisional. Written marks in five main papers. Appeared requires all five. Official LOC and reporting rules await confirmation.',
+   margin,doc.lastAutoTable.finalY+5);
+ }else{
+  doc.setFont('helvetica','normal').setFontSize(8).setTextColor('#536a70');
+  doc.text('Pending LOC reconciliation and final marks.',margin,y+5);
+ }
  const pages=doc.getNumberOfPages();
  for(let page=1;page<=pages;page++){
   doc.setPage(page);
