@@ -9,7 +9,7 @@ const subjects={
 const normalize=value=>String(value??'').trim().toUpperCase().replace(/[^A-Z0-9]+/g,' ').trim();
 export const samagamSections=['10A','10B','10C','10D','12A','12B','12C','12D','12E'];
 
-export async function readSamagamPB1Files(ExcelJS,files){
+async function loadSections(ExcelJS,files){
  const single=files.length===1;
  if(!single&&files.length!==samagamSections.length)
   throw Error('Choose the combined Samagam marks workbook, or select all nine original statements.');
@@ -19,12 +19,32 @@ export async function readSamagamPB1Files(ExcelJS,files){
   await book.xlsx.load(await file.arrayBuffer());
   if(book.worksheets.length!==(single?samagamSections.length:1))
    throw Error('Choose the combined Samagam marks workbook, or select all nine original statements. The HQ exports are for reporting.');
-  return book.worksheets.map(readSection);
+  return book.worksheets.map(sheet=>({sheet,report:readSection(sheet)}));
  }));
  const sections=groups.flat();
- if(new Set(sections.map(({section})=>section)).size!==samagamSections.length)
+ if(new Set(sections.map(({report})=>report.section)).size!==samagamSections.length)
   throw Error('Include one statement for each of X A–D and XII A–E.');
  return sections;
+}
+
+export async function readSamagamPB1Files(ExcelJS,files){
+ return (await loadSections(ExcelJS,files)).map(({report})=>report);
+}
+
+export async function createSamagamPB1Workbook(ExcelJS,files){
+ const source=await loadSections(ExcelJS,files);
+ const book=new ExcelJS.Workbook();
+ for(const section of samagamSections){
+  const {sheet}=source.find(({report})=>report.section===section);
+  const target=book.addWorksheet(section,{views:[{state:'frozen',xSplit:4,ySplit:8}]});
+  target.getColumn(3).width=32;
+  sheet.eachRow((row,index)=>{
+   row.eachCell((cell,column)=>{
+    target.getCell(index,column).value=cell.isMerged?cell.text:cell.value;
+   });
+  });
+ }
+ return book;
 }
 
 function readSection(sheet){

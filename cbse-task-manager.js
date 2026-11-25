@@ -707,7 +707,7 @@ function openSamagamPB1Import(){
  const picker=field(panel,'Samagam marks import workbook (.xlsx)','samagam-pb1-files','file');
  picker.accept='.xlsx';picker.multiple=true;
  const summary=el('div'),actions=el('div',undefined,'task-actions');
- panel.prepend(title,el('p','Choose the combined Samagam marks workbook. Review the automatic preview, then apply. You can also select all nine original statements together.'));
+ panel.prepend(title,el('p','Choose the combined Samagam marks workbook. Review the automatic preview, then apply. You can also select all nine original statements together and download them as one workbook.'));
  panel.append(actions,summary);
  let prepared;
  const preview=button('Preview import',async()=>{
@@ -731,9 +731,21 @@ function openSamagamPB1Import(){
   await openPB1FreezeReport();
   message(result.summary.entries+' final Samagam entries saved. Mission 100 and Task 5 now use these marks.');
  });
+ const download=button('Download Samagam PB-1 Final Marks — Classes X & XII',async()=>{
+  const selection=picker.files;
+  const {ExcelJS}=await taskExcel();
+  const {createSamagamPB1Workbook}=await import('./cbse-samagam-pb1-import.js');
+  const workbook=await createSamagamPB1Workbook(ExcelJS,selection);
+  await downloadTaskWorkbook(workbook,'Samagam-PB1-Final-Marks-Class-X-XII-2026-27.xlsx');
+ });
  apply.disabled=true;
- picker.onchange=()=>{prepared=undefined;apply.disabled=true;summary.replaceChildren();if(picker.files.length)preview.click();};
- actions.append(preview,apply);
+ download.disabled=true;
+ picker.onchange=()=>{
+  prepared=undefined;apply.disabled=true;summary.replaceChildren();
+  download.disabled=![1,9].includes(picker.files.length);
+  if(picker.files.length)preview.click();
+ };
+ actions.append(preview,apply,download);
  host.replaceChildren(button('Back to PB-1 report',openPB1FreezeReport),panel);
 }
 
