@@ -74,7 +74,7 @@ function marksSlip(scope,rows,exam,data,canPrint){
  heading.append(el('p','PM SHRI Kendriya Vidyalaya No. 1 Itanagar'),title,
   el('p','Class '+scope.classId+' '+scope.section+' · '+scope.subject+' · Maximum marks '+scope.maximum),
   el('p',canPrint?'Final marks discussion with the Principal':'View-only preview'),
-  el('p',scope.approvedAt?'Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}):
+  el('p',scope.samagamFinal?'Final marks from Samagam':scope.approvedAt?'Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}):
    'Discussion copy · approval pending'));
  if(scope.teacher)heading.append(el('p','Assigned teacher(s) · '+scope.teacher));
  article.append(heading);
@@ -629,7 +629,9 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   if(exam.mission){
    const selectedPapers=papersByScope;
    const frozen=frozenPapers.length;
-   const status=frozen===selectedPapers.length?'All selected papers are frozen. Mission 100 uses their PB-1 results.':
+   const imported=selectedPapers.filter(([index])=>data.scopes[index].samagamFinal).length;
+   const status=imported===selectedPapers.length?'Mission 100 uses final Samagam marks for these papers.':
+    imported?imported+' papers use final Samagam marks.':frozen===selectedPapers.length?'All selected papers are frozen. Mission 100 uses their PB-1 results.':
     frozen?frozen+' of '+selectedPapers.length+' papers are frozen and in use on Mission 100. The remaining papers are awaiting approval.':
     'PB-1 categories reflect entered marks. Mission 100 uses them after the Principal approves and freezes each paper.';
    report.append(el('p',status,'task-monitoring-notice'));
@@ -638,7 +640,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
   if(approve||openPrincipalReview){
    const freezeStatus=papersByScope.map(([index,papers])=>{
     const scope=data.scopes[index],missing=papers.filter(row=>!row.current).length;
-    const status=scope.approvedAt?'Frozen':missing?missing+' pending '+(missing===1?'mark':'marks'):
+    const status=scope.samagamFinal?'Samagam final':scope.approvedAt?'Frozen':missing?missing+' pending '+(missing===1?'mark':'marks'):
      papers.some(row=>row.current.maximum!==scope.maximum)?'Paper maximum needs correction':'Ready to freeze';
     return {index,scope,status};
    });
@@ -658,8 +660,9 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     if(!ready.length&&frozenPapers.length<papersByScope.length)report.append(el('p','Complete marks or AB for every student and correct any paper maximum mismatch before freezing.'));
    }
   }
-  if(unfreeze&&frozenPapers.length)paperActions.append(button('Unfreeze for emergency correction',()=>
-   choosePaper(frozenPapers,'Choose a paper to unfreeze','Continue to unfreeze',index=>reopenPaper(data.scopes[index],drawReport))));
+  const locallyFrozen=frozenPapers.filter(index=>!data.scopes[index].samagamFinal);
+  if(unfreeze&&locallyFrozen.length)paperActions.append(button('Unfreeze for emergency correction',()=>
+   choosePaper(locallyFrozen,'Choose a paper to unfreeze','Continue to unfreeze',index=>reopenPaper(data.scopes[index],drawReport))));
   paperActions.append(button(approve?'Subject teacher copy / PDF':'Preview marks slip',()=>openTeacherCopy(entered)));
   if(paperActions.childElementCount)report.append(paperActions);
   if(subjectOnly){
@@ -739,7 +742,7 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
    }
    host.replaceChildren(el('h3','Class '+scope.classId+' '+scope.section+' · '+scope.subject),maxima,
     el('p','Each percentage uses the marks earned divided by that exam’s maximum.'));
-   if(scope.approvedAt&&teacher){
+   if(scope.approvedAt&&teacher&&!scope.samagamFinal){
     const notice=el('p',undefined,'task-monitoring-notice');
     notice.append(el('strong','Marks are already frozen. Request the Principal to unfreeze this paper for corrections.'));
     host.prepend(notice);
@@ -755,8 +758,8 @@ export function renderPB1Analyser(host,data,{run,button,save,approve,unfreeze,ba
     host.append(button('HQ/RO Analysis Verification PDF',()=>downloadHQVerification(hqVerification,scope)));
    }
    if(scope.approvedAt){
-    host.append(el('p','Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),'task-monitoring-notice'));
-    if(unfreeze)host.append(button('Unfreeze for emergency correction',()=>reopenPaper(scope,drawMarks)));
+    host.append(el('p',scope.samagamFinal?'Final marks from Samagam':'Approved and frozen · '+new Date(scope.approvedAt).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'}),'task-monitoring-notice'));
+    if(unfreeze&&!scope.samagamFinal)host.append(button('Unfreeze for emergency correction',()=>reopenPaper(scope,drawMarks)));
     if(scope.discussionComment)host.append(el('h4','Principal’s comment to teacher'),el('p',scope.discussionComment,'pb1-discussion-comment'));
     table(host,['Roll','Student',exam.baseline+' marks ('+monthlyMM+')','Approved '+exam.short+' marks ('+pb1MM+')'],
      rows.map(row=>[row.roll,row.name,result(row.before),result(row.current)]));

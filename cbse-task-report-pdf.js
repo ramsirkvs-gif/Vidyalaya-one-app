@@ -123,7 +123,7 @@ export async function downloadPB1HQVerificationPDF(verification,scope){
   }
   doc.setFont('helvetica','bold').setFontSize(10).setTextColor('#175849');
   doc.text(['Class '+group.classId,group.stream,group.subject].filter(Boolean).join(' / '),margin,y);
-  const body=group.sections.map(paper=>[paper.section+' / '+paper.paper+'\n'+(paper.frozen?'Frozen':'Awaiting freeze'),...format(paper.counts),'']);
+  const body=group.sections.map(paper=>[paper.section+' / '+paper.paper+'\n'+(paper.samagamFinal?'Samagam final':paper.frozen?'Frozen':'Awaiting freeze'),...format(paper.counts),'']);
   body.push(['HQ '+(group.stream||'Class '+group.classId)+' subject total',...format(group.total),'']);
   doc.autoTable({startY:y+3,margin:{left:margin,right:margin,bottom:14},head:[columns],body,
    rowPageBreak:'avoid',

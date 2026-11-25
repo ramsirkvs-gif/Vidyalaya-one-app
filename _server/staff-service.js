@@ -1,3 +1,4 @@
+import {planSamagamPB1} from './samagam-pb1-import.js';
 import {readFile} from 'node:fs/promises';
 import {portfolioCases,portfolioView,portfolioAction} from './pb1-support-portfolio.js';
 import {hqPB1Verification} from './pb1-hq-verification.js';
@@ -425,6 +426,39 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
   if(!saved.committed)throw new AccessError(reason||'The action could not be saved. Try again.',409);
   return supportPortfolio({},actor);
  }
+ async function samagamPB1Workspace(input,actor){
+  const plan=(draft,mission)=>planSamagamPB1(input.files,draft,mission,stamp);
+  const stamp=now();
+  const token=(draft,mission,result)=>createHash('sha256').update(JSON.stringify([
+   draft.revision||0,mission.revision||0,result.mission.samagamPB1.fingerprint
+  ])).digest('hex');
+  if(input.operation==='pb1-samagam-preview'){
+   const {draft,mission}=await context();
+   try{
+    const result=plan(draft,mission);
+    return {summary:result.summary,previewToken:token(draft,mission,result)};
+   }catch(error){throw new AccessError(error.message,400);}
+  }
+  let summary,reason;
+  const saved=await mcqTransaction(db,'cbse',current=>{
+   if(current===null)return null;
+   try{
+    if(current.adminUid!==actor.uid)throw Error('Principal access changed. Sign in again.');
+    const {draft}=current,mission=current.mission||emptyMission(),result=plan(draft,mission);
+    if(mission.samagamPB1?.fingerprint===result.mission.samagamPB1.fingerprint){
+     summary=result.summary;
+     return current;
+    }
+    if(token(draft,mission,result)!==input.previewToken){
+     throw Error('The app roster or marks changed. Preview the import again.');
+    }
+    summary=result.summary;
+    return {...current,draft:result.draft,mission:result.mission};
+   }catch(error){reason=error.message;return;}
+  },{restTransaction});
+  if(!saved.committed||!saved.snapshot?.val()||!summary)throw new AccessError(reason||'The import could not be confirmed.',409);
+  return {summary};
+ }
  async function pb1Workspace(input,actor){
   function scoped(draft,faculty,mission){
    const staff=staffIndex(faculty,mission,{includeRollOnly:true}),ids=actor.uid?undefined:new Set(teacherIdentityIds(actor.id,faculty,mission));
@@ -463,6 +497,7 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
     const paper=report.scopes[index],roster=new Map(report.rows.filter(row=>row.scope===index).map(row=>[row.key,row])),seen=new Set();
     const approvalKey=pb1ApprovalKey(paper.classId,paper.sectionId,paper.subjectId);
     const existingApproval=raw.pb1Approvals?.[approvalKey];
+    if(paper.samagamFinal)throw Error('This paper uses final Samagam marks. Import updated Samagam statements to make a correction.');
     if(unfreezing){
      if(!existingApproval?.approvedAt)throw Error('This Preboard 1 paper is already open for marks entry.');
      const pb1Approvals={...raw.pb1Approvals,[approvalKey]:{unfrozenAt:stamp,discussionComment:existingApproval.discussionComment||''}};
@@ -646,6 +681,10 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
+   if(['pb1-samagam-preview','pb1-samagam-import'].includes(input.operation)){
+    if(!adminIdentity)throw new AccessError('Principal access required.',403);
+    return samagamPB1Workspace(input,adminIdentity);
+   }
    if(input.operation==='hq-submission-download'){
     if(!adminIdentity)throw new AccessError('Principal access required.',403);
     const filename='HQ-PB-1-Submission-25-11-2026.xlsx';
@@ -701,8 +740,8 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
      current:current&&{...current,exam:classIX?CLASS_IX_EXAM.name:halfYearly?'Half-Yearly':'Preboard 1'},
     }))
      .sort((a,b)=>a.scope-b.scope||a.name.localeCompare(b.name));
-    return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum,approvedAt,additional,teacherAssignmentPending,sectionId,subjectId})=>
-     ({classId,section,subject,teacher,teachers,maximum,approvedAt,additional,...(classIX?{teacherAssignmentPending}: {}),
+    return {scopes:scopes.map(({classId,section,subject,teacher,teachers,maximum,approvedAt,samagamFinal,additional,teacherAssignmentPending,sectionId,subjectId})=>
+     ({classId,section,subject,teacher,teachers,maximum,approvedAt,samagamFinal,additional,...(classIX?{teacherAssignmentPending}: {}),
       ...(remedial?{sectionId,subjectId}:{})})),rows:publicRows,...(named&&!remedial?{roster}:{}),...(remedial?{revision:report.revision}:{}),
      ...(classSections?{classSections}:{}),...(!named?{classRoster:roster.map(({key,classId,section})=>({key:label(key),name:label(key),classId,section}))}:{})};
    }

@@ -702,6 +702,39 @@ async function downloadTaskWorkbook(workbook,filename){
  downloadExcelBytes(await workbook.xlsx.writeBuffer(),filename);
 }
 
+function openSamagamPB1Import(){
+ const panel=el('section',undefined,'task-card'),title=el('h2','Import final Samagam PB-1 marks');
+ const picker=field(panel,'Final Samagam student-wise Excel sheets','samagam-pb1-files','file');
+ picker.accept='.xlsx';picker.multiple=true;
+ const summary=el('div'),actions=el('div',undefined,'task-actions');
+ panel.prepend(title,el('p','Select one final statement for each of X A–D and XII A–E. Preview the roster and marks before applying them.'));
+ panel.append(actions,summary);
+ let prepared;
+ const preview=button('Preview import',async()=>{
+  prepared=undefined;apply.disabled=true;summary.replaceChildren();
+  const {ExcelJS}=await taskExcel();
+  const {readSamagamPB1Files}=await import('./cbse-samagam-pb1-import.js');
+  const files=await readSamagamPB1Files(ExcelJS,picker.files);
+  const result=await request({action:'task-principal',operation:'pb1-samagam-preview',files},true);
+  prepared={files,previewToken:result.previewToken};
+  const counts=result.summary;
+  summary.append(el('p',counts.students+' students · '+counts.papers+' papers · '+counts.entries+' marks or absences · '+counts.absences+' recorded absences'));
+  if(counts.rollDifferences)summary.append(el('p',counts.rollDifferences+' roll numbers differ. Students were matched by unique name within their section, and app roll numbers are retained.'));
+  for(const student of counts.changedCourses)summary.append(el('p',student.section+' · '+student.name+' · '+student.from+' → '+student.to));
+  apply.disabled=false;
+ });
+ const apply=button('Apply final Samagam marks',async()=>{
+  if(!prepared||!confirm('Use these final Samagam marks throughout Mission 100 and Task 5?'))return;
+  const result=await request({action:'task-principal',operation:'pb1-samagam-import',...prepared},true);
+  await openPB1FreezeReport();
+  message(result.summary.entries+' final Samagam entries saved. Mission 100 and Task 5 now use these marks.');
+ });
+ apply.disabled=true;
+ picker.onchange=()=>{prepared=undefined;apply.disabled=true;summary.replaceChildren();};
+ actions.append(preview,apply);
+ host.replaceChildren(button('Back to PB-1 report',openPB1FreezeReport),panel);
+}
+
 async function openPB1FreezeReport(){
  const panel=el('section',undefined,'task-card'),actions=el('div',undefined,'task-actions'),results=el('div');
  actions.append(button('Back to task list',drawPrincipal),button('Refresh report',openPB1FreezeReport));
@@ -711,7 +744,7 @@ async function openPB1FreezeReport(){
  const counts=paperMarkCounts(scopes,rows);
  const papers=scopes.map((paper,index)=>{
   const count=counts[index];
-  const status=paper.approvedAt?'Frozen':!count.enrolled?'No enrolled students':
+  const status=paper.samagamFinal?'Samagam final':paper.approvedAt?'Frozen':!count.enrolled?'No enrolled students':
    count.pending?'Marks pending':count.wrongMaximum?'Paper maximum needs correction':'Filled · awaiting freeze';
   return {paper,count,status};
  });
@@ -755,7 +788,7 @@ async function openPB1FreezeReport(){
  results.before(pendingPanel);
  const filters=el('div',undefined,'pb1-filters');
  const filter=field(filters,'Paper status','pb1-freeze-status','select');
- const statuses=['Frozen','Filled · awaiting freeze','Marks pending','Paper maximum needs correction','No enrolled students'];
+ const statuses=['Frozen','Filled · awaiting freeze','Marks pending','Samagam final','Paper maximum needs correction','No enrolled students'];
  options(filter,[['','All statuses'],...statuses.map(status=>[status,status])]);
  const updated='Updated '+rollTimestamp(Date.now());
  const columns=['Exam date','Section','Subject','Teacher','Marks recorded','Status'];
@@ -776,6 +809,7 @@ async function openPB1FreezeReport(){
   const groups=['X','XII'].map(groupFor).map(({classId,summary,matching})=>({classId,summary,rows:matching.map(cells)}));
   await downloadPB1FreezePDF({groups,columns,updated,filter:filter.value||'All statuses'});
  }));
+ actions.append(button('Import final Samagam marks',openSamagamPB1Import));
  const submission=button('Download HQ Submission Excel',async()=>{
   const {filename,workbook}=await request({action:'task-principal',operation:'hq-submission-download'},true);
   downloadExcelBytes(Uint8Array.from(atob(workbook),char=>char.charCodeAt(0)),filename);

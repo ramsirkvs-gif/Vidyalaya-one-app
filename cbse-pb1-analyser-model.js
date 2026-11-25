@@ -2,7 +2,7 @@ import {studentIndex} from './cbse-mission-model.js';
 import {effectiveStudentMarks} from './cbse-maths-carryover.js';
 import {schoolPreboard1DateSheet} from './cbse-preboard1-datesheet.js';
 
-import {isMCQResult,isMonthlyResult,pb1ApprovalKey,pb1ResultBand} from './cbse-academic-exam-kind.js';
+import {isMCQResult,isMonthlyResult,pb1ApprovalKey,pb1ResultBand,PB1_SAMAGAM_SOURCE} from './cbse-academic-exam-kind.js';
 
 export {pb1ResultBand};
 export const PAPER_COMMENT_LIMIT=1000;
@@ -30,8 +30,9 @@ export function pb1Scopes(draft,mission,staff,teacherIds,teacherIdentity=id=>id,
     }
     const additional=paper.codes.some(code=>['417','843'].includes(code))||subject.additional===true||/\badditional\b/i.test(subject.name);
     const approval=mission.pb1Approvals?.[pb1ApprovalKey(classId,sectionId,subjectId)];
+    const samagamFinal=approval?.source===PB1_SAMAGAM_SOURCE;
     const approvedAt=approval?.approvedAt||0,discussionComment=approval?.discussionComment||'';
-    scopes.push({classId,sectionId,section:section.name,subjectId,subject:subject.name,paperName:paper.name,date:paper.date,maximum:paper.marks,approvedAt,discussionComment,additional,
+    scopes.push({classId,sectionId,section:section.name,subjectId,subject:subject.name,paperName:paper.name,date:paper.date,code:paper.codes[0],maximum:samagamFinal?approval.maximum:paper.marks,samagamFinal,approvedAt,discussionComment,additional,
      teachers:[...namedTeachers.values()],teacher:[...namedTeachers.values()].map(person=>person.name).join(' / ')});
    }
   }
@@ -59,8 +60,8 @@ export function pb1Report(draft,mission,staff,teacherIds,teacherIdentity,checker
    const result=mark=>{
     if(!mark)return null;
     const percentage=mark.absent?null:mark.score*100/mark.maximum;
-    const band=pb1ResultBand(percentage,mark.maximum);
-    return {score:mark.absent?null:mark.score,maximum:mark.maximum,percentage,absent:mark.absent,
+    const band=pb1ResultBand(percentage,mark.maximum,mark.importSource);
+    return {score:mark.absent?null:mark.score,maximum:mark.maximum,percentage,absent:mark.absent,importSource:mark.importSource||'',
      band,
      failed:band==='critical'||band==='red',borderline:band==='yellow',exam:mark.exam.name,date:mark.exam.date};
    };

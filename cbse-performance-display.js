@@ -1,3 +1,4 @@
+import {pb1PassPercentage,PB1_SAMAGAM_SOURCE} from './cbse-academic-exam-kind.js';
 import {el} from './cbse-ui.js';
 export const percentage=value=>Number.isFinite(value)?value.toFixed(1)+'%':'—';
 export function markPercentage(mark){return !mark?'—':mark.absent?'AB':Number.isFinite(mark.score)&&mark.maximum>0?percentage(mark.score/mark.maximum*100):'—';}
@@ -6,7 +7,8 @@ const number=value=>Number(value.toFixed(2)).toString();
 export function renderPerformanceCriteria(parent,marks,mission,{classId=''}={}){
  const groups=new Map();for(const m of marks){if(!m||!Number.isFinite(m.maximum)||m.maximum<=0)continue;let critical=null,pass,secure;
   if(m.approvedPB1){
-   groups.set('pb1|'+m.maximum,{maximum:m.maximum,pb1:true});
+   const samagam=m.importSource===PB1_SAMAGAM_SOURCE,pass=pb1PassPercentage(m.maximum,m.importSource);
+   groups.set(['pb1',m.maximum,pass,samagam].join('|'),{maximum:m.maximum,pass,pb1:true,samagam});
    continue;
   }
   if(m.importSource==='monthly_workbook_v1'){critical=m.criticalBelow/m.maximum*100;pass=m.passFrom/m.maximum*100;secure=m.secureFrom/m.maximum*100;}
@@ -17,9 +19,9 @@ export function renderPerformanceCriteria(parent,marks,mission,{classId=''}={}){
  const box=el('section',undefined,'performance-criteria');box.append(el('h3','Colour criteria (%)'));
  for(const g of groups.values())if(g.pb1){
   const row=el('div',undefined,'performance-legend');
-  row.append(el('strong',`Approved PB-1 · out of ${g.maximum}`),
-   el('span','Critical fail: 25% or below','band critical'),el('span','Other fail: above 25% and below 33%','band red'),
-   el('span','Borderline: 33% through 40%','band yellow'),el('span','Pass: above 40% and below 75%','band pass'),
+  row.append(el('strong',`${g.samagam?'Samagam final':'Approved PB-1'} · out of ${g.maximum}`),
+   el('span','Critical fail: 25% or below','band critical'),el('span',`Other fail: above 25% and below ${number(g.pass)}%`,'band red'),
+   el('span',`Borderline: ${number(g.pass)}% through 40%`,'band yellow'),el('span','Pass: above 40% and below 75%','band pass'),
    el('span','Secure pass: 75% and above','band green'));
   box.append(row);
  }

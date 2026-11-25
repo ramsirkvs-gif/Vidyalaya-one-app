@@ -7,7 +7,7 @@ export const validMonth=v=>typeof v==='string'&&/^\d{4}-(0[1-9]|1[0-2])$/.test(v
 export function academicMarkBand(mark,red=33,green=75){
  if(!mark||mark.absent||!Number.isFinite(mark.score))return 'grey';
  const pct=mark.score*100/mark.maximum;
- if(mark.approvedPB1)return pb1ResultBand(mark.maximum>0?pct:null,mark.maximum);
+ if(mark.approvedPB1)return pb1ResultBand(mark.maximum>0?pct:null,mark.maximum,mark.importSource);
  if(mark.importSource==='monthly_workbook_v1'){
   const fails=mark.maximum===70?pct<examPassPercentage(mark.maximum):mark.score<mark.passFrom;
   return fails?(mark.score<mark.criticalBelow?'critical':'red'):mark.score<mark.secureFrom?'yellow':'green';

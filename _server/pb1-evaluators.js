@@ -23,7 +23,7 @@ function planPaperKey(entry){
 export function advanceFrozenDiscussions(monitoring,papers){
  if(!monitoring?.published||!papers.length)return monitoring;
  const discussion=MONITORING_STEPS.findIndex(step=>step.review);
- const frozen=new Map(papers.filter(paper=>paper.approvedAt).map(paper=>[
+ const frozen=new Map(papers.filter(paper=>paper.approvedAt&&!paper.samagamFinal).map(paper=>[
   paperKey(paper.classId,paper.section,paper.paperName||paper.subject),paper.approvedAt,
  ]));
  let progress;

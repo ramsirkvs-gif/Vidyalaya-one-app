@@ -2,7 +2,7 @@ import {hqPB1Verification} from './pb1-hq-verification.js';
 import {RECORD_KINDS,studentIndex} from '../cbse-mission-model.js';
 import {studentRemedialParticipation} from '../cbse-remedial-participation.js';
 
-import {isMCQResult,isMonthlyResult} from '../cbse-academic-exam-kind.js';
+import {isMCQResult,isMonthlyResult,PB1_SAMAGAM_SOURCE} from '../cbse-academic-exam-kind.js';
 import {mcqAttendanceIndex,mcqResultDetails} from '../cbse-mcq-participation.js';
 import {facultyPortraitSource} from '../cbse-faculty-portrait.js';
 import {validateStudentPhoto} from '../cbse-student-photo.js';
@@ -18,7 +18,7 @@ export const portfolioCaseKey=(student,paper)=>JSON.stringify([student,paper.sub
 export function portfolioCases(report,teacherIds){
  return report.rows.flatMap(row=>{
   const paper=report.scopes[row.scope],mark=row.current;
-  if(!reported.has(paperKey(paper))||!paper.approvedAt||!mark||mark.absent||!Number.isFinite(mark.percentage)||mark.percentage>=33)return [];
+  if(!reported.has(paperKey(paper))||!paper.approvedAt||!mark||mark.absent||!Number.isFinite(mark.percentage)||(mark.importSource===PB1_SAMAGAM_SOURCE?!mark.failed:mark.percentage>=33))return [];
   if(teacherIds&&!paper.teachers.some(teacher=>teacherIds.has(teacher.key)))return [];
   return [{row,paper,key:portfolioCaseKey(row.key,paper)}];
  });
@@ -69,7 +69,7 @@ export function portfolioView(cases,mission,actions,teacherIds,draft,directory={
   students.get(row.key).subjects.push({key,subject:paper.subject,teacher:paper.teacher,teacherKeys,canRecordPlan,
    score:row.current.score,maximum:row.current.maximum,assessments,evidence,remedialCount:remedial.length,mcqCount,advisory:advisories[key],actions:Object.values(actions?.[key]||{}).sort((a,b)=>b.at-a.at)});
  }
- return {updated,teachers:Object.fromEntries(teachers),students:[...students.values()].sort((a,b)=>a.section.localeCompare(b.section)||String(a.roll).localeCompare(String(b.roll),undefined,{numeric:true}))};
+ return {updated:mission.samagamPB1?updated:'24/11/2026 18:45:35 IST',teachers:Object.fromEntries(teachers),students:[...students.values()].sort((a,b)=>a.section.localeCompare(b.section)||String(a.roll).localeCompare(String(b.roll),undefined,{numeric:true}))};
 }
 
 export function portfolioAction(input,actor,at){

@@ -11,10 +11,14 @@ export function isMonthlyResult(exam,mark){
 
 export const examPassPercentage=(maximum,fallback=33)=>maximum===70?23*100/70:fallback;
 
-export function pb1ResultBand(percentage,maximum){
+export const PB1_SAMAGAM_SOURCE='samagam_pb1_final';
+
+export const pb1PassPercentage=(maximum,source)=>source===PB1_SAMAGAM_SOURCE&&maximum===80?32.5:examPassPercentage(maximum);
+
+export function pb1ResultBand(percentage,maximum,source){
  if(!Number.isFinite(percentage))return 'grey';
  if(percentage<=25)return 'critical';
- if(percentage<examPassPercentage(maximum))return 'red';
+ if(percentage<pb1PassPercentage(maximum,source))return 'red';
  if(percentage<=40)return 'yellow';
  return percentage<75?'pass':'green';
 }
