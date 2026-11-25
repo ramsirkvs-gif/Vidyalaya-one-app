@@ -1921,7 +1921,11 @@ async function openSupportPortfolio(teacherMode=false){
    state.textContent=published?'Published · teacher PIN entry is open':'Draft · awaiting publication';
    teacherEntry.hidden=!published;
   }
-  controls.append(toggle,teacherEntry);card.append(state,controls,content);
+  const source=el('p',data.samagamImportedAt
+   ?'Marks source · Samagam final · Applied '+rollTimestamp(data.samagamImportedAt)+' IST'
+   :'Marks source · Local PB-1 records. Final Samagam marks are awaiting import.');
+  controls.append(toggle,teacherEntry);
+  card.append(source,state,controls,content);
   drawPublication();render(data);return;
  }
  const {teachers,published}=await request({action:'task-read',operation:'portfolio-directory'});

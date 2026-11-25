@@ -398,7 +398,8 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
    ]);
    const {cases,ids,directory}=supportPortfolioData(draft,faculty,mission,actor);
    const byCase=source=>Object.fromEntries(cases.flatMap(({key,row})=>[key,JSON.stringify(['issues',row.key])]).map(key=>[key,source?.[createHash('sha256').update(key).digest('hex')]]));
-   return {...portfolioView(cases,mission,byCase(actions),ids,draft,directory,byCase(advisories)),published};
+   return {...portfolioView(cases,mission,byCase(actions),ids,draft,directory,byCase(advisories)),published,
+    ...(actor.uid&&mission.samagamPB1?.importedAt?{samagamImportedAt:mission.samagamPB1.importedAt}:{})};
   }
   if(typeof input.caseKey!=='string'||input.caseKey.length>700||
      typeof input.entryId!=='string'||!/^[a-f0-9-]{36}$/.test(input.entryId))throw new AccessError('Choose a portfolio case.',400);
