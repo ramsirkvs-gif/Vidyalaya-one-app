@@ -689,14 +689,17 @@ function paperMarkCounts(scopes,rows){
  return counts;
 }
 
-async function downloadTaskWorkbook(workbook,filename){
- const bytes=await workbook.xlsx.writeBuffer();
+function downloadExcelBytes(bytes,filename){
  const url=URL.createObjectURL(new Blob([bytes],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
  const link=document.createElement('a');
  link.href=url;
  link.download=filename;
  link.click();
  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+
+async function downloadTaskWorkbook(workbook,filename){
+ downloadExcelBytes(await workbook.xlsx.writeBuffer(),filename);
 }
 
 async function openPB1FreezeReport(){
@@ -773,6 +776,12 @@ async function openPB1FreezeReport(){
   const groups=['X','XII'].map(groupFor).map(({classId,summary,matching})=>({classId,summary,rows:matching.map(cells)}));
   await downloadPB1FreezePDF({groups,columns,updated,filter:filter.value||'All statuses'});
  }));
+ const submission=button('Download HQ Submission Excel',async()=>{
+  const {filename,workbook}=await request({action:'task-principal',operation:'hq-submission-download'},true);
+  downloadExcelBytes(Uint8Array.from(atob(workbook),char=>char.charCodeAt(0)),filename);
+ });
+ submission.classList.add('pb1-primary-action');
+ actions.prepend(submission);
  actions.append(button('Download HQ marks Excel',async()=>{
   const {buildPB1HQMarksWorkbook}=await import('./cbse-pb1-hq-excel.js');
   const {ExcelJS}=await taskExcel();

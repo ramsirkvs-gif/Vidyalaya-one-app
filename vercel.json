@@ -1,4 +1,9 @@
 {
+  "functions": {
+    "api/staff-access.js": {
+      "includeFiles": "private-templates/HQ-PB-1-Submission-25-11-2026.xlsx"
+    }
+  },
   "headers": [
     {
       "source": "/cbse-admin.html",

@@ -1,3 +1,4 @@
+import {readFile} from 'node:fs/promises';
 import {portfolioCases,portfolioView,portfolioAction} from './pb1-support-portfolio.js';
 import {hqPB1Verification} from './pb1-hq-verification.js';
 import {parseRetestCSV,retestUpdates,RETEST_STEPS} from '../cbse-task-retest-model.js';
@@ -645,6 +646,12 @@ export function createStaffService({db,auth,restTransaction,uploadSignedSlip=upl
  return async function handle(action,input={},token='',ip='unknown',session={}){
   if(action==='task-principal'||action==='task-read'){
    const admin=action==='task-principal',adminIdentity=admin?await principal(token):null;
+   if(input.operation==='hq-submission-download'){
+    if(!adminIdentity)throw new AccessError('Principal access required.',403);
+    const filename='HQ-PB-1-Submission-25-11-2026.xlsx';
+    const workbook=await readFile(new URL('../private-templates/HQ-PB-1-Submission-25-11-2026.xlsx',import.meta.url));
+    return {filename,workbook:workbook.toString('base64')};
+   }
    if(!admin&&input.operation==='portfolio-directory')return supportPortfolio(input,{});
    if(admin&&['portfolio-read','portfolio-advisory-save','portfolio-publish','portfolio-unpublish'].includes(input.operation))return supportPortfolio(input,{uid:adminIdentity.uid});
    if(['retest-read','retest-import','retest-save','retest-publish','retest-unpublish'].includes(input.operation))return retestWorkspace(input,adminIdentity,session);

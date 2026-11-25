@@ -112,6 +112,11 @@ try:
         text=subprocess.check_output(['pdftotext',str(report.path()),'-'],text=True)
         assert 'Class XII' in text and 'XA' in text and 'English' in text and 'Frozen' in text
         assert 'Science' not in text and 'Chemistry' not in text
+        with freeze_page.expect_download() as submission_excel:
+            freeze_page.get_by_role('button',name='Download HQ Submission Excel',exact=True).click()
+        submission=submission_excel.value
+        assert submission.suggested_filename=='HQ-PB-1-Submission-25-11-2026.xlsx'
+        assert Path(submission.path()).read_bytes()==(ROOT/'private-templates'/submission.suggested_filename).read_bytes()
         with freeze_page.expect_download() as hq_excel:
             freeze_page.get_by_role('button',name='Download HQ marks Excel',exact=True).click()
         download=hq_excel.value
