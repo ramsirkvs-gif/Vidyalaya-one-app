@@ -23,3 +23,29 @@ test('transient PIN database errors use conditional recovery without reserving a
   assert.equal(f.state.size,0);
  }
 });
+
+test('PIN HTTPS fallback retries a transient response and re-reads after an ambiguous write',async()=>{
+ const {createRESTTransaction}=await import('../_server/mcq-transaction.js');
+ const buckets=new Map(),interrupted=new Set();
+ const restTransaction=createRESTTransaction({databaseURL:'https://synthetic.invalid',
+  credential:{getAccessToken:async()=>({access_token:'synthetic'})},
+  fetchImpl:async(url,{method,body})=>{
+   if(method==='GET'){
+    if(!interrupted.has('initial')){
+     interrupted.add('initial');return new Response('',{status:503});
+    }
+    return new Response(JSON.stringify(buckets.get(url)??null),{headers:{etag:'"version"'}});
+   }
+   const data=JSON.parse(body);buckets.set(url,data);
+   if(data&&!interrupted.has(url)){interrupted.add(url);throw Error('Connection closed after commit');}
+   return new Response('null');
+  }});
+ const db={ref:()=>({transaction:async()=>{throw Error('disconnect');}})};
+ const limiter=createPINAttemptLimiter({db,restTransaction,now:()=>1000000});
+ const ticket=await limiter.reserve('synthetic:teacher','roll-call');
+ assert.equal(ticket.allowed,true);
+ assert.equal(buckets.size,3);
+ assert.ok([...buckets.values()].every(bucket=>bucket.count===1&&Object.keys(bucket.attempts).length===1));
+ await limiter.clear(ticket);
+ assert.ok([...buckets.values()].every(bucket=>bucket===null));
+});

@@ -5,7 +5,8 @@ const transientPINFailure=error=>[error?.code,error?.message].some(value=>
  /^(?:database\/)?(?:disconnect(?:ed)?|unavailable|deadline[-_]exceeded|timeout|network[-_]error|econnreset|etimedout|econnrefused)$/i.test(String(value||'')));
 // Reserve each attempt once, including when a committed write loses its acknowledgement.
 export function createPINAttemptLimiter({db,restTransaction,now=Date.now}){
- const transaction=(path,update)=>mcqTransaction(db,path,update,{restTransaction,canRecover:transientPINFailure});
+ const recover=restTransaction?(path,update)=>restTransaction(path,update,{retryTransport:true}):undefined;
+ const transaction=(path,update)=>mcqTransaction(db,path,update,{restTransaction:recover,canRecover:transientPINFailure});
  return {
   async reserve(staffId,ip){
    const attemptId=randomUUID(),at=now(),paths=[];
