@@ -704,18 +704,20 @@ async function downloadTaskWorkbook(workbook,filename){
 
 function openSamagamPB1Import(){
  const panel=el('section',undefined,'task-card'),title=el('h2','Import final Samagam PB-1 marks');
- const picker=field(panel,'Final Samagam student-wise Excel sheets','samagam-pb1-files','file');
+ const picker=field(panel,'Samagam marks import workbook (.xlsx)','samagam-pb1-files','file');
  picker.accept='.xlsx';picker.multiple=true;
  const summary=el('div'),actions=el('div',undefined,'task-actions');
- panel.prepend(title,el('p','Select one final statement for each of X A–D and XII A–E. Preview the roster and marks before applying them.'));
+ panel.prepend(title,el('p','Choose the combined Samagam marks workbook. Review the automatic preview, then apply. You can also select all nine original statements together.'));
  panel.append(actions,summary);
  let prepared;
  const preview=button('Preview import',async()=>{
   prepared=undefined;apply.disabled=true;summary.replaceChildren();
+  const selection=picker.files;
   const {ExcelJS}=await taskExcel();
   const {readSamagamPB1Files}=await import('./cbse-samagam-pb1-import.js');
-  const files=await readSamagamPB1Files(ExcelJS,picker.files);
+  const files=await readSamagamPB1Files(ExcelJS,selection);
   const result=await request({action:'task-principal',operation:'pb1-samagam-preview',files},true);
+  if(selection!==picker.files)return;
   prepared={files,previewToken:result.previewToken};
   const counts=result.summary;
   summary.append(el('p',counts.students+' students · '+counts.papers+' papers · '+counts.entries+' marks or absences · '+counts.absences+' recorded absences'));
@@ -730,7 +732,7 @@ function openSamagamPB1Import(){
   message(result.summary.entries+' final Samagam entries saved. Mission 100 and Task 5 now use these marks.');
  });
  apply.disabled=true;
- picker.onchange=()=>{prepared=undefined;apply.disabled=true;summary.replaceChildren();};
+ picker.onchange=()=>{prepared=undefined;apply.disabled=true;summary.replaceChildren();if(picker.files.length)preview.click();};
  actions.append(preview,apply);
  host.replaceChildren(button('Back to PB-1 report',openPB1FreezeReport),panel);
 }

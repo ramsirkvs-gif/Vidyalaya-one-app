@@ -10,17 +10,30 @@ const normalize=value=>String(value??'').trim().toUpperCase().replace(/[^A-Z0-9]
 export const samagamSections=['10A','10B','10C','10D','12A','12B','12C','12D','12E'];
 
 export async function readSamagamPB1Files(ExcelJS,files){
- if(files.length!==samagamSections.length)throw Error('Select the nine final Samagam student-wise Excel sheets for X A–D and XII A–E.');
- return Promise.all(Array.from(files,async file=>{
-  if(!/\.xlsx$/i.test(file.name)||file.size>300000)throw Error('Choose the original Samagam Excel marks statements.');
+ const single=files.length===1;
+ if(!single&&files.length!==samagamSections.length)
+  throw Error('Choose the combined Samagam marks workbook, or select all nine original statements.');
+ const groups=await Promise.all(Array.from(files,async file=>{
+  if(!/\.xlsx$/i.test(file.name)||file.size>300000)throw Error('Choose an Excel marks workbook (.xlsx).');
   const book=new ExcelJS.Workbook();
   await book.xlsx.load(await file.arrayBuffer());
-  const sheet=book.worksheets[0],at=(r,c)=>sheet.getCell(r,c).value;
+  if(book.worksheets.length!==(single?samagamSections.length:1))
+   throw Error('Choose the combined Samagam marks workbook, or select all nine original statements. The HQ exports are for reporting.');
+  return book.worksheets.map(readSection);
+ }));
+ const sections=groups.flat();
+ if(new Set(sections.map(({section})=>section)).size!==samagamSections.length)
+  throw Error('Include one statement for each of X A–D and XII A–E.');
+ return sections;
+}
+
+function readSection(sheet){
+  const at=(r,c)=>sheet.getCell(r,c).value;
   const section=String(at(4,2)||'').trim(),classId=section.startsWith('10')?'X':'XII';
   const stream=classId==='X'?'':(/[AB]$/.test(section)?' SC':section.endsWith('C')?' COM':' HUM');
   if(normalize(at(2,2))!==normalize(schoolName)||normalize(at(3,2))!=='I PREBOARD EXAM '+classId+stream||
      at(5,2)!=='2026-27'||!samagamSections.includes(section)||normalize(at(8,3))!=='NAME OF THE STUDENT')
-   throw Error(file.name+' is outside the PB-1 Samagam return for this school.');
+   throw Error('Choose the final Samagam marks import workbook or the original student-wise statements.');
   const groups=[];
   sheet.getRow(8).eachCell((cell,index)=>{
    if(index<5)return;
@@ -43,5 +56,4 @@ export async function readSamagamPB1Files(ExcelJS,files){
    rows.push({name,roll,marks});
   }
   return {section,rows,generated:String(at(6,2)||'')};
- }));
 }
