@@ -1922,7 +1922,7 @@ async function openSupportPortfolio(teacherMode=false){
    teacherEntry.hidden=!published;
   }
   const source=el('p',data.samagamImportedAt
-   ?'Marks source · Samagam final · Applied '+rollTimestamp(data.samagamImportedAt)+' IST'
+   ?'Marks source · Samagam final · Applied '+rollTimestamp(data.samagamImportedAt)
    :'Marks source · Local PB-1 records. Final Samagam marks are awaiting import.');
   controls.append(toggle,teacherEntry);
   card.append(source,state,controls,content);
