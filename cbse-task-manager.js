@@ -1938,6 +1938,7 @@ function drawStaff(){
   ['Task 4',RETEST_TITLE,'High priority','priority',openRetest],
   ['Task 5','PB-1 Student Support Portfolio',store.portfolioPublished?'Running':'Awaiting publication',store.portfolioPublished?'running':'upcoming',openSupportPortfolio],
  ]){
+  if(number==='Task 2'&&!store.monitoringPublishedAt)continue;
   const item=el('li'),strip=button('',open);
   strip.className='task-stage-strip is-'+style;
   const info=el('span',undefined,'task-stage-info');
