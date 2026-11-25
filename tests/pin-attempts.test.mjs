@@ -7,3 +7,19 @@ test('PIN attempt recovery does not double-count a lost acknowledgement and reta
 test('successful-PIN cleanup recovers disconnects without touching credentials',async()=>{for(const mode of ['before','after']){const f=fixture(mode),ticket=await f.limiter.reserve('synthetic:teacher','ip');await f.limiter.clear(ticket);assert.equal(f.state.size,0);assert.ok(ticket.paths.every(path=>/^cbse\/staffAttempts\/[a-f0-9]{64}$/.test(path)));}});
 test('cleanup after a lost acknowledgement leaves a newer bucket belonging to other requests intact',async()=>{const f=fixture(),ticket=await f.limiter.reserve('synthetic:teacher','ip'),key=ticket.paths[0],other={started:1000000,count:1,attempts:{other:true}};const db={ref:path=>({transaction:async update=>{const result=await f.commit(path,update);if(path===key){f.state.set(key,structuredClone(other));throw Error('disconnect');}return result;}})};const limiter=createPINAttemptLimiter({db,now:()=>1000000,restTransaction:f.commit});await limiter.clear(ticket);assert.deepEqual(f.state.get(key),other);});
 test('unavailable recovery and non-disconnect errors never grant an unchecked PIN reservation',async()=>{const db={ref:()=>({transaction:async()=>{throw Error('disconnect');}})},limiter=createPINAttemptLimiter({db,restTransaction:async()=>{throw Error('unavailable');}});await assert.rejects(limiter.reserve('synthetic:teacher','ip'),/unavailable/);let recovered=false;const denied=createPINAttemptLimiter({db:{ref:()=>({transaction:async()=>{throw Error('permission_denied');}})},restTransaction:async()=>{recovered=true;}});await assert.rejects(denied.reserve('synthetic:teacher','ip'),/permission_denied/);assert.equal(recovered,false);});
+
+test('transient PIN database errors use conditional recovery without reserving an attempt twice',async()=>{
+ for(const code of ['database/unavailable','ETIMEDOUT','ECONNRESET']){
+  const f=fixture();
+  const db={ref:path=>({transaction:async update=>{
+   await f.commit(path,update);
+   throw Object.assign(Error('Temporary transport failure'),{code});
+  }})};
+  const limiter=createPINAttemptLimiter({db,restTransaction:f.commit,now:()=>1000000});
+  const ticket=await limiter.reserve('synthetic:teacher','roll-call');
+  assert.equal(ticket.allowed,true);
+  assert.ok(ticket.paths.every(path=>f.state.get(path).count===1));
+  await limiter.clear(ticket);
+  assert.equal(f.state.size,0);
+ }
+});

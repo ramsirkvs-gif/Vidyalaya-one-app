@@ -1,7 +1,8 @@
-// Retry only disconnects, using conditional HTTPS writes and the same pure update.
-export async function mcqTransaction(db,path,update,{restTransaction}={}){
+const isDisconnect=error=>/^disconnect$/i.test(String(error?.code||error?.message||''));
+// Recover a known transient transport failure with the same conditional update.
+export async function mcqTransaction(db,path,update,{restTransaction,canRecover=isDisconnect}={}){
  try{return await db.ref(path).transaction(update);}
- catch(error){if(!/^disconnect$/i.test(String(error?.code||error?.message||''))||!restTransaction)throw error;return restTransaction(path,update);}
+ catch(error){if(!restTransaction||!canRecover(error))throw error;return restTransaction(path,update);}
 }
 export function mcqEvaluationTransaction(db,update,options){return mcqTransaction(db,'cbse',update,options);}
 export function createRESTTransaction({databaseURL,credential,fetchImpl=fetch}){

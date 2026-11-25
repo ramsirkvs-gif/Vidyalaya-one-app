@@ -1,9 +1,11 @@
 import {createHash,randomUUID} from 'node:crypto';
 import {mcqTransaction} from './mcq-transaction.js';
 const hash=value=>createHash('sha256').update(value).digest('hex');
+const transientPINFailure=error=>[error?.code,error?.message].some(value=>
+ /^(?:database\/)?(?:disconnect(?:ed)?|unavailable|deadline[-_]exceeded|timeout|network[-_]error|econnreset|etimedout|econnrefused)$/i.test(String(value||'')));
 // Reserve each attempt once, including when a committed write loses its acknowledgement.
 export function createPINAttemptLimiter({db,restTransaction,now=Date.now}){
- const transaction=(path,update)=>mcqTransaction(db,path,update,{restTransaction});
+ const transaction=(path,update)=>mcqTransaction(db,path,update,{restTransaction,canRecover:transientPINFailure});
  return {
   async reserve(staffId,ip){
    const attemptId=randomUUID(),at=now(),paths=[];
